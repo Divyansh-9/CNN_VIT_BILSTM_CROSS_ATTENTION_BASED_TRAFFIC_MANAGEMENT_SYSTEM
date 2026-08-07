@@ -1,0 +1,112 @@
+# PRD Change Log
+
+Amendments to [PRD.md](PRD.md). The PRD declares itself a living document (§24.3), so changes are
+recorded here rather than made silently. Every amendment names the section touched, the reason, and
+the requirements affected.
+
+**Rule:** when implementation reveals the PRD is wrong, amend the PRD and log it here. Do not work
+around a PRD statement you believe is incorrect — a diverging PRD is worse than a wrong one, because
+the team stops trusting it.
+
+---
+
+## v1.1 — 2026-08-07
+
+Six amendments arising from the SDLC planning review. All are additive or clarifying; no
+architecture, hyperparameter, or milestone was changed. Decision records:
+[ADR-001](decisions/ADR-001-two-track-dataset-strategy.md) ·
+[ADR-002](decisions/ADR-002-mfstnet-training-corpus.md) ·
+[ADR-003](decisions/ADR-003-laptop-as-edge.md) ·
+[ADR-004](decisions/ADR-004-phased-document-delivery.md)
+
+### A1 — New §8.6, MFSTNet Training Corpus Construction
+
+**Defect.** The PRD specified MFSTNet's input shape (`[B, 60, 3, 224, 224]`), its labels, and its
+training hyperparameters, but never said where labelled sequences come from. IndiaTrafficNet is a
+detection dataset of de-duplicated still frames with no temporal continuity. §20 L1 asserted training
+on "SUMO sequences," which is incompatible with frozen ImageNet-pretrained backbones and would make
+the fusion claim untestable.
+
+**Change.** Added §8.6 specifying corpus construction: real video clips, YOLOv8-derived per-lane
+counts, congestion labels from the §14.1 count thresholds, splits cut by source clip.
+
+**Affects.** FR-M08, FR-M09, FR-M10, FR-M11, M4, M5. No requirement text changed; §8.6 supplies what
+was missing.
+
+**If this had not been caught,** it would have surfaced around Week 10 as non-convergence, which
+§2.5.1 misattributes to normalisation or sequence-ordering bugs — sending the team to debug the wrong
+thing during the tightest part of the schedule.
+
+### A2 — §12.0, Two-Track Dataset Strategy
+
+**Problem.** §12 sequenced all training behind Week 8 annotation completion. R2 (annotation
+bottleneck) is rated High likelihood, and §2.5.1 independently predicts the overrun. M4, M5, and M7
+all inherited that single unbuffered dependency.
+
+**Change.** Added §12.0. Track A bootstraps YOLOv8 on a public Indian dataset from Week 2; Track B is
+§12.1 unchanged, swapping in at Week 8.
+
+**Affects.** FR-D08, FR-D09 (strengthened — the swap adds a comparative experiment), M1, M2, R2.
+§12.1 substance unchanged.
+
+**New obligation.** Experiments run between Weeks 2 and 8 must record which detector weights produced
+them.
+
+### A3 — §15.3 reframed, new §15.4 Delivered Prototype Configuration
+
+**Problem.** §15.3's bill of materials totals ₹27,400–39,300 against a ₹0 budget. M8 depended on
+hardware nobody had committed to buying, and Jetson Nano supply is now constrained.
+
+**Change.** §15.3 relabelled as the aspirational deployment target. §15.4 added: laptop-as-edge,
+on-screen signal panel, ₹0 total. MQTT contract, detection pipeline, Webster fallback, and emergency
+preemption logic are unchanged.
+
+**Affects.** FR-P01, NFR-01 (now measured on a laptop proxy and labelled as such), M8, R8. FR-A01
+through FR-A06 unchanged — control logic is host-independent.
+
+**New obligation.** Every latency table states its measurement host.
+
+### A4 — §20 L1 rewritten; L1b and L8 added
+
+**Problem.** L1 stated MFSTNet is trained on SUMO sequences. After A1 this is false, and it named the
+wrong limitation.
+
+**Change.** L1 now names the real limitation: labels are model-derived, so detector error propagates
+into ground truth. L1b preserves the accurate part of the original — RL control results are
+simulation-validated. L8 added for laptop-proxy latency measurement.
+
+**Affects.** Paper limitations section; STR reporting obligations.
+
+### A5 — New §24.4, Cost and Bill of Materials
+
+**Change.** Added an explicit ₹0 baseline with optional upgrades and their trigger conditions.
+
+**Why.** The budget constraint was implicit and therefore repeatedly re-litigated. Naming it once, as
+a documented constraint (SOW C2), settles it.
+
+### A6 — NFR-13 clarified
+
+**Problem.** NFR-13 read "Raw video frames: NOT transmitted over network or stored to disk." Read
+literally, A1's training corpus violates it, since building sequences requires retaining video.
+
+**Change.** NFR-13 now states that it governs the **deployed runtime** — no frames leave the edge
+device over the network or to disk in production — and explicitly does not govern the offline
+training corpus, which is retained locally, excluded from version control, and never published.
+
+**Affects.** NFR-13, §8.6. The privacy guarantee is unweakened; its scope is now stated rather than
+inferred.
+
+---
+
+## Pending — items to revisit
+
+Not defects, but places where the PRD will need amendment once implementation produces evidence.
+Reviewed at each wave gate (W05, W11, W16).
+
+| # | Item | Revisit at | Why |
+|---|---|---|---|
+| P1 | §14.1 count thresholds (LOW <5, MED 5–15, HIGH >15) are per-lane absolute counts | W9, after first corpus build | If the class distribution proves severely skewed on real footage, thresholds may need recalibration. Any change invalidates every prior label and must be logged |
+| P2 | §13.1 state normalisation divisors (`count/50`, `queue/200`) | W10, after SUMO calibration | Chosen before real count data existed. If real counts exceed them, states saturate at 1.0 and the agent goes blind to the busiest conditions |
+| P3 | §8.4 `unfreeze_epoch: 30` | W12 | R4 anticipates ViT overfitting. If it does, backbones may need to stay frozen for all 100 epochs — a PRD change, not a silent config edit |
+| P4 | Ablation epoch count (100 → 50) | W13 | R6 mitigation. If invoked, log it; the paper must state ablation used fewer epochs than the headline model |
+| P5 | §20 L1 label-noise estimate | W12 | The 500-sequence verification produces a number that belongs in the PRD |

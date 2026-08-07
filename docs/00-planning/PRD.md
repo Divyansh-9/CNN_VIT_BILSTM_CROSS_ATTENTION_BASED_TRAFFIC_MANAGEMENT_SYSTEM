@@ -1,4 +1,4 @@
-# 📄 Product Requirements Document (PRD) — v1.0
+# 📄 Product Requirements Document (PRD) — v1.1
 # MFSTNet: CNN-ViT-BiLSTM Cross-Attention Adaptive Traffic Management System
 ### Multimodal Fusion Spatio-Temporal Network with Gated Cross-Attention and Hybrid Temporal Modeling
 
@@ -7,9 +7,10 @@
 | Field              | Details                                                                          |
 |--------------------|----------------------------------------------------------------------------------|
 | **Document ID**    | PRD-MFSTNET-001                                                                  |
-| **Version**        | 1.0                                                                              |
+| **Version**        | 1.1                                                                              |
 | **Status**         | Active                                                                           |
 | **Created**        | 2026-07-31                                                                       |
+| **Last amended**   | 2026-08-07 — amendments A1–A6, see [PRD-CHANGELOG](PRD-CHANGELOG.md)             |
 | **Supersedes**     | PRD-STMS-002 (CongestFormer variant)                                             |
 | **Authors**        | [Your Name / Team Name]                                                          |
 | **Reviewers**      | [Faculty Guide / Project Mentor]                                                 |
@@ -573,6 +574,45 @@ freeze_backbone:    true
 unfreeze_epoch:     30
 ```
 
+### 8.6 Training Corpus Construction
+
+> **Added in v1.1 (amendment A1).** Rationale and alternatives:
+> [ADR-002](decisions/ADR-002-mfstnet-training-corpus.md).
+
+MFSTNet consumes sequences of shape `[B, T=60, 3, 224, 224]` labelled with per-lane congestion at
+t+60s. IndiaTrafficNet (§12) is a *detection* dataset of de-duplicated still frames and cannot supply
+these. The corpus is instead constructed by auto-labelling real video with the fine-tuned detector.
+
+```
+Continuous 5-minute clips (own footage, retained offline only)
+        │
+        ├─ sample every 5s → 60 frames → resize 224×224  ──────────────→  X  [T=60, 3, 224, 224]
+        │
+        └─ fine-tuned YOLOv8 counts vehicles per lane per frame
+                 │
+                 └─ count at t+60s → §14.1 thresholds ────────────────→  Y  ∈ {0,1,2}⁴
+                          LOW < 5   |   MEDIUM 5–15   |   HIGH > 15
+```
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| Clip length | ≥5 min continuous | One sequence spans 5 min; shorter clips yield none |
+| Sequence stride | 30 s | ~110 sequences per hour of footage; overlap is acceptable within a split |
+| Label source | Fine-tuned YOLOv8 counts | Same detector as FR-D08; recorded per experiment |
+| Label rule | §14.1 count thresholds | No new thresholds introduced |
+| Split unit | **Source clip, never sequence** | Overlapping windows in both train and test would leak (§2.5.1) |
+| Split ratio | 60/20/20 (§8.4) | Applied over clips, then sequences inherit their clip's split |
+| Verification subset | 500 sequences, manual count | Yields the label-noise estimate reported with results |
+
+**Label noise is a known property of this corpus, not a defect to be hidden.** Detection error
+propagates into ground truth, most severely for under-represented classes (§20 L7). Per-class
+detector recall is reported alongside MFSTNet per-class F1 so inherited error is separable from model
+error.
+
+**Contingency.** If the corpus is under ~2,000 sequences at Week 12, add SUMO-rendered pretraining
+followed by real fine-tuning. This is a fallback, not a plan — it introduces a domain gap requiring
+defence in the viva.
+
 ---
 
 ## 9. Functional Requirements
@@ -685,7 +725,7 @@ unfreeze_epoch:     30
 | NFR-10 | MFSTNet ablation raw results SHALL be committed as CSV files | Critical |
 | NFR-11 | MQTT broker: username/password authentication | Security |
 | NFR-12 | Dashboard: JWT-based login, 24h token expiry | Security |
-| NFR-13 | Raw video frames: NOT transmitted over network or stored to disk | Privacy |
+| NFR-13 | Raw video frames: NOT transmitted over network or stored to disk **by the deployed runtime**. Only derived counts and predictions leave the edge device. Does not govern the offline training corpus (§8.6), which is retained locally, excluded from version control, and never published | Privacy |
 
 ---
 
@@ -734,6 +774,27 @@ unfreeze_epoch:     30
 ---
 
 ## 12. Novel Contribution 1 — IndiaTrafficNet Dataset
+
+### 12.0 Two-Track Strategy
+
+> **Added in v1.1 (amendment A2).** Rationale and alternatives:
+> [ADR-001](decisions/ADR-001-two-track-dataset-strategy.md).
+
+The collection plan in §12.1 is unchanged in substance but no longer sits on the critical path.
+Two tracks run concurrently:
+
+| Track | Weeks | Purpose |
+|---|---|---|
+| **A — Bootstrap** | 2 onward | Fine-tune YOLOv8s on a public Indian traffic dataset (IDD, or a licence-verified Roboflow Universe set) so detection, SUMO calibration, and §8.6 corpus generation are unblocked immediately |
+| **B — IndiaTrafficNet** | 2–8, per §12.1 | Collection, annotation, and public release. Weights swap in at Week 8 |
+
+The swap yields a comparative experiment — public-pretrained vs. IndiaTrafficNet-fine-tuned mAP —
+that strengthens FR-D09 beyond the ≥10% threshold M2 requires.
+
+Two sets of detection weights exist between Weeks 2 and 8. Every experiment recorded in that window
+**must** state which weights produced it (`detector_weights` field, experiment record template).
+Class taxonomies will not match the eight target classes; the mapping table lives in Execution Manual
+Part 2, and unmapped source classes train as background until the Week 8 swap.
 
 ### 12.1 Collection Plan
 
@@ -917,6 +978,11 @@ Table-top mock intersection (~60cm x 60cm base):
 
 ### 15.3 Hardware Budget
 
+> **Amended in v1.1 (amendment A3).** The configuration below is the **aspirational** target, costing
+> ₹27,400–39,300 against a project budget of ₹0. It is retained as the documented deployment target.
+> The **delivered** configuration is §15.4. Rationale:
+> [ADR-003](decisions/ADR-003-laptop-as-edge.md).
+
 | Item | Cost (INR) |
 |---|---|
 | NVIDIA Jetson Nano 4GB Developer Kit | Rs.12,000 - 15,000 |
@@ -928,6 +994,30 @@ Table-top mock intersection (~60cm x 60cm base):
 | Cables, power adapters, stands | Rs.1,000 - 2,000 |
 | Google Colab Pro (3 months) | Rs.3,000 - 4,000 |
 | **Total Estimated** | **Rs.27,400 - 39,300** |
+
+### 15.4 Delivered Prototype Configuration (₹0 baseline)
+
+> **Added in v1.1 (amendment A3).**
+
+The edge node runs on a team laptop. The MQTT contract (§17), detection pipeline, Webster fallback
+(FR-A06), and emergency preemption (FR-A05) are **unchanged** — only the host and the output device
+differ.
+
+| Component | Aspirational (§15.3) | Delivered | Effect on requirements |
+|---|---|---|---|
+| Edge compute | Jetson Nano 4GB | Team laptop (or lab-loaned Jetson/Pi) | NFR-01 measured on laptop, labelled as proxy |
+| Cameras | 4× USB webcam | 1 webcam, 4 lanes simulated by region-of-interest split, or 4 looping video files | FR-P02 unchanged; documented in STP |
+| Signal output | GPIO relay + LED modules | On-screen four-phase signal panel | FR-A01–FR-A05 logic unchanged; actuation is visual |
+| Colab | Pro | Free tier | Mitigated by PRD R6 (50-epoch ablation) |
+| **Total** | **Rs.27,400 – 39,300** | **Rs.0** | |
+
+**Reporting rule.** Every latency table states its measurement host. Laptop figures are labelled
+proxy measurements, and the absence of on-target validation is declared in the paper's limitations
+(§20 L8). A clearly-labelled proxy measurement is acceptable to a reviewer; an unlabelled one is not.
+
+**Upgrade path.** Check department lab inventory first — prior cohorts frequently leave Jetsons and
+Pis behind. If one is obtained, LEDs and jumper wires cost under ₹200 and restore the physical
+actuation demo.
 
 ---
 
@@ -1071,7 +1161,9 @@ stms/{intersection_id}/system/heartbeat
 
 | # | Limitation | Severity | Paper Action |
 |---|---|---|---|
-| L1 | MFSTNet trained on SUMO sequences — may not fully generalize to real traffic | High | State all results are simulation-validated; call for field trials |
+| L1 | MFSTNet congestion labels are derived from YOLOv8 detections (§8.6), not human annotation — detector error propagates into ground truth | High | Report the 500-sequence manual-verification label-noise estimate; report per-class detector recall beside per-class F1 so inherited error is separable |
+| L1b | RL control results are SUMO-simulated; no live-road validation | High | State all control results are simulation-validated; call for field trials |
+| L8 | Edge latency measured on a laptop proxy, not the Jetson deployment target (§15.4) | Medium | Label every latency table with its measurement host; declare absence of on-target validation |
 | L2 | Single intersection only | Medium | Scope in abstract; multi-intersection as future work |
 | L3 | Nighttime and weather excluded | High | Document in datasheet; quantify expected degradation direction |
 | L4 | Frozen backbones limit representation quality | Medium | Report frozen vs. fine-tuned comparison in ablation |
@@ -1237,9 +1329,31 @@ github.com/[team]/mfstnet-traffic/
 | STMS v1.0 | 2026-07-28 | [Team] | Initial draft — rule-based system |
 | STMS v2.0 | 2026-07-28 | [Team] | IndiaTrafficNet + PPO/SUMO + CongestFormer |
 | MFSTNet v1.0 | 2026-07-31 | [Team] | CNN+ViT+Gated Cross-Attn+BiLSTM+TempAttn replaces CongestFormer |
+| MFSTNet v1.1 | 2026-08-07 | [Team] | Amendments A1–A6 — see §24.4 and [PRD-CHANGELOG](PRD-CHANGELOG.md) |
+
+### 24.4 Cost and Bill of Materials
+
+> **Added in v1.1 (amendment A5).**
+
+The project baseline is **₹0 cash**. Full budget in [SOW §8](SOW.md#8-budget); delivered hardware
+configuration in §15.4.
+
+| Category | Baseline | Notes |
+|---|---|---|
+| Compute (training) | ₹0 | Google Colab free tier; PPO on laptop CPU |
+| Compute (edge) | ₹0 | Team laptop + webcam (§15.4) |
+| Data platforms | ₹0 | Roboflow free tier, Kaggle, IDD (free registration) |
+| Software | ₹0 | All open source — PyTorch, Ultralytics, SB3, SUMO, Mosquitto, FastAPI, React |
+| Experiment tracking | ₹0 | MLflow + TensorBoard, self-hosted |
+| Paper preparation | ₹0 | Overleaf free tier |
+| Conference fee | Deferred | Payable only on acceptance; student rates apply. Not committed at submission |
+| **Total committed** | **₹0** | |
+
+Optional upgrades (Jetson, Colab Pro, LEDs) are listed in SOW §8 with their trigger conditions. None
+is required to satisfy any Must-priority requirement.
 
 ---
 
-*End of PRD — MFSTNet v1.0*
+*End of PRD — MFSTNet v1.1*
 *Classification: Academic Research Project — B.Tech CSE (ML/AI Specialization), Year 4*
 *This is a living document — update as implementation progresses and findings emerge.*
