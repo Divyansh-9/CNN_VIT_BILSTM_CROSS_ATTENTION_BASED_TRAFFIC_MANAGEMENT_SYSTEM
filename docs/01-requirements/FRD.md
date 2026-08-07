@@ -31,7 +31,7 @@ thing a faculty guide checks.
 | **A** | Analysis | Computation, statistical test, or reasoning over collected data |
 | **I** | Inspection | Review of code, configuration, document, or artifact |
 
-Test case IDs (`TC-*`) are defined in the [STD](../03-testing/STD.md), delivered in Wave 3
+Test case IDs (`TC-*`) are defined in the [STD](../03-testing/), delivered in Wave 3
 (~Week 11). IDs are reserved here so the RTM is complete from Wave 1.
 
 ---

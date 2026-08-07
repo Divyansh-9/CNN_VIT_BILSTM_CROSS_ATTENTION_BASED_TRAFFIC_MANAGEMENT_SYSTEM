@@ -6,6 +6,8 @@ Copy to `docs/90-manual/weekly/Wnn.md`, fill in, commit. Fifteen minutes. This i
 material for the final report — a project reconstructed from memory in Week 20 loses the detail that
 mattered.
 
+> Relative links below resolve from `docs/90-manual/weekly/`, not from this template's location.
+
 ## 1. Milestone status
 
 | Milestone | Due | Status | Confidence |
