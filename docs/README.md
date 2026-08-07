@@ -21,6 +21,7 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 | [BRD](00-planning/BRD.md) | Why — business needs BR-01..BR-23 |
 | [PRD](00-planning/PRD.md) | What is built. **Authoritative for every number** |
 | [PRD-CHANGELOG](00-planning/PRD-CHANGELOG.md) | What changed in the PRD, and why |
+| [DATASETS](00-planning/DATASETS.md) | Which public datasets we use, which we reject, licensing, class mapping |
 | [decisions/](00-planning/decisions/) | ADR-001 dataset · ADR-002 training corpus · ADR-003 edge hardware · ADR-004 doc delivery |
 
 ### Requirements

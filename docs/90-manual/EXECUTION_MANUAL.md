@@ -231,29 +231,45 @@ it does not block anything, because a public dataset bootstraps the pipeline fro
 
 ## 2.1 Track A — public bootstrap (Week 2)
 
-| Source | URL | Licence | Why |
-|---|---|---|---|
-| **IDD — India Driving Dataset** | `idd.insaan.iiit.ac.in` | Research use, free registration | Best fit. Indian roads, includes auto-rickshaw and animals |
-| **Roboflow Universe** | `universe.roboflow.com` — search "indian traffic", "vehicle detection india" | Varies per dataset — **check each one** | Already in YOLO format. Fastest to a working model |
-| AI City Challenge | `www.aicitychallenge.org` | Research use | Fallback. Not Indian, but dense multi-class traffic |
+**Use IDD Detection** (22.8 GB, 40,000 annotated images) from `idd.insaan.iiit.ac.in`. Full rationale,
+the datasets deliberately rejected, licensing, and the class mapping are in
+[DATASETS.md](../00-planning/DATASETS.md) — read it before downloading, because several IDD entries
+look relevant and are not.
 
-> **Check the licence on every Roboflow Universe dataset you use** and record it in your datasheet.
-> They vary from CC0 to non-commercial. A licence you cannot name is a licence you cannot cite.
+**Two things to know going in:**
 
-**Class mapping** (FR-D03 fixes the 8 target classes). Source taxonomies will not match:
+**IDD is dashcam footage.** Moving camera, road level, forward-facing. Your deployment is a fixed
+elevated camera looking down. Vehicle class semantics transfer; detection accuracy at your viewpoint
+does not. That is fine — Track A exists to unblock the pipeline, and the measured gap becomes a
+result in Week 9 ([DATASETS.md §2](../00-planning/DATASETS.md)).
 
-| IndiaTrafficNet class | IDD | Typical Roboflow set | If absent |
-|---|---|---|---|
-| car | car | car | — |
-| motorcycle | motorcycle | motorcycle/bike | — |
-| auto-rickshaw | autorickshaw | auto/auto-rickshaw | — |
-| e-rickshaw | *(none)* | rare | Train as background until Week 8 |
-| bus | bus | bus | — |
-| truck | truck | truck | — |
-| pedestrian | person | person | — |
-| cattle | animal | rare | Train as background until Week 8 |
+**22.8 GB will not fit in a free 15 GB Drive.** Download to Colab's ephemeral local disk, convert and
+subsample there, persist only the ~2–4 GB result:
 
-Keep the mapping in `indiatrafficnet/class_mapping.yaml` so it is versioned, not remembered.
+```python
+!mkdir -p /content/idd
+# download with the portal token, extract to /content/idd (ephemeral, not Drive)
+!tar -xf IDD_Detection.tar.gz -C /content/idd
+```
+
+Then convert VOC XML → YOLO, apply the class mapping, drop images with no target-class object,
+subsample to ~15–20k, and save that to Drive. Record the subsample seed and count in
+`indiatrafficnet/public_subset.yaml` (NFR-07).
+
+**Enumerate the actual labels before mapping** — don't trust any second-hand class list:
+
+```bash
+grep -rhoP '(?<=<name>)[^<]+' /content/idd/**/Annotations/*.xml | sort | uniq -c | sort -rn
+```
+
+Commit that output; it is datasheet evidence (FR-D07). Keep the mapping itself in
+`indiatrafficnet/class_mapping.yaml`.
+
+**Decide the `rider` convention now** (DATASETS.md §6.1). IDD annotates a motorcyclist as a `rider`
+on a `motorcycle`; our taxonomy has no `rider`. Recommended: drop `rider`, count only the vehicle —
+counting both inflates counts by roughly the two-wheeler share (~30% per PRD §12.2), which would bias
+every congestion label the §8.6 pipeline produces. Apply the same convention to IndiaTrafficNet
+annotation.
 
 ```bash
 yolo detect train model=yolov8s.pt data=indiatrafficnet/public.yaml \

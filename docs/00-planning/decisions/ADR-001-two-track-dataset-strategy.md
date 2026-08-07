@@ -35,17 +35,20 @@ immediately.
 annotation, and public release proceed exactly as PRD §12 specifies. At Week 8 the IndiaTrafficNet
 weights replace the bootstrap weights everywhere.
 
-Candidate public sources, in preference order:
+**Selected source: IDD Detection** (22.8 GB, 40,000 bounding-box-annotated images). Full comparison
+of the available options, including the ones deliberately rejected, is in [DATASETS.md](../DATASETS.md).
 
-| Source | Licence | Fit |
-|---|---|---|
-| IDD — India Driving Dataset (IIIT-H) | Research use, free registration | Best. Indian roads, includes auto-rickshaw and animal classes |
-| Roboflow Universe — Indian traffic sets | Mostly CC-BY / MIT, varies per set | Good. Already in YOLO format. Verify licence per dataset |
-| AI City Challenge | Research use | Fallback. Not Indian, but dense multi-class traffic |
+Class taxonomies will not match the eight IndiaTrafficNet classes exactly. The mapping table is
+maintained in [DATASETS.md §6](../DATASETS.md); source classes with no target equivalent are trained
+as background until the Week 8 swap.
 
-Class taxonomies will not match the eight IndiaTrafficNet classes exactly. A mapping table is
-maintained in Execution Manual Part 2; source classes with no target equivalent are trained as
-background until the Week 8 swap.
+**Known limitation of the bootstrap, accepted deliberately.** IDD is ego-vehicle dashcam footage —
+moving camera, road level, forward-facing. Our deployment is a fixed elevated camera looking down at
+an intersection. Vehicle *class semantics* transfer across that gap; detection accuracy at our
+viewpoint does not. This is acceptable precisely because Track A's purpose is to unblock the
+pipeline, not to produce final results — Track B supplies the deployment-view data. The measured size
+of that gap (bootstrap mAP vs. IndiaTrafficNet mAP on our own test set) becomes a reportable result
+in Week 9 and a motivation for Novel Contribution 1. See [DATASETS.md §2](../DATASETS.md).
 
 ## Consequences
 
