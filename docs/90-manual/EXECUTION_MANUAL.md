@@ -389,7 +389,87 @@ say which weights it used.
 
 # Part 3 — Training MFSTNet
 
-## 3.1 Colab workflow
+## 3.0 Train locally, on cached features
+
+Per [ADR-005](../00-planning/decisions/ADR-005-local-first-training.md), the primary training machine
+is the team laptop (i5-13500HX, RTX 4050 6 GB), not Colab. Colab is overflow.
+
+### Setup
+
+```powershell
+# CUDA build of PyTorch — the default pip wheel is CPU-only
+pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+Plugged in, high-performance power plan, hard surface. Sustained multi-hour GPU load throttles on a
+warm laptop — that costs throughput, not correctness.
+
+### The 6 GB problem, and the fix
+
+At `batch_size: 32` with `T: 60`, one MFSTNet batch pushes **1,920 frames** through ResNet-50 *and*
+ViT-Small. That does not fit in 6 GB. It is tight even on a 16 GB T4 — this is the architecture, not
+your laptop.
+
+But the backbones are **frozen**, so they produce identical features every epoch. Recomputing them
+100 times is waste; recomputing them seven times over for the ablation is worse, because configs A–G
+differ only in what happens *after* the backbones.
+
+**So compute them once and cache them.**
+
+```
+Pass 1 (once):   every unique frame → ResNet-50 → cache
+                                    → ViT-S/16  → cache
+Pass 2 (always): cached features → projections → fusion → BiLSTM → heads
+```
+
+Cache **unique frames, not sequences.** At a 30 s stride, consecutive sequences share 54 of their 60
+frames, so caching per sequence stores each frame about ten times over.
+
+```python
+# scripts/cache_features.py (sketch)
+# Save fp16, keyed by (clip_id, frame_index). Record the git commit and the
+# preprocessing config in the cache manifest - see the invalidation warning below.
+with torch.no_grad(), torch.autocast('cuda', dtype=torch.float16):
+    f_cnn = resnet_features(frames)     # [N, 2048, 7, 7]  ~200 KB/frame
+    f_vit = vit_tokens(frames)          # [N, 197, 384]    ~150 KB/frame
+```
+
+Ten hours of footage at 5 s sampling is ~7,200 unique frames — roughly **2.5 GB**. Nothing locally;
+impossible on a 15 GB Drive.
+
+### What this buys you
+
+| | Before | After |
+|---|---|---|
+| Epoch time | Minutes | Seconds |
+| VRAM | Does not fit at batch 32 | Comfortable |
+| Ablation, 7 configs | 60–90 h (PRD R6) | Hours — **one cache serves all seven** |
+| R6's 50-epoch mitigation | Needed | **Not needed** — run the full 100, no paper caveat |
+
+> **The one way this bites you.** A cache is invalidated by any change to the backbones, the input
+> resize, or the normalisation. A stale cache produces results that look completely normal and are
+> wrong. Record the git commit and preprocessing config in the cache manifest, and assert they match
+> at load time. Regenerate rather than guess.
+
+**Unfreezing.** Caching is only valid while backbones are frozen. Treat `unfreeze_epoch: 30` as a
+**separate later experiment** on the uncached pipeline (batch 4, gradient accumulation to 32), not as
+a mid-run transition. PRD §20 L4 commits to reporting frozen vs. fine-tuned anyway, so this makes it
+an explicit ablation row — cleaner science regardless of hardware.
+
+### What runs where
+
+| Work | Where |
+|---|---|
+| MFSTNet training + ablation | Local |
+| YOLOv8 fine-tuning | Local — batch 8–16 at 640 fits in 6 GB |
+| PPO + 30-run benchmark | **Local CPU** — SUMO is single-threaded, so run many seeds in parallel across 14 cores |
+| Overflow / parallel seeds | Colab (§3.1) |
+
+Keep the Colab accounts alive. Same configs, no changes needed — that is the fallback if the laptop
+is unavailable.
+
+## 3.1 Colab workflow (overflow)
 
 Free-tier Colab disconnects. Plan for it rather than being surprised by it.
 

@@ -84,6 +84,28 @@ simulation-validated. L8 added for laptop-proxy latency measurement.
 **Why.** The budget constraint was implicit and therefore repeatedly re-litigated. Naming it once, as
 a documented constraint (SOW C2), settles it.
 
+### A7 — §15.2 Training Compute superseded
+
+**Problem.** §15.2 assumed Colab-primary training, written before the team's hardware was known. It
+also carried an ablation estimate of 60–90 h that R6 rated High-likelihood to overrun, mitigated by
+cutting to 50 epochs.
+
+**Change.** Training is local-first on an RTX 4050 / i5-13500HX laptop, using **cached backbone
+features**. Because the backbones are frozen, their outputs are identical every epoch and can be
+computed once; because ablation configs A–G differ only downstream of the backbones, one cache serves
+all seven.
+
+**Affects.** §15.2, R6 (mitigation no longer required — ablation runs at full 100 epochs), §8.4
+`unfreeze_epoch` (see P3), NFR-01 (see below), M4, M5, M6, M7. No hyperparameter changed.
+
+**New obligation.** Cache manifests record the git commit and preprocessing config; a mismatch at
+load time is an error, not a warning. A stale cache produces results that look normal and are wrong.
+
+**Note on NFR-01.** Under ADR-003 the edge node is this same laptop, whose RTX 4050 vastly
+outperforms a Jetson Nano. The ≥10 fps figure will be met easily and is an **optimistic** proxy, not
+a representative one. Report the measurement host, and additionally report a CPU-only figure as the
+better proxy for constrained edge hardware.
+
 ### A6 — NFR-13 clarified
 
 **Problem.** NFR-13 read "Raw video frames: NOT transmitted over network or stored to disk." Read
@@ -107,6 +129,6 @@ Reviewed at each wave gate (W05, W11, W16).
 |---|---|---|---|
 | P1 | §14.1 count thresholds (LOW <5, MED 5–15, HIGH >15) are per-lane absolute counts | W9, after first corpus build | If the class distribution proves severely skewed on real footage, thresholds may need recalibration. Any change invalidates every prior label and must be logged |
 | P2 | §13.1 state normalisation divisors (`count/50`, `queue/200`) | W10, after SUMO calibration | Chosen before real count data existed. If real counts exceed them, states saturate at 1.0 and the agent goes blind to the busiest conditions |
-| P3 | §8.4 `unfreeze_epoch: 30` | W12 | R4 anticipates ViT overfitting. If it does, backbones may need to stay frozen for all 100 epochs — a PRD change, not a silent config edit |
-| P4 | Ablation epoch count (100 → 50) | W13 | R6 mitigation. If invoked, log it; the paper must state ablation used fewer epochs than the headline model |
+| P3 | §8.4 `unfreeze_epoch: 30` | W12 | R4 anticipates ViT overfitting. Amendment A7 additionally makes unfreezing incompatible with feature caching, so it is now a separate later experiment rather than a mid-run transition. Decide explicitly and log it |
+| P4 | Ablation epoch count (100 → 50) | W13 | R6 mitigation, **likely unnecessary after A7** — cached features make the full 7-config ablation cheap. If invoked anyway, log it; the paper must state ablation used fewer epochs than the headline model |
 | P5 | §20 L1 label-noise estimate | W12 | The 500-sequence verification produces a number that belongs in the PRD |

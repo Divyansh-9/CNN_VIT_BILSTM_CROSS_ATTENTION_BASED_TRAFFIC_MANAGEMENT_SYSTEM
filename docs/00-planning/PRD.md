@@ -969,12 +969,39 @@ Table-top mock intersection (~60cm x 60cm base):
 
 ### 15.2 Training Compute
 
+> **Amended in v1.1 (amendment A7).** The table below was written before the team's hardware was
+> known and assumes Colab-primary training. Training is now local-first on cached backbone features.
+> Rationale: [ADR-005](decisions/ADR-005-local-first-training.md).
+
+**Superseded estimates (Colab-primary):**
+
 | Task | Recommended Hardware | Estimated Duration |
 |---|---|---|
 | YOLOv8s fine-tuning (100 epochs) | Google Colab Pro T4 GPU | 6-10 hours |
 | PPO training (500K timesteps) | Laptop CPU (modern i5+) | 8-12 hours |
 | MFSTNet training (100 epochs, ~4M params) | Google Colab T4 GPU | 10-16 hours |
 | MFSTNet ablation (7 configs x 100 epochs) | Google Colab T4 GPU | 60-90 hours (parallelize) |
+
+**Current plan.** Primary machine: Acer Predator Helios 16 — i5-13500HX (14C/20T), RTX 4050 Laptop
+(6 GB). Colab is retained as overflow.
+
+| Task | Where | Note |
+|---|---|---|
+| Backbone feature extraction (one-off) | Local GPU | ~350 KB/frame fp16; ~2.5 GB for 10 h of footage |
+| MFSTNet training (100 epochs) | Local GPU, **cached features** | Backbones are frozen, so features are identical every epoch |
+| MFSTNet ablation (7 configs) | Local GPU, cached features | Configs A–G differ only downstream of the backbones — **one cache serves all seven**. R6's 50-epoch mitigation is no longer required |
+| YOLOv8s fine-tuning | Local GPU | Batch 8–16 at 640 fits in 6 GB |
+| PPO (500K) + 30-run benchmark | Local CPU | SUMO is single-threaded; 14 cores run seeds in parallel |
+| Overflow / parallel seeds | Colab free tier | Same configs, unchanged |
+
+At `batch_size: 32` and `T: 60`, an uncached batch pushes 1,920 frames through both backbones. That
+exceeds 6 GB and is tight even on a 16 GB T4 — a property of the architecture, not of the hardware.
+Caching removes the constraint. Caches are invalidated by any change to the backbones, input resize,
+or normalisation, and must record the git commit and preprocessing config that produced them.
+
+Backbone unfreezing (§8.4 `unfreeze_epoch: 30`) is incompatible with caching and is reclassified as a
+separate later experiment on the uncached pipeline, reported as the frozen vs. fine-tuned comparison
+§20 L4 already commits to. See pending item P3.
 
 ### 15.3 Hardware Budget
 
