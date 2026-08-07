@@ -4,11 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**This repository contains no code yet** — only [PRD_MFSTNet_CNN_ViT_BiLSTM_CrossAttention_TrafficManagement_v1.md](PRD_MFSTNet_CNN_ViT_BiLSTM_CrossAttention_TrafficManagement_v1.md), a 1246-line PRD (v1.0, dated 2026-07-31) that fully specifies the system. It is not a git repository.
+**No code yet — but a full SDLC documentation suite exists.** Start at [docs/README.md](docs/README.md), which indexes everything and states the reading order. It is now a git repository with Git LFS configured for model weights.
 
-The PRD is the single source of truth for architecture, requirements (IDs `FR-*`, `NFR-*`, `RG*`, `SG*`), milestones, and acceptance criteria. Before implementing anything, find the governing requirement ID in the PRD and honor its exact numbers (dimensions, thresholds, hyperparameters) rather than inventing values. When implementation reveals the PRD is wrong, update the PRD — §24.3 has a revision history table, and the doc declares itself a living document.
+The PRD ([docs/00-planning/PRD.md](docs/00-planning/PRD.md), now v1.1) remains the single source of truth for architecture, requirements (IDs `FR-*`, `NFR-*`), milestones, and acceptance criteria. Before implementing anything, find the governing requirement ID and honor its exact numbers rather than inventing values. When implementation reveals the PRD is wrong, amend the PRD and log it in [PRD-CHANGELOG](docs/00-planning/PRD-CHANGELOG.md) — never work around a PRD statement you believe is incorrect.
 
-Project context: 4th-year B.Tech CSE (ML/AI) major project, 20-week academic timeline, 3-4 member team, targeting a conference submission (IEEE ITSC / CVIP).
+Requirement IDs are defined **once**: `BR-*` in the BRD, `FR-*`/`NFR-*` in PRD §9/§10. Every other document cites IDs and never restates requirements in prose. [RTM](docs/01-requirements/RTM.md) is the join table (BR → FR/NFR → DES → TC → M); update it when requirements change.
+
+Documents are delivered in waves (ADR-004). Wave 1 (planning + requirements + manual) is done; SAD/HLD/LLD are due Week 5, STP/STD/UAT Week 11, STR/TIM/SOP Week 16. Missing later-wave documents are scheduled, not overlooked.
+
+Project context: 4th-year B.Tech CSE (ML/AI) major project, 20-week academic timeline, 3-4 member team, ₹0 cash budget, targeting a conference submission (IEEE ITSC / CVIP).
+
+## Decisions that override the original PRD text
+
+Four ADRs in [docs/00-planning/decisions/](docs/00-planning/decisions/) changed how the project executes. Read them before acting on PRD §12, §15, or §20:
+
+- **ADR-001** — dataset is two-track. YOLOv8 bootstraps on a public Indian dataset from Week 2; IndiaTrafficNet runs in parallel and swaps in at Week 8. Between Weeks 2–8 two sets of detector weights exist, so every experiment must record which it used.
+- **ADR-002** — MFSTNet's training corpus is built by auto-labelling real 5-minute video clips with the fine-tuned YOLOv8 (counts → PRD §14.1 thresholds → congestion label at t+60s). The PRD originally had no corpus specification, and §20 L1's claim that MFSTNet trains on SUMO sequences was wrong. **Splits are cut by source clip, never by sequence** — overlapping windows would leak.
+- **ADR-003** — the edge node is a team laptop, not a Jetson (₹0 budget). Control logic and the MQTT contract are unchanged. **Every latency figure must state its measurement host**; laptop numbers are labelled proxy measurements.
+- **ADR-004** — documents ship in four waves gated on PRD §18 phases.
 
 ## What is being built
 
@@ -81,4 +94,13 @@ Privacy constraint (NFR-13): raw video frames are never transmitted over the net
 
 ## Commands
 
-None exist yet. As tooling lands, replace this section with the real invocations (training, ablation, ONNX export, SUMO benchmark, backend, dashboard, and how to run a single test).
+None exist yet. As tooling lands, replace this section with the real invocations (training, ablation, ONNX export, SUMO benchmark, backend, dashboard, and how to run a single test). [Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--setup) has the environment setup and the pinned `requirements.txt` to start from.
+
+## Working conventions
+
+- **Config, not code.** Hyperparameters live in YAML (`mfstnet/configs/`, `simulation/configs/`) because the ablation harness drives configs (NFR-16). A numeric literal in a training script that duplicates a config value is a defect.
+- **Every module disableable by flag** (NFR-15). The 7-config ablation must run from config alone, with no code edit between configs.
+- **`set_seed(42)` before building any model**, seeding Python/NumPy/PyTorch/SB3 (NFR-07). Verify determinism by running one epoch twice.
+- **Result CSVs are written by the training script**, never transcribed. Paper tables are generated from committed CSVs by a committed script (NFR-09/10, BR-18).
+- **The 17-dim PPO state vector is a contract** (PRD §13.1, FR-M14). Changing MFSTNet's output shape or normalization invalidates every trained PPO checkpoint. If MFSTNet is unavailable, zero indices 11–15 — never shorten the vector.
+- **MQTT QoS differs per topic and is part of the contract** (PRD §17.1): emergency is QoS 2, counts and commands QoS 1, predictions and heartbeat QoS 0.
