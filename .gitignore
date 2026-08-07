@@ -1,0 +1,59 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# ---- Secrets / local config ----
+.env
+.env.local
+*.pem
+secrets.yaml
+
+# ---- Data (NEVER commit raw video — NFR-13 / privacy, and size) ----
+data/raw/
+data/interim/
+data/video/
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Frames and derived arrays are regenerable — keep them out of git
+data/frames/
+data/sequences/
+*.npy
+*.npz
+
+# ---- Experiment outputs ----
+runs/
+mlruns/
+lightning_logs/
+tensorboard/
+wandb/
+*.log
+
+# ---- SUMO ----
+*.sumocfg.bak
+simulation/output/
+tripinfo*.xml
+*.dump.xml
+
+# ---- Node / dashboard ----
+node_modules/
+dashboard/dist/
+dashboard/.vite/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# ---- Exceptions: these small artifacts MUST be committed (NFR-09) ----
+!experiments/results/**/*.csv
+!experiments/results/**/*.json

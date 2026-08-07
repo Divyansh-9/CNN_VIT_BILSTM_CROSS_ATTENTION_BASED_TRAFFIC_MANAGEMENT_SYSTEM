@@ -1,0 +1,13 @@
+# Git LFS — model weights and ONNX exports are too large for plain git.
+# Run `git lfs install` once per machine before cloning or committing.
+
+*.pt      filter=lfs diff=lfs merge=lfs -text
+*.pth     filter=lfs diff=lfs merge=lfs -text
+*.onnx    filter=lfs diff=lfs merge=lfs -text
+*.engine  filter=lfs diff=lfs merge=lfs -text
+*.zip     filter=lfs diff=lfs merge=lfs -text
+
+# Keep line endings sane on a mixed Windows/Linux/Colab team.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
