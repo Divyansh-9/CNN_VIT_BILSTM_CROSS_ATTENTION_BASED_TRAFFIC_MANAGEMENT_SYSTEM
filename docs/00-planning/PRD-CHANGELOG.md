@@ -120,6 +120,24 @@ inferred.
 
 ---
 
+---
+
+## Proposed v1.2 — 2026-08-08 (not yet applied)
+
+Arising from the [feasibility audit](FEASIBILITY-AUDIT.md) and the corpus design. **A8–A11 are
+engineering amendments and may be applied. A12–A13 change graded requirements and are blocked on
+faculty guide sign-off.**
+
+| # | Section | Change | Source | Blocked? |
+|---|---|---|---|---|
+| A8 | §8.1, §8.4 | Per-lane ROI pooling replaces global average pooling before the congestion head. As written, §8.1 pools away all spatial information then applies one shared head four times, yielding four identical predictions | Corpus spec §6 | No |
+| A9 | §8.6 | Verification budget concentrated on the test split (~150 sequences + 25 double-counted) rather than 500 spread across the corpus. Breaks circular evaluation and costs less | Corpus spec §5.2 | No |
+| A10 | §14.5 | Add density-stratified reporting alongside aggregate metrics | Corpus spec §5.3 | No |
+| A11 | §14.3 | Note that count-consuming baselines share error structure with auto-derived labels; verified test labels are what make the comparison valid | Corpus spec §5.1 | No |
+| A12 | §8.2, §14.4 | DINOv2 ViT-S/14 as the default ViT branch, supervised ViT-S/16 retained as ablation arm BB-1; add a 3-arm backbone ablation. Replace `unfreeze_epoch: 30` with a late LoRA experiment | [ADR-007](decisions/ADR-007-backbones-and-training-recipe.md) | No |
+| A13 | §12, FR-D01..D07, M1 | Redefine Novel Contribution 1 as curate-then-collect: a harmonised benchmark plus a 1,500–3,000 frame campus set, replacing the 12,000-frame public-road campaign | [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) | **Yes** |
+| A14 | §11, §16, FR-UI*, NFR-06, NFR-12 | Prototype descoping — SQLite+Parquet, 2 dashboard pages, shared password, 1-hour uptime test | [ADR-008](decisions/ADR-008-prototype-descoping.md) | **Yes** |
+
 ## Pending — items to revisit
 
 Not defects, but places where the PRD will need amendment once implementation produces evidence.

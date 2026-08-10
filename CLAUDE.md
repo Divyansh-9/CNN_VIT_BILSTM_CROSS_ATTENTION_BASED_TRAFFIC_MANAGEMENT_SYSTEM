@@ -14,14 +14,25 @@ Documents are delivered in waves (ADR-004). Wave 1 (planning + requirements + ma
 
 Project context: 4th-year B.Tech CSE (ML/AI) major project, 20-week academic timeline, 3-4 member team, ₹0 cash budget, targeting a conference submission (IEEE ITSC / CVIP).
 
+## Read the feasibility audit before planning any work
+
+[docs/00-planning/FEASIBILITY-AUDIT.md](docs/00-planning/FEASIBILITY-AUDIT.md) estimates ~1,200 person-hours of specified work against ~715 hours of realistic team capacity. Its conclusions govern: annotation effort was underestimated by roughly 3×, the dashboard and production stack consume a quarter of the project for almost no assessed value, and the novelty claim must be narrowed (see [RELATED-WORK.md](docs/00-planning/RELATED-WORK.md) — the fusion mechanisms are all published; the gate-as-artifact, camera-only framing, and density-stratified evaluation are what is defensible).
+
+ADR-006 and ADR-008 are **proposed, not accepted** — they change graded requirements and need faculty guide sign-off. Do not implement against them until that happens; do not implement against the superseded plan either without flagging the conflict.
+
 ## Decisions that override the original PRD text
 
-Four ADRs in [docs/00-planning/decisions/](docs/00-planning/decisions/) changed how the project executes. Read them before acting on PRD §12, §15, or §20:
+Eight ADRs in [docs/00-planning/decisions/](docs/00-planning/decisions/) changed how the project executes. Read them before acting on PRD §8, §12, §15, or §20:
 
 - **ADR-001** — dataset is two-track. YOLOv8 bootstraps on a public Indian dataset from Week 2; IndiaTrafficNet runs in parallel and swaps in at Week 8. Between Weeks 2–8 two sets of detector weights exist, so every experiment must record which it used.
 - **ADR-002** — MFSTNet's training corpus is built by auto-labelling real 5-minute video clips with the fine-tuned YOLOv8 (counts → PRD §14.1 thresholds → congestion label at t+60s). The PRD originally had no corpus specification, and §20 L1's claim that MFSTNet trains on SUMO sequences was wrong. **Splits are cut by source clip, never by sequence** — overlapping windows would leak.
 - **ADR-003** — the edge node is a team laptop, not a Jetson (₹0 budget). Control logic and the MQTT contract are unchanged. **Every latency figure must state its measurement host**; laptop numbers are labelled proxy measurements.
 - **ADR-004** — documents ship in four waves gated on PRD §18 phases.
+- **ADR-005** — training is local-first (RTX 4050 laptop) on **cached frozen-backbone features**. At batch 32 × T=60 an uncached step pushes 1,920 frames through both backbones, which does not fit 6GB and is tight even on a T4. Caching collapses the 60–90h ablation to hours. A cache is invalidated by any change to backbone, resize, or normalization — assert the `preprocessing_hash` on load and raise, never warn.
+- **ADR-007** — DINOv2 ViT-S/14 replaces supervised ViT-S/16 as the default (frozen backbones mean representation quality is everything); bf16 AMP for training; INT8 ONNX only at export; LoRA instead of `unfreeze_epoch: 30`. Note patch-14 gives 257 tokens, not 197 — read token counts from config.
+- **ADR-006 / ADR-008 (proposed)** — curate-then-collect dataset, and prototype descoping. Both blocked on faculty sign-off.
+
+Also fixed in the corpus spec: PRD §8.1 cannot produce four different lane predictions as written (global pooling then one shared head applied 4×) — **per-lane ROI pooling** replaces global pooling, which is why the feature cache must preserve spatial structure. And the evaluation was circular: labels derive from detector counts and three PRD §14.3 baselines also consume detector counts, so the **test split is human-verified** while train/val stay auto-labelled.
 
 ## What is being built
 

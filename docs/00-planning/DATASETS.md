@@ -11,14 +11,86 @@
 
 ## 1. Decision
 
-| Role | Dataset | Size | Use |
-|---|---|---|---|
-| **Primary bootstrap** | **IDD Detection** | 22.8 GB | Track A YOLOv8 fine-tuning from Week 2 |
-| **Secondary / class supplement** | **FGVD** | 2.6 GB | Fine-grained vehicle labels; supplements rare classes |
-| **Deployment-view data** | **IndiaTrafficNet** (ours) | — | The actual training source from Week 8 (Track B) |
+Revised 2026-08-08 by [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md), which replaced the
+12,000-frame field campaign with a curate-then-collect strategy. Rationale:
+[FEASIBILITY-AUDIT §3.1 and §4-H1](FEASIBILITY-AUDIT.md).
 
-Everything else on the IDD portal is out of scope for this project. Reasons in §4 — read them before
-downloading anything, because several entries look relevant and are not.
+| Role | Source | Size | Use |
+|---|---|---|---|
+| **Detector bootstrap** | **IDD Detection** | 22.8 GB | Track A YOLOv8 fine-tuning from Week 2 |
+| **Class supplement** | **FGVD** | 2.6 GB | Fine-grained vehicle labels for rare classes |
+| **Fixed-camera views** | **UA-DETRAC** or CityFlow | ~10 h video | Correct viewpoint; also the dev corpus source |
+| **Benchmark (Part A)** | Curated from the above | — | IndiaTrafficNet-Bench: harmonised 8-class taxonomy, splits, datasheet |
+| **Deployment data (Part B)** | **Campus collection, ours** | 1,500–3,000 frames | Fixed elevated Indian intersection views — the genuine gap |
+
+Everything else on the IDD portal is out of scope. Reasons in §4 — read them before downloading,
+because several entries look relevant and are not.
+
+---
+
+## 1.5 Should we build our own dataset at all?
+
+Short answer: **a small one, on your own campus, with permission — not a 12,000-frame public-road
+campaign.**
+
+### The effort problem
+
+A peak-hour Indian intersection frame holds roughly 20–60 annotatable objects. FR-D04's 12,000 frames
+is on the order of **360,000 bounding boxes** — about 300 hours drawn from scratch, or 120–150 with
+model-assisted review. Team capacity for the entire project is ~715 person-hours. One deliverable
+would consume a fifth to a third of everything you have.
+
+> Measure this yourself in Week 2 rather than trusting the estimate: annotate **50 frames** (25 peak,
+> 25 off-peak), time it, and commit the measurement. One hour of work replaces the largest guess in
+> the project.
+
+### The legal and ethical problem
+
+Recording public roads in India is not prohibited. **Publishing** frames of identifiable people is a
+different question:
+
+- Faces and licence plates are personal data. India's **DPDP Act 2023** governs processing of
+  personal data of identifiable individuals. Releasing them under CC BY 4.0 without a clear lawful
+  basis is, at minimum, unresolved.
+- Venues increasingly require an ethics statement. "We filmed strangers and released it" is a weak
+  answer to a reviewer.
+- Restricted areas — defence installations, airports, some government buildings — are genuine
+  constraints, and being questioned mid-session costs you the session.
+- Seeking municipal permission is possible but has **unbounded lead time**, which is the one risk
+  category a 20-week schedule cannot absorb.
+
+> This is a risk assessment, not legal advice. Route any publication decision through your
+> institution's ethics or research committee.
+
+### What to do instead
+
+**Part A — curate.** Build IndiaTrafficNet-Bench from permissively-licensed public sources: one
+harmonised taxonomy, de-duplication, standard splits, a full datasheet, evaluation scripts. Where a
+licence permits redistribution, ship images; where it does not, **ship conversion scripts plus a
+manifest** so users rebuild it from their own copies. This is lawful, standard practice, and a
+citable contribution — the field genuinely lacks a harmonised Indian multi-class benchmark, because
+every existing set uses a different taxonomy.
+
+**Part B — collect small, on campus.** 1,500–3,000 frames from a fixed elevated position on your own
+institution's grounds:
+
+| Step | Detail |
+|---|---|
+| Permission | One email to administration explaining the academic purpose. Days, not months |
+| Signage | Post a notice at the recording location where practical |
+| Anonymisation | **Blur faces and licence plates before any release.** Automate it; commit the script |
+| Documentation | Datasheet section covering consent basis, blurring method, residual risk |
+| Retention | Raw unblurred video stays local, never published (NFR-13) |
+
+Part B is small enough to annotate *well* — consistent conventions, checked edge cases — instead of
+12,000 frames rushed by four people under deadline. For the fixed-camera subset that carries the
+novelty, quality beats quantity.
+
+**Net effect:** the contribution survives and arguably strengthens, legal exposure drops to near
+zero, ~200 person-hours return to the experiments, and annotation leaves the critical path.
+
+> **M1's acceptance criterion changes**, so ADR-006 needs faculty guide sign-off. Take it with the
+> feasibility audit in Week 1–2.
 
 ---
 

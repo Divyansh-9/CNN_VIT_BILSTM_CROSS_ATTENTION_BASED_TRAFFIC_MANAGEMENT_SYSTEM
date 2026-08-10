@@ -21,8 +21,10 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 | [BRD](00-planning/BRD.md) | Why — business needs BR-01..BR-23 |
 | [PRD](00-planning/PRD.md) | What is built. **Authoritative for every number** |
 | [PRD-CHANGELOG](00-planning/PRD-CHANGELOG.md) | What changed in the PRD, and why |
-| [DATASETS](00-planning/DATASETS.md) | Which public datasets we use, which we reject, licensing, class mapping |
-| [decisions/](00-planning/decisions/) | ADR-001 dataset · ADR-002 training corpus · ADR-003 edge hardware · ADR-004 doc delivery · ADR-005 local-first training |
+| [DATASETS](00-planning/DATASETS.md) | Where data comes from, the legal analysis, licensing, class mapping |
+| [RELATED-WORK](00-planning/RELATED-WORK.md) | State of the art, and what we can honestly claim as novel |
+| [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | **Read this.** Capacity arithmetic, three hazards, and the recommended descoping |
+| [decisions/](00-planning/decisions/) | ADR-001 dataset · 002 corpus · 003 edge hardware · 004 doc waves · 005 local training · 006 curate-then-collect · 007 backbones · 008 descoping |
 
 ### Requirements
 
@@ -47,7 +49,8 @@ Delivered in later waves — see below.
 
 | | |
 |---|---|
-| [Execution Manual](90-manual/EXECUTION_MANUAL.md) | Setup, week-by-week plan, dataset guide, training, SUMO/PPO, prototype, paper, troubleshooting |
+| [Execution Manual](90-manual/EXECUTION_MANUAL.md) | Setup, week-by-week plan, dataset guide, SUMO/PPO, prototype, paper, troubleshooting |
+| [Training Guide](90-manual/TRAINING-GUIDE.md) | Which models and why, where to train, feature caching, precision, quantisation, deployment |
 | [weekly/](90-manual/weekly/) | Weekly status records |
 | [templates/](templates/) | Weekly status · experiment record · risk entry |
 
