@@ -38,6 +38,23 @@ Test case IDs (`TC-*`) are defined in the [STD](../03-testing/), delivered in Wa
 
 ## 3. Dataset and detection — FR-D01 to FR-D09
 
+> **⚠ FR-D01 to FR-D07 are subject to proposed amendment A13**
+> ([ADR-006](../00-planning/decisions/ADR-006-curate-then-collect-dataset.md), awaiting faculty
+> sign-off). If approved, the criteria below change as follows and the RTM rows for BR-01/BR-03/BR-04
+> must be re-checked:
+>
+> | ID | Would become |
+> |---|---|
+> | FR-D01 | ≥3 documented public sources with verified licences (Part A) **+** ≥1 campus location with written permission (Part B) |
+> | FR-D02 | Peak and off-peak coverage in Part B; source diversity documented for Part A |
+> | FR-D03 | Unchanged — 8 classes, plus a documented mapping from each source taxonomy |
+> | FR-D04 | Part A: harmonised benchmark published. Part B: **≥1,500** frames |
+> | FR-D05 | Unchanged — 70/15/15 stratified, applied to both parts |
+> | FR-D06 | Part A: images where licences permit, else conversion scripts + manifest. Part B: CC BY 4.0, **anonymised** |
+> | FR-D07 | Additionally: per-source licence table, blurring method, consent basis, residual risk |
+>
+> Until sign-off, the criteria in the table below remain in force.
+
 | ID | Acceptance criterion | Method | TC | Owner | Milestone |
 |---|---|---|---|---|---|
 | FR-D01 | Raw footage exists from ≥6 distinct intersections, each with GPS coordinates and a capture log recorded in the datasheet | I | TC-D01 | R1 | M1 |

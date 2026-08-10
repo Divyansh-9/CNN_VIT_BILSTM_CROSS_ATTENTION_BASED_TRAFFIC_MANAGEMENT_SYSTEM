@@ -1,8 +1,26 @@
+> # ⛔ SUPERSEDED — retained for the decision trail
+>
+> **Superseded:** 2026-08-08
+> **Superseded by:** [ADR-004](../00-planning/decisions/ADR-004-phased-document-delivery.md) (wave
+> delivery) and [docs/README](../README.md) (the suite index)
+> **Reason:** this was the design *for building* the documentation suite. The suite now exists, and
+> its structure and rationale live in the ADR and the index. Keeping a third copy invites drift.
+>
+> **Do not act on anything below.** Parts of it are already out of date — notably the dataset
+> strategy (revised by [ADR-006](../00-planning/decisions/ADR-006-curate-then-collect-dataset.md))
+> and the corpus verification budget (revised by PRD amendment A9). Current state is
+> [DOCUMENT-REGISTER](../DOCUMENT-REGISTER.md).
+>
+> Archived rather than deleted because an examiner may ask why the approach changed, and the answer
+> should be a document.
+
+---
+
 # Design — SDLC Documentation Suite and Execution Manual
 
 **Date:** 2026-08-07
 **Project:** MFSTNet — CNN-ViT-BiLSTM Cross-Attention Adaptive Traffic Management System
-**Status:** Approved
+**Status:** ~~Approved~~ **Superseded**
 
 ---
 

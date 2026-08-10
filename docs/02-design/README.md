@@ -3,6 +3,14 @@
 **Due Week 5**, before implementation hardens. Gate is scheduled in
 [Execution Manual Part 1](../90-manual/EXECUTION_MANUAL.md#part-1--week-by-week-course-of-action).
 
+## Delivered early
+
+| Document | Covers |
+|---|---|
+| [HLD — Detection & Corpus Pipeline](HLD-detection-corpus-pipeline.md) | The S0–S6 staged pipeline, data contracts, the counting/labelling seam, evaluation integrity (§5), and the per-lane ROI pooling fix (§6). Written ahead of the wave because it is the critical path |
+
+## Still scheduled
+
 | Document | Scope |
 |---|---|
 | `SAD.md` | Software Architecture Document — subsystem decomposition, deployment view, the cross-component contracts (MQTT topics, the 17-dim PPO state vector), architectural drivers and their trade-offs |

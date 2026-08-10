@@ -59,6 +59,26 @@ to Future Work without penalty if the schedule does not allow:
 - Temporal self-attention and attention pooling (Phase 2)
 - Live end-to-end PPO runtime integration (Phase 3)
 
+## 2.4 Capacity baseline
+
+Added 2026-08-08. The original SOW committed to deliverables without stating available effort, which
+is how a plan becomes 1.6× overcommitted without anyone noticing.
+
+| | Optimistic | **Planning baseline** |
+|---|---|---|
+| Students | 4 | 3.5 effective |
+| Hours/week/student | 15 | 12 |
+| Productive weeks | 20 | 17 (placement season + internal exams) |
+| **Total person-hours** | 1,200 | **~715** |
+
+Estimated work as originally specified: **~1,200 person-hours**. Full breakdown in
+[FEASIBILITY-AUDIT §2](FEASIBILITY-AUDIT.md).
+
+The gap is closed by [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) (−200 h) and
+[ADR-008](decisions/ADR-008-prototype-descoping.md) (−140 h), both **awaiting faculty guide
+sign-off**. Until they are signed, this SOW is knowingly overcommitted and the team should say so at
+every review rather than absorb it silently.
+
 ## 3. Team and responsibilities
 
 Four roles. With a three-member team, R4 is absorbed by R1 and R3.
@@ -89,7 +109,7 @@ Four roles. With a three-member team, R4 is absorbed by R1 and R3.
 | ID | Deliverable | Format | Due |
 |---|---|---|---|
 | D-01 | SDLC documentation Wave 1 | Markdown in `docs/` | Week 1 |
-| D-02 | IndiaTrafficNet public release | Roboflow Universe + Kaggle | Week 8 |
+| D-02 | IndiaTrafficNet public release † | Roboflow Universe + Kaggle | Week 8 |
 | D-03 | Fine-tuned YOLOv8 weights + mAP comparison report | `.pt` via LFS + CSV | Week 9 |
 | D-04 | SUMO environment with 4 signal methods | XML + Python | Week 10 |
 | D-05 | SDLC documentation Wave 2 (SAD/HLD/LLD) | Markdown | Week 5 |
@@ -103,6 +123,10 @@ Four roles. With a three-member team, R4 is absorbed by R1 and R3.
 | D-13 | Conference paper + submission receipt | PDF | Week 20 |
 | D-14 | Final project report + open-source repository | PDF + GitHub | Week 20 |
 
+† **D-02 and D-10/D-11 are subject to proposed scope variations.** ADR-006 would redefine D-02 as a
+curated benchmark plus a ~1,500–3,000 frame campus set; ADR-008 would reduce D-10/D-11's
+infrastructure. Both need faculty sign-off — see §2.4.
+
 ## 5. Milestones and acceptance criteria
 
 Reproduced from PRD §18.2. **These numbers are the definition of done.** A milestone is accepted
@@ -110,7 +134,7 @@ only when its criterion is demonstrated with evidence committed to the repositor
 
 | ID | Milestone | Acceptance criterion | Due | Evidence artifact |
 |---|---|---|---|---|
-| M1 | IndiaTrafficNet published | 12,000+ frames, 8 classes, live on Roboflow + Kaggle | W8 | Public URLs |
+| M1 | IndiaTrafficNet published | 12,000+ frames, 8 classes, live on Roboflow + Kaggle. **If ADR-006 is approved:** Part A benchmark published with datasheet + Part B ≥1,500 anonymised campus frames | W8 | Public URLs |
 | M2 | YOLOv8 validated | ≥10% mAP improvement over COCO on Indian classes; ≥25% on auto-rickshaw | W9 | `experiments/results/detection_map.csv` |
 | M3 | SUMO running | All 4 signal methods run; traffic calibrated from dataset | W10 | Config + calibration report |
 | M4 | MFSTNet core working | CNN+ViT+CrossAttn+BiLSTM trains and converges | W12 | TensorBoard loss curves |
@@ -185,7 +209,12 @@ The full register is PRD §19 (R1–R10). Risks introduced or altered by the ADR
 | R12 | Public dataset taxonomy does not map cleanly to 8 target classes | Medium | Low | Mapping table, Manual Part 2; unmapped classes as background until W8 | R1 |
 | R13 | Track B (IndiaTrafficNet) is deprioritised once Track A works | Medium | High | M1 is a graded Week 8 milestone; weekly frames/day velocity tracked | R1 |
 | R14 | Documentation Waves 2–4 not written under deadline pressure | Medium | Medium | Wave gates scheduled at W05/W11/W16 as milestones (ADR-004) | All |
-| R15 | Laptop-proxy latency figures challenged in viva | Low | Low | Every latency table states its measurement host; limitation declared in paper | R4 |
+| R15 | Laptop-proxy latency figures challenged in viva | Low | Low | Every latency table states its measurement host; **also report CPU-only figures** — an RTX 4050 is an optimistic proxy for a Jetson, not a representative one | R4 |
+| R16 | **Scope remains 1.6× overcommitted** because ADR-006/008 are declined or not raised | Medium | **High** | Raise both in Week 1–2 with the feasibility audit. If declined, cut SOW §2.3 conditional scope immediately and re-baseline — never absorb it silently | All |
+| R17 | Annotation velocity turns out worse than the Week-2 pilot suggests | Medium | High | Pilot in Week 2 (Manual §1.2); track weekly; Part B's smaller target gives headroom the 12,000-frame plan did not | R1 |
+| R18 | Congestion thresholds produce a degenerate class on real data | Medium | High | Week-2 count-distribution pilot; S6 distribution gate fails before training; S3/S4 seam makes recalibration a 30-second rebuild (P1) | R1/R2 |
+| R19 | Reviewer identifies the fusion mechanisms as prior art (Conformer, ViLBERT, Flamingo) | **High** | Medium | Narrow the claim per [RELATED-WORK §3](RELATED-WORK.md); cite the precedents in the related-work section rather than being informed of them | R2 |
+| R20 | Feature cache goes stale and silently corrupts results | Low | **High** | `preprocessing_hash` + git commit in the manifest; **assert on load and raise, never warn** | R2 |
 
 ## 10. Acceptance and sign-off
 

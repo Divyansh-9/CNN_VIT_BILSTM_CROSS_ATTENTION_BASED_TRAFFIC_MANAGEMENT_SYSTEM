@@ -2,14 +2,24 @@
 
 Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traffic Management System.
 
+> **Current state of every document — versions, status, and what has been withdrawn — is in
+> [DOCUMENT-REGISTER.md](DOCUMENT-REGISTER.md).** Check it before trusting any single document.
+>
+> **Two decisions are awaiting faculty guide sign-off** ([ADR-006](00-planning/decisions/ADR-006-curate-then-collect-dataset.md),
+> [ADR-008](00-planning/decisions/ADR-008-prototype-descoping.md)). Until then the project is
+> knowingly ~1.6× overcommitted — see [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md).
+
 ## Start here
 
 | If you are… | Read |
 |---|---|
-| **On the team, starting work** | [Execution Manual](90-manual/EXECUTION_MANUAL.md) — Part 0 today, Part 1 weekly |
-| A faculty guide or examiner | [SOW](00-planning/SOW.md) → [BRD](00-planning/BRD.md) → [RTM](01-requirements/RTM.md) |
+| **On the team, starting work** | [Execution Manual](90-manual/EXECUTION_MANUAL.md) — Part 0 today, §1.2 pilots this week, Part 1 weekly |
+| Training models | [Training Guide](90-manual/TRAINING-GUIDE.md) |
+| A faculty guide or examiner | [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) → [SOW](00-planning/SOW.md) → [RTM](01-requirements/RTM.md) |
 | Implementing a component | [PRD](00-planning/PRD.md) for numbers → [FRD](01-requirements/FRD.md) for acceptance criteria |
+| Writing the paper | [RELATED-WORK](00-planning/RELATED-WORK.md) — read before the method section |
 | Wondering why something was decided | [decisions/](00-planning/decisions/) and [PRD-CHANGELOG](00-planning/PRD-CHANGELOG.md) |
+| Checking whether a document is current | [DOCUMENT-REGISTER](DOCUMENT-REGISTER.md) |
 
 ## The suite
 
@@ -37,13 +47,13 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 
 ### Design · Testing · Deployment
 
-Delivered in later waves — see below.
-
-| Phase | Documents | Due |
-|---|---|---|
-| [Design](02-design/) | SAD, HLD, LLD | Week 5 |
-| [Testing](03-testing/) | STP, STD, UAT | Week 11 · STR Week 16 |
-| [Deployment](04-deployment/) | TIM, SOP | Week 16 |
+| Document | Status |
+|---|---|
+| [HLD — detection & corpus pipeline](02-design/HLD-detection-corpus-pipeline.md) | **Delivered early** — the pipeline design, including the evaluation-integrity analysis and the per-lane ROI pooling fix |
+| [Design](02-design/) — SAD, remaining HLD, LLD | Week 5 |
+| [Testing](03-testing/) — STP, STD, UAT | Week 11 · STR Week 16 |
+| [Deployment](04-deployment/) — TIM, SOP | Week 16 |
+| [99-archive/](99-archive/) | Superseded documents, retained for the decision trail |
 
 ### Manual and templates
 

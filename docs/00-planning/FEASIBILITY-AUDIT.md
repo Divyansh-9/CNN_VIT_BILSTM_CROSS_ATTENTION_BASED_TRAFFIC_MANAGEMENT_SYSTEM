@@ -74,8 +74,9 @@ does not include debugging time for the failures PRD §2.5.1 predicts.
 
 ### 3.1 Annotation is the schedule killer — and the manual understated it
 
-The Execution Manual currently targets **400 frames/day/person**. That figure is wrong for this
-domain, and I should correct it rather than let you discover it in Week 7.
+An earlier draft of the Execution Manual targeted **400 frames/day/person**. That figure was wrong
+for this domain by roughly 3×; it has been withdrawn and replaced with a measurement instruction
+(Manual §1.2). The reasoning is kept here because the arithmetic drives the whole recommendation.
 
 A peak-hour Indian intersection frame contains roughly **20–60 annotatable objects**. FR-D04 asks for
 12,000 frames.

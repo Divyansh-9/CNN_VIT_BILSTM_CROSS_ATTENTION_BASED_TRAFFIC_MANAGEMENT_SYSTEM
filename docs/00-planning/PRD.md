@@ -1,4 +1,4 @@
-# 📄 Product Requirements Document (PRD) — v1.1
+# 📄 Product Requirements Document (PRD) — v1.2
 # MFSTNet: CNN-ViT-BiLSTM Cross-Attention Adaptive Traffic Management System
 ### Multimodal Fusion Spatio-Temporal Network with Gated Cross-Attention and Hybrid Temporal Modeling
 
@@ -7,10 +7,10 @@
 | Field              | Details                                                                          |
 |--------------------|----------------------------------------------------------------------------------|
 | **Document ID**    | PRD-MFSTNET-001                                                                  |
-| **Version**        | 1.1                                                                              |
+| **Version**        | 1.2                                                                              |
 | **Status**         | Active                                                                           |
 | **Created**        | 2026-07-31                                                                       |
-| **Last amended**   | 2026-08-07 — amendments A1–A6, see [PRD-CHANGELOG](PRD-CHANGELOG.md)             |
+| **Last amended**   | 2026-08-08 — A1–A12 applied; **A13, A14 proposed, awaiting sign-off**. See [PRD-CHANGELOG](PRD-CHANGELOG.md) |
 | **Supersedes**     | PRD-STMS-002 (CongestFormer variant)                                             |
 | **Authors**        | [Your Name / Team Name]                                                          |
 | **Reviewers**      | [Faculty Guide / Project Mentor]                                                 |
@@ -455,8 +455,9 @@ STAGE 1: DUAL-PATH SPATIAL ENCODING (Per Frame, Per Timestep)
        |
        +──────────────────────────────────────+
        |                                      |
-  CNN Encoder (ResNet-50)           ViT Encoder (ViT-Small/16)
-  ImageNet pretrained               ImageNet pretrained
+  CNN Encoder (ResNet-50)           ViT Encoder (DINOv2 ViT-S/14)   <-- v1.2 A12
+  ImageNet pretrained               Self-supervised (LVD-142M)
+                                    [ViT-S/16 supervised = ablation arm BB-1]
   Avgpool + Flatten + Linear        Patch tokens + CLS + Linear
   F_cnn: [B, N_c, D]               F_vit: [B, N_v, D]
 
@@ -475,7 +476,17 @@ STAGE 2: GATED BIDIRECTIONAL CROSS-ATTENTION
     g = sigmoid( Linear( concat(Z_A, Z_B) ) )
     F_fused = g x Z_A + (1 - g) x Z_B
     F_fused = LayerNorm(F_fused + residual)
-    F_fused --> Global AvgPool --> [B, D]
+
+    PER-LANE ROI POOLING  (v1.2 amendment A8 -- replaces Global AvgPool)
+      For each lane L in {N,S,E,W}:
+        F_L = ROIPool(F_fused, polygon_L)  -->  [B, D]
+      Output: [B, 4, D]
+
+      Rationale: Global AvgPool collapses all spatial information, so a
+      shared head applied 4x to the same vector yields 4 IDENTICAL
+      predictions. ROI pooling makes each lane read its own image region.
+      Sources with fewer than 4 visible approaches work without padding.
+      See docs/02-design/HLD-detection-corpus-pipeline.md section 6.
 
   Gate semantics:
     g --> 1.0: Dense/chaotic traffic  --> trust CNN local patterns more
@@ -509,11 +520,14 @@ STAGE 3: HYBRID TEMPORAL MODELING
 STAGE 4: TASK HEADS
 ================================================================
 
-  h [B, 256]
+  h [B, 4, 256]   <-- one vector PER LANE from ROI pooling (A8)
       |
       +---> Congestion Head (per lane, shared weights)
       |       Linear(256->128) -> ReLU -> Dropout(0.1) -> Linear(128->3)
-      |       Applied 4x (N, S, E, W)  --> LOW / MEDIUM / HIGH
+      |       Applied to each lane's own feature --> LOW / MEDIUM / HIGH
+      |       Output: [B, 4, 3]
+      |
+      |     (Heads below consume the mean over lanes, h_bar [B, 256])
       |
       +---> PPO State Embedding
       |       Linear(256->64) --> auxiliary input to RL agent
@@ -571,8 +585,18 @@ loss:               CrossEntropyLoss (inverse-frequency class weights)
 seed:               42
 train_val_test:     [0.60, 0.20, 0.20]
 freeze_backbone:    true
-unfreeze_epoch:     30
+unfreeze_epoch:     null        # v1.2 A12 - was 30; see below
+precision:          bf16        # v1.2 A12
+pooling:            roi_per_lane  # v1.2 A8 - was global_avg
 ```
+
+> **v1.2 amendment A12 — backbone adaptation.** `unfreeze_epoch: 30` is retired. R4 predicts
+> unfreezing will overfit on a dataset this size, so the plan scheduled an action it expected to
+> fail; unfreezing is also incompatible with the ADR-005 feature cache. Backbone adaptation is now a
+> **separate Week-15 experiment** using **LoRA (r=8, attention projections)** on the ViT branch,
+> reported as a three-way comparison — frozen / LoRA / full fine-tune — which satisfies the
+> comparison §20 L4 already promises. See
+> [ADR-007](decisions/ADR-007-backbones-and-training-recipe.md).
 
 ### 8.6 Training Corpus Construction
 
@@ -602,7 +626,7 @@ Continuous 5-minute clips (own footage, retained offline only)
 | Label rule | §14.1 count thresholds | No new thresholds introduced |
 | Split unit | **Source clip, never sequence** | Overlapping windows in both train and test would leak (§2.5.1) |
 | Split ratio | 60/20/20 (§8.4) | Applied over clips, then sequences inherit their clip's split |
-| Verification subset | 500 sequences, manual count | Yields the label-noise estimate reported with results |
+| Verification subset — *v1.2 A9* | **Test split only: ~150 sequences, plus 25 double-counted** | Was "500 spread across the corpus" — 2,000 manual lane counts (~17 h) producing a number that changed no decision. Concentrating a smaller budget on the test split costs less and buys a **clean evaluation set**, which is what breaks the circularity in §14.5 A11. Train/val stay auto-labelled; the double-count yields inter-rater agreement |
 
 **Label noise is a known property of this corpus, not a defect to be hidden.** Detection error
 propagates into ground truth, most severely for under-represented classes (§20 L7). Per-class
@@ -658,7 +682,7 @@ defence in the viva.
 | ID | Requirement | Priority |
 |---|---|---|
 | FR-M01 | System SHALL implement CNN encoder (ResNet-50, pretrained ImageNet) | Must Have |
-| FR-M02 | System SHALL implement ViT encoder (ViT-Small/16, pretrained via timm) | Must Have |
+| FR-M02 | System SHALL implement ViT encoder (**DINOv2 ViT-S/14** via timm; supervised ViT-S/16 retained as ablation arm BB-1) — *v1.2 A12* | Must Have |
 | FR-M03 | System SHALL implement bidirectional cross-attention fusion | Must Have |
 | FR-M04 | System SHALL implement gating: g=sigmoid(Linear([Z_A;Z_B])); F=g*Z_A+(1-g)*Z_B | Must Have |
 | FR-M05 | System SHALL implement BiLSTM temporal encoder (2 layers, hidden=128, bidir) | Must Have |
@@ -774,6 +798,22 @@ defence in the viva.
 ---
 
 ## 12. Novel Contribution 1 — IndiaTrafficNet Dataset
+
+> ### ⚠ PROPOSED CHANGE — amendment A13, awaiting faculty guide sign-off
+>
+> [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) proposes replacing the 12,000-frame
+> public-road campaign below with **curate-then-collect**: a harmonised benchmark assembled from
+> licensed public sources, plus a 1,500–3,000 frame set collected on campus with written permission
+> and automated face/plate blurring.
+>
+> Two reasons. **Effort:** ~20–60 objects per peak-hour frame means 12,000 frames is ≈360,000 boxes —
+> roughly a third of the team's total capacity for the semester
+> ([FEASIBILITY-AUDIT §3.1](FEASIBILITY-AUDIT.md)). **Exposure:** publishing frames of identifiable
+> people under CC BY 4.0 raises unresolved DPDP Act 2023 questions, and seeking municipal permission
+> has unbounded lead time.
+>
+> **This changes M1's acceptance criterion, so it is not adopted unilaterally.** Until signed off,
+> §12.0 and §12.1 below remain in force.
 
 ### 12.0 Two-Track Strategy
 
@@ -938,7 +978,20 @@ Predict: Y in {0,1,2}^4   Congestion per lane, 60 seconds ahead
 | Accuracy | % of lanes correctly classified at t+60s |
 | Macro F1-score | Average F1 across LOW/MEDIUM/HIGH |
 | Per-class Precision/Recall | Critical for HIGH class |
-| Inference Latency | ms per prediction batch on server CPU (ONNX) |
+| Inference Latency | ms per prediction batch on server CPU (ONNX), **with measurement host stated** |
+| **Density-stratified macro F1** — *v1.2 A10* | Macro F1 reported separately per density band (low / medium / high), alongside the aggregate |
+
+> **v1.2 amendment A10 — why stratify.** §14.2's hypothesis is that CNN and ViT complement each other
+> *in dense chaotic traffic*. In sparse traffic counts are easy and every method should tie. A single
+> aggregate metric averages a real density-concentrated effect into invisibility against a strong
+> count baseline. `density_band` is recorded per sequence at corpus build time and costs nothing.
+
+> **v1.2 amendment A11 — a caveat on the §14.3 baselines.** LSTM-on-counts, CongestFormer, and Naive
+> last-value all consume detector counts, and §8.6 derives the labels from those same counts. Their
+> input errors therefore correlate with the label errors and are scored as correct, while MFSTNet
+> reads pixels and its independent errors are scored as wrong — biasing the comparison **against**
+> MFSTNet. This is why the **test split is human-verified** (A9) while train/val remain
+> auto-labelled. Any comparison against these baselines on auto-labelled data is invalid.
 
 ---
 
@@ -1357,6 +1410,7 @@ github.com/[team]/mfstnet-traffic/
 | STMS v2.0 | 2026-07-28 | [Team] | IndiaTrafficNet + PPO/SUMO + CongestFormer |
 | MFSTNet v1.0 | 2026-07-31 | [Team] | CNN+ViT+Gated Cross-Attn+BiLSTM+TempAttn replaces CongestFormer |
 | MFSTNet v1.1 | 2026-08-07 | [Team] | Amendments A1–A6 — see §24.4 and [PRD-CHANGELOG](PRD-CHANGELOG.md) |
+| MFSTNet v1.2 | 2026-08-08 | [Team] | A7 local-first training · A8 per-lane ROI pooling · A9 verification concentrated on test split · A10 density-stratified metrics · A11 baseline-circularity caveat · A12 DINOv2 + LoRA. **A13 (§12 dataset) and A14 (prototype descoping) proposed, awaiting sign-off** |
 
 ### 24.4 Cost and Bill of Materials
 
@@ -1381,6 +1435,6 @@ is required to satisfy any Must-priority requirement.
 
 ---
 
-*End of PRD — MFSTNet v1.1*
+*End of PRD — MFSTNet v1.2*
 *Classification: Academic Research Project — B.Tech CSE (ML/AI Specialization), Year 4*
 *This is a living document — update as implementation progresses and findings emerge.*

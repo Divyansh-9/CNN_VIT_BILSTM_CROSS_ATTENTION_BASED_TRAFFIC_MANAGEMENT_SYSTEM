@@ -57,9 +57,26 @@ measurement disagrees with it. Do not report the estimate as if it were a measur
 Per PRD §15.4 and ADR-003, the edge node is a laptop rather than the Jetson deployment target.
 
 **Every latency and throughput figure in every document, table, and paper states the host it was
-measured on.** Laptop figures are labelled proxy measurements. PRD §20 L8 declares the absence of
-on-target validation. This costs nothing and protects every performance claim in the viva; an
-unlabelled proxy figure presented as an on-target figure does not survive one question.
+measured on.** PRD §20 L8 declares the absence of on-target validation.
+
+**The proxy is optimistic, not representative — say so.** The edge laptop carries an RTX 4050, which
+vastly outperforms a Jetson Nano. Clearing ≥10 fps on it says nothing about Jetson feasibility.
+Therefore report **two** figures for NFR-01:
+
+| Figure | Label | What it evidences |
+|---|---|---|
+| RTX 4050, GPU inference | *Optimistic proxy* | That the pipeline runs in real time |
+| Same laptop, **CPU-only** | *Conservative proxy* | A far better indicator for constrained edge hardware |
+
+The second costs one extra run and is the number a reviewer will actually find persuasive. An
+unlabelled GPU figure presented as evidence of edge viability does not survive one question.
+
+### 2.3 Quantised models must be reported as quantised
+
+If INT8 quantisation is used to meet NFR-02 (see
+[ADR-007 §5](../00-planning/decisions/ADR-007-backbones-and-training-recipe.md)), the reported
+**accuracy must come from the same quantised model that produced the reported latency.** Quoting fp32
+accuracy alongside INT8 latency is a misreporting error, not a presentational shortcut.
 
 ---
 

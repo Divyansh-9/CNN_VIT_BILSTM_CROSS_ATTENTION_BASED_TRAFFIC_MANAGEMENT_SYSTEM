@@ -185,6 +185,40 @@ instead keeps the contract intact.
 
 ---
 
+## 5.4 Pending change impact — ADR-006 and ADR-008
+
+Both are **proposed, not accepted**. Recorded here so the blast radius is known before the sign-off
+conversation, not after.
+
+**If [ADR-006](../00-planning/decisions/ADR-006-curate-then-collect-dataset.md) is approved** —
+curate-then-collect:
+
+| Affected | Impact |
+|---|---|
+| BR-01, BR-03, BR-04 | Still satisfied. BR-03 arguably strengthened — a harmonised benchmark is more reusable than another single-taxonomy set |
+| FR-D01..FR-D07 | Acceptance criteria change; see the [FRD §3 banner](FRD.md) |
+| FR-D08, FR-D09 | **Unchanged** — the detector work is unaffected |
+| M1 | Acceptance criterion changes. This is why sign-off is required |
+| TC-D01..TC-D07 | Rewrite required at Wave 3 |
+| New obligation | Per-source licence table and anonymisation verification enter FR-D07 |
+
+**If [ADR-008](../00-planning/decisions/ADR-008-prototype-descoping.md) is approved** — descoping:
+
+| Affected | Impact |
+|---|---|
+| FR-UI03, FR-UI04, FR-UI08 | **Absorbed, not deleted** — folded into the Results page and the Live page's event panel. RTM rows stay, targets change |
+| FR-UI06, FR-UI07 | **Unchanged** — these carry the evidential weight |
+| NFR-06 | Target weakens: 4 h → 1 h at ≥95% |
+| NFR-12 | Target weakens: JWT 24 h → shared password on LAN |
+| NFR-11 | **Unchanged** |
+| FR-A01..FR-A06, FR-P01..FR-P04 | **Unchanged** — all system behaviour and safety is preserved |
+| BR-14, BR-15, BR-16 | Still satisfied at reduced fidelity; BR-21 satisfied in intent |
+| M9, M10 | Acceptance criteria change |
+
+**If either is declined**, SOW §2.4's overcommitment stands and the conditional scope in SOW §2.3
+(Phase 2 gating, temporal attention, Phase 3 integration) is cut first — recorded in the weekly
+status the same week, not discovered in Week 18.
+
 ## 6. Change impact procedure
 
 When any requirement changes:

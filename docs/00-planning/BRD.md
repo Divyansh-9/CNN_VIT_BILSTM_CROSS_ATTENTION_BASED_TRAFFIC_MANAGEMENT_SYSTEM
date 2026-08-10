@@ -68,7 +68,7 @@ honest reporting are therefore business requirements in their own right, not eng
 |---|---|---|
 | BO-1 | Demonstrate that RL-based adaptive control outperforms fixed-time and Webster control under Indian traffic conditions | ≥20% wait reduction vs. Fixed, ≥10% vs. Webster, p<0.05 over 30 runs |
 | BO-2 | Demonstrate that multimodal CNN-ViT fusion improves congestion prediction over single-modality baselines | Macro F1 ≥ 0.80, with ablation isolating each component's contribution |
-| BO-3 | Contribute a reusable, publicly licensed dataset for Indian traffic perception | 12,000+ frames, 8 classes, CC BY 4.0, publicly hosted |
+| BO-3 | Contribute a reusable, publicly licensed dataset for Indian traffic perception | 12,000+ frames, 8 classes, CC BY 4.0, publicly hosted. *If [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) is approved:* a harmonised 8-class benchmark with datasheet and splits, plus ≥1,500 anonymised fixed-camera campus frames |
 | BO-4 | Produce a submissible conference paper | Submission receipt from ITSC or CVIP |
 | BO-5 | Achieve full reproducibility of every reported result | Clean-machine reproduction from committed code, configs, and seeds |
 | BO-6 | Deliver a working physical demonstration of the end-to-end pipeline | 4-hour continuous run at ≥95% uptime |

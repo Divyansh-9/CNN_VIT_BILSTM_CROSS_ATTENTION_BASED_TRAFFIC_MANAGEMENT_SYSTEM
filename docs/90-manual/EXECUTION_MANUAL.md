@@ -181,22 +181,22 @@ column.
 
 | Wk | R1 — Data & Detection | R2 — Model | R3 — Sim & RL | R4 — Systems & UI | Definition of done |
 |---|---|---|---|---|---|
-| 0 | Register IDD; scout intersections | Env setup; read PRD §8 | Install SUMO | Install Mosquitto | Part 0 checklist complete |
-| 1 | Download IDD; write class-mapping table | Implement `set_seed`; smoke-test ResNet-50 + ViT loading | SUMO tutorial; render a 4-way network | MQTT publish/subscribe hello-world | Everyone has run *something* end to end |
-| 2 | **Track A:** fine-tune YOLOv8 on public data | CNN encoder + ViT encoder modules with unit tests | Build the 4-way intersection network | Camera capture + lane ROI config | Detection weights v0 exist |
-| 3 | **Track B:** record intersections 1–2 | Standard cross-attention module | Fixed-time + Random controllers | Edge skeleton: capture → count → publish | v0 weights count vehicles on real video |
-| 4 | Record 3–4; extract frames @2 fps | BiLSTM + congestion head; **Phase 1 assembles end to end** | Webster controller | FastAPI skeleton + TimescaleDB | Phase 1 forward pass runs on random input |
-| 5 | Record 5–6; filter frames | Overfit 10 sequences to zero loss | Gym env wrapper; `check_env` passes | Dashboard scaffold | **Wave 2 gate** — write SAD, HLD, LLD |
-| 6 | Annotation begins; track frames/day | Auto-label pipeline (with R1) | PPO trains without crashing | Live page renders mock data | Annotation velocity ≥ 400 frames/day/person |
-| 7 | Annotation continues | First real corpus; verify no clip-level leakage | Reward function unit tests (TC-R04) | MQTT contract test across all 5 topics | ≥1,000 sequences built |
-| 8 | **M1** — publish IndiaTrafficNet | Phase 1 first real training run | PPO 100K-step trial run | Event log + heartbeat | M1 accepted |
+| 0 | Register IDD; request campus permission | Env setup; read PRD §8 | Install SUMO | Install Mosquitto | Part 0 checklist complete |
+| 1 | Download IDD; class-mapping table; **take ADR-006/008 to the guide** | Implement `set_seed`; smoke-test ResNet-50 + DINOv2 loading | SUMO tutorial; render a 4-way network | MQTT publish/subscribe hello-world | Everyone has run *something* end to end. **Scope variation agreed or declined** |
+| 2 | **Track A:** fine-tune YOLOv8 on IDD. **Run all three Week-2 pilots** (§1.2) | CNN + ViT encoder modules with unit tests | Build the 4-way intersection network | Camera capture + lane ROI config | Detection weights v0 exist; three measurements committed |
+| 3 | Curate Part A: harmonise taxonomies, de-duplicate | Standard cross-attention module | Fixed-time + Random controllers | Edge skeleton: capture → count → publish | v0 weights count vehicles on public video |
+| 4 | Campus recording sessions; extract frames @2 fps | BiLSTM + ROI-pooled head; **Phase 1 assembles end to end** | Webster controller | FastAPI skeleton + store | Phase 1 forward pass runs on random input |
+| 5 | Filter frames; build blurring script | Overfit 10 sequences to zero loss | Gym env wrapper; `check_env` passes | Dashboard scaffold | **Wave 2 gate** — write SAD, HLD, LLD |
+| 6 | Annotation begins (Part B); track velocity | Feature cache + dev corpus from public video | PPO trains without crashing | Live page renders mock data | Velocity tracked against the Week-2 pilot |
+| 7 | Annotation continues; Part A splits + datasheet | First real corpus; verify no clip-level leakage | Reward function unit tests (TC-R04) | MQTT contract test across all 5 topics | ≥1,000 sequences built |
+| 8 | **M1** — publish Part A benchmark + Part B set | Phase 1 first real training run | PPO 100K-step trial run | Event log + heartbeat | M1 accepted |
 | 9 | **M2** — fine-tune on IndiaTrafficNet; mAP comparison | Rebuild corpus with final weights | Calibrate SUMO from real counts | Emergency detection path | M2 accepted |
 | 10 | Datasheet; 500-sequence verification subset | Phase 1 tuning; TensorBoard watch | **M3** — all 4 methods run | Preemption logic + all-red enforcement | M3 accepted |
 | 11 | Support R2 on label quality | Phase 1 converging | PPO full 500K run starts | Analytics page | **Wave 3 gate** — write STP, STD, UAT |
 | 12 | Per-class detector recall report | **M4** — Phase 1 converged | PPO curve monitored | Prototype assembly starts | M4 accepted |
 | 13 | — | Ablation A–E launched (parallel Colab) | **M6** — PPO converged | Edge ↔ server integration | M6 accepted; ablation running |
 | 14 | — | **M5** — ablation complete, macro F1 ≥0.80 | **M7** — 30-run benchmark + statistics | Benchmark page reads result CSVs | M5, M7 accepted |
-| 15 | — | Phase 2 *only if* Phase 1 is clean | Results analysis; effect sizes | Latency measurement (NFR-01..06) | Phase 2 decision recorded |
+| 15 | — | Phase 2 *only if* Phase 1 is clean; **LoRA vs frozen vs full experiment** | Results analysis; effect sizes | Latency measurement (NFR-01..06), **GPU and CPU-only** | Phase 2 decision recorded; §20 L4 comparison done |
 | 16 | — | ONNX export + latency (FR-M12/13) | Paper: results section | **M8** — prototype live | **Wave 4 gate** — STR, TIM, SOP |
 | 17 | — | Paper: method section | Paper: experiments | **M9** — dashboard complete | M8, M9 accepted |
 | 18 | Dataset section of paper | Integration support | Integration support | Full integration; fault injection | Fallbacks (FR-A06) verified |
@@ -218,6 +218,19 @@ loses detail that mattered.
 
 **When something slips, cut conditional scope first** (SOW §2.3), then Should-Have requirements, then
 talk to the guide. Never cut the experiments — they are the deliverable (§2.5.4).
+
+## 1.2 Three measurements to take in Week 2
+
+Each under an hour. Each replaces the project's largest guesses with numbers. Commit all three.
+
+| # | Measurement | Replaces | Why it matters |
+|---|---|---|---|
+| 1 | **Annotation pilot** — 50 frames timed, 25 peak / 25 off-peak | The frames/day estimate | The largest single line item in the project is currently a guess. [FEASIBILITY-AUDIT §3.1](../00-planning/FEASIBILITY-AUDIT.md) |
+| 2 | **Count distribution** — run COCO YOLO over any fixed-camera intersection video, histogram per-lane counts | Faith in the LOW/MED/HIGH thresholds | If >15 never occurs, the HIGH class is degenerate and macro F1 ≥0.80 is unreachable. Find this out **before** building a corpus around it (PRD pending item P1) |
+| 3 | **Feature cache sizing** — cache 100 frames, measure bytes | ADR-005's ~350 KB/frame estimate | Determines whether the corpus fits on disk |
+
+Measurement 2 is the highest-value hour in the semester. A degenerate class discovered in Week 12
+costs the ablation; discovered in Week 2 it costs a threshold edit.
 
 ---
 
@@ -278,16 +291,39 @@ yolo detect train model=yolov8s.pt data=indiatrafficnet/public.yaml \
 
 ## 2.2 Track B — collecting IndiaTrafficNet
 
+> ### Scope change pending — read [ADR-006](../00-planning/decisions/ADR-006-curate-then-collect-dataset.md) first
+>
+> The 12,000-frame public-road campaign described below is **proposed for replacement** by
+> curate-then-collect: a harmonised benchmark from licensed sources plus **1,500–3,000 frames from
+> your own campus**. Reasons: 12,000 frames is ≈360,000 boxes (~a third of team capacity), and
+> publishing frames of identifiable people raises unresolved DPDP Act 2023 questions.
+>
+> Blocked on faculty sign-off. The guidance below is written for the **campus** plan, which is safe
+> under either outcome — if the larger campaign is retained, the same practices scale to it.
+
 ### Before you record
 
-- **Ask permission.** Campus intersections first (PRD R1) — your own institution is the easiest
-  approval you will ever get. For public roads, a written note from your department explaining the
-  academic purpose prevents most difficulties.
-- **Do not obstruct traffic** or record from a position that puts anyone at risk. Elevated and
-  set-back positions give better geometry anyway.
+- **Get written permission, and record it.** Your own institution's administration is the easiest
+  approval you will ever obtain — one email explaining the academic purpose, days rather than months.
+  **Keep the reply.** It goes in the datasheet and answers the ethics question at submission.
+- **Post a notice** at the recording location where practical: what is being recorded, by whom, for
+  what, and a contact. Cheap, and it converts an awkward conversation into a pointed finger.
+- **Prefer campus over public roads.** Not only for permission — you can return to the same fixed
+  position repeatedly, which is what makes a corpus rather than a collection of clips.
+- **Avoid restricted areas entirely.** Defence installations, airports, and some government
+  buildings. Not worth the conversation.
+- **Do not obstruct traffic** or record from anywhere that puts anyone at risk. Elevated, set-back
+  positions give better geometry anyway.
 - **Two people minimum.** One operates, one watches surroundings.
 - **Log every session** as you go: location, GPS, date, start/end time, weather, camera height and
-  angle, device. FR-D01, FR-D02, and FR-D07 all need this, and it cannot be reconstructed later.
+  angle, device. FR-D01, FR-D02, and FR-D07 all need this and it cannot be reconstructed later.
+
+### Anonymisation is not optional
+
+Before **any** release, blur faces and licence plates automatically and commit the script. Raw
+unblurred video never leaves your disk (NFR-13). The datasheet records the method and the residual
+risk. This is a five-line addition to the pipeline and it is the difference between a dataset you can
+publish and one you cannot.
 
 ### Recording spec
 
@@ -326,8 +362,13 @@ reduce to about 15,000 clean, of which 12,000 get annotated.
    (No — separate `pedestrian` only if dismounted.) How much occlusion still counts? (Box it if
    ≥50% visible.) Partial vehicle at frame edge? (Box it.) Undocumented conventions produce a dataset
    that disagrees with itself.
-6. **Track frames/day per person weekly** (PRD R2). At 400/day/person, four people reach 12,000 in
-   about 8 working days. If Week 6's velocity implies missing Week 8, escalate then — not in Week 7.
+6. **Measure your own velocity in Week 2, before planning around anyone's estimate.** Annotate a
+   **50-frame pilot** — 25 peak, 25 off-peak — and time it. A peak-hour Indian intersection frame
+   carries roughly **20–60 objects**, so realistic throughput is far below the 400 frames/day/person
+   an earlier draft of this manual assumed; that figure was wrong by roughly 3× and is withdrawn
+   ([FEASIBILITY-AUDIT §3.1](../00-planning/FEASIBILITY-AUDIT.md)). Commit the measurement — one hour
+   of work replaces the largest guess in the project. Then track frames/day weekly (PRD R2) and
+   escalate the moment the trend misses the deadline, not the week before it.
 7. Augment: flip, brightness, blur, mosaic (§12.1 step 6). **Augment the training split only** —
    augmenting val or test inflates your metrics and invalidates M2.
 8. Split 70/15/15, stratified (FR-D05).
