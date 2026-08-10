@@ -37,6 +37,7 @@ changed, and the answer should be a document rather than a recollection.
 | [DATASETS](00-planning/DATASETS.md) | 1.1 | Active | R1 | 2026-08-08 | §1.5 legal analysis and curate-then-collect added |
 | [RELATED-WORK](00-planning/RELATED-WORK.md) | 1.0 | Active | R2 | 2026-08-08 | New |
 | [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | 1.0 | Active | All | 2026-08-08 | New. Governs scope decisions |
+| [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Awaiting submission** | Team lead | 2026-08-08 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
 
 ## Decisions
 
@@ -71,6 +72,26 @@ changed, and the answer should be a document rather than a recollection.
 | STP · STD · UAT | Scheduled | All | Week 11 |
 | STR | Scheduled | All | Week 16 |
 | TIM · SOP | Scheduled | R4 | Week 16 |
+
+## Plans
+
+| Document | Ver | Status | Owner | Checked | Notes |
+|---|---|---|---|---|---|
+| [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | 1.0 | Active | R1 | 2026-08-08 | WI-01..WI-19, Weeks 2–9. Derived from the corpus HLD |
+
+## Repository scaffolding
+
+Not documentation, but part of the pre-implementation deliverable and checked in the same pass.
+
+| Artifact | Status | Notes |
+|---|---|---|
+| `requirements.txt` | Active | Pinned (NFR-08). PyTorch installs separately from the CUDA index |
+| `.env.example` | Active | Copy to `.env`; `.env` is gitignored |
+| `scripts/seed.py` | Active | NFR-07. Includes DataLoader worker seeding, which is the hole people leave open |
+| `scripts/check_env.py` | Active | Pre-flight. **Catches the Python 3.13+ / torch incompatibility** that otherwise presents as a confusing pip error |
+| `scripts/check_docs.py` | Active | Link check · withdrawn-claim guard · ADR registration |
+| `.github/workflows/docs.yml` | Active | Runs `check_docs.py` on any markdown change |
+| Directory skeleton (PRD §22.3) | Active | Created and committed |
 
 ## Manual and templates
 
@@ -115,4 +136,8 @@ Run at each wave gate and after any ADR is accepted.
 - [ ] Superseded documents are in `99-archive/` with a supersession header
 - [ ] Withdrawn claims table covers anything corrected since the last reconciliation
 - [ ] [RTM](01-requirements/RTM.md) counts match the requirement documents
-- [ ] All relative links resolve (`python -c` link check, or the CI job once it exists)
+- [ ] `python scripts/check_docs.py` exits 0 — links resolve, no withdrawn claim resurrected, every
+      ADR registered. This also runs in CI on any markdown change
+
+> The checker handles the mechanical half. The half that needs judgement — *does this document still
+> say the right thing* — is this reconciliation pass. Do not let a green CI substitute for reading.

@@ -1,0 +1,24 @@
+name: docs
+
+# The suite drifted once already: ADRs 005-008 changed the plan while the SOW,
+# FRD and Execution Manual still described the superseded approach. This job
+# catches the mechanical half of that class of problem so reviewers can spend
+# their attention on the half that needs judgement.
+
+on:
+  push:
+    paths: ['**.md', '.github/workflows/docs.yml', 'scripts/check_docs.py']
+  pull_request:
+    paths: ['**.md', '.github/workflows/docs.yml', 'scripts/check_docs.py']
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check links and withdrawn claims
+        run: python scripts/check_docs.py

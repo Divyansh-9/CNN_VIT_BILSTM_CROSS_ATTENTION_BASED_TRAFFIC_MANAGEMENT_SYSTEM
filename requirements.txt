@@ -1,0 +1,60 @@
+# MFSTNet — pinned dependencies (NFR-08: clean-machine reproduction)
+#
+# Versions are PINNED, not ranged. A range that resolves differently in
+# November than it did in August breaks reproducibility silently.
+#
+# PyTorch must be installed FIRST, from the CUDA index, or pip will pull
+# the CPU-only wheel:
+#
+#   pip install torch==2.3.1 torchvision==0.18.1 \
+#       --index-url https://download.pytorch.org/whl/cu121
+#   pip install -r requirements.txt
+#
+# Verify:  python -c "import torch; print(torch.cuda.is_available())"
+#
+# When anyone adds a dependency, they add the pinned line in the SAME commit.
+
+# ---- core ----
+torch==2.3.1
+torchvision==0.18.1
+timm==1.0.7                 # DINOv2 ViT-S/14 and ConvNeXt (ADR-007)
+numpy==1.26.4
+pandas==2.2.2
+pyarrow==16.1.0             # Parquet for counts/sequences (ADR-008)
+scipy==1.13.1               # paired t-test, bootstrap CI (FR-R07, FR-R08)
+scikit-learn==1.5.0         # macro F1, per-class P/R (FR-M11)
+
+# ---- detection ----
+ultralytics==8.2.0
+opencv-python==4.10.0.84
+shapely==2.0.4              # lane ROI polygon containment (corpus HLD D2)
+
+# ---- reinforcement learning ----
+stable-baselines3==2.3.2
+gymnasium==0.29.1
+eclipse-sumo==1.19.0
+traci==1.19.0
+sumolib==1.19.0
+
+# ---- export / serving ----
+onnx==1.16.1
+onnxruntime==1.18.0         # INT8 dynamic quantisation at export (ADR-007)
+fastapi==0.111.0
+uvicorn==0.30.1
+paho-mqtt==2.1.0
+
+# ---- experiment tracking ----
+tensorboard==2.17.0
+mlflow==2.14.1
+
+# ---- utilities ----
+pyyaml==6.0.1               # configs (NFR-16)
+tqdm==4.66.4
+python-dotenv==1.0.1
+
+# ---- tests ----
+pytest==8.2.2
+pytest-cov==5.0.0
+
+# ---- optional, add when the experiment is scheduled ----
+# peft==0.11.1              # LoRA experiment, Week 15 (ADR-007 §3)

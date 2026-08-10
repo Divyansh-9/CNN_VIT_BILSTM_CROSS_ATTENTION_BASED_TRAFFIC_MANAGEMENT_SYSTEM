@@ -59,14 +59,7 @@ git clone <repo-url>
 cd major-project
 ```
 
-Create the directory skeleton from PRD §22.3:
-
-```bash
-mkdir -p indiatrafficnet detection \
-         mfstnet/{encoders,fusion,temporal,heads,configs} \
-         simulation/{configs,envs} server dashboard edge \
-         experiments/results models notebooks scripts tests
-```
+The directory skeleton from PRD §22.3 is already created and committed.
 
 **Branching.** `main` stays working at all times. One branch per work item:
 
@@ -81,79 +74,83 @@ the most expensive mistake available.
 
 ## 0.3 Python environment
 
-Python 3.10+. From the repo root:
+### Run the pre-flight check first
 
 ```bash
-python -m venv .venv
-# Windows PowerShell:
-.\.venv\Scripts\Activate.ps1
-# macOS/Linux:
-source .venv/bin/activate
+python scripts/check_env.py
+```
 
-pip install --upgrade pip
+It validates Python version, Git LFS, free disk, CUDA, and installed packages, and exits non-zero
+with an explanation if anything blocks you. It uses only the standard library, so it runs on a bare
+interpreter before anything is installed.
+
+> ### ⚠ Python 3.13+ will not work
+>
+> **Use Python 3.11** (3.10–3.12 all work). PyTorch 2.3.1 publishes no wheels above 3.12, so a newer
+> interpreter fails with `No matching distribution found for torch==2.3.1` — which looks like a
+> network problem and is not.
+>
+> This machine currently has **Python 3.14.4** as the system interpreter. Install 3.11 alongside it
+> (both can coexist) from python.org, then build the venv explicitly with it:
+>
+> ```powershell
+> py -3.11 -m venv .venv
+> ```
+
+### Create the environment
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1          # macOS/Linux: source .venv/bin/activate
+python -m pip install --upgrade pip
+
+# PyTorch FIRST, from the CUDA index — otherwise pip installs the CPU-only wheel
+pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
+
+python scripts/check_env.py            # should now report no blockers
 ```
 
-Initial `requirements.txt` — **pin versions** (NFR-08 requires clean-machine reproduction, and
-unpinned ranges break that within weeks):
+[`requirements.txt`](../../requirements.txt) is committed with **pinned** versions — NFR-08 requires
+clean-machine reproduction, and unpinned ranges break that within weeks. Whenever anyone adds a
+dependency, they add the pinned line in the same commit.
 
-```
-torch==2.3.1
-torchvision==0.18.1
-timm==1.0.7
-ultralytics==8.2.0
-stable-baselines3==2.3.2
-gymnasium==0.29.1
-onnx==1.16.1
-onnxruntime==1.18.0
-opencv-python==4.10.0.84
-numpy==1.26.4
-pandas==2.2.2
-scipy==1.13.1
-scikit-learn==1.5.0
-matplotlib==3.9.0
-pyyaml==6.0.1
-tensorboard==2.17.0
-mlflow==2.14.1
-paho-mqtt==2.1.0
-fastapi==0.111.0
-uvicorn==0.30.1
-tqdm==4.66.4
-pytest==8.2.2
-```
+Copy [`.env.example`](../../.env.example) to `.env` and fill it in. `.env` is gitignored and must
+never be committed.
 
-Add `traci` and `sumolib` after installing SUMO (Part 4). Whenever anyone adds a dependency, they
-add the pinned line in the same commit.
+## 0.4 The seeding utility
 
-## 0.4 The seeding utility — write this before anything else
-
-NFR-07 is Critical, and it cannot be retrofitted: seeds not set during a run cannot be recovered
-afterwards. `scripts/seed.py`:
+Already committed: [`scripts/seed.py`](../../scripts/seed.py). **Call `set_seed()` before building
+any model.** NFR-07 is Critical and cannot be retrofitted — seeds not set during a run cannot be
+recovered afterwards.
 
 ```python
-import os, random
-import numpy as np
-import torch
+from scripts.seed import set_seed, seed_worker, make_generator
 
-def set_seed(seed: int = 42) -> None:
-    """Seed every RNG the project touches. Call before building any model."""
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+set_seed(42)
+loader = DataLoader(ds, worker_init_fn=seed_worker, generator=make_generator())
 ```
 
-For Stable-Baselines3, also pass `seed=42` to the model constructor and call `env.reset(seed=42)`.
+Two holes people leave open:
 
-**Verify it works** (TC-N07) before trusting it:
+- **DataLoader workers.** Without `worker_init_fn`, each worker gets a different torch seed and any
+  shuffling or augmentation inside the dataset becomes non-reproducible. `seed_worker` closes it.
+- **Stable-Baselines3.** It seeds through its own API, not through `torch.manual_seed`. Both
+  `PPO(..., seed=42)` **and** `env.reset(seed=42)` are required (FR-R01).
+
+Smoke-test the module itself:
+
+```bash
+python scripts/seed.py     # run twice — all three printed lines must be identical
+```
+
+Then verify end-to-end once a training script exists (TC-N07):
 
 ```bash
 python scripts/train_mfstnet.py --config mfstnet/configs/smoke.yaml --epochs 1
 python scripts/train_mfstnet.py --config mfstnet/configs/smoke.yaml --epochs 1
-# Epoch-1 loss must match to 1e-6. If it does not, seeding is incomplete.
+# Epoch-1 loss must match to 1e-6. If it does not, find the unseeded source —
+# do not lower the tolerance.
 ```
 
 ## 0.5 Roles
@@ -165,10 +162,14 @@ deliverable needs one owner and one backup. "We'll all do it" is how a deliverab
 
 - [ ] All accounts created; **IDD registration submitted**
 - [ ] Repo cloned by everyone; LFS working (`git lfs env` runs clean)
-- [ ] `requirements.txt` installs on every member's machine
-- [ ] `set_seed` written and its determinism verified
+- [ ] **Python 3.11 installed** — not 3.13/3.14 (§0.3)
+- [ ] `python scripts/check_env.py` reports **no blockers** on every member's machine
+- [ ] `python scripts/seed.py` gives identical output on two consecutive runs
+- [ ] `.env` created from `.env.example`
 - [ ] SOW §3 names and §5 dates filled in and committed
 - [ ] Faculty guide has seen SOW + BRD and agreed the milestone dates
+- [ ] **[Scope variation request](../00-planning/SCOPE-VARIATION-REQUEST.md) submitted** — ADR-006
+      and ADR-008 block the plan until decided
 
 ---
 
@@ -577,27 +578,45 @@ training script is a bug waiting for Week 13.
 # mfstnet/configs/config_G_full.yaml
 run_name: G_full
 seed: 42
+
+backbones:                       # ADR-007 — swappable; one feature cache per combination
+  cnn: resnet50                  # resnet50 | convnext_tiny
+  vit: dinov2_vits14             # dinov2_vits14 (default) | vit_small_patch16_224 (arm BB-1)
+  frozen: true                   # LoRA / full fine-tune are separate Week-15 experiments
+
 model:
   d_model: 256
   use_cnn: true
   use_vit: true
-  fusion: bidirectional      # none | concat | unidirectional | bidirectional
-  use_gate: true             # Phase 2
+  fusion: bidirectional          # none | concat | unidirectional | bidirectional
+  use_gate: true                 # Phase 2
   bilstm: {hidden: 128, layers: 2, bidirectional: true}
-  use_temporal_attn: true    # Phase 2
+  use_temporal_attn: true        # Phase 2
   temporal_attn: {layers: 2, heads: 4, d_ff: 512, dropout: 0.1}
-  pooling: attention         # last | attention
+  temporal_pooling: attention    # last | attention
+  lane_pooling: roi              # roi (PRD A8) | global — 'global' reproduces the
+                                 # original spec and yields 4 IDENTICAL lane predictions;
+                                 # kept only so the defect is demonstrable in the paper
+
 train:
   epochs: 100
-  batch_size: 32
+  batch_size: 32                 # cached features; use 4 + accum 8 uncached
   lr: 1.0e-4
   weight_decay: 1.0e-4
   optimizer: AdamW
   scheduler: CosineAnnealingLR
   patience: 15
-  freeze_backbone: true
-  unfreeze_epoch: 30
+  precision: bf16                # ADR-007 §4
+  loss: cross_entropy            # cross_entropy | focal
+
+data:
+  corpus: data/sequences/production_v1
+  feature_cache: data/cache/resnet50_dinov2_224
 ```
+
+No numeric literal in a training script may duplicate a value from this file (NFR-16). Token counts
+come from the backbone config too — DINOv2's patch-14 gives 257 tokens, not 197, and anything that
+hardcodes 197 breaks silently when you switch arms.
 
 The seven ablation configs (PRD §14.4) differ **only** in the `model` block:
 

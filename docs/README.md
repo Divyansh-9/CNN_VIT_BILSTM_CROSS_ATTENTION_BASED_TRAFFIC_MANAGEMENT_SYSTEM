@@ -93,3 +93,13 @@ PRD-CHANGELOG rather than working around it.
 **Every latency figure states its measurement host** (NFR §2.2, ADR-003).
 
 **Negative results are reported and analysed, never dropped** (BR-19, PRD §2.5.5).
+
+## Plans and scaffolding
+
+| | |
+|---|---|
+| [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | WI-01..WI-19, Weeks 2–9. The first build sequence |
+| [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | One page for the faculty guide. **Submit Week 1–2** |
+
+Run `python scripts/check_env.py` before setup and `python scripts/check_docs.py` before any
+documentation commit. Both are standard-library only; the second also runs in CI.
