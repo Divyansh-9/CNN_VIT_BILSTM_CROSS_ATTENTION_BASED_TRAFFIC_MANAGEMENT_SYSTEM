@@ -229,9 +229,17 @@ Each under an hour. Each replaces the project's largest guesses with numbers. Co
 | 1 | **Annotation pilot** — 50 frames timed, 25 peak / 25 off-peak | The frames/day estimate | The largest single line item in the project is currently a guess. [FEASIBILITY-AUDIT §3.1](../00-planning/FEASIBILITY-AUDIT.md) |
 | 2 | **Count distribution** — run COCO YOLO over any fixed-camera intersection video, histogram per-lane counts | Faith in the LOW/MED/HIGH thresholds | If >15 never occurs, the HIGH class is degenerate and macro F1 ≥0.80 is unreachable. Find this out **before** building a corpus around it (PRD pending item P1) |
 | 3 | **Feature cache sizing** — cache 100 frames, measure bytes | ADR-005's ~350 KB/frame estimate | Determines whether the corpus fits on disk |
+| 4 | **Persistence rate** — over the same footage, compute `label(t+355s) == label(t+295s)` for every window; report the transition rate | Faith that the task is learnable at all | **If ~90% of windows do not transition, the Naive last-value baseline is near the ceiling and no model can be ranked** (PRD A17). Below 5% transitions, the horizon or class boundaries must change *before* the corpus is built |
 
-Measurement 2 is the highest-value hour in the semester. A degenerate class discovered in Week 12
-costs the ablation; discovered in Week 2 it costs a threshold edit.
+Measurements 2 and 4 are the highest-value hours in the semester, and they use the same footage and
+the same detector run — do them together. Measurement 2 catches a degenerate *class*; measurement 4
+catches a degenerate *task*. Either one discovered in Week 12 costs the ablation; discovered in
+Week 2 each costs an edit.
+
+> **Reading measurement 4.** Persistence is expected and fine — traffic is autocorrelated. The
+> question is whether enough windows transition to discriminate between models. Report the number
+> whatever it is; if it is high, transition-window recall becomes the headline metric (PRD §14.5) and
+> the paper says so plainly rather than hiding behind an aggregate that every method ties on.
 
 ---
 
@@ -336,7 +344,7 @@ publish and one you cannot.
 | Angle | Fixed, downward. **Do not pan or zoom** | A moving camera breaks lane ROIs and makes counts meaningless |
 | Framing | All four approaches visible, or one approach fully | Partial approaches produce ambiguous counts |
 | Resolution | 1080p @ 30 fps | Sufficient; higher wastes storage |
-| Continuity | **Keep ≥5-minute unbroken clips** | Part 3's corpus needs them (PRD §8.6). Clipped highlights are useless for sequences |
+| Continuity | **Unbroken sessions of ≥6 min — aim for 30+ min** | One MFSTNet sample needs **355 s** (295 s observed + 60 s horizon). A 6-min clip yields exactly **one** sequence; 12 min yields 13; a continuous hour yields ~109. **A 5-minute clip yields zero.** See PRD §8.6 |
 
 > The continuity requirement is the one teams forget. A phone that stops and restarts recording every
 > two minutes gives you a good detection dataset and **no** MFSTNet corpus at all.
@@ -390,9 +398,11 @@ basis for public release. Any venue with an ethics statement will ask.
 This is the bridge from detection to prediction, and it is the step the original PRD was missing.
 
 ```
-5-min clip → every 5s: frame → 224×224            → X [60, 3, 224, 224]
-          → every frame: YOLOv8 → per-lane counts
-          → count at t+60s → §14.1 thresholds     → Y [4] ∈ {0,1,2}
+session ≥6 min → every 5s from t0: frame → 224×224   → X [60, 3, 224, 224]
+                 (60 frames spanning t0 … t0+295s)
+              → every frame: YOLOv8 → per-lane counts
+              → count at t0+355s → §14.1 thresholds   → Y [4] ∈ {0,1,2}
+                (60s AFTER the last observed frame — NOT t0+60s)
 ```
 
 ```python
@@ -407,8 +417,11 @@ def label_from_count(n: int) -> int:
 #   1. run YOLOv8 over every frame, accumulate per-lane counts by ROI
 #   2. smooth counts over a 3-frame window (single-frame counts are noisy)
 #   3. for each window start t (stride 30s):
-#        X = frames at t, t+5, ..., t+295   (60 frames)
-#        Y = [label_from_count(count[lane][t+60]) for lane in "NSEW"]
+#        X = frames at t, t+5, ..., t+295          (60 frames, last observed = t+295)
+#        Y = [label_from_count(count[lane][t+355]) for lane in "NSEW"]
+#            355 = 295 + 60. Using t+60 here would put the label INSIDE the
+#            observation window -- the model reads an answer it already has.
+#            Unit-test this boundary; it is invisible in a loss curve.
 #   4. record the source clip id alongside every sequence
 ```
 
@@ -692,7 +705,7 @@ model.save("models/ppo_intersection")
 
 ## 4.3 The state vector is a contract
 
-PRD §13.1 — 17 dimensions, in this exact order:
+PRD §13.1 — **16 dimensions** (A16 removed `mfst_gate_mean`; see [ADR-009](../00-planning/decisions/ADR-009-ppo-forecast-surrogate.md)), in this exact order:
 
 ```python
 state = np.array([
@@ -701,14 +714,16 @@ state = np.array([
     phase_NS, phase_EW,                                       #  8-9
     phase_remaining/90,                                       # 10
     mfst_pred_N/2, mfst_pred_S/2, mfst_pred_E/2, mfst_pred_W/2,  # 11-14
-    mfst_gate_mean,                                           # 15
-    emergency_flag,                                           # 16
+    emergency_flag,                                           # 15
 ])
 ```
 
 **Changing this shape or these normalisations invalidates every trained PPO checkpoint** (FR-M14).
-If MFSTNet is unavailable, zero indices 11–15 — do not shorten the vector. If Phase 2 is never
-reached and there is no gate, fix index 15 at 0.5 and document it. The dimensionality must not move.
+If MFSTNet is unavailable, **zero indices 11–14** — do not shorten the vector. The dimensionality
+must not move once the first checkpoint exists.
+
+During SUMO training these four fields come from a **noise-calibrated surrogate**, not from MFSTNet —
+SUMO has no camera. Train three arms (P-none / P-real / P-oracle) and report all three; see ADR-009.
 
 Watch the divisors. `count/50` and `queue/200` were chosen before real data existed. If Week 9
 calibration shows real counts exceeding 50, the state saturates at 1.0 and the agent goes blind

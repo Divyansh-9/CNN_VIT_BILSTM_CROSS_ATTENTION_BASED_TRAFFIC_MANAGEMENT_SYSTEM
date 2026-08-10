@@ -140,6 +140,37 @@ a scope variation.
 | A13 ⛔blocked | §12, FR-D01..D07, M1 | Redefine Novel Contribution 1 as curate-then-collect: a harmonised benchmark plus a 1,500–3,000 frame campus set, replacing the 12,000-frame public-road campaign | [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) | **Yes** |
 | A14 ⛔blocked | §11, §16, FR-UI*, NFR-06, NFR-12 | Prototype descoping — SQLite+Parquet, 2 dashboard pages, shared password, 1-hour uptime test | [ADR-008](decisions/ADR-008-prototype-descoping.md) | **Yes** |
 
+---
+
+## v1.2 continued — 2026-08-10
+
+Arising from an external technical review that found a **fatal mechanical bug** and two threats to
+headline claims. All applied.
+
+| # | Section | Change | Severity |
+|---|---|---|---|
+| A15 ✅ | §8.6 | **Window arithmetic corrected.** The label was placed at `t+60s`, which is *inside* the 295 s observation window — the model would read a frame it had already seen. Correct target is `t_end + 60 = t0 + 355 s`. Consequently the minimum clip is **6 min, not 5**; at 5 min the HLD's skip rule discards the entire corpus | **Fatal** |
+| A16 ✅ | §13.1 | PPO state **17 → 16 dims**; `mfst_gate_mean` removed (no SUMO analogue — a dead input). Forecast fields sourced from a noise-calibrated surrogate; three policy arms. [ADR-009](decisions/ADR-009-ppo-forecast-surrogate.md) | High |
+| A17 ✅ | §14.5 | **Transition-window recall becomes the headline metric**; persistence rate reported for every corpus. A 60 s horizon over 3 coarse classes is highly persistent, so Naive last-value may sit near the ceiling and no model could be ranked | High |
+| A18 ✅ | §8.6 | Human verification **stratified by density**; test-split density bands re-derived from **human** counts, not the detector's. Closes the residual circularity in claim C5 | Medium |
+| A19 ✅ | §14.5 | **Cluster bootstrap** — resample source clips, not sequences. Sequences from one clip share up to 54 of 60 frames; resampling them overstates precision. Report effective *n* | Medium |
+| A20 ✅ | §14.5 | Gate-entropy regularisation contaminates claim C2. **Report both arms** — regularised and not | Medium |
+| A21 ✅ | §14.3 | §14.3 declared the **single authoritative baseline list**; §3's prose list and §14.4's ablation configs are subordinate | Low |
+
+Also: [ADR-010](decisions/ADR-010-sumo-heterogeneous-traffic.md) adds the SUMO sublane model and
+heterogeneous vTypes, because the default lane-following model does not represent the unstructured
+traffic the paper is about. No PRD section changed; FR-S01/S02 acceptance gains configuration detail.
+
+### Why A15 was missed
+
+The window arithmetic was never done end to end. Each document repeated `T=60 @ 5s` and
+`horizon 60s` correctly in isolation; nobody added 295 + 60 and compared it against "5-minute clips."
+The HLD's golden test was designed to catch horizon **off-by-one** errors — it would not have caught
+a corpus of size zero, because with no sequences there is nothing to test.
+
+**Lesson recorded:** any spec containing two independently-stated durations needs one worked example
+with real numbers. Added to the wave-gate reconciliation checklist.
+
 ## Pending — items to revisit
 
 Not defects, but places where the PRD will need amendment once implementation produces evidence.

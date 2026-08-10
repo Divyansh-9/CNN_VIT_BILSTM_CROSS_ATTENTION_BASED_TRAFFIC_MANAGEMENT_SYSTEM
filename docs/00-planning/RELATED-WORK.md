@@ -92,8 +92,7 @@ deployment context those methods cannot serve. Lead with this framing, not with 
 problem. Your PPO agent is not a contribution on its own, and claiming it as one invites a reviewer
 to point at MPLight.
 
-What *is* new: the state vector includes a **learned visual congestion forecast** (PRD §13.1, indices
-11–15) rather than only instantaneous measurements. Whether anticipation helps is a real question the
+What *is* new: the state vector includes a **learned visual congestion forecast** (PRD §13.1, indices 11–14) rather than only instantaneous measurements. Whether anticipation helps is a real question the
 above works largely do not test, because they consume sensor readings of the present.
 
 ### 2.6 Indian and fixed-camera traffic datasets
@@ -130,9 +129,13 @@ result (BR-19).
 **C3 — A harmonised Indian multi-class benchmark with a fixed-camera subset.**
 Per ADR-006. The taxonomy-mismatch problem across existing sets is real and documented.
 
-**C4 — Anticipatory state for RL signal control.**
-Feeding a learned forecast into the policy state, ablated against the same policy without it. Narrow,
-testable, and not well covered by §2.5.
+**C4 — Anticipatory state for RL signal control, with a forecast-quality sensitivity curve.**
+Three policies — no forecast, noise-calibrated forecast, oracle forecast — answering not only *does
+anticipation help* but *how good must the forecaster be before it helps*
+([ADR-009](decisions/ADR-009-ppo-forecast-surrogate.md)). Narrow, testable, and stronger than the
+single comparison originally planned. Note the SUMO fidelity caveat in
+[ADR-010](decisions/ADR-010-sumo-heterogeneous-traffic.md): control results come from a simulator
+configured for heterogeneous traffic, with the baseline sensitivity to that configuration reported.
 
 **C5 — A density-stratified evaluation.**
 Per the corpus spec §5.3. Reporting where the fusion helps rather than only whether it helps on

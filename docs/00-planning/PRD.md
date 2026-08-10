@@ -607,26 +607,43 @@ MFSTNet consumes sequences of shape `[B, T=60, 3, 224, 224]` labelled with per-l
 t+60s. IndiaTrafficNet (§12) is a *detection* dataset of de-duplicated still frames and cannot supply
 these. The corpus is instead constructed by auto-labelling real video with the fine-tuned detector.
 
+> **v1.2 amendment A15 — window arithmetic corrected.** The original text placed the label at
+> `t+60s`, which lies **inside** the 295-second observation window. That is not forecasting: the
+> model would read a frame it had already observed, validation accuracy would look excellent, and the
+> deployed model would fail. It also made the stated minimum clip length (5 min) shorter than one
+> sample requires, so the HLD's "skip clips shorter than window + horizon" rule would have discarded
+> the entire corpus. Both are corrected below.
+
+**Timing, defined once and normatively:**
+
 ```
-Continuous 5-minute clips (own footage, retained offline only)
+t0                     window start
+t_end  = t0 + 295 s    last OBSERVED frame   (60 frames × 5 s spacing = 59 × 5 = 295 s)
+t_label = t_end + 60 s = t0 + 355 s          prediction target — strictly AFTER t_end
+minimum usable clip    = 355 s ≈ 6 min       (+ one frame margin)
+```
+
+```
+Continuous recording session (own footage, retained offline only)
         │
-        ├─ sample every 5s → 60 frames → resize 224×224  ──────────────→  X  [T=60, 3, 224, 224]
+        ├─ sample every 5s from t0 → 60 frames → resize 224×224 ──────→  X  [T=60, 3, 224, 224]
+        │       covering  t0 … t0+295s
         │
         └─ fine-tuned YOLOv8 counts vehicles per lane per frame
                  │
-                 └─ count at t+60s → §14.1 thresholds ────────────────→  Y  ∈ {0,1,2}⁴
-                          LOW < 5   |   MEDIUM 5–15   |   HIGH > 15
+                 └─ count at t0+355s → §14.1 thresholds ─────────────→  Y  ∈ {0,1,2}⁴
+                     (60 s after the LAST observed frame)   LOW <5 | MED 5–15 | HIGH >15
 ```
 
 | Parameter | Value | Rationale |
 |---|---|---|
-| Clip length | ≥5 min continuous | One sequence spans 5 min; shorter clips yield none |
-| Sequence stride | 30 s | ~110 sequences per hour of footage; overlap is acceptable within a split |
+| **Minimum clip length** | **≥6 min (360 s) continuous** | One sample needs 355 s. **A 5-minute clip yields zero sequences.** Recording protocol must state ≥6 min; ≥30 min preferred |
+| Sequence stride | 30 s | `(D − 355)/30 + 1` sequences from a clip of duration D. One continuous hour → ~109 |
 | Label source | Fine-tuned YOLOv8 counts | Same detector as FR-D08; recorded per experiment |
 | Label rule | §14.1 count thresholds | No new thresholds introduced |
 | Split unit | **Source clip, never sequence** | Overlapping windows in both train and test would leak (§2.5.1) |
 | Split ratio | 60/20/20 (§8.4) | Applied over clips, then sequences inherit their clip's split |
-| Verification subset — *v1.2 A9* | **Test split only: ~150 sequences, plus 25 double-counted** | Was "500 spread across the corpus" — 2,000 manual lane counts (~17 h) producing a number that changed no decision. Concentrating a smaller budget on the test split costs less and buys a **clean evaluation set**, which is what breaks the circularity in §14.5 A11. Train/val stay auto-labelled; the double-count yields inter-rater agreement |
+| Verification subset — *v1.2 A9, A18* | **Test split only: ~150 sequences stratified by density band, plus 25 double-counted.** Test-split density bands are re-derived from the **human** counts, not the detector's | Was "500 spread across the corpus" — 2,000 manual lane counts (~17 h) producing a number that changed no decision. Concentrating a smaller budget on the test split costs less and buys a **clean evaluation set**, which is what breaks the circularity in §14.5 A11. Train/val stay auto-labelled; the double-count yields inter-rater agreement |
 
 **Label noise is a known property of this corpus, not a defect to be hidden.** Detection error
 propagates into ground truth, most severely for under-represented classes (§20 L7). Per-class
@@ -669,7 +686,7 @@ defence in the viva.
 | ID | Requirement | Priority |
 |---|---|---|
 | FR-R01 | System SHALL implement PPO agent using Stable-Baselines3 | Must Have |
-| FR-R02 | State space SHALL include: per-lane vehicle count, queue length, current phase, phase remaining, MFSTNet predictions per lane | Must Have |
+| FR-R02 | State space SHALL be **16-dimensional** per §13.1: per-lane vehicle count, queue length, current phase, phase remaining, MFSTNet prediction per lane, emergency flag — *v1.2 A16* | Must Have |
 | FR-R03 | Action space SHALL be discrete: next phase AND green duration (10/20/30/45/60/90 seconds) | Must Have |
 | FR-R04 | Reward SHALL penalize avg wait, include emergency bonus, penalize starvation (>180s) | Must Have |
 | FR-R05 | Agent SHALL be trained for minimum 500,000 timesteps | Must Have |
@@ -694,7 +711,7 @@ defence in the viva.
 | FR-M11 | Evaluation metrics: Accuracy, Macro F1, Per-class Precision/Recall, Latency | Must Have |
 | FR-M12 | Trained model SHALL be exported in ONNX format | Must Have |
 | FR-M13 | Runtime inference latency SHALL be <=150ms on server CPU | Must Have |
-| FR-M14 | MFSTNet output SHALL be passed as auxiliary input to PPO agent state vector | Must Have |
+| FR-M14 | MFSTNet output SHALL be passed as auxiliary input to the PPO state vector (indices 11–14). During SUMO training a noise-calibrated surrogate stands in — [ADR-009](decisions/ADR-009-ppo-forecast-surrogate.md) — *v1.2 A16* | Must Have |
 
 ### 9.5 Perception Pipeline
 
@@ -867,19 +884,42 @@ Part 2, and unmapped source classes train as background until the Week 8 swap.
 
 ### 13.1 RL Agent Formulation
 
-**State Space (17 dimensions):**
+**State Space (16 dimensions)** — *v1.2 amendment A16, [ADR-009](decisions/ADR-009-ppo-forecast-surrogate.md)*
 
 ```python
 state = np.array([
-    count_N / 50, count_S / 50, count_E / 50, count_W / 50,
-    queue_N / 200, queue_S / 200, queue_E / 200, queue_W / 200,
-    phase_NS, phase_EW,
-    phase_remaining / 90,
-    mfst_pred_N / 2, mfst_pred_S / 2, mfst_pred_E / 2, mfst_pred_W / 2,
-    mfst_gate_mean,
-    emergency_flag,
+    count_N / 50, count_S / 50, count_E / 50, count_W / 50,   #  0-3
+    queue_N / 200, queue_S / 200, queue_E / 200, queue_W / 200,  #  4-7
+    phase_NS, phase_EW,                                        #  8-9
+    phase_remaining / 90,                                      # 10
+    mfst_pred_N / 2, mfst_pred_S / 2, mfst_pred_E / 2, mfst_pred_W / 2,  # 11-14
+    emergency_flag,                                            # 15
 ])
 ```
+
+> **A16 — `mfst_gate_mean` removed; 17 → 16 dimensions.** The gate is a property of visual fusion and
+> has **no analogue in SUMO**, so it would be constant throughout the 500K training steps — a dead
+> input that consumes parameters and receives no gradient. Removing it is free now because no PPO
+> checkpoint exists; it stops being free the moment one is written. The gate remains a research
+> artifact (FR-M04), a logged output, and a dashboard feature (FR-UI05) — it is simply not policy
+> input.
+>
+> **Contract rule (unchanged in spirit):** if MFSTNet is unavailable at inference, **zero indices
+> 11–14**. Never shorten the vector.
+
+> **A16 — where the forecast comes from during training.** The PRD previously specified these fields
+> without saying what produces them while PPO trains inside SUMO, which has no camera. Per ADR-009
+> they are produced by an **oracle corrupted by MFSTNet's measured confusion matrix** (from the
+> human-verified test split), and three policies are trained and benchmarked:
+>
+> | Arm | Indices 11–14 | Answers |
+> |---|---|---|
+> | P-none | zeroed | Does forecast information help at all? (also the FR-A06 degraded-mode result) |
+> | P-real | noise-calibrated surrogate | What is the realistic benefit? |
+> | P-oracle | SUMO ground truth | The ceiling, and how steeply benefit depends on forecast quality |
+>
+> **Scheduling dependency:** P-real needs MFSTNet's confusion matrix, so M7's final runs now depend
+> on M5. Develop against P-oracle for M6.
 
 **Action Space:** 12 discrete actions (NS/EW x 6 green durations: 10/20/30/45/60/90s)
 
@@ -946,6 +986,11 @@ Predict: Y in {0,1,2}^4   Congestion per lane, 60 seconds ahead
 
 ### 14.3 Baseline Comparison Models
 
+> **v1.2 amendment A21 — this table is the single authoritative baseline list.** §3 previously listed
+> a different set ("CNN-only LSTM, ViT-only LSTM, vanilla LSTM, GRU, CongestFormer") and §14.4's
+> ablation configs A–G overlap both. Where they disagree, **this table governs**; §3 is prose and
+> §14.4 is an ablation of *this work*, not a baseline list. The RTM pins the mapping.
+
 | Model | Architecture | What it isolates |
 |---|---|---|
 | **MFSTNet (full)** | CNN+ViT+GatedCrossAttn+BiLSTM+TempAttn | This work |
@@ -980,6 +1025,40 @@ Predict: Y in {0,1,2}^4   Congestion per lane, 60 seconds ahead
 | Per-class Precision/Recall | Critical for HIGH class |
 | Inference Latency | ms per prediction batch on server CPU (ONNX), **with measurement host stated** |
 | **Density-stratified macro F1** — *v1.2 A10* | Macro F1 reported separately per density band (low / medium / high), alongside the aggregate |
+| **Transition-window recall** — *v1.2 A17* | **The headline metric.** Recall on windows where the label at t_label differs from the label at t_end |
+| Persistence rate | % of windows where label(t_label) == label(t_end). Reported for every corpus |
+
+> **v1.2 amendment A17 — persistence degeneracy.** Congestion over a 60 s horizon with three coarse
+> classes is highly persistent: for most windows the answer at t+60 s is simply the answer now. If
+> that rate is ~90%, the Naive last-value baseline (§14.3) sits near the ceiling, every model ties on
+> aggregate accuracy, and the benchmark cannot rank anything. **All the signal lives in transition
+> windows.**
+>
+> Therefore: measure the persistence rate on pilot footage **before building the corpus** (Execution
+> Manual §1.2 measurement 4), report it for every corpus, and make **transition-window recall** the
+> headline metric with aggregate macro F1 reported alongside. If the transition rate is below 5%,
+> the task as specified is degenerate and the horizon or the class boundaries must be revisited
+> **before** M4 — this is a corpus-design decision, not a results-interpretation one.
+>
+> Do **not** oversample transitions in the test split — that changes the operating distribution.
+> Report stratified by transition/persistence instead.
+
+> **v1.2 amendment A19 — the bootstrap resample unit.** Sequences drawn from one recording session
+> overlap by up to 54 of their 60 frames and are strongly correlated. Resampling *sequences* treats
+> them as independent and overstates precision, producing confidence intervals far too narrow.
+>
+> **Resample source clips, not sequences** (cluster bootstrap). Effective independent *n* is the
+> number of source sessions in the split — likely 30–50, not thousands. Report *n* alongside every
+> interval. FR-R07's bootstrap over 30 RL seeds is unaffected: those seeds are genuinely independent.
+
+> **v1.2 amendment A20 — gate regularisation contaminates claim C2.** PRD §2.5.1 prescribes adding
+> gate-entropy regularisation if the gate collapses. But C2 claims the gate is an *emergent*
+> interpretable artifact. A gate regularised into non-collapse is not evidence of emergence, and a
+> reviewer will say so.
+>
+> Report **both arms**: gate without regularisation (whatever it does, including collapse) and gate
+> with regularisation. A collapsed gate is a publishable negative result about the mechanism
+> (BR-19); a silently regularised one is a finding that does not survive scrutiny.
 
 > **v1.2 amendment A10 — why stratify.** §14.2's hypothesis is that CNN and ViT complement each other
 > *in dense chaotic traffic*. In sparse traffic counts are easy and every method should tie. A single

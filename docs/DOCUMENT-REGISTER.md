@@ -1,6 +1,6 @@
 # Document Register
 
-Document control for the MFSTNet SDLC suite. **Last reconciled: 2026-08-08.**
+Document control for the MFSTNet SDLC suite. **Last reconciled: 2026-08-10.**
 
 Every document, its version, status, owner, and when it was last checked against the decisions in
 force. This register exists because the suite drifted once already: ADRs 005–008 changed the plan
@@ -30,13 +30,13 @@ changed, and the answer should be a document rather than a recollection.
 
 | Document | Ver | Status | Owner | Checked | Notes |
 |---|---|---|---|---|---|
-| [SOW](00-planning/SOW.md) | 1.1 | Active | All | 2026-08-08 | §2.4 capacity baseline added; R16–R20 added; D-02/M1 flagged conditional |
+| [SOW](00-planning/SOW.md) | 1.2 | Active | All | 2026-08-10 | §2.4 capacity baseline; risks R16–R24; D-02/M1 flagged conditional |
 | [BRD](00-planning/BRD.md) | 1.0 | Active | All | 2026-08-08 | BO-3 flagged conditional on ADR-006 |
-| [PRD](00-planning/PRD.md) | **1.2** | Active | All | 2026-08-08 | A1–A12 applied. §12 carries a PROPOSED banner for A13 |
-| [PRD-CHANGELOG](00-planning/PRD-CHANGELOG.md) | — | Active | All | 2026-08-08 | A13/A14 marked blocked |
+| [PRD](00-planning/PRD.md) | **1.2** | Active | All | 2026-08-10 | **A1–A12 and A15–A21 applied.** §12 carries a PROPOSED banner for A13 |
+| [PRD-CHANGELOG](00-planning/PRD-CHANGELOG.md) | — | Active | All | 2026-08-10 | A13/A14 blocked; A15–A21 applied; includes the why-A15-was-missed note |
 | [DATASETS](00-planning/DATASETS.md) | 1.1 | Active | R1 | 2026-08-08 | §1.5 legal analysis and curate-then-collect added |
 | [RELATED-WORK](00-planning/RELATED-WORK.md) | 1.0 | Active | R2 | 2026-08-08 | New |
-| [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | 1.0 | Active | All | 2026-08-08 | New. Governs scope decisions |
+| [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | 1.1 | Active | All | 2026-08-10 | Governs scope decisions. Revised total ~890 h after ADR-009/010 |
 | [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Awaiting submission** | Team lead | 2026-08-08 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
 
 ## Decisions
@@ -51,13 +51,15 @@ changed, and the answer should be a document rather than a recollection.
 | [006](00-planning/decisions/ADR-006-curate-then-collect-dataset.md) curate-then-collect | **Proposed** | *Faculty guide — pending* | PRD A13, FR-D01..D07, M1 |
 | [007](00-planning/decisions/ADR-007-backbones-and-training-recipe.md) DINOv2 / bf16 / LoRA | Active | Team | — |
 | [008](00-planning/decisions/ADR-008-prototype-descoping.md) prototype descoping | **Proposed** | *Faculty guide — pending* | PRD A14, FR-UI*, NFR-06, NFR-12, M9, M10 |
+| [009](00-planning/decisions/ADR-009-ppo-forecast-surrogate.md) PPO forecast surrogate, 16-dim state | Active | Team | PRD A16 |
+| [010](00-planning/decisions/ADR-010-sumo-heterogeneous-traffic.md) SUMO sublane + heterogeneous vTypes | Active | Team | FR-S01, FR-S02 |
 
 ## Requirements
 
 | Document | Ver | Status | Owner | Checked | Notes |
 |---|---|---|---|---|---|
-| [SRS](01-requirements/SRS.md) | 1.0 | Active | All | 2026-08-08 | Unaffected by A8–A12 |
-| [FRD](01-requirements/FRD.md) | 1.1 | Active | All | 2026-08-08 | §3 banner for pending A13 |
+| [SRS](01-requirements/SRS.md) | 1.1 | Active | All | 2026-08-10 | §2.1 updated for the 16-dim state (A16) |
+| [FRD](01-requirements/FRD.md) | 1.2 | Active | All | 2026-08-10 | §3 banner for pending A13; FR-R02/FR-M14 updated for A16 |
 | [NFR](01-requirements/NFR.md) | 1.1 | Active | All | 2026-08-08 | §2.2 optimistic-proxy rule; §2.3 quantised-reporting rule |
 | [RTM](01-requirements/RTM.md) | 1.1 | Active | All | 2026-08-08 | §5.4 pending-change impact added |
 
@@ -65,7 +67,7 @@ changed, and the answer should be a document rather than a recollection.
 
 | Document | Status | Owner | Due |
 |---|---|---|---|
-| [HLD — detection & corpus pipeline](02-design/HLD-detection-corpus-pipeline.md) | **Active** | R1 | Delivered early |
+| [HLD — detection & corpus pipeline](02-design/HLD-detection-corpus-pipeline.md) | **Active** (1.1 — A15 window math) | R1 | Delivered early |
 | SAD | Scheduled | All | Week 5 |
 | HLD (remaining subsystems) | Scheduled | Per owner | Week 5 |
 | LLD | Scheduled | Per owner | Week 5 |
@@ -97,7 +99,7 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 
 | Document | Ver | Status | Checked | Notes |
 |---|---|---|---|---|
-| [EXECUTION_MANUAL](90-manual/EXECUTION_MANUAL.md) | 1.1 | Active | 2026-08-08 | Week plan revised; §1.2 Week-2 pilots added; annotation velocity corrected; campus collection SOP |
+| [EXECUTION_MANUAL](90-manual/EXECUTION_MANUAL.md) | 1.2 | Active | 2026-08-10 | Week plan revised; §1.2 Week-2 pilots added; annotation velocity corrected; campus collection SOP |
 | [TRAINING-GUIDE](90-manual/TRAINING-GUIDE.md) | 1.0 | Active | 2026-08-08 | New |
 | [templates/](templates/) | 1.0 | Active | 2026-08-08 | Weekly status · experiment record · risk entry |
 
@@ -122,7 +124,11 @@ rediscovers them in an old draft and acts on them.
 | `unfreeze_epoch: 30` | PRD §8.4 (original) | R4 predicts it fails, and it breaks the feature cache. Replaced by a LoRA experiment — A12 |
 | "500 sequences spot-checked" | PRD §8.6 (original) | ~17 h producing a number that changed no decision. Concentrated on the test split — A9 |
 | Ablation limited to 50 epochs (R6 mitigation) | PRD §19 R6 | No longer needed; feature caching makes the full 100-epoch ablation cheap — A7 |
-| IDD Temporal as a source of MFSTNet sequences | Considered, never adopted | Provides ±15 frames (~1–2 s), not the 5 minutes §8.6 needs — [DATASETS §4](00-planning/DATASETS.md) |
+| IDD Temporal as a source of MFSTNet sequences | Considered, never adopted | Provides ±15 frames (~1–2 s), not the ~6 minutes §8.6 needs — [DATASETS §4](00-planning/DATASETS.md) |
+| Label at `t+60s`; "5-minute clips" | PRD §8.6, ADR-002, manual (original) | **Fatal.** `t+60s` sits inside the 295 s observation window, and 355 s are needed per sample so a 5-min clip yields zero sequences. Corrected by A15 — label at `t0+355s`, minimum clip 6 min |
+| 17-dimensional PPO state with `mfst_gate_mean` | PRD §13.1 (original) | The gate has no SUMO analogue, so it would be a constant dead input during 500K training steps. Removed by A16 — 16 dims |
+| Aggregate macro F1 as the headline metric | PRD §14.5 (original) | Persistence over a 60 s horizon may put Naive near the ceiling. Transition-window recall is the headline metric (A17) |
+| Bootstrap over sequences | Implied by FR-R07 wording | Sequences within a clip are correlated; resample **clips** (A19) |
 
 ---
 
@@ -135,6 +141,9 @@ Run at each wave gate and after any ADR is accepted.
 - [ ] Every **Proposed** ADR has a named approver and a date it was raised
 - [ ] Superseded documents are in `99-archive/` with a supersession header
 - [ ] Withdrawn claims table covers anything corrected since the last reconciliation
+- [ ] **Any spec stating two independent durations has one worked example with real numbers.**
+      Added after A15: the corpus window bug survived because 295 s and 60 s were each stated
+      correctly and never added together
 - [ ] [RTM](01-requirements/RTM.md) counts match the requirement documents
 - [ ] `python scripts/check_docs.py` exits 0 — links resolve, no withdrawn claim resurrected, every
       ADR registered. This also runs in CI on any markdown change

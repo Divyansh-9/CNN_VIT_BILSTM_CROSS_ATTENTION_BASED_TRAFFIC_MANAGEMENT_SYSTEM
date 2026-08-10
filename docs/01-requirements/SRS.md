@@ -80,9 +80,11 @@ Glossary in PRD §24.1. Terms specific to this document:
 ```
 
 **The coupling that spans components:** MFSTNet's output is not only a prediction, it is part of the
-PPO state vector. PRD §13.1's 17-dimensional state includes four per-lane MFSTNet class predictions
-plus `mfst_gate_mean`. Changing MFSTNet's output shape or normalisation invalidates every trained PPO
-checkpoint. Any such change is a coordinated change across S3 and S4, not a local one.
+PPO state vector. PRD §13.1's **16-dimensional** state includes four per-lane MFSTNet class
+predictions at indices 11–14 (A16 removed `mfst_gate_mean`). Changing MFSTNet's output shape or
+normalisation invalidates every trained PPO checkpoint. Any such change is a coordinated change
+across S3 and S4, not a local one. During SUMO training the fields come from a noise-calibrated
+surrogate, not from MFSTNet itself — [ADR-009](../00-planning/decisions/ADR-009-ppo-forecast-surrogate.md).
 
 ### 2.2 Actors
 

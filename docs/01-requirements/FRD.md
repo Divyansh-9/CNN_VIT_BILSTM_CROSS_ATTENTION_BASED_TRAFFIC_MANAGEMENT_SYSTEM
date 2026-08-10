@@ -92,7 +92,7 @@ verify this before running 120 evaluation episodes, not after.
 | ID | Acceptance criterion | Method | TC | Owner | Milestone |
 |---|---|---|---|---|---|
 | FR-R01 | PPO instantiated from Stable-Baselines3 with the exact hyperparameters in PRD §13.1, loaded from `simulation/configs/ppo_config.yaml`, not hardcoded | I | TC-R01 | R3 | M6 |
-| FR-R02 | `observation_space` is `Box(shape=(17,))`; a printed sample matches the field order in PRD §13.1 exactly | T | TC-R02 | R3 | M6 |
+| FR-R02 | `observation_space` is `Box(shape=(16,))` — *v1.2 A16, was 17*; a printed sample matches the field order in PRD §13.1 exactly | T | TC-R02 | R3 | M6 |
 | FR-R03 | `action_space` is `Discrete(12)`; each index maps to one (phase, duration) pair from {NS,EW} × {10,20,30,45,60,90} | T | TC-R03 | R3 | M6 |
 | FR-R04 | Reward implementation reproduces PRD §13.1 exactly. Unit test: a lane held >180s produces a starvation penalty; a cleared emergency produces +10.0 | T | TC-R04 | R3 | M6 |
 | FR-R05 | TensorBoard shows ≥500,000 timesteps; reward curve visibly plateaus over the final 100K | A | TC-R05 | R3 | M6 |
@@ -124,7 +124,7 @@ the same error, disguised.
 | FR-M11 | Per config: accuracy, macro F1, per-class precision/recall, latency. Criterion for M5: **macro F1 ≥ 0.80** on config G (or the best completed config, stated as such) | A | TC-M11 | R2 | M5 |
 | FR-M12 | ONNX export loads in ONNX Runtime and produces outputs matching PyTorch within 1e-4 | T | TC-M12 | R2 | M5 |
 | FR-M13 | Measured ONNX latency ≤150 ms on server CPU, median of 100 runs, measurement host recorded | T | TC-M13 | R2 | M5 |
-| FR-M14 | PPO state vector contains the 4 predictions and `mfst_gate_mean` in the PRD §13.1 positions; an integration test asserts the contract | T | TC-M14 | R2/R3 | M10 |
+| FR-M14 | PPO state vector contains the 4 lane predictions at indices 11–14 in PRD §13.1 order; an integration test asserts the contract. `mfst_gate_mean` is **not** in the state (A16). Zeroing 11–14 when MFSTNet is unavailable is asserted separately | T | TC-M14 | R2/R3 | M10 |
 
 **Ablation-ability is an architectural requirement.** FR-M06, FR-M07, and the config A–G matrix all
 require modules to be switchable by config flag. A module wired in unconditionally cannot be ablated,

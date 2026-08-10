@@ -270,7 +270,9 @@ Three measurements in Week 2, each under an hour, each replacing a guess with a 
 | §5.2 prototype descoping | −140 |
 | §5.3 backbone upgrade | +4 |
 | §5.4 LoRA experiment | +8 |
-| **Revised** | **~870** |
+| ADR-009 three-arm PPO benchmark | +15 |
+| ADR-010 SUMO heterogeneity (sublane + vTypes + sensitivity check) | +20 |
+| **Revised** | **~890** |
 
 Against ~715 realistic hours this is still tight — roughly 1.2× — which is the correct place for a
 final-year project to sit. It means the conditional scope in SOW §2.3 (Phase 2 gating, temporal

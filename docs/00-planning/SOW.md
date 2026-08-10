@@ -215,6 +215,10 @@ The full register is PRD §19 (R1–R10). Risks introduced or altered by the ADR
 | R18 | Congestion thresholds produce a degenerate class on real data | Medium | High | Week-2 count-distribution pilot; S6 distribution gate fails before training; S3/S4 seam makes recalibration a 30-second rebuild (P1) | R1/R2 |
 | R19 | Reviewer identifies the fusion mechanisms as prior art (Conformer, ViLBERT, Flamingo) | **High** | Medium | Narrow the claim per [RELATED-WORK §3](RELATED-WORK.md); cite the precedents in the related-work section rather than being informed of them | R2 |
 | R20 | Feature cache goes stale and silently corrupts results | Low | **High** | `preprocessing_hash` + git commit in the manifest; **assert on load and raise, never warn** | R2 |
+| R21 | **Task is persistence-degenerate** — ~90% of windows do not change class over 60 s, so Naive ties every model | Medium | **High** | Week-2 pilot measurement 4 (Manual §1.2). Transition-window recall becomes the headline metric (PRD A17); below 5% transitions, revisit horizon or class boundaries before M4 | R1/R2 |
+| R22 | **Venue deadline falls outside the project window** | Medium | High | Project ends ~Dec 2026. **Verify IEEE ITSC 2027 and CVIP submission dates in Week 1** and record them in the weekly status. CVIP's annual cycle may close before Week 20; if so, pick the venue that fits and adjust §5 M11 rather than discovering it in Week 19 | Team lead |
+| R23 | Label noise concentrated in the HIGH class, where the claim lives | High | Medium | Occlusion is worst at high density, so the detector undercounts exactly where C5 is evaluated. Stratify human verification by density and re-derive **test** density bands from human counts (PRD A18); report per-stratum label noise rather than one average | R1 |
+| R24 | SUMO models lane-disciplined traffic while the paper is about unstructured traffic | High | **High** | [ADR-010](decisions/ADR-010-sumo-heterogeneous-traffic.md) — sublane model + heterogeneous vTypes + a baseline sensitivity check. Fallback if capacity fails: vTypes only, ~5 h | R3 |
 
 ## 10. Acceptance and sign-off
 

@@ -35,23 +35,32 @@ misattributes to normalization or sequence-ordering bugs. The team would debug t
 Build the corpus from real video, and derive labels mechanically using the count thresholds the PRD
 has already defined.
 
+> **Corrected 2026-08-10 (PRD amendment A15).** This ADR originally said "5-minute clips" and placed
+> the label at `t+60s`. Both were wrong: `t+60s` falls *inside* the observation window, and 355 s are
+> required per sample so a 5-minute clip yields **zero** sequences. Normative timing is PRD §8.6.
+
 ```
-Continuous 5-minute clips (own footage, retained offline)
+Continuous recording sessions, ≥6 min (own footage, retained offline)
         │
-        ├─ sample every 5s → 60 frames per sequence, resized to 224×224   → model input X
+        ├─ sample every 5s from t0 → 60 frames (spanning t0 … t0+295s), resized 224×224  → X
         │
         └─ fine-tuned YOLOv8 (ADR-001) counts vehicles per lane per frame
                  │
-                 └─ count at t+60s → PRD §14.1 thresholds → label Y ∈ {0,1,2}⁴
+                 └─ count at t0+355s → PRD §14.1 thresholds → label Y ∈ {0,1,2}⁴
+                    (60s AFTER the last observed frame)
                         LOW    < 5 vehicles
                         MEDIUM 5–15 vehicles
                         HIGH   > 15 vehicles
 ```
 
-Sequences are generated with a stride (e.g. 30s) over each clip, so one hour of footage yields
-roughly 110 overlapping sequences. Splits are cut **by source clip, never by sequence** — overlapping
-windows from one clip landing in both train and test would leak, and PRD §2.5.1 already flags
-"sequence ordering (no data leakage)" as a thing that goes wrong in Week 11–12.
+A clip of duration D yields `(D − 355)/30 + 1` sequences at a 30 s stride: a 6-minute clip gives 1,
+a 12-minute clip gives 13, one continuous hour gives ~109. **The recording protocol must therefore
+specify continuous sessions, not clips** — this is the operational consequence, and it costs nothing
+if stated before collection begins.
+
+Splits are cut **by source clip, never by sequence** — overlapping windows from one clip landing in
+both train and test would leak, and PRD §2.5.1 already flags "sequence ordering (no data leakage)" as
+a thing that goes wrong in Week 11–12.
 
 The label rule is the PRD's own (§14.1). No new thresholds are invented.
 

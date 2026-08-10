@@ -248,7 +248,7 @@ an **error, not a warning** — a stale cache produces results that look entirel
 | Condition | Behaviour |
 |---|---|
 | Corrupt or missing frame | Drop the whole sequence, log `seq_id` and reason. Never pad |
-| Clip shorter than window + horizon | Skip with reason. Never truncate the window |
+| Clip shorter than **355 s** (295 s window + 60 s horizon) | Skip with reason. Never truncate the window. **Log the count of skipped clips prominently** — if it is 100%, the recording protocol is wrong, not the data (PRD A15) |
 | Detection below confidence floor | Excluded. Floor is configurable and recorded in provenance |
 | Centroid outside every lane polygon | Counted as unassigned; reported as a per-clip rate. A high rate means the polygons are wrong |
 | Centroid inside two polygons | Fail at S0 — polygons are validated non-overlapping at registration |
