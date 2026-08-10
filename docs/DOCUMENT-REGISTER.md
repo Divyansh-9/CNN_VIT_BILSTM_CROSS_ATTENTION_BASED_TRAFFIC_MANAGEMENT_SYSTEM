@@ -37,7 +37,10 @@ changed, and the answer should be a document rather than a recollection.
 | [DATASETS](00-planning/DATASETS.md) | 1.1 | Active | R1 | 2026-08-08 | §1.5 legal analysis and curate-then-collect added |
 | [RELATED-WORK](00-planning/RELATED-WORK.md) | 1.0 | Active | R2 | 2026-08-08 | New |
 | [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | 1.1 | Active | All | 2026-08-10 | Governs scope decisions. Revised total ~890 h after ADR-009/010 |
-| [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Awaiting submission** | Team lead | 2026-08-08 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
+| [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Awaiting submission** | Team lead | 2026-08-10 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
+| [PROCESS-REVIEW](00-planning/PROCESS-REVIEW.md) | 1.0 | Active | All | 2026-08-10 | 17:1 docs-to-code ratio; five ordered actions for this week. **Stop planning after action 3** |
+| [TRIAGE-001](00-planning/triage/TRIAGE-001-mqtt-payload-schema.md) | 1.0 | Open | R4 | 2026-08-10 | Six §17.1 payload defects. Pending item P7 |
+| [TRIAGE-002](00-planning/triage/TRIAGE-002-webster-parameterisation.md) | 1.0 | Open | R3 | 2026-08-10 | Webster baseline unparameterised — threatens FR-R08. Pending item P8 |
 
 ## Decisions
 
@@ -94,6 +97,8 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 | `scripts/check_docs.py` | Active | Link check · withdrawn-claim guard · ADR registration |
 | `.github/workflows/docs.yml` | Active | Runs `check_docs.py` on any markdown change |
 | Directory skeleton (PRD §22.3) | Active | Created and committed |
+| `mfstnet/configs/spec.yaml` | Active | **Single source of truth** for numbers that span documents (NFR-16) |
+| `tests/test_spec_invariants.py` | Active | Asserts cross-document arithmetic. Caught the FR-R04/FR-A03 contradiction (P6) on its first run |
 
 ## Manual and templates
 

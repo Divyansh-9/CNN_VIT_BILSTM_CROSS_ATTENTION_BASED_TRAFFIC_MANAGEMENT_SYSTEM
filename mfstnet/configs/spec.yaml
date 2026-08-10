@@ -1,0 +1,67 @@
+# Cross-cutting specification constants — SINGLE SOURCE OF TRUTH.
+#
+# These numbers appear in several documents and several subsystems. Defining
+# them once and asserting their relationships in tests/test_spec_invariants.py
+# is what stops the class of defect that produced PRD amendment A15: the corpus
+# window arithmetic was stated correctly in three places and never added up.
+#
+# NFR-16: no training or pipeline script may hardcode a value that appears here.
+# When one of these changes, amend the PRD, update this file, and run the tests.
+
+sequence:
+  T: 60                    # PRD §8.2 — timesteps per sample
+  step_s: 5                # PRD §8.2 — spacing between sampled frames
+  horizon_s: 60            # PRD §8.4 — forecast distance BEYOND the last observed frame
+  stride_s: 30             # PRD §8.6 — spacing between successive window starts
+  # Derived, asserted in tests — do not hand-edit:
+  #   window_span_s = (T - 1) * step_s          = 295
+  #   label_offset_s = window_span_s + horizon_s = 355
+  #   min_clip_s     = label_offset_s            = 355  (protocol requires >= 360)
+  min_clip_s: 360          # PRD §8.6 A15 — recording protocol minimum
+
+congestion:                # PRD §14.1 — per-lane vehicle-count thresholds
+  low_max: 4               # LOW  : count <  5
+  med_max: 15              # MED  : 5 <= count <= 15 ; HIGH : count > 15
+  classes: [LOW, MEDIUM, HIGH]   # canonical spelling — see TRIAGE-001 D1
+
+lanes: [N, S, E, W]
+
+ppo_state:                 # PRD §13.1 as amended by A16 (ADR-009)
+  dim: 16
+  index_map:
+    count_N: 0
+    count_S: 1
+    count_E: 2
+    count_W: 3
+    queue_N: 4
+    queue_S: 5
+    queue_E: 6
+    queue_W: 7
+    phase_NS: 8
+    phase_EW: 9
+    phase_remaining: 10
+    mfst_pred_N: 11
+    mfst_pred_S: 12
+    mfst_pred_E: 13
+    mfst_pred_W: 14
+    emergency_flag: 15
+  normalisers:             # PRD §13.1 — revisit at W10, pending item P2
+    count_divisor: 50
+    queue_divisor: 200
+    phase_remaining_divisor: 90
+    mfst_pred_divisor: 2
+  zero_when_mfstnet_unavailable: [11, 12, 13, 14]
+
+signal:                    # PRD §9.6 — enforced by actuation, not learned
+  min_green_s: 10
+  max_green_s: 90
+  all_red_s: 3
+  starvation_s: 180
+  green_durations_s: [10, 20, 30, 45, 60, 90]
+  phases: [NS, EW]
+
+splits:
+  detection: [0.70, 0.15, 0.15]   # FR-D05 — stratified by class
+  mfstnet:   [0.60, 0.20, 0.20]   # PRD §8.4 — cut by SOURCE CLIP, never by sequence
+
+seed: 42                   # NFR-07 — PyTorch, NumPy, SB3
