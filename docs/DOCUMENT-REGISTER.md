@@ -41,6 +41,7 @@ changed, and the answer should be a document rather than a recollection.
 | [PROCESS-REVIEW](00-planning/PROCESS-REVIEW.md) | 1.0 | Active | All | 2026-08-10 | 17:1 docs-to-code ratio; five ordered actions for this week. **Stop planning after action 3** |
 | [TRIAGE-001](00-planning/triage/TRIAGE-001-mqtt-payload-schema.md) | 1.0 | Open | R4 | 2026-08-10 | Six §17.1 payload defects. Pending item P7 |
 | [TRIAGE-002](00-planning/triage/TRIAGE-002-webster-parameterisation.md) | 1.0 | Open | R3 | 2026-08-10 | Webster baseline unparameterised — threatens FR-R08. Pending item P8 |
+| [RESEARCH-001](00-planning/research/RESEARCH-001-webster-parameterisation.md) | 1.0 | **Partial — incomplete** | R3 | 2026-08-10 | Codebase constraints answered; **prior-art half unanswered** (both web angles hit the session limit). Three interim decisions need no further evidence. Re-run at medium after the limit resets |
 
 ## Decisions
 
