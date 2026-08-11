@@ -84,7 +84,7 @@ changed, and the answer should be a document rather than a recollection.
 
 | Document | Ver | Status | Owner | Checked | Notes |
 |---|---|---|---|---|---|
-| [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | 1.0 | Active | R1 | 2026-08-08 | WI-01..WI-19, Weeks 2–9. Derived from the corpus HLD |
+| [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | 1.1 | Active | R1 | 2026-08-10 | WI-01..WI-19. **WI-12/13 done, WI-15 partly**; reordered ahead of the blocked pilots, with the reason recorded |
 
 ## Repository scaffolding
 
@@ -100,7 +100,9 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 | `.github/workflows/docs.yml` | Active | Runs `check_docs.py` on any markdown change |
 | Directory skeleton (PRD §22.3) | Active | Created and committed |
 | `mfstnet/configs/spec.yaml` | Active | **Single source of truth** for numbers that span documents (NFR-16) |
-| `tests/test_spec_invariants.py` | Active | Asserts cross-document arithmetic. Caught the FR-R04/FR-A03 contradiction (P6) on its first run |
+| `tests/test_spec_invariants.py` | Active | Asserts cross-document arithmetic. Its first version encoded a wrong model of lane wait (see withdrawn claims); corrected 2026-08-10 |
+| `mfstnet/corpus/` | Active | **First project code.** Label rule, window timing, clip-level splits. Pure stdlib — no torch, no video, no GPU |
+| `tests/test_corpus.py` | Active | 38 assertions, 6 of them A15 regressions. Runs in milliseconds |
 
 ## Manual and templates
 

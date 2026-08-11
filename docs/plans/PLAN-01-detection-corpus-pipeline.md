@@ -72,6 +72,20 @@ COCO-pretrained and fine-tuned weights.
 
 ---
 
+> ### Progress — 2026-08-10
+>
+> **WI-12, WI-13 and part of WI-15 are done and passing.** `mfstnet/corpus/` implements the label
+> rule, window timing, and clip-level split assignment; `tests/test_corpus.py` covers them with 38
+> assertions including six A15 regressions.
+>
+> **This reorders the plan deliberately.** WI-01..03 are blocked on a Python 3.11 environment and on
+> video that does not exist yet — both human tasks with lead time. The pipeline's *structure* does not
+> depend on those measurements; only its config values do, and those live in `mfstnet/configs/spec.yaml`.
+> Writing the logic first means WI-02 becomes a short run when video arrives rather than a day of
+> coding, and it front-loads the arithmetic that A15 got wrong.
+>
+> Still blocked and unchanged in priority: WI-01, WI-02, WI-03, and everything needing the detector.
+
 ## Phase 2 — Pipeline skeleton (Week 3, dev data)
 
 Build against public fixed-camera video with COCO YOLO. These labels are throwaway — the point is
@@ -92,13 +106,13 @@ Provenance columns mandatory: `detector_weights`, `git_commit`, `config_hash`.
 **Done when:** counts written; **unassigned-detection rate reported per clip** — a high rate means
 the polygons are wrong, and it is the only early signal you get.
 
-### WI-12 · S4 labels + density
+### WI-12 · S4 labels + density — ✅ **done**
 Counts → 3-frame smoothing → §14.1 thresholds → labels; plus `density_band` from mean total count
 over the window. **Separate executable from S3** — this is the seam that makes threshold
 recalibration a 30-second rebuild instead of a re-run of detection.
 **Done when:** labels regenerate from committed counts without touching the detector.
 
-### WI-13 · S5 sequence assembly
+### WI-13 · S5 sequence assembly — ✅ **done**
 Windowing at 30 s stride → manifest with `frame_indices[60]`, four labels, `density_band`, `split`,
 `label_origin`. **Split assigned at clip level.**
 **Done when:** manifest written; no sequence spans two clips.
@@ -108,7 +122,7 @@ Distribution gate (any class <5% → **fail**, print histogram). Leakage assert 
 sets disjoint → **raise at load**). Unassigned-rate report.
 **Done when:** a deliberately-leaked fixture raises; a degenerate-class fixture fails.
 
-### WI-15 · Tests
+### WI-15 · Tests — 🟡 **partly done** (labels, windows, splits covered; ROI and golden clip pending)
 Unit: `label_from_count` at **4/5/15/16** (off-by-one there mislabels a whole class);
 centroid-in-polygon including on-edge; 3-frame smoothing. Golden: synthetic 6-frame clip with
 hand-written counts → known labels. Property: 60 indices per sequence, no index out of range, splits
