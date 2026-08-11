@@ -96,6 +96,25 @@ simulation models heterogeneous non-lane-disciplined traffic, the standard satur
 underpinning Webster no longer holds. The two issues must be resolved together or the baseline is
 parameterised for a traffic model it is no longer running in.
 
+## Status update — 2026-08-10
+
+[RESEARCH-001](../research/RESEARCH-001-webster-parameterisation.md) ran and returned **no external
+evidence** (both open-web angles hit the session limit). [ADR-011](../decisions/ADR-011-webster-definition.md)
+then settled the parts that needed none:
+
+| Missing item (from §Missing information) | Status |
+|---|---|
+| 1. Saturation flow rate | **Still open** — needs the literature angle re-run |
+| 2. Lost time per phase | **Still open** — same |
+| 3. Cycle bounds and truncation rule | **Closed** — clamp to [26, 186] s, log every clamp, report the clamp rate |
+| 4. Whether the two implementations are one | **Closed** — one implementation, two parameter files; edge config embedded at deploy time |
+| 5. Recalibration policy | **Closed** — benchmark re-derives on demand-calibration change; edge never recalibrates at runtime |
+| 6. Prior art for defensible tuning | **Still open** — the decisive question |
+
+Items 1, 2 and 6 keep this triage **open**. Items 3–5 are done.
+
+---
+
 ## Recommended next step
 
 `/research`.

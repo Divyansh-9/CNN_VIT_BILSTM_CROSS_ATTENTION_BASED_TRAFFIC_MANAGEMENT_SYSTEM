@@ -56,9 +56,56 @@ signal:                    # PRD §9.6 — enforced by actuation, not learned
   min_green_s: 10
   max_green_s: 90
   all_red_s: 3
-  starvation_s: 180
+  starvation_s: 180        # FR-R04. See the note below — this is NOT in conflict
+                           # with the cycle bounds; an earlier reading conflated
+                           # cycle length with lane wait.
   green_durations_s: [10, 20, 30, 45, 60, 90]
   phases: [NS, EW]
+
+  # Derived, asserted in tests:
+  #   worst lane wait under strict alternation = max_green + 2*all_red = 96 s
+  #     (a lane waits for the OTHER phase's green, not for a whole cycle)
+  #   two repeated max greens                  = 189 s  -> penalised, as intended
+  #   two repeated 60 s greens                 = 129 s  -> tolerated
+  min_cycle_s: 26          # 2 * (min_green + all_red)  — Webster clamp floor
+  max_cycle_s: 186         # 2 * (max_green + all_red)  — Webster clamp ceiling
+
+  # P9 — UNDECIDED. May the controller serve the same phase twice in a row?
+  # If false, starvation is structurally impossible and FR-R04 is dead code.
+  # If true, the penalty is load-bearing. Set this explicitly; do not leave it
+  # to whoever writes the environment first.
+  phase_repetition_allowed: true
+
+webster:                   # ADR-011 — baseline and edge fallback
+  # Webster's optimum cycle C0 = (1.5L + 5) / (1 - Y) is clamped into
+  # [min_cycle_s, max_cycle_s]. Every clamp is logged, and the clamp RATE is
+  # reported beside the benchmark: a Webster that saturates its ceiling in most
+  # cycles is being compared in an oversaturated regime, which weakens any
+  # "PPO beats Webster" claim unless disclosed.
+  clamp_cycle: true
+  log_clamp_events: true
+  report_clamp_rate: true
+
+  # Split allocation after clamping: proportional to critical flow ratios, then
+  # each split clamped to [min_green_s, max_green_s], then residual redistributed
+  # proportionally among unclamped phases. If no feasible allocation exists, fall
+  # back to an equal split and log it.
+  split_rule: proportional_then_clamp_then_redistribute
+  infeasible_split_fallback: equal
+
+  # Saturation flow and lost time remain UNSPECIFIED — pending item P8. The
+  # research run that would settle them returned no external evidence; see
+  # docs/00-planning/research/RESEARCH-001-webster-parameterisation.md
+  saturation_flow_pcu_per_hour_per_lane: null   # P8
+  lost_time_s_per_phase: null                   # P8
+
+  # One implementation, two parameter files (ADR-011).
+  shared_implementation: true
+  params_benchmark: simulation/configs/webster_benchmark.yaml
+  params_edge: edge/configs/webster_edge.yaml   # embedded at deploy time —
+                                                # the fallback activates because
+                                                # the network is down, so it can
+                                                # never be fetched on demand
 
 splits:
   detection: [0.70, 0.15, 0.15]   # FR-D05 — stratified by class

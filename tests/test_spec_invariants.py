@@ -162,28 +162,88 @@ def test_action_space_size_is_twelve(spec):
     assert len(sig["phases"]) * len(sig["green_durations_s"]) == 12, "FR-R03"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "KNOWN CONTRADICTION, pending item P6. FR-R04 penalises a lane waiting "
-        ">180s, but FR-A03 (max green 90s) and FR-A04 (all-red 3s) permit a "
-        "worst-case cycle of 2*(90+3) = 186s. A policy that legally grants NS "
-        "then EW maximum green is penalised for starvation while fully "
-        "compliant. Either the threshold rises above 186s or the 180s figure is "
-        "declared deliberate soft pressure against max-green stacking -- both "
-        "are defensible, neither is currently written down. Remove this marker "
-        "when the PRD records the decision."
-    ),
-)
-def test_starvation_bound_exceeds_a_full_worst_case_cycle(spec):
-    """A starvation limit shorter than one legal cycle penalises legal operation."""
-    sig = spec["signal"]
-    worst_cycle = len(sig["phases"]) * (sig["max_green_s"] + sig["all_red_s"])
+# --------------------------------------------------------------------------
+# Starvation semantics -- FR-R04 against FR-A03/FR-A04
+#
+# CORRECTION, 2026-08-10. An earlier revision of this file asserted that the
+# starvation threshold must exceed the worst-case CYCLE (186 s) and marked the
+# result as a known contradiction (P6). That was wrong: it conflated cycle
+# length with lane wait. A lane is served in one phase, so it waits for the
+# OTHER phase's green plus two all-reds -- 96 s at maximum, not 186 s. There is
+# no contradiction under strict phase alternation.
+#
+# The tests below assert the correct model, and the genuinely undefined thing
+# the correction exposed: whether phase repetition is legal (P9).
+# --------------------------------------------------------------------------
 
-    assert sig["starvation_s"] > worst_cycle, (
-        f"starvation limit {sig['starvation_s']}s <= worst-case cycle "
-        f"{worst_cycle}s -- FR-R04 would penalise legal operation"
+def _worst_wait_single_alternation(sig: dict) -> int:
+    """Longest a lane waits when phases strictly alternate.
+
+    Its green ends, then: all-red, the other phase's green, all-red.
+    """
+    return sig["max_green_s"] + 2 * sig["all_red_s"]
+
+
+def test_strict_alternation_can_never_trigger_starvation(spec):
+    sig = spec["signal"]
+    worst = _worst_wait_single_alternation(sig)
+
+    assert worst < sig["starvation_s"], (
+        f"worst alternating wait {worst}s >= starvation limit "
+        f"{sig['starvation_s']}s -- the penalty would fire on legal operation"
     )
+    assert worst == 96, f"expected 96 s, got {worst}"
+
+
+def test_starvation_penalty_is_reachable_when_a_phase_repeats(spec):
+    """A penalty that can never fire is dead code; one that always fires is noise.
+
+    Two consecutive maximum greens on the other phase must exceed the limit --
+    that is the behaviour FR-R04 and BR-11 exist to discourage.
+    """
+    sig = spec["signal"]
+    ar, g = sig["all_red_s"], sig["max_green_s"]
+    two_max = ar + g + ar + g + ar
+
+    assert two_max > sig["starvation_s"], (
+        f"two repeated max greens give {two_max}s, which does not exceed the "
+        f"{sig['starvation_s']}s limit -- the penalty is unreachable"
+    )
+
+
+def test_starvation_limit_tolerates_one_repeat_at_moderate_green(spec):
+    """The threshold should discourage stacking long greens, not all repetition."""
+    sig = spec["signal"]
+    ar = sig["all_red_s"]
+    moderate = sorted(d for d in sig["green_durations_s"] if d <= 60)[-1]
+    two_moderate = ar + moderate + ar + moderate + ar
+
+    assert two_moderate < sig["starvation_s"], (
+        f"two repeated {moderate}s greens give {two_moderate}s, already over the "
+        f"{sig['starvation_s']}s limit -- the threshold is too aggressive to "
+        f"leave the policy any room"
+    )
+
+
+def test_cycle_bounds_are_recorded_and_are_about_cycles_not_waits(spec):
+    """Webster's computed cycle must be clamped into this window (ADR-011)."""
+    sig = spec["signal"]
+    n = len(sig["phases"])
+
+    assert n * (sig["min_green_s"] + sig["all_red_s"]) == sig["min_cycle_s"] == 26
+    assert n * (sig["max_green_s"] + sig["all_red_s"]) == sig["max_cycle_s"] == 186
+    # The distinction the earlier revision got wrong:
+    assert sig["max_cycle_s"] > _worst_wait_single_alternation(sig)
+
+
+def test_phase_repetition_policy_is_explicitly_decided(spec):
+    """P9. If repetition is forbidden, starvation is structurally impossible and
+    FR-R04 is dead code. If permitted, the penalty is load-bearing. The PRD must
+    say which; an unstated answer means the two readings disagree silently."""
+    assert "phase_repetition_allowed" in spec["signal"], (
+        "signal.phase_repetition_allowed is undecided -- see pending item P9"
+    )
+    assert isinstance(spec["signal"]["phase_repetition_allowed"], bool)
 
 
 # --------------------------------------------------------------------------
