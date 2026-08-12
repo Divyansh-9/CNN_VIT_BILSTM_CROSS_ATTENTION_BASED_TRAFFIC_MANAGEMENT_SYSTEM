@@ -131,6 +131,26 @@ splits:
 
 seed: 42                   # NFR-07 — PyTorch, NumPy, SB3
 
+fusion:                    # PRD §8.1 Stage 2, amendment A24
+  # Cross-attention returns one token per QUERY, so the two directions return
+  # different lengths unless the branches are aligned first:
+  #   ResNet-50 @224 -> 7x7  =  49 tokens
+  #   DINOv2 ViT-S/14 @224   -> 256 + CLS = 257 tokens
+  # The gate is elementwise, so 49 vs 257 cannot execute. Align both branches
+  # onto a shared GxG grid BEFORE Stage 2. This defect predates the DINOv2
+  # switch - it was 49 vs 197 with the original supervised ViT.
+  grid: 7                  # G. Attention cost scales with (G*G)^2:
+                           #   G=7  ->  49 tokens ->  1.2 G MAC  (default)
+                           #   G=14 -> 196 tokens -> 18.9 G MAC  (16x)
+                           #   G=16 -> 256 tokens -> 32.2 G MAC  (27x)
+                           # Cross-attention is TRAINABLE, so it is not covered
+                           # by the ADR-005 feature cache and runs every epoch.
+  vit_resize: bilinear     # ViT native grid -> GxG
+  drop_cls_before_reshape: true
+  # Raise to 14 if the Week-2 pilots show lanes occupying a small share of the
+  # frame: at G=7 a small approach may cover only 2-3 of 49 cells, which is too
+  # coarse for per-lane ROI pooling to be meaningful.
+
 ablation:                  # PRD §14.4
   configs: [A, B, C, D, E, F, G, H]
   #   A CNN only · B ViT only · C concat · D 1-dir cross-attn

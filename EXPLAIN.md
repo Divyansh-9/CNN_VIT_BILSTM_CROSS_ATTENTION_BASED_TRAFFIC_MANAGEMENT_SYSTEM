@@ -199,6 +199,57 @@ and let each road's prediction look only at its own region.
 **Why this matters beyond the bug:** the model now actually *looks at the right part of the picture*.
 When we later claim "the model pays attention to the queue," we can show it is true.
 
+### 3.5b The fusion part — unchanged, but it had a hidden size problem
+
+**First, the good news: the fusion idea is exactly what we always planned.** CNN and ViT look at the
+same picture, then each asks the other questions, then a gate decides who to trust. Nothing about
+that changed.
+
+> **How the two questions work.**
+>
+> The CNN asks: *"I can see a three-wheeled shape here — what's the wider situation around it?"*
+> The ViT asks: *"I can see a long queue — which exact vehicles make it up?"*
+>
+> Both questions get answered. Then the **gate** — a single number between 0 and 1 — decides how much
+> of each answer to keep. Busy chaotic scene, trust the CNN more. Quiet orderly scene, trust the ViT
+> more. The model learns this by itself.
+
+**Now the problem.** When one model asks another a question, it gets back **one answer per question
+it asked.**
+
+> **Example.** You send 49 questions, you get 49 answers back. Your friend sends 257 questions, they
+> get 257 answers back.
+>
+> Now try to average the two answer sheets together, line by line. Line 1 with line 1, line 2 with
+> line 2… and at line 50 you run out. **One sheet has 49 lines, the other has 257.**
+
+That is exactly our situation:
+
+| Branch | How many pieces it cuts the image into |
+|---|---|
+| ResNet-50 | 7 × 7 = **49** |
+| DINOv2 ViT | 16 × 16 + 1 = **257** |
+
+The gate has to combine them line by line. **49 and 257 do not line up, so the gate simply cannot
+run.** The code would crash on the first batch.
+
+This was in the very first version of the plan too — back then it was 49 versus 197. Nobody noticed,
+because writing "combine the two" sounds obviously fine until you check the sizes.
+
+**The fix:** make both branches cut the picture into the *same* grid before they start talking. We
+shrink the ViT's 16×16 grid down to 7×7 to match the CNN. Now both have 49 pieces, they line up, and
+the gate works.
+
+There is a second reason this fix was needed anyway: **ROI pooling** (§3.5) has to look at a
+*region* of the picture. You cannot pick out a region from a plain list of 257 numbers — you need a
+grid. Aligning the grids gives us that too. One fix, two problems solved.
+
+> **Why 7×7 and not something bigger?** Because attention is expensive. Doubling the grid to 14×14
+> makes this step **16 times** slower. Our laptop cannot afford it. The trade-off is that 7×7 is a
+> coarse grid — if a road takes up only a small corner of the picture, it might cover just two or
+> three squares, which is not much to judge from. So the grid size is a setting we can change, and
+> the Week-2 test on real footage will tell us whether 7×7 is enough.
+
 ### 3.6 Change 4 — do the hard work once, not 100 times
 
 This is not about the design. It is about speed, and it is the most useful decision in the whole

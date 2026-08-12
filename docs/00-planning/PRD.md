@@ -461,6 +461,14 @@ STAGE 1: DUAL-PATH SPATIAL ENCODING (Per Frame, Per Timestep)
   Avgpool + Flatten + Linear        Patch tokens + CLS + Linear
   F_cnn: [B, N_c, D]               F_vit: [B, N_v, D]
 
+  SPATIAL GRID ALIGNMENT  (v1.2 amendment A24 -- REQUIRED before Stage 2)
+    CNN : [B, 2048, 7, 7]          -> 1x1 Linear -> [B, D, G, G]
+    ViT : [B, N_v, 384]            -> drop CLS -> reshape to its native
+          grid (16x16 for patch-14 at 224) -> bilinear resize to GxG
+          -> Linear -> [B, D, G, G]
+    Both branches flatten to [B, G*G, D] with G*G tokens each.
+    G is a config value; default G = 7.  See A24 note below.
+
 
 ================================================================
 STAGE 2: GATED BIDIRECTIONAL CROSS-ATTENTION
@@ -472,10 +480,13 @@ STAGE 2: GATED BIDIRECTIONAL CROSS-ATTENTION
   CrossAttn B:  Q=F_vit, K/V=F_cnn  -->  Z_B
   "Global context asks: what local detail matters here?"
 
+  Both Z_A and Z_B are [B, G*G, D] because A24 aligned the grids.
+
   GATING (scene-adaptive weighting):
-    g = sigmoid( Linear( concat(Z_A, Z_B) ) )
-    F_fused = g x Z_A + (1 - g) x Z_B
+    g = sigmoid( Linear( concat(Z_A, Z_B) ) )      # concat on feature axis
+    F_fused = g x Z_A + (1 - g) x Z_B              # elementwise
     F_fused = LayerNorm(F_fused + residual)
+    F_fused: [B, G*G, D] -> reshape [B, D, G, G] for ROI pooling below
 
     PER-LANE ROI POOLING  (v1.2 amendment A8 -- replaces Global AvgPool)
       For each lane L in {N,S,E,W}:
@@ -487,6 +498,44 @@ STAGE 2: GATED BIDIRECTIONAL CROSS-ATTENTION
       predictions. ROI pooling makes each lane read its own image region.
       Sources with fewer than 4 visible approaches work without padding.
       See docs/02-design/HLD-detection-corpus-pipeline.md section 6.
+
+> **v1.2 amendment A24 — the two branches did not have the same number of tokens.**
+>
+> A cross-attention layer returns one output per **query**. So `CrossAttn A` (queries = CNN) returns
+> as many tokens as the CNN supplies, and `CrossAttn B` (queries = ViT) returns as many as the ViT
+> supplies. At 224×224:
+>
+> | Branch | Tokens | Z output |
+> |---|---|---|
+> | ResNet-50, final conv 7×7 | **49** | `Z_A` = [B, 49, D] |
+> | ViT-S/16 (original spec) | 196 + CLS = **197** | `Z_B` = [B, 197, D] |
+> | DINOv2 ViT-S/14 (current) | 256 + CLS = **257** | `Z_B` = [B, 257, D] |
+>
+> `g·Z_A + (1−g)·Z_B` is elementwise and requires identical shapes. **49 ≠ 197 and 49 ≠ 257, so the
+> gate as written cannot execute.** This defect predates A12 — it was present in v1.0 with the
+> supervised ViT and is not a consequence of switching to DINOv2.
+>
+> Per-lane ROI pooling (A8) has a second, related requirement: pooling a *region* needs a spatial
+> feature **map**, and a flat sequence of 257 tokens is not one until it is reshaped to its grid.
+>
+> One change fixes both: **align both branches onto a shared G×G grid before Stage 2.**
+>
+> **Choosing G.** Attention cost scales with the square of the token count:
+>
+> | G | Tokens | Cost per batch of 32 × T=60, one direction |
+> |---|---|---|
+> | **7** (default) | 49 | **1.2 G MAC** |
+> | 14 | 196 | 18.9 G MAC — **16×** |
+> | 16 (ViT native) | 256 | 32.2 G MAC — 27× |
+>
+> Cross-attention is trainable, so it runs every epoch and is **not** covered by the ADR-005 feature
+> cache. On a 6 GB RTX 4050, G=7 is the affordable choice and is the default.
+>
+> **The cost of G=7 is ROI granularity.** A lane occupying a quarter of the frame covers roughly 12
+> of 49 cells; small or distant approaches may cover only two or three. If the Week-2 pilots show
+> lanes occupying a small share of the frame, raise G to 14 and accept the compute. **Do not
+> hardcode G** — it is a config value for exactly this reason.
+
 
   Gate semantics:
     g --> 1.0: Dense/chaotic traffic  --> trust CNN local patterns more
