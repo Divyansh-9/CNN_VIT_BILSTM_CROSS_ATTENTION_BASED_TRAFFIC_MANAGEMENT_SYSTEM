@@ -12,6 +12,9 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 | **Built** | 1,339 lines of Python · 44 tests passing |
 | **Blocked on you** | Python 3.11 install · faculty scope sign-off · first video |
 
+> **New to the project, or the documents feel heavy?** Start with **[EXPLAIN.md](EXPLAIN.md)** —
+> everything below in plain English with worked examples, no prior knowledge assumed.
+
 > **Read the status column in every table below.** This project is mostly specification so far. A
 > README that reads as though the system exists would mislead the team and an examiner alike, so
 > everything here is marked **Specified**, **Built**, or **Blocked**.
@@ -22,6 +25,7 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 
 | Section | Read it if you want |
 |---|---|
+| **[EXPLAIN.md](EXPLAIN.md)** | **Everything, in simple English with examples** |
 | [The problem](#the-problem) | Why this project exists |
 | [What it does](#what-it-does) | The system in one diagram |
 | [Reading paths](#reading-paths) | **Start here** — 5, 30, or 120 minutes by role |
@@ -73,7 +77,7 @@ The suite is 8,000 lines. Nobody should read it linearly.
 
 ### Five minutes — anyone
 
-This page, plus the [Feasibility Audit](docs/00-planning/FEASIBILITY-AUDIT.md). The audit is the
+**[EXPLAIN.md](EXPLAIN.md)** if you want it in plain language. Otherwise this page, plus the [Feasibility Audit](docs/00-planning/FEASIBILITY-AUDIT.md). The audit is the
 single most important document: it contains the capacity arithmetic that governs every scope
 decision.
 

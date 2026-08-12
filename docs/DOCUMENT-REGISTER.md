@@ -101,6 +101,7 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 | `scripts/check_docs.py` | Active | Link check · withdrawn-claim guard · ADR registration |
 | `.github/workflows/docs.yml` | Active | Runs `check_docs.py` on any markdown change |
 | Directory skeleton (PRD §22.3) | Active | Created and committed |
+| `EXPLAIN.md` (root) | Active | **Plain-English explainer with worked examples.** Written for a reader with no background — the onboarding path for the team, and the answer to "nobody has read the documents" |
 | `mfstnet/configs/spec.yaml` | Active | **Single source of truth** for numbers that span documents (NFR-16) |
 | `tests/test_spec_invariants.py` | Active | Asserts cross-document arithmetic. Its first version encoded a wrong model of lane wait (see withdrawn claims); corrected 2026-08-10 |
 | `mfstnet/corpus/` | Active | **First project code.** Label rule, window timing, clip-level splits. Pure stdlib — no torch, no video, no GPU |
