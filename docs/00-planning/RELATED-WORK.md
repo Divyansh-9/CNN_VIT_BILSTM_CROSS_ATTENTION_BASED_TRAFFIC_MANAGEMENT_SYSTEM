@@ -95,7 +95,35 @@ to point at MPLight.
 What *is* new: the state vector includes a **learned visual congestion forecast** (PRD §13.1, indices 11–14) rather than only instantaneous measurements. Whether anticipation helps is a real question the
 above works largely do not test, because they consume sensor readings of the present.
 
-### 2.6 Indian and fixed-camera traffic datasets
+### 2.6 Vision-based congestion prediction — the literature this review originally missed
+
+**Correction, 2026-08-10.** The first version of this document surveyed graph-based forecasting
+(§2.4) and hybrid CNN-transformer architectures (§2.1) and concluded that C1 — a camera-only
+forecaster — was the project's strongest claim, because the forecasting literature assumes sensor
+infrastructure. **That conclusion was wrong.** A separate and active literature predicts congestion
+directly from camera imagery, and it was not surveyed.
+
+| Work | What it does |
+|---|---|
+| Chakraborty et al. (2018), *Transportation Research Record* | Congestion detection from camera images using deep CNNs |
+| Deep learning for congestion detection, prediction and alleviation — survey (arXiv 2102.09759, 2021) | An entire survey of this space. Its existence is the point |
+| End-to-end spatio-temporal flow prediction from surveillance cameras (*Transportmetrica B*, 2024) | Detection, tracking and prediction in one pipeline from fixed low-resolution cameras |
+| Rashmi & Shantala (2020) | YOLO on one week of Karnataka, India footage |
+
+**What this costs the project.** "Camera-only congestion forecasting" is not novel. C1 must be
+narrowed, and §3 below is rewritten accordingly. Being the second overclaim this review has caught,
+it is also a reminder that a novelty search is only as good as the search terms — the graph
+forecasting literature was surveyed because the architecture suggested it, and the vision literature
+was missed because nobody searched for the *task*.
+
+**What it gives back.** Rashmi & Shantala's result is directly useful and belongs in the paper's
+motivation: YOLO reaches 92–99% accuracy on buses, cars and motorcycles in Indian footage, but drops
+**below any useful level** on the vehicle modes specific to the study zone. That is independent
+published evidence that off-the-shelf detection fails on exactly the classes IndiaTrafficNet exists
+to add — the strongest external justification for the dataset contribution the project has, and a
+live risk to FR-D09's ≥25% auto-rickshaw criterion (SOW R25).
+
+### 2.7 Indian and fixed-camera traffic datasets
 
 | Dataset | Viewpoint | Note |
 |---|---|---|
@@ -116,9 +144,20 @@ claim than raw frame count.
 
 Ordered by defensibility. Claim the top ones loudly; mention the rest as engineering.
 
-**C1 — A camera-only congestion forecaster for unstructured heterogeneous traffic.**
-The forecasting literature (§2.4) assumes sensor infrastructure. This does not. Strong, and the right
-framing for the abstract.
+**C1 — Per-lane congestion forecasting from a single fixed camera in non-lane-disciplined
+heterogeneous traffic, coupled to a controller.** *(Narrowed 2026-08-10 — see §2.6.)*
+
+The original wording — "camera-only forecasting where the literature assumes sensors" — was
+overstated. Vision-based congestion prediction is an active field (§2.6). What survives is the
+conjunction, and each element is load-bearing:
+
+| Element | Why it narrows the claim |
+|---|---|
+| **Non-lane-disciplined heterogeneous traffic** | The vision literature is predominantly lane-disciplined. Published evidence says detection degrades badly on India-specific vehicle modes (§2.6) |
+| **Per-lane output, not scene-level** | Existing work typically classifies a whole scene or predicts link flow. Per-lane is what a signal controller can act on |
+| **Coupled to a controller** | The forecast is a policy input (C4), not a dashboard number |
+
+Claim the conjunction. Claiming any single element invites a citation you did not survey.
 
 **C2 — The fusion gate as an interpretable, analysed artifact.**
 Not "we used a gate" but "we report what the gate learns, and it tracks scene density as §14.2

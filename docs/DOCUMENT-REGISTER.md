@@ -30,18 +30,18 @@ changed, and the answer should be a document rather than a recollection.
 
 | Document | Ver | Status | Owner | Checked | Notes |
 |---|---|---|---|---|---|
-| [SOW](00-planning/SOW.md) | 1.2 | Active | All | 2026-08-10 | §2.4 capacity baseline; risks R16–R24; D-02/M1 flagged conditional |
+| [SOW](00-planning/SOW.md) | 1.3 | Active | All | 2026-08-10 | §2.4 capacity baseline; risks R16–R26; D-02/M1 flagged conditional |
 | [BRD](00-planning/BRD.md) | 1.0 | Active | All | 2026-08-08 | BO-3 flagged conditional on ADR-006 |
 | [PRD](00-planning/PRD.md) | **1.2** | Active | All | 2026-08-10 | **A1–A12 and A15–A21 applied.** §12 carries a PROPOSED banner for A13 |
 | [PRD-CHANGELOG](00-planning/PRD-CHANGELOG.md) | — | Active | All | 2026-08-10 | A13/A14 blocked; A15–A21 applied; includes the why-A15-was-missed note |
 | [DATASETS](00-planning/DATASETS.md) | 1.1 | Active | R1 | 2026-08-08 | §1.5 legal analysis and curate-then-collect added |
-| [RELATED-WORK](00-planning/RELATED-WORK.md) | 1.0 | Active | R2 | 2026-08-08 | New |
+| [RELATED-WORK](00-planning/RELATED-WORK.md) | 1.1 | Active | R2 | 2026-08-10 | **§2.6 added — vision-based congestion prediction, missed by the first survey. C1 narrowed** |
 | [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | 1.1 | Active | All | 2026-08-10 | Governs scope decisions. Revised total ~890 h after ADR-009/010 |
 | [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Awaiting submission** | Team lead | 2026-08-10 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
 | [PROCESS-REVIEW](00-planning/PROCESS-REVIEW.md) | 1.0 | Active | All | 2026-08-10 | 17:1 docs-to-code ratio; five ordered actions for this week. **Stop planning after action 3** |
 | [TRIAGE-001](00-planning/triage/TRIAGE-001-mqtt-payload-schema.md) | 1.0 | Open | R4 | 2026-08-10 | Six §17.1 payload defects. Pending item P7 |
-| [TRIAGE-002](00-planning/triage/TRIAGE-002-webster-parameterisation.md) | 1.1 | **Partly closed** | R3 | 2026-08-10 | ADR-011 closes cycle bounds, two-role reconciliation, recalibration. **Saturation flow, lost time and prior art still open** (P8) |
-| [RESEARCH-001](00-planning/research/RESEARCH-001-webster-parameterisation.md) | 1.0 | **Partial — incomplete** | R3 | 2026-08-10 | Codebase constraints answered; **prior-art half unanswered** (both web angles hit the session limit). Three interim decisions need no further evidence. Re-run at medium after the limit resets |
+| [TRIAGE-002](00-planning/triage/TRIAGE-002-webster-parameterisation.md) | 1.2 | **CLOSED** | R3 | 2026-08-10 | ADR-011 closed items 3–5; [ADR-012](00-planning/decisions/ADR-012-webster-saturation-flow.md) closed 1, 2 and 6 from literature. P8 closed |
+| [RESEARCH-001](00-planning/research/RESEARCH-001-webster-parameterisation.md) | 1.1 | **Superseded by ADR-012** | R3 | 2026-08-10 | The agent run was incomplete; a direct literature pass answered the same questions. Retained for the trail |
 
 ## Decisions
 
@@ -58,6 +58,7 @@ changed, and the answer should be a document rather than a recollection.
 | [009](00-planning/decisions/ADR-009-ppo-forecast-surrogate.md) PPO forecast surrogate, 16-dim state | Active | Team | PRD A16 |
 | [010](00-planning/decisions/ADR-010-sumo-heterogeneous-traffic.md) SUMO sublane + heterogeneous vTypes | Active | Team | FR-S01, FR-S02 |
 | [011](00-planning/decisions/ADR-011-webster-definition.md) Webster cycle clamping, starvation semantics, two roles | Active | Team | Closes P6; advances P8; opens P9 |
+| [012](00-planning/decisions/ADR-012-webster-saturation-flow.md) Sweep the published saturation-flow range | Active | Team | **Closes P8** |
 
 ## Requirements
 
@@ -133,6 +134,8 @@ rediscovers them in an old draft and acts on them.
 | `unfreeze_epoch: 30` | PRD §8.4 (original) | R4 predicts it fails, and it breaks the feature cache. Replaced by a LoRA experiment — A12 |
 | "500 sequences spot-checked" | PRD §8.6 (original) | ~17 h producing a number that changed no decision. Concentrated on the test split — A9 |
 | Ablation limited to 50 epochs (R6 mitigation) | PRD §19 R6 | No longer needed; feature caching makes the full 100-epoch ablation cheap — A7 |
+| "C1: camera-only forecasting is novel because the literature assumes sensors" | RELATED-WORK §3 (original) | **Overstated.** Vision-based congestion prediction is an active field that the original review missed — it searched by architecture, not by task. C1 narrowed to the conjunction: per-lane + non-lane-disciplined heterogeneous + controller-coupled ([RELATED-WORK §2.6](00-planning/RELATED-WORK.md)) |
+| "Use the HCM ~1900 pcu/h/lane saturation flow default" | TRIAGE-002 §Missing information | Structurally wrong for non-lane-disciplined traffic — lanes are not the unit of discharge. Published practice is per metre of approach width ([ADR-012](00-planning/decisions/ADR-012-webster-saturation-flow.md)) |
 | "FR-R04's 180 s starvation limit contradicts a 186 s worst-case cycle" (P6) | PRD-CHANGELOG, TRIAGE-002, ADR-011 draft | **My own finding, withdrawn.** Conflated cycle length with lane wait: a lane waits for the *other* phase's green plus two all-reds = 96 s, not a full cycle. No contradiction — [ADR-011](00-planning/decisions/ADR-011-webster-definition.md) §Decision 2 |
 | IDD Temporal as a source of MFSTNet sequences | Considered, never adopted | Provides ±15 frames (~1–2 s), not the ~6 minutes §8.6 needs — [DATASETS §4](00-planning/DATASETS.md) |
 | Label at `t+60s`; "5-minute clips" | PRD §8.6, ADR-002, manual (original) | **Fatal.** `t+60s` sits inside the 295 s observation window, and 355 s are needed per sample so a 5-min clip yields zero sequences. Corrected by A15 — label at `t0+355s`, minimum clip 6 min |

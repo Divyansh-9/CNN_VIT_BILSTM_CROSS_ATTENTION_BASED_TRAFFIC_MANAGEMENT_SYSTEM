@@ -93,11 +93,29 @@ webster:                   # ADR-011 — baseline and edge fallback
   split_rule: proportional_then_clamp_then_redistribute
   infeasible_split_fallback: equal
 
-  # Saturation flow and lost time remain UNSPECIFIED — pending item P8. The
-  # research run that would settle them returned no external evidence; see
-  # docs/00-planning/research/RESEARCH-001-webster-parameterisation.md
-  saturation_flow_pcu_per_hour_per_lane: null   # P8
-  lost_time_s_per_phase: null                   # P8
+  # ADR-012. Saturation flow for non-lane-disciplined traffic is expressed PER
+  # METRE OF APPROACH WIDTH, not per lane — lanes are not the unit of discharge
+  # when two- and three-wheelers filter. The published range spans 2.4x, so the
+  # baseline SWEEPS it and reports its best configuration. Picking one value is
+  # indefensible in either direction.
+  saturation_flow_pcu_per_hour_per_metre_sweep: [525, 600, 660, 750, 900, 1050, 1283]
+  #   525  IRC:SP-41-1994 (Indian standard, stated valid above 5.5 m width)
+  #   610-660  field studies, heterogeneous traffic, widths 3.5-14 m
+  #   622  Banda Aceh calibrated, non-lane-based, R2=0.99, widths 5-8 m
+  #   933-1283  Ahmedabad four-arm, using IRC PCU values
+  saturation_flow_report: best_performing   # by mean wait time (the FR-R08 metric)
+  narrow_width_form: "1020 + 459*We"        # if approach width below 5.5 m
+
+  lost_time_s_startup_sweep: [0, 4, 5]      # some Indian field studies observe ~0:
+                                            # queued two-wheelers move before green
+  lost_time_s_clearance: 3                  # consistent with FR-A04 all-red
+
+  pce:                     # passenger-car equivalents; also feed ADR-010 vTypes
+    car: 1.00
+    motorcycle: 0.24
+    auto_rickshaw: 0.78
+    # bus/truck: use IRC values and RECORD WHICH SET — the same intersection
+    # yields 933W-1283W or 636W-821W purely by switching PCU convention
 
   # One implementation, two parameter files (ADR-011).
   shared_implementation: true
