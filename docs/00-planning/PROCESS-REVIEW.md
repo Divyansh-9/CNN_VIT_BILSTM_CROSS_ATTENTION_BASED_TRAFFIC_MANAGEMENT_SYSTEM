@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Date** | 2026-08-10 (Week 1–2 of 20) |
+| **Date** | 2026-08-10 (Week 2 of 20) · refreshed after the literature pass |
 | **Verdict** | **The artifacts are excellent. The process has stalled.** |
 
 Deliberately one page. A ten-page document arguing there is too much documentation would answer
@@ -12,15 +12,17 @@ itself.
 
 ## The number that matters
 
-| | |
-|---|---|
-| Documentation | **6,569 lines** across 36 files |
-| Python | **383 lines** — all of it tooling (`seed`, `check_env`, `check_docs`, spec tests) |
-| Model / detection / corpus / SUMO / dashboard code | **0 lines** |
-| Elapsed | ~2 of 20 weeks |
-| Commits | 12, across 3 days |
+| | | At first review | Now |
+|---|---|---|---|
+| Documentation | lines | 6,569 across 36 files | **8,955 across 43 files** |
+| Python | lines | 383, all tooling | **1,339** — corpus logic is real project code |
+| Ratio | docs : code | **17 : 1** | **6.7 : 1** |
+| Tests passing | | 0 | **44** |
+| Elapsed | | ~2 of 20 weeks | ~2 of 20 weeks |
 
-**17:1 documentation to code, and none of the code is the project.**
+**The ratio improved because code was written, not because documentation stopped.** Documentation
+still grew by 2,386 lines in the same period. The corrective action was taken *and* the behaviour it
+corrected continued.
 
 PRD §2.5.4 names the classic failure: *eight weeks on architecture, two on experiments*. We are
 running a variant with a better alibi — planning is genuinely productive, it has found real defects,
@@ -46,9 +48,14 @@ them.
 
 ## Three things that are now wrong
 
-**1. The plan changes faster than it executes.** Ten ADRs, twenty-one PRD amendments, twenty-four
-risks, eight pending items — and zero measurements taken. Every finding is real; none has been
-tested against reality. The next class of defect only appears when something runs.
+**1. The plan changes faster than it executes.** Twelve ADRs, fourteen amendments, twenty risks,
+fifteen withdrawn claims — and **still zero measurements taken**. Every finding is real; none has met
+reality. The next class of defect only appears when something runs.
+
+The diminishing return is now visible. Round one found a missing training corpus. Round three found a
+label inside the observation window. Round four's headline finding (P6) was **wrong** and had to be
+withdrawn. Round five found a genuine saturation-flow answer and a genuine overclaim — but both are
+refinements to a plan that was already sound enough to build against.
 
 **2. Two load-bearing decisions have been "submit this week" for three sessions.** ADR-006 and
 ADR-008 gate ~340 person-hours. Until they are signed the team is planning against two incompatible
