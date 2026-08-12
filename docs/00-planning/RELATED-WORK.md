@@ -229,6 +229,16 @@ twice.**
 
 ---
 
+## 5.5 Citations
+
+Every work named here is listed in [BIBLIOGRAPHY.md](BIBLIOGRAPHY.md) with its URL, what it is cited
+for, and — critically — whether it has actually been **verified**.
+
+Most architecture and RL citations in this document are currently marked ⚠️: named from general
+knowledge during the survey, never retrieved. **Nothing enters the paper's reference list while still
+marked ⚠️.** The citations that disclaim novelty (ViLBERT, Flamingo, MPLight, RESCO) are the ones
+most damaging to get wrong, and they head the verification queue.
+
 ## 6. Reading order for the team
 
 Week 3–4, one paper each, presented to the group in fifteen minutes:

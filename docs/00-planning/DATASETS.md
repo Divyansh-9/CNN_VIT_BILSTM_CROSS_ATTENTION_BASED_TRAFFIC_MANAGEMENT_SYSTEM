@@ -119,6 +119,27 @@ pipeline, not producing final results.
 bootstrap model to under-perform on your own footage, particularly on small distant vehicles. That is
 not a failure — it is the reason IndiaTrafficNet exists.
 
+### 2.05 Published evidence that off-the-shelf detection fails here
+
+Rashmi & Shantala (2020) ran YOLO over a week of Karnataka, India footage
+([B10](BIBLIOGRAPHY.md)). Accuracy reached **92–99% for buses, cars and motorcycles** — and dropped
+**below any useful level** on the vehicle modes specific to the study zone.
+
+Two consequences, and both are load-bearing:
+
+**It justifies the dataset.** This is independent, published evidence that a general-purpose detector
+fails on exactly the classes IndiaTrafficNet exists to add. That is a far stronger motivation than
+"we wanted our own data," and it belongs in the paper's introduction.
+
+**It is a live risk to M2.** FR-D09 requires ≥25% mAP improvement on auto-rickshaw. If fine-tuning
+does not lift the zone-specific classes, that milestone fails. Recorded as SOW R25. Report per-class
+mAP **with sample count** either way — a detector that cannot learn auto-rickshaw from 12,000 frames
+is itself a reportable finding about transfer, not a failure to conceal.
+
+> ⚠️ B10 is currently the weakest-sourced important claim in the project. It is priority 1 in the
+> [bibliography verification queue](BIBLIOGRAPHY.md#verification-queue). Verify it before it carries
+> weight in the paper.
+
 ### 2.1 This strengthens your paper
 
 The gap is an argument, not an embarrassment. Written honestly it becomes a motivation paragraph:

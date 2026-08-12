@@ -34,9 +34,10 @@ changed, and the answer should be a document rather than a recollection.
 | [BRD](00-planning/BRD.md) | 1.0 | Active | All | 2026-08-08 | BO-3 flagged conditional on ADR-006 |
 | [PRD](00-planning/PRD.md) | **1.2** | Active | All | 2026-08-10 | **A1–A12 and A15–A21 applied.** §12 carries a PROPOSED banner for A13 |
 | [PRD-CHANGELOG](00-planning/PRD-CHANGELOG.md) | — | Active | All | 2026-08-10 | A13/A14 blocked; A15–A21 applied; includes the why-A15-was-missed note |
-| [DATASETS](00-planning/DATASETS.md) | 1.1 | Active | R1 | 2026-08-08 | §1.5 legal analysis and curate-then-collect added |
+| [DATASETS](00-planning/DATASETS.md) | 1.2 | Active | R1 | 2026-08-10 | §1.5 legal analysis; §2.05 published evidence that detection fails on India-specific classes (risk R25) |
 | [RELATED-WORK](00-planning/RELATED-WORK.md) | 1.1 | Active | R2 | 2026-08-10 | **§2.6 added — vision-based congestion prediction, missed by the first survey. C1 narrowed** |
 | [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | 1.1 | Active | All | 2026-08-10 | Governs scope decisions. Revised total ~890 h after ADR-009/010 |
+| [BIBLIOGRAPHY](00-planning/BIBLIOGRAPHY.md) | 1.0 | Active | R2 | 2026-08-10 | 35 references with a **verified/unverified** mark. Nothing enters the paper while marked ⚠️. Five-item verification queue |
 | [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Awaiting submission** | Team lead | 2026-08-10 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
 | [PROCESS-REVIEW](00-planning/PROCESS-REVIEW.md) | 1.0 | Active | All | 2026-08-10 | 17:1 docs-to-code ratio; five ordered actions for this week. **Stop planning after action 3** |
 | [TRIAGE-001](00-planning/triage/TRIAGE-001-mqtt-payload-schema.md) | 1.0 | Open | R4 | 2026-08-10 | Six §17.1 payload defects. Pending item P7 |

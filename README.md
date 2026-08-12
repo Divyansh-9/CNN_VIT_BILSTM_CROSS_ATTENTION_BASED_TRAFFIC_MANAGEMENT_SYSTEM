@@ -8,7 +8,7 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 | | |
 |---|---|
 | **Week** | 2 of 20 |
-| **Specified** | 41 documents · 8,069 lines · 11 architecture decisions |
+| **Specified** | 43 documents · 12 architecture decisions · 35 catalogued references |
 | **Built** | 1,339 lines of Python · 44 tests passing |
 | **Blocked on you** | Python 3.11 install · faculty scope sign-off · first video |
 
@@ -28,7 +28,7 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 | [Why each component](#why-each-component) | The defence of every technology choice |
 | [The four subsystems](#the-four-subsystems) | Structural plan and build order |
 | [Where we are](#where-we-are-and-what-happens-next) | Current plan, week by week |
-| [Decisions](#decisions) | All eleven ADRs |
+| [Decisions](#decisions) | All twelve ADRs |
 | [Defects found and fixed](#defects-found-and-fixed) | What planning has bought so far |
 | [Open items](#open-items) | Everything unresolved, with owners and deadlines |
 | [Claims](#what-we-claim-and-what-we-do-not) | What survives peer review |
@@ -95,7 +95,7 @@ or detection, and the [Training Guide](docs/90-manual/TRAINING-GUIDE.md) if you 
 | You are | Read, in order |
 |---|---|
 | **Faculty guide / examiner** | [Feasibility Audit](docs/00-planning/FEASIBILITY-AUDIT.md) → [Scope Variation Request](docs/00-planning/SCOPE-VARIATION-REQUEST.md) → [SOW](docs/00-planning/SOW.md) → [RTM](docs/01-requirements/RTM.md) |
-| **Writing the paper** | [Related Work](docs/00-planning/RELATED-WORK.md) — **before** the method section |
+| **Writing the paper** | [Related Work](docs/00-planning/RELATED-WORK.md) — **before** the method section — then [Bibliography](docs/00-planning/BIBLIOGRAPHY.md) and clear its verification queue |
 | **Implementing anything** | [PRD](docs/00-planning/PRD.md) for numbers → [FRD](docs/01-requirements/FRD.md) for acceptance criteria |
 | **Checking a document is current** | [Document Register](docs/DOCUMENT-REGISTER.md) |
 | **Wondering why something changed** | [decisions/](docs/00-planning/decisions/) and [PRD-CHANGELOG](docs/00-planning/PRD-CHANGELOG.md) |
@@ -135,6 +135,7 @@ The section to read before asking "why not just use X?". Where a choice is weak,
 | **MFSTNet forecast in the state** | *This* is the RL contribution: the policy sees an anticipated future, not only the present | A question the signal-control literature largely does not ask |
 | **Hard safety constraints** | Min green 10 s, max 90 s, all-red ≥3 s, no lane starved past 180 s — **enforced by actuation, not learned** | A reward penalty makes starvation expensive; only a constraint makes it impossible |
 | **Webster baseline, cycle-clamped** | Clamped into [26, 186] s with every clamp logged and the **clamp rate reported** ([ADR-011](docs/00-planning/decisions/ADR-011-webster-definition.md)) | A baseline pinned to its ceiling is being compared in an oversaturated regime — disclosed, not hidden |
+| **Saturation flow swept, not chosen** | Non-lane-disciplined traffic measures saturation flow **per metre of approach width**, not per lane. Published values span 525W–1283W — a 2.4× range ([ADR-012](docs/00-planning/decisions/ADR-012-webster-saturation-flow.md)) | "PPO beat Webster's **best** across the published range" cannot be answered with "you detuned the baseline." A single chosen value can |
 
 ### System
 
@@ -274,6 +275,7 @@ Eleven architecture decision records. Each carries its rejected alternatives and
 | [009](docs/00-planning/decisions/ADR-009-ppo-forecast-surrogate.md) | Noise-calibrated forecast surrogate; 16-dimensional state | Active |
 | [010](docs/00-planning/decisions/ADR-010-sumo-heterogeneous-traffic.md) | SUMO sublane model and heterogeneous vehicle types | Active |
 | [011](docs/00-planning/decisions/ADR-011-webster-definition.md) | Webster cycle clamping, starvation semantics, two roles reconciled | Active |
+| [012](docs/00-planning/decisions/ADR-012-webster-saturation-flow.md) | Sweep the published saturation-flow range rather than picking a value | Active |
 
 **ADR-006 and ADR-008 change graded requirements and need faculty sign-off.** Until then the project
 plans against two incompatible futures.
@@ -297,7 +299,9 @@ implementation, and two would have shipped undetected.
 | Annotation effort underestimated ~3× | Week 7 | [ADR-006](docs/00-planning/decisions/ADR-006-curate-then-collect-dataset.md) |
 | Novelty overclaimed against published prior art | At peer review | [Related Work](docs/00-planning/RELATED-WORK.md) |
 | SUMO modelled traffic the paper is not about | At peer review | [ADR-010](docs/00-planning/decisions/ADR-010-sumo-heterogeneous-traffic.md) |
-| Webster baseline unparameterised — a strawman | At peer review | [ADR-011](docs/00-planning/decisions/ADR-011-webster-definition.md), partly |
+| Webster baseline unparameterised — a strawman | At peer review | [ADR-011](docs/00-planning/decisions/ADR-011-webster-definition.md) + [ADR-012](docs/00-planning/decisions/ADR-012-webster-saturation-flow.md) |
+| HCM per-lane saturation flow structurally wrong for filtering traffic | At peer review, or as a silently mis-tuned baseline | ADR-012 — per metre of width, swept |
+| **C1 overclaimed** — the vision-based congestion literature was never surveyed | At peer review, on the abstract's framing | [RELATED-WORK §2.6](docs/00-planning/RELATED-WORK.md) |
 
 ### Two findings we withdrew
 
@@ -326,9 +330,12 @@ assumption built on a wrong model of the system.
 | P4 | Ablation epoch count (likely unnecessary after caching) | R2 | Week 13 |
 | P5 | Label-noise estimate from the verification subset | R1 | Week 12 |
 | P7 | Six MQTT payload schema defects | R4 | Before Week 7 |
-| P8 | Webster saturation flow and lost time — **needs literature** | R3 | Before Week 10 |
+| ~~P8~~ | ~~Webster saturation flow~~ — **closed** by ADR-012 | — | Done |
 | P9 | Is phase repetition legal? | R3 | Before Week 13 |
 | R22 | Verify ITSC / CVIP deadlines against a ~Dec 2026 finish | Team lead | **This week** |
+| R25 | Detector may fail on the India-specific classes the dataset exists to add — published evidence says it does | R1 | Week 9 (M2) |
+| R26 | Novelty overclaimed twice. **Search by task, not only architecture**, before drafting | R2 | Before Week 16 |
+| **B10, B16, B18, B29, B30** | Five load-bearing citations still unverified — [verification queue](docs/00-planning/BIBLIOGRAPHY.md#verification-queue) | R2 | Before the paper |
 
 Open triage: [TRIAGE-001](docs/00-planning/triage/TRIAGE-001-mqtt-payload-schema.md) ·
 [TRIAGE-002](docs/00-planning/triage/TRIAGE-002-webster-parameterisation.md).
@@ -341,8 +348,9 @@ Incomplete research: [RESEARCH-001](docs/00-planning/research/RESEARCH-001-webst
 Overclaiming is the fastest way to lose a review. Full analysis:
 [Related Work](docs/00-planning/RELATED-WORK.md).
 
-**We claim** — a camera-only congestion forecaster for a deployment context where the forecasting
-literature assumes sensor infrastructure · the fusion gate as an analysed interpretability artifact ·
+**We claim** — per-lane congestion forecasting from a single fixed camera in **non-lane-disciplined
+heterogeneous** traffic, coupled to a controller (narrowed — see below) · the fusion gate as an
+analysed interpretability artifact ·
 a harmonised Indian multi-class benchmark with a fixed-camera subset · anticipatory state for RL
 signal control, with a forecast-quality sensitivity curve · a density-stratified evaluation.
 
@@ -357,8 +365,9 @@ SUMO-simulated**.
 
 ```
 docs/               The SDLC suite — index at docs/README.md
-  00-planning/        SOW · BRD · PRD · DATASETS · RELATED-WORK · FEASIBILITY-AUDIT
-                      PROCESS-REVIEW · SCOPE-VARIATION-REQUEST · decisions/ · triage/ · research/
+  00-planning/        SOW · BRD · PRD · DATASETS · RELATED-WORK · BIBLIOGRAPHY
+                      FEASIBILITY-AUDIT · PROCESS-REVIEW · SCOPE-VARIATION-REQUEST
+                      decisions/ · triage/ · research/
   01-requirements/    SRS · FRD · NFR · RTM
   02-design/          HLD (corpus pipeline delivered early) · SAD, LLD due Week 5
   03-testing/         STP, STD, UAT due Week 11 · STR Week 16

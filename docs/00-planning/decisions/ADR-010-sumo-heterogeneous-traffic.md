@@ -65,6 +65,11 @@ this is calibrated to the same data as FR-S02 rather than invented.
 Distribution proportions are a config value, not a literal in the network file (NFR-16), so a
 recalibration after Week 8 is a config edit.
 
+**Passenger-car equivalents come from [ADR-012](ADR-012-webster-saturation-flow.md)**, measured under
+non-lane-based conditions: car 1.00, motorcycle **0.24**, auto-rickshaw **0.78**. These feed both the
+Webster flow ratios and the vehicle mix here, so the two must stay consistent — changing the mix
+changes the flow ratios and requires re-running ADR-012's saturation-flow sweep.
+
 ### 3. Reward measures stay lane-based, and that is stated
 
 `getLastStepHaltingNumber` remains the queue term. Under the sublane model it still counts halting
