@@ -1015,6 +1015,26 @@ Predict: Y in {0,1,2}^4   Congestion per lane, 60 seconds ahead
 | E — Bidir (no gate) | YES | YES | Bidir | NO | YES | NO |
 | F — + TempAttn (no gate) | YES | YES | Bidir | NO | YES | YES |
 | **G — Full MFSTNet** | YES | YES | Bidir | YES | YES | YES |
+| **H — Linear probe** *(v1.2 A22)* | YES | YES | NO | NO | **NO** | NO |
+
+> **v1.2 amendment A22 — config H, the missing floor.** Configs A–G all contain a BiLSTM, so none of
+> them answers the cheapest question a reviewer asks of a frozen-backbone model: *does the temporal
+> machinery do anything at all?*
+>
+> Config H is frozen features → per-lane ROI pool → mean over the 60 timesteps → linear head. No
+> fusion, no recurrence, no attention. It is the standard linear probe that every frozen-backbone
+> paper is expected to report, and its absence here was an omission.
+>
+> **If H approaches G, the architecture is unjustified** and that is the finding — reported, not
+> buried (BR-19). With cached features it costs minutes.
+
+> **v1.2 amendment A23 — report MFSTNet over multiple seeds.** §8.4 fixes `seed: 42`, and the RL half
+> runs 30 seeds with confidence intervals (FR-R07) while the model half reports a single run. A
+> two-point macro-F1 gap between ablation configs is meaningless without knowing seed variance.
+>
+> Run every ablation config at **5 seeds** and report mean ± 95% CI. Feature caching makes this
+> nearly free, and most comparable vision work does not do it — so it is another place the protocol
+> sits above the field's standard rather than below it.
 
 ### 14.5 Evaluation Metrics
 

@@ -130,3 +130,20 @@ splits:
   mfstnet:   [0.60, 0.20, 0.20]   # PRD §8.4 — cut by SOURCE CLIP, never by sequence
 
 seed: 42                   # NFR-07 — PyTorch, NumPy, SB3
+
+ablation:                  # PRD §14.4
+  configs: [A, B, C, D, E, F, G, H]
+  #   A CNN only · B ViT only · C concat · D 1-dir cross-attn
+  #   E bidir no gate · F +TempAttn · G full · H LINEAR PROBE (A22)
+  #
+  # H is the floor: frozen features -> per-lane ROI pool -> mean over T -> linear.
+  # No fusion, no recurrence, no attention. If H approaches G, the architecture
+  # is unjustified and that IS the result.
+  seeds: [42, 43, 44, 45, 46]      # A23 — 5 seeds, mean +/- 95% CI per config.
+                                    # A 2-point F1 gap means nothing without
+                                    # knowing seed variance. Cached features make
+                                    # this nearly free.
+  backbone_arms:           # ADR-007
+    BB-1: {cnn: resnet50, vit: vit_small_patch16_224}   # the PRD's original pair
+    BB-2: {cnn: resnet50, vit: dinov2_vits14}           # default
+    BB-3: {cnn: convnext_tiny, vit: dinov2_vits14}
