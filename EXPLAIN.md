@@ -11,7 +11,7 @@ If you want the formal versions afterwards: [README](README.md) for the map,
 ## Contents
 
 1. [What are we building?](#1-what-are-we-building)
-2. [Where we started and where we are now](#2-where-we-started-and-where-we-are-now)
+2. [Where we started and where we are now](#2-where-we-started-and-where-we-are-now) — including [does the project name still fit?](#21-does-the-project-name-still-fit)
 3. [The model, explained simply](#3-the-model-explained-simply)
 4. [The training data, explained simply](#4-the-training-data-explained-simply)
 5. [Numbers right now](#5-numbers-right-now)
@@ -83,6 +83,63 @@ The original plan is not wrong. But almost every part of *how* we would carry it
 
 **In one line:** the machine we are building is the same. The way we build, test and describe it has
 changed almost completely.
+
+### 2.1 Does the project name still fit?
+
+The project is registered as **CNN-ViT-BiLSTM Cross-Attention based Traffic Management**.
+
+**Short answer: yes, every word is still true.** Nothing was removed.
+
+| Word in the name | Still there? | What changed |
+|---|---|---|
+| **CNN** | Yes | ResNet-50, unchanged |
+| **ViT** | Yes | Swapped to DINOv2 — still a ViT, just a better-trained one |
+| **BiLSTM** | Yes | Completely unchanged |
+| **Cross-Attention** | Yes | Same idea; we fixed a size mismatch (§3.5b) |
+| **Traffic Management** | Yes | Though everything is tested in a simulator, not on a real road |
+
+So **keep the project name.** It is registered, your guide approved it, and changing it now creates
+paperwork for no benefit.
+
+**But here is the blunt part.** The name is a list of *parts*, not a statement of what you *found*.
+And worse — it advertises the exact part that is **not new**. Combining a CNN and a ViT was published
+in 2021. Attention flowing both ways was published in 2019. Anyone who reads your title thinks:
+*"that has been done."*
+
+> **Example.** Two shops on the same street.
+>
+> Shop A's sign says: **"Flour, sugar, butter and eggs."**
+> Shop B's sign says: **"Best birthday cakes in town."**
+>
+> They sell the same thing. Shop A lists what is inside. Shop B tells you why you would walk in.
+>
+> Your project name is Shop A's sign.
+
+**Here is the useful distinction most students miss: the project name and the paper title do not have
+to be the same thing.**
+
+- The **project name** is administrative. It is on your registration form. Leave it alone.
+- The **paper title** is marketing to a reviewer. It should say what you *discovered*, not what parts
+  you used.
+
+**When do you choose the paper title? After you have results — not now.** A good title states a
+finding, and you do not have one yet.
+
+To show the difference, here are the shapes a title could take depending on how the experiments turn
+out:
+
+| If your results show… | Your title should be about… |
+|---|---|
+| The fusion genuinely helps in dense traffic | Camera-only per-lane forecasting for unstructured traffic |
+| The forecast helps the traffic light | Whether anticipation helps signal control, and how good the forecast must be |
+| **Config H matches the full model** | The comparison itself — and your title must **not** mention the architecture, because that would be dishonest |
+
+That last row is the important one. Remember Config H from §3.8 — the simplest possible version with
+no fusion and no memory. **If it scores as well as the full model, you cannot honestly put
+"Cross-Attention" in your paper title**, because you would be advertising something your own
+experiment showed does not matter.
+
+Your project name stays either way. Your paper title waits for the evidence.
 
 ---
 
