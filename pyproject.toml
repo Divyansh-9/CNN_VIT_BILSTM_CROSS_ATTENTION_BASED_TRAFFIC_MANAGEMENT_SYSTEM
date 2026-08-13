@@ -15,5 +15,5 @@ pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
 
-[tool.pytest]
-markers = []
+# Do NOT add a [tool.pytest] table alongside this one — pytest refuses both and
+# exits 4 with "Cannot use both [tool.pytest] and [tool.pytest.ini_options]".
