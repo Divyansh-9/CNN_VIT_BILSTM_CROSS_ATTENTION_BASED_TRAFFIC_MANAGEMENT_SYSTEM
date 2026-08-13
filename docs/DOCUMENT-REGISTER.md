@@ -107,6 +107,9 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 | `tests/test_spec_invariants.py` | Active | Asserts cross-document arithmetic. Its first version encoded a wrong model of lane wait (see withdrawn claims); corrected 2026-08-10 |
 | `mfstnet/corpus/` | Active | **First project code.** Label rule, window timing, clip-level splits. Pure stdlib — no torch, no video, no GPU |
 | `mfstnet/encoders.py` | Active | Dual-path backbones + A24 grid alignment. **Verified on real tensors**: 49 vs 257 native, both aligned to 49 |
+| `notebooks/README.md` | Active | Notebook policy: presentation and driver layer only, never model or training code |
+| `notebooks/03_results.ipynb` | Active | Renders committed result CSVs. Computes no metric of its own |
+| `tests/test_spec_matches_code.py` | Active | Binds Python defaults to `spec.yaml`. Runs in both CI jobs |
 | `mfstnet/cache.py` | Active | ADR-005 cache. Stores the frozen half only; hash mismatch raises (SOW R20) |
 | `tests/test_cache.py` | Active | 23 tests, mostly refusals. CI `model` job |
 | `mfstnet/fusion.py` | Active | Cross-attention, 4 modes. Gate behind a Phase 2 flag (PRD §2.4) |

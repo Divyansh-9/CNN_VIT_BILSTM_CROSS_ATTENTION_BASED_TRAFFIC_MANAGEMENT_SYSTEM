@@ -126,6 +126,10 @@ def run_overfit(
 
     report = evaluate(targets.reshape(-1).tolist(), predictions.reshape(-1).tolist())
 
+    # The full metrics row — per-class precision/recall/F1 with support, ordinal
+    # MAE, QWK, and every confusion-matrix cell — is merged in rather than
+    # summarised. NFR-09: a figure that reaches the report must be readable from
+    # a committed CSV, never re-derived by hand from a printed table.
     return {
         "config": config_name,
         "n_sequences": n_sequences,
@@ -142,6 +146,7 @@ def run_overfit(
         "gate_mean": (
             None if out.gate_mean is None else round(float(out.gate_mean.mean()), 4)
         ),
+        **report.as_row(),
     }
 
 

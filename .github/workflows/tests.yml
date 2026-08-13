@@ -61,6 +61,7 @@ jobs:
         run: |
           pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           pip install pytest pyyaml timm
+          pip install nbformat nbclient ipykernel pandas matplotlib
 
       - name: Fail if torch is missing rather than skipping
         # Without this the suites `importorskip` away and the job passes green
@@ -82,3 +83,10 @@ jobs:
         # rather than after a 14-hour training run. Kept short here; the full
         # eight-config sweep is a local command.
         run: python scripts/overfit_check.py --config E --steps 200 --sequences 4
+
+      - name: Notebooks still run (notebooks/README.md)
+        # --check executes without saving, so this proves the notebook works
+        # against the current library and the current CSVs without creating a
+        # diff on every run. A notebook whose stored output came from code that
+        # no longer exists is worse than no notebook: it looks like evidence.
+        run: python scripts/run_notebook.py notebooks/03_results.ipynb --check
