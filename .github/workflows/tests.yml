@@ -45,6 +45,7 @@ jobs:
           --ignore=tests/test_model.py
           --ignore=tests/test_cache.py
           --ignore=tests/test_sumo_network.py
+          --ignore=tests/test_simulation.py
 
   model:
     name: model suites (CPU torch)
@@ -78,6 +79,7 @@ jobs:
           pytest -q --tb=short
           tests/test_encoders.py tests/test_model.py tests/test_cache.py
           tests/test_spec_matches_code.py tests/test_sumo_network.py
+          tests/test_simulation.py
 
       - name: Overfit check (S26)
         # The cheapest decisive test in the model track. A graph that cannot

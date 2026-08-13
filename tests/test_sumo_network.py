@@ -126,8 +126,18 @@ def test_vtype_distribution_sums_to_one():
 
     root = ET.fromstring(vtypes_xml())
     dist = root.find(".//vTypeDistribution")
-    total = sum(float(v.get("probability")) for v in dist.findall("vType"))
-    assert total == pytest.approx(1.0)
+
+    # id + probability lists, not nested <vType> elements. Nesting re-declares
+    # each type and SUMO refuses to start: "Another vehicle type (or
+    # distribution) with the id 'car' exists."
+    types = dist.get("vTypes").split()
+    probabilities = [float(p) for p in dist.get("probabilities").split()]
+
+    assert len(types) == len(probabilities), "a type without a probability"
+    assert sum(probabilities) == pytest.approx(1.0)
+
+    declared = {v.get("id") for v in root.findall("vType")}
+    assert set(types) <= declared, f"distribution names undeclared types: {set(types) - declared}"
 
 
 def test_two_wheelers_can_filter():

@@ -22,13 +22,12 @@
     <!-- PRD §12.2 proportions, renormalised over the 6 driving classes.
          Pedestrians (7%) and cattle (1%) are detection classes, not SUMO
          vehicles; modelling them is out of scope and saying so is better than
-         a silent omission. -->
-    <vTypeDistribution id="india_mix">
-        <vType id="car"           probability="0.38"/>
-        <vType id="motorcycle"    probability="0.33"/>
-        <vType id="auto_rickshaw" probability="0.16"/>
-        <vType id="e_rickshaw"    probability="0.05"/>
-        <vType id="truck"         probability="0.05"/>
-        <vType id="bus"           probability="0.03"/>
-    </vTypeDistribution>
+         a silent omission.
+
+         Declared as id + probability lists, NOT as nested <vType> elements.
+         Nesting re-declares each type and SUMO rejects it with
+         "Another vehicle type (or distribution) with the id 'car' exists." -->
+    <vTypeDistribution id="india_mix"
+        vTypes="car motorcycle auto_rickshaw e_rickshaw truck bus"
+        probabilities="0.38 0.33 0.16 0.05 0.05 0.03"/>
 </additional>
