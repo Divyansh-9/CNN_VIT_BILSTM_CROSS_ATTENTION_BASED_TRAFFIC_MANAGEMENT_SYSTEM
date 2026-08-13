@@ -71,7 +71,10 @@ jobs:
         # pretrained=False throughout: these assert geometry and gradient flow,
         # not representation quality, so downloading ~200 MB of backbone weights
         # every run would buy nothing.
-        run: pytest tests/test_encoders.py tests/test_model.py tests/test_cache.py -q --tb=short
+        run: >
+          pytest -q --tb=short
+          tests/test_encoders.py tests/test_model.py tests/test_cache.py
+          tests/test_spec_matches_code.py
 
       - name: Overfit check (S26)
         # The cheapest decisive test in the model track. A graph that cannot

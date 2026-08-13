@@ -14,9 +14,11 @@ So: every number the specification fixes and the code also holds is asserted
 equal here. If you change one, this fails, and the fix is to change the other —
 or to amend the PRD and log it in PRD-CHANGELOG, never to edit this test.
 
-Deliberately in the FAST suite: it needs pyyaml and dataclass defaults, not
-torch, so it runs on every push in under a second. Where a check would require
-torch it is guarded by `importorskip`.
+This file runs in **both** CI jobs. The fast job executes the checks that need
+only pyyaml and the standard library; the model job runs the whole file with
+torch present, so the dimension and backbone checks genuinely execute rather
+than skipping. A check that skips in every job is not a check — that mistake is
+what left amendment A24 unguarded once already.
 
     python -m pytest tests/test_spec_matches_code.py -q
 """
@@ -40,14 +42,23 @@ def spec():
     return yaml.safe_load(SPEC_PATH.read_text(encoding="utf-8"))
 
 
-# ---------------------------------------------------------- no torch needed --
+# --------------------------------- pure standard library: runs in BOTH jobs --
 
 def test_seed_matches(spec):
-    """NFR-07. `set_seed()` defaulting to anything but the specified seed would
-    make every 'seed 42' claim in the report false."""
-    from scripts.seed import DEFAULT_SEED
+    """NFR-07. A `set_seed()` defaulting to anything but the specified seed
+    would make every 'seed 42' claim in the report false.
 
-    assert DEFAULT_SEED == spec["seed"]
+    Read from the source rather than imported: `scripts/seed.py` pulls in numpy
+    and torch, and this assertion needs neither.
+    """
+    import re
+
+    source = (SPEC_PATH.parent.parent.parent / "scripts" / "seed.py").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r"^DEFAULT_SEED\s*=\s*(\d+)", source, re.MULTILINE)
+    assert match, "DEFAULT_SEED not found in scripts/seed.py"
+    assert int(match.group(1)) == spec["seed"]
 
 
 def test_congestion_thresholds_match(spec):
@@ -88,6 +99,7 @@ def test_window_geometry_matches(spec):
 
 
 def test_lane_count_matches(spec):
+    pytest.importorskip("torch")
     from mfstnet.model import MFSTNetConfig
 
     assert MFSTNetConfig().n_lanes == len(spec["lanes"])
@@ -96,6 +108,7 @@ def test_lane_count_matches(spec):
 def test_ablation_config_names_match(spec):
     """§14.4 has eight rows. A config present in one place and not the other
     means the table in the paper describes a run that did not happen."""
+    pytest.importorskip("torch")
     from mfstnet.model import ABLATION_CONFIGS
 
     assert list(ABLATION_CONFIGS) == spec["ablation"]["configs"]
@@ -117,6 +130,7 @@ def test_cache_policy_is_raise_not_warn(spec):
 def test_grid_and_d_model_are_absent_from_the_cache_key(spec):
     """They belong to the trainable adapter downstream of the cache. Keeping
     them out is what lets the G=7 vs G=14 question be re-run for free."""
+    pytest.importorskip("torch")
     from dataclasses import fields
 
     from mfstnet.cache import PreprocessingSpec
@@ -125,7 +139,7 @@ def test_grid_and_d_model_are_absent_from_the_cache_key(spec):
     assert "grid" not in names and "d_model" not in names
 
 
-# ------------------------------------------------------------ needs torch --
+# ------------------------------- needs torch: executed by the MODEL job --
 
 def test_model_dimensions_match(spec):
     pytest.importorskip("torch")
