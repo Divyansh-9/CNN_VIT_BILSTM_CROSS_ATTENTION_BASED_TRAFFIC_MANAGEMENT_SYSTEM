@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S03c — push to GitHub, then S13 |
+| **Current step** | S16 — validation gates |
 
 ---
 
@@ -51,7 +51,7 @@ guesses.
 | S02 | Documentation suite | ✅ | — | 43 docs, 12 ADRs. **Now stop** |
 | S03 | Corpus logic + tests | ✅ | — | 44 tests passing |
 | S03b | Metrics module + tests | ✅ | — | 62 tests. Confusion matrix now a required artifact |
-| S03c | **Push to GitHub** | 🔵 | Team lead | 21 commits exist on one laptop only. NFR-08 |
+| S03c | Push to GitHub | ✅ | — | Live, CI green on first run. **Repo is PUBLIC** |
 | S04 | **Scope variation sign-off** | ⛔ | Team lead | Blocked on faculty guide. Gates ~340 h |
 | S05 | **Python 3.11 environment** | ⛔ | Everyone | Nothing runs until this is done |
 | S06 | **Week-2 pilots** (annotation, counts, cache, persistence) | ⛔ | R1 | Needs S05 + any traffic video |
@@ -71,7 +71,7 @@ guesses.
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S13 | Source registry + polygon validation | ⬜ | R1 | S05 |
+| S13 | Source registry + polygon validation | ✅ | — | 31 assertions. Dev-corpus guard enforced |
 | S14 | Frame store | ⬜ | R1 | S13 |
 | S15 | Counting (centroid-in-polygon, provenance) | ⬜ | R1 | S11, S14 |
 | S16 | Validation gates (distribution, leakage, unassigned rate) | ⬜ | R1 | S15 |
@@ -320,7 +320,56 @@ yet, which is correct — no weights exist.
 is per-source, the campus subset is CC BY 4.0 anonymised, and third-party sets keep their own licences.
 A single blanket MIT over a repository that will contain other people's data would be wrong.
 
-**Decision pending: private or public.** See the recommendation in §Notes below.
+**Closed 2026-08-13.** Remote added, `main` pushed, 22 commits live. Description and 10 topics set.
+**`docs.yml` ran for the first time and passed in 8 s** — a CI job that had never executed is a
+guess, and it is now evidence.
+
+**Repo is PUBLIC.** Private was recommended and not taken; recorded rather than re-argued. The one
+concrete concern: `SCOPE-VARIATION-REQUEST.md` is addressed to the faculty guide, names them, and
+they have not seen it. Reversible any time with
+`gh repo edit --visibility private --accept-visibility-change-consequences`.
+
+---
+
+### S13 · Source registry and lane geometry
+
+**Started** 2026-08-13 · **Closed** 2026-08-13 · **Status** ✅ done
+**Estimated** 2 h · **Actual** ~2 h
+
+**What we did.** `geometry.py` (lane polygons, point-in-polygon, disjointness) and `sources.py`
+(registry, clip validation, dev-corpus guard). Pure standard library — ray casting rather than
+Shapely, so it runs before the environment exists.
+
+**Decision — coordinates are normalised, not pixels, and it is enforced.** A polygon in pixels means
+something different after any resize or re-encode, and nothing downstream would raise. Any vertex
+outside [0, 1] is rejected at construction with an error that says why.
+
+**Decision — a point on the boundary counts as inside.** This is not arbitrary: Shapely's `contains`
+**excludes** the boundary while `intersects` **includes** it. A vehicle centroid landing exactly on a
+shared edge would be assigned by one and dropped by the other. The convention is pinned and tested,
+so swapping in Shapely later cannot silently change counts.
+
+**Decision — overlapping lanes are rejected at registration, not per frame.** If two polygons can
+both claim a centroid, every count downstream depends on iteration order. That is a bug producing
+plausible numbers that never raises. Checked once, at load. Catches crossing edges, shared edges, and
+full nesting.
+
+**Decision — the dev-corpus guard is enforced, not conventional.** `assert_usable_for_reporting`
+raises on a `dev` source. The override exists for smoke tests but must be passed explicitly and
+recorded in the experiment record. HLD WI-17 said "convention would not survive Week 13"; this is
+what not relying on convention looks like.
+
+**Decision — `kind` has no default.** A source whose status nobody stated is exactly the one that
+reaches a reported result by accident, so omitting it is an error rather than an assumption.
+
+**Problem — an all-short source would have produced an empty corpus silently.** PRD A15 fixed the
+arithmetic, but a source whose every clip is under 355 s would still have loaded fine and yielded
+nothing, surfacing days later as a mysteriously empty dataset.
+
+**Fix.** Registration distinguishes the two cases. *Some* clips short is a warning naming them.
+*Every* clip short is a hard error saying the recording protocol is wrong, not the data.
+
+**Evidence.** 31 assertions pass. Commit `TBD`.
 
 ---
 
