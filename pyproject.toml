@@ -1,0 +1,19 @@
+[project]
+name = "mfstnet"
+version = "0.1.0"
+description = "Camera-only congestion forecasting and RL signal control for unstructured Indian intersections"
+requires-python = ">=3.10,<3.13"   # torch 2.3.1 publishes no wheels above 3.12
+license = { file = "LICENSE" }
+
+[tool.pytest.ini_options]
+# Put the repository root on sys.path so `from mfstnet.corpus import ...` resolves
+# without installing the package. Without this, pytest collects from tests/ and
+# never sees mfstnet/ — which is exactly how the first CI run failed while every
+# local check passed: the hand-written driver did sys.path.insert(0, ".") and
+# hid the problem.
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.pytest]
+markers = []

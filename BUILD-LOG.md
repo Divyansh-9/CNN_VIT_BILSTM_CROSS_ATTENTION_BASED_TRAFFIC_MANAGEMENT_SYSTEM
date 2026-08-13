@@ -51,7 +51,8 @@ guesses.
 | S02 | Documentation suite | ✅ | — | 43 docs, 12 ADRs. **Now stop** |
 | S03 | Corpus logic + tests | ✅ | — | 44 tests passing |
 | S03b | Metrics module + tests | ✅ | — | 62 tests. Confusion matrix now a required artifact |
-| S03c | Push to GitHub | ✅ | — | Live, CI green on first run. **Repo is PUBLIC** |
+| S03c | Push to GitHub | ✅ | — | Live, CI green. **Repo is PUBLIC** |
+| S03d | CI test workflow + README badges | ✅ | — | Tests now run under pytest in CI, not a local driver |
 | S04 | **Scope variation sign-off** | ⛔ | Team lead | Blocked on faculty guide. Gates ~340 h |
 | S05 | **Python 3.11 environment** | ⛔ | Everyone | Nothing runs until this is done |
 | S06 | **Week-2 pilots** (annotation, counts, cache, persistence) | ⛔ | R1 | Needs S05 + any traffic video |
@@ -328,6 +329,40 @@ guess, and it is now evidence.
 concrete concern: `SCOPE-VARIATION-REQUEST.md` is addressed to the faculty guide, names them, and
 they have not seen it. Reversible any time with
 `gh repo edit --visibility private --accept-visibility-change-consequences`.
+
+---
+
+### S03d · CI test workflow and README badges
+
+**Started** 2026-08-13 · **Closed** 2026-08-13 · **Status** ✅ done
+**Estimated** 30 min · **Actual** ~45 min
+
+**What we did.** `tests.yml` runs the corpus, metrics, geometry and spec-invariant suites on Python
+3.11, installing **pytest and pyyaml only** — none of them import torch, so CI finishes in seconds
+instead of pulling two gigabytes. Then a README badge block reporting status, stack, model, RL and
+project metadata.
+
+**Decision — the workflow came before the badges.** A badge asserting a test count nobody re-checks
+is decoration. The tests had only ever run through a hand-written stdlib driver; now they run under
+pytest on a clean machine, and the badge is a live workflow result.
+
+**Decision — the badges say what is true.** Status reads **PRE-IMPLEMENTATION**, not "live". No model
+has trained and no frame has been detected. Badges that overstate are the same failure as overclaimed
+novelty wearing a different costume.
+
+**Problem — the first CI run failed immediately: `ModuleNotFoundError: No module named 'mfstnet'`.**
+
+Every local check had passed. The cause is that the stdlib driver began with `sys.path.insert(0, ".")`,
+which put the repository root on the path and hid the fact that nothing else does. Under pytest on a
+clean checkout, `tests/` is collected and `mfstnet/` is never on the path.
+
+**Fix.** `pyproject.toml` with `pythonpath = ["."]`, plus `mfstnet/__init__.py` to make the package
+explicit rather than implicit.
+
+**Worth keeping.** This is the first defect found by *running* rather than by reading, and it is
+exactly the class the process review predicted: *"the next class of defect only appears when
+something runs."* The local verification was not wrong, but it was more permissive than the real
+environment — and a check that is easier than reality passes things reality will not.
 
 ---
 
