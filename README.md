@@ -320,6 +320,8 @@ Eleven architecture decision records. Each carries its rejected alternatives and
 | [010](docs/00-planning/decisions/ADR-010-sumo-heterogeneous-traffic.md) | SUMO sublane model and heterogeneous vehicle types | Active |
 | [011](docs/00-planning/decisions/ADR-011-webster-definition.md) | Webster cycle clamping, starvation semantics, two roles reconciled | Active |
 | [012](docs/00-planning/decisions/ADR-012-webster-saturation-flow.md) | Sweep the published saturation-flow range rather than picking a value | Active |
+| [013](docs/00-planning/decisions/ADR-013-artifact-hosting-and-publication.md) | Code on GitHub, weights on Hugging Face, citation on Zenodo; Git LFS retired for weights | **Proposed** |
+| [014](docs/00-planning/decisions/ADR-014-dashboard-metrics-separation.md) | The dashboard's benchmark panel and live monitor are separate and never merge | **Proposed** |
 
 **ADR-006 and ADR-008 change graded requirements and need faculty sign-off.** Until then the project
 plans against two incompatible futures.
