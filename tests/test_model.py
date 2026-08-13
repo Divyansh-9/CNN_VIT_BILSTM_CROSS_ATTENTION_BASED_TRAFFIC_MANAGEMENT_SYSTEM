@@ -31,6 +31,10 @@ from mfstnet.temporal import (  # noqa: E402
 )
 
 GRID, D, B, T, LANES = 7, 256, 2, 6, 4
+# Raw frozen-backbone geometry — what the ADR-005 cache actually holds. The two
+# branches differ on purpose; alignment is the trainable adapters' job.
+CNN_C, CNN_HW = 2048, 7
+VIT_C, VIT_HW = 384, 16
 
 QUADS = (
     Polygon("north", ((0.30, 0.00), (0.70, 0.00), (0.70, 0.45), (0.30, 0.45))),
@@ -48,7 +52,10 @@ def masks():
 @pytest.fixture
 def maps():
     torch.manual_seed(0)
-    return torch.randn(B, T, D, GRID, GRID), torch.randn(B, T, D, GRID, GRID)
+    return (
+        torch.randn(B, T, CNN_C, CNN_HW, CNN_HW),
+        torch.randn(B, T, VIT_C, VIT_HW, VIT_HW),
+    )
 
 
 def _build(name, masks):
@@ -266,6 +273,7 @@ def test_passing_features_for_a_disabled_branch_raises(masks, maps):
     """Config A is CNN-only. Accepting ViT features and ignoring them would make
     the ablation table describe a model that was never run."""
     model = _build("A", masks)
+    assert model.adapt_vit is None
     with pytest.raises(ValueError, match="disables the ViT branch"):
         model(maps[0], maps[1])
 
@@ -276,12 +284,28 @@ def test_missing_features_for_an_enabled_branch_raises(masks, maps):
         model(maps[0], None)
 
 
-def test_two_caches_of_different_shape_raise(masks, maps):
+def test_a_cache_from_a_different_backbone_raises(masks, maps):
     """ADR-005: a cache is invalidated by any change to backbone, resize or
-    normalisation. Different shapes are the visible half of that."""
+    normalisation, and a stale one produces results that look entirely normal
+    and are wrong. Channel count is the part of the geometry that names the
+    backbone — ConvNeXt-T would give 768 where ResNet-50 gives 2048."""
     model = _build("E", masks)
     with pytest.raises(ValueError, match="preprocessing_hash"):
-        model(maps[0], torch.randn(B, T, D, 14, 14))
+        model(torch.randn(B, T, 768, CNN_HW, CNN_HW), maps[1])
+
+
+def test_the_cache_stores_only_the_frozen_half(masks, maps):
+    """The property that makes caching sound at all. If the adapters lived
+    upstream of the cache, a randomly-initialised projection would be baked in
+    on the first run and could never train — silently, with a loss curve that
+    still falls."""
+    model = _build("E", masks)
+    assert model.adapt_cnn is not None and model.adapt_vit is not None
+    assert all(p.requires_grad for p in model.adapt_cnn.parameters())
+
+    # Raw cache entries carry backbone channels, not d_model.
+    assert maps[0].shape[2] == CNN_C != D
+    assert maps[1].shape[2] == VIT_C
 
 
 def test_lane_mask_count_must_match_the_config(masks):

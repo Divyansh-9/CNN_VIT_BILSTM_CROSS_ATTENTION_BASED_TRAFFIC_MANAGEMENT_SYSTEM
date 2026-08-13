@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S27 feature cache, or S18 dataset curation |
+| **Current step** | S18 dataset curation, or S32 SUMO network |
 
 ---
 
@@ -96,7 +96,7 @@ guesses.
 | S24 | Cross-attention (standard — Phase 1 only) | ✅ | — | 4 fusion modes, gate behind a Phase 2 flag |
 | S25 | BiLSTM + per-lane ROI head | ✅ | — | A8 verified: 4 different lane predictions |
 | S26 | **Overfit 10 sequences to ~zero loss** | ✅ | — | All 8 configs reach <0.03. Found 2 real defects |
-| S27 | Feature cache + manifest assertion | ⬜ | R2 | S26 |
+| S27 | Feature cache + manifest assertion | ✅ | — | Hash raises, never warns. 23 tests |
 | S28 | Phase 1 full training → **M4** | ⬜ | R2 | S27 |
 | S29 | Ablation A–H × 5 seeds → **M5** | ⬜ | R2 | S28 |
 | S30 | Backbone arms BB-1/2/3 | ⬜ | R2 | S29 |

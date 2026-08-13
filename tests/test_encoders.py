@@ -38,6 +38,29 @@ def batch():
 
 # ------------------------------------------------------- the A24 defect --
 
+def test_branches_emit_raw_frozen_output(encoder, batch):
+    """The cacheable half. Nothing trainable has touched these, which is the
+    only property that makes caching them sound (ADR-005)."""
+    cnn_raw, vit_raw = encoder.frozen_maps(batch)
+    assert cnn_raw.shape == (2, 2048, 7, 7)
+    assert vit_raw.shape == (2, 384, 16, 16)
+
+
+def test_the_declared_channel_table_matches_the_real_models(encoder):
+    """`EncoderConfig.cnn_channels` lets a cache be sized without building 45 M
+    parameters. A table that drifts from the models is worse than none."""
+    assert CFG.cnn_channels == encoder.cnn.out_channels
+    assert CFG.vit_channels == encoder.vit.out_channels
+
+
+def test_only_the_adapters_train_not_the_backbones(encoder):
+    """Frozen backbones leave the two 1x1 projections, and they must sit
+    downstream of the cache boundary — inside the adapters, never the branches."""
+    assert not any(p.requires_grad for p in encoder.cnn.parameters())
+    assert not any(p.requires_grad for p in encoder.vit.parameters())
+    assert all(p.requires_grad for p in encoder.adapt_cnn.parameters())
+
+
 def test_the_two_backbones_natively_disagree_on_token_count():
     """The defect itself, asserted so nobody 'simplifies' the alignment away.
 
@@ -93,9 +116,10 @@ def test_the_gate_can_now_execute(encoder, batch):
 def test_mismatched_maps_raise_rather_than_broadcast(encoder, batch):
     """A silent broadcast would be worse than a crash. Forced by monkeypatching
     one branch to a different grid."""
-    other = CNNBranch(EncoderConfig(grid=14, pretrained=False))
+    from mfstnet.encoders import ProjectionAdapter
+
     encoder_bad = DualPathEncoder(CFG)
-    encoder_bad.cnn = other
+    encoder_bad.adapt_cnn = ProjectionAdapter(2048, CFG.d_model, grid=14)
 
     with pytest.raises(RuntimeError, match="A24"):
         encoder_bad(batch)
@@ -138,7 +162,7 @@ def test_only_the_projections_train(encoder):
     trainable = encoder.trainable_parameters
     total = sum(p.numel() for p in encoder.parameters())
     assert 0 < trainable < 0.05 * total
-    assert all(p.requires_grad for p in encoder.cnn.project.parameters())
+    assert all(p.requires_grad for p in encoder.adapt_cnn.project.parameters())
 
 
 def test_an_unknown_cnn_backbone_is_rejected():

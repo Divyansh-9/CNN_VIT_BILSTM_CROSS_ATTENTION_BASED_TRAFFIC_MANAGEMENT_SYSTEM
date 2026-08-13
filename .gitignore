@@ -57,3 +57,5 @@ desktop.ini
 # ---- Exceptions: these small artifacts MUST be committed (NFR-09) ----
 !experiments/results/**/*.csv
 !experiments/results/**/*.json
+experiments/results/cache/
+*.pt

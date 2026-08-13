@@ -26,6 +26,19 @@ by the ADR-005 feature cache:
 G=7 is what a 6 GB card affords. Its cost is ROI granularity: a lane covering a
 quarter of the frame gets ~12 of 49 cells, a small approach two or three. Raise G
 if the Week-2 pilots show lanes occupying a small share of the frame.
+
+**Where the projection lives matters, and it is not here.** Each branch is
+*purely frozen*: it emits its backbone's raw map at the backbone's own geometry
+(`[B, 2048, 7, 7]` for ResNet-50, `[B, 384, 16, 16]` for DINOv2). The 1x1
+projection to `d_model` and the resize to `G` are a separate `ProjectionAdapter`
+owned by the trainable model.
+
+That split is what makes ADR-005's cache correct rather than merely fast. The
+cache stores exactly what the frozen backbones produce. If it stored the
+projected map instead, a randomly-initialised adapter would be baked into the
+cache on the first run and could never train again — the loss would still fall,
+nothing would raise, and the reported "trainable projections" would be a fiction.
+Caching may only ever capture the part of the graph that does not learn.
 """
 
 from __future__ import annotations
@@ -36,7 +49,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ["EncoderConfig", "CNNBranch", "ViTBranch", "DualPathEncoder"]
+__all__ = [
+    "EncoderConfig",
+    "CNNBranch",
+    "ViTBranch",
+    "ProjectionAdapter",
+    "DualPathEncoder",
+]
 
 
 @dataclass(frozen=True)
@@ -55,12 +74,59 @@ class EncoderConfig:
     def tokens(self) -> int:
         return self.grid * self.grid
 
+    @property
+    def cnn_channels(self) -> int:
+        """Channels a CNN cache entry holds. Part of `preprocessing_hash`."""
+        try:
+            return _CNN_CHANNELS[self.cnn]
+        except KeyError:
+            raise ValueError(f"unknown CNN backbone {self.cnn!r}") from None
+
+    @property
+    def vit_channels(self) -> int:
+        try:
+            return _VIT_CHANNELS[self.vit]
+        except KeyError:
+            raise ValueError(f"unknown ViT backbone {self.vit!r}") from None
+
+
+# Declared rather than discovered, so a cache can be sized and validated without
+# instantiating 45 M parameters of backbone. Asserted against the real modules in
+# `test_encoders.py` — a table that drifts from the models is worse than none.
+_CNN_CHANNELS = {"resnet50": 2048, "convnext_tiny": 768}
+_VIT_CHANNELS = {"vit_small_patch14_dinov2": 384, "vit_small_patch16_224": 384}
+
+
+class ProjectionAdapter(nn.Module):
+    """Resize to `G` and project to `d_model`. **The trainable half.**
+
+    Deliberately separate from the branches so the frozen path and the learned
+    path cannot be confused, and so the ADR-005 cache can store the frozen half
+    alone. A 1x1 convolution rather than a Linear over flattened tokens: both are
+    the same arithmetic, but only one keeps the spatial map that per-lane ROI
+    pooling (A8) needs. A flat sequence of tokens is not a map.
+    """
+
+    def __init__(self, in_channels: int, d_model: int, grid: int) -> None:
+        super().__init__()
+        self.grid = grid
+        self.project = nn.Conv2d(in_channels, d_model, kernel_size=1)
+
+    def forward(self, feats: torch.Tensor) -> torch.Tensor:
+        """`[B, C, h, w]` -> `[B, D, G, G]`."""
+        if feats.shape[-2:] != (self.grid, self.grid):
+            feats = F.interpolate(
+                feats, size=(self.grid, self.grid),
+                mode="bilinear", align_corners=False,
+            )
+        return self.project(feats)
+
 
 class CNNBranch(nn.Module):
-    """ResNet-50 (or ConvNeXt-T) to a `[B, D, G, G]` map.
+    """ResNet-50 (or ConvNeXt-T), frozen, to its **raw** `[B, C, h, w]` map.
 
-    The backbone's own output is already a spatial grid, so alignment is a resize
-    when `G` differs from its native stride-32 output.
+    No projection and no resize: this is the cacheable half. `out_channels`
+    reports what a cache entry will hold.
     """
 
     def __init__(self, cfg: EncoderConfig) -> None:
@@ -81,32 +147,21 @@ class CNNBranch(nn.Module):
         else:
             raise ValueError(f"unknown CNN backbone {cfg.cnn!r}")
 
+        self.out_channels = channels
         if cfg.frozen:
             for p in self.backbone.parameters():
                 p.requires_grad_(False)
 
-        # 1x1 convolution rather than a Linear on flattened tokens: the spatial
-        # structure has to survive to per-lane ROI pooling (A8).
-        self.project = nn.Conv2d(channels, cfg.d_model, kernel_size=1)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """`[B, 3, H, W]` -> `[B, D, G, G]`."""
+        """`[B, 3, H, W]` -> the backbone's own map, `[B, C, h, w]`."""
         if self.cfg.frozen:
             with torch.no_grad():
-                feats = self.backbone(x)
-        else:
-            feats = self.backbone(x)
-
-        if feats.shape[-2:] != (self.cfg.grid, self.cfg.grid):
-            feats = F.interpolate(
-                feats, size=(self.cfg.grid, self.cfg.grid),
-                mode="bilinear", align_corners=False,
-            )
-        return self.project(feats)
+                return self.backbone(x)
+        return self.backbone(x)
 
 
 class ViTBranch(nn.Module):
-    """DINOv2 ViT-S/14 (or supervised ViT-S/16) to a `[B, D, G, G]` map.
+    """DINOv2 ViT-S/14 (or supervised ViT-S/16), frozen, to `[B, C, 16, 16]`.
 
     The reshape is where the geometry bites. Patch-14 at 224 gives a 16×16 patch
     grid plus a CLS token — **257**, not 197. The CLS token carries no position,
@@ -132,11 +187,10 @@ class ViTBranch(nn.Module):
         self.patch_size: int = patch[0] if isinstance(patch, (tuple, list)) else patch
         self.native_grid: int = cfg.image_size // self.patch_size
         self.num_prefix: int = getattr(self.backbone, "num_prefix_tokens", 1)
-
-        self.project = nn.Conv2d(self.embed_dim, cfg.d_model, kernel_size=1)
+        self.out_channels: int = self.embed_dim
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """`[B, 3, H, W]` -> `[B, D, G, G]`."""
+        """`[B, 3, H, W]` -> the patch grid as a map, `[B, C, 16, 16]`."""
         if self.cfg.frozen:
             with torch.no_grad():
                 tokens = self.backbone.forward_features(x)
@@ -154,20 +208,21 @@ class ViTBranch(nn.Module):
                 f"assumes a square grid."
             )
 
-        grid = patches.transpose(1, 2).reshape(b, c, self.native_grid, self.native_grid)
-        if self.native_grid != self.cfg.grid:
-            grid = F.interpolate(
-                grid, size=(self.cfg.grid, self.cfg.grid),
-                mode="bilinear", align_corners=False,
-            )
-        return self.project(grid)
+        return patches.transpose(1, 2).reshape(
+            b, c, self.native_grid, self.native_grid
+        )
 
 
 class DualPathEncoder(nn.Module):
-    """Both branches, aligned. Returns two `[B, G², D]` sequences of equal length.
+    """Both frozen branches plus their adapters — the whole Stage 1 in one place.
 
-    Equality is asserted rather than assumed, because the failure it guards is
-    silent at write time and fatal at run time.
+    This is the **uncached** reference path: images in, aligned sequences out. It
+    is what ONNX export traces and what the tests assert geometry against. The
+    cached training path splits it in two, using `frozen_maps()` to fill the
+    cache and `MFSTNet`'s own adapters to project on load.
+
+    Equality of the two aligned maps is asserted rather than assumed, because the
+    failure it guards is silent at write time and fatal at run time.
     """
 
     def __init__(self, cfg: EncoderConfig | None = None) -> None:
@@ -175,11 +230,30 @@ class DualPathEncoder(nn.Module):
         self.cfg = cfg or EncoderConfig()
         self.cnn = CNNBranch(self.cfg)
         self.vit = ViTBranch(self.cfg)
+        self.adapt_cnn = ProjectionAdapter(
+            self.cnn.out_channels, self.cfg.d_model, self.cfg.grid
+        )
+        self.adapt_vit = ProjectionAdapter(
+            self.vit.out_channels, self.cfg.d_model, self.cfg.grid
+        )
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """`[B, 3, H, W]` -> `(f_cnn, f_vit)`, each `[B, G², D]`."""
-        cnn_map = self.cnn(x)
-        vit_map = self.vit(x)
+    def frozen_maps(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Raw backbone output — **exactly what the ADR-005 cache stores**.
+
+        `[B, 2048, 7, 7]` and `[B, 384, 16, 16]` for the default pair. Nothing
+        trainable has touched these, which is the property that makes caching
+        them sound.
+        """
+        return self.cnn(x), self.vit(x)
+
+    def forward_maps(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """`[B, 3, H, W]` -> two aligned `[B, D, G, G]` maps.
+
+        ROI pooling needs a map, so this is the shape the model works in.
+        """
+        cnn_raw, vit_raw = self.frozen_maps(x)
+        cnn_map = self.adapt_cnn(cnn_raw)
+        vit_map = self.adapt_vit(vit_raw)
 
         if cnn_map.shape != vit_map.shape:
             raise RuntimeError(
@@ -187,16 +261,15 @@ class DualPathEncoder(nn.Module):
                 f"{tuple(vit_map.shape)}. This is the A24 defect — the gate is "
                 f"elementwise and cannot combine them."
             )
+        return cnn_map, vit_map
 
-        b, d, g, _ = cnn_map.shape
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """`[B, 3, H, W]` -> `(f_cnn, f_vit)`, each `[B, G², D]`."""
+        cnn_map, vit_map = self.forward_maps(x)
         return (
             cnn_map.flatten(2).transpose(1, 2),
             vit_map.flatten(2).transpose(1, 2),
         )
-
-    def forward_maps(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Same, keeping `[B, D, G, G]` — per-lane ROI pooling needs the map."""
-        return self.cnn(x), self.vit(x)
 
     @property
     def trainable_parameters(self) -> int:

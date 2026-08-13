@@ -38,14 +38,14 @@ from mfstnet.model import ABLATION_CONFIGS, MFSTNet, ablation_config  # noqa: E4
 from mfstnet.temporal import lane_masks  # noqa: E402
 from scripts.seed import set_seed  # noqa: E402
 
-# A plausible four-approach layout. Only the geometry matters here — the lanes
-# must be disjoint and each must cover at least one grid cell.
 # PRD §8.2. Not a free parameter to tune here — a training script that invents a
 # number the specification already fixes is a defect (NFR-16), and this one bit:
 # at the 1e-3 I first wrote, config F stalled at loss 0.41 and stayed there for
 # 900 steps, which reads exactly like a broken graph. See BUILD-LOG S26.
 PRD_LR = 1e-4
 
+# A plausible four-approach layout. Only the geometry matters here — the lanes
+# must be disjoint and each must cover at least one grid cell.
 DEMO_LANES: tuple[Polygon, ...] = (
     Polygon("north", ((0.30, 0.00), (0.70, 0.00), (0.70, 0.45), (0.30, 0.45))),
     Polygon("south", ((0.30, 0.55), (0.70, 0.55), (0.70, 1.00), (0.30, 1.00))),
@@ -78,10 +78,18 @@ def run_overfit(
     masks = lane_masks(DEMO_LANES, grid)
     model = MFSTNet(cfg, masks).to(device)
 
-    d, n_lanes = cfg.encoder.d_model, cfg.n_lanes
-    shape = (n_sequences, timesteps, d, grid, grid)
-    cnn = torch.randn(shape, device=device) if cfg.fusion.use_cnn else None
-    vit = torch.randn(shape, device=device) if cfg.fusion.use_vit else None
+    # Raw frozen-backbone shapes, matching what the ADR-005 cache holds. The
+    # trainable adapters are inside the model and so are part of what is tested.
+    n_lanes = cfg.n_lanes
+    enc = cfg.encoder
+    cnn = (
+        torch.randn(n_sequences, timesteps, enc.cnn_channels, 7, 7, device=device)
+        if cfg.fusion.use_cnn else None
+    )
+    vit = (
+        torch.randn(n_sequences, timesteps, enc.vit_channels, 16, 16, device=device)
+        if cfg.fusion.use_vit else None
+    )
     targets = torch.randint(0, cfg.n_classes, (n_sequences, n_lanes), device=device)
 
     optimiser = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.0)

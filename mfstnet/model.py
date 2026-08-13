@@ -9,7 +9,8 @@ the only place images are touched.
 
 Shapes end to end, with B batch, T timesteps, D d_model, G grid, L lanes:
 
-    cached maps       [B, T, D, G, G]  x2      (CNN branch, ViT branch)
+    cached maps       [B, T, 2048, 7, 7] and [B, T, 384, 16, 16]   raw + frozen
+    adapters          [B*T, G², D]             trainable 1x1 + resize to G
     fusion            [B*T, G², D]             cross-attention over space
     lane pooling      [B, T, L, D]             per-lane ROI (amendment A8)
     temporal          [B*L, T, D] -> [B*L, D]  lanes share weights
@@ -31,7 +32,7 @@ from typing import Iterator
 import torch
 import torch.nn as nn
 
-from .encoders import DualPathEncoder, EncoderConfig
+from .encoders import DualPathEncoder, EncoderConfig, ProjectionAdapter
 from .fusion import CrossAttentionFusion, FusionConfig
 from .temporal import CongestionHead, LanePool, TemporalConfig, TemporalEncoder
 
@@ -102,6 +103,19 @@ class MFSTNet(nn.Module):
             )
 
         self.cfg = cfg
+        # The trainable adapters live HERE, not in the encoder, because the cache
+        # stores raw frozen output. Caching a projected map would bake a
+        # randomly-initialised adapter in permanently — silently, and with a loss
+        # curve that still falls. See `encoders.ProjectionAdapter`.
+        enc = cfg.encoder
+        self.adapt_cnn = (
+            ProjectionAdapter(enc.cnn_channels, enc.d_model, enc.grid)
+            if cfg.fusion.use_cnn else None
+        )
+        self.adapt_vit = (
+            ProjectionAdapter(enc.vit_channels, enc.d_model, enc.grid)
+            if cfg.fusion.use_vit else None
+        )
         self.fusion = CrossAttentionFusion(cfg.fusion)
         self.lane_pool = LanePool(lane_masks)
         self.temporal = TemporalEncoder(cfg.temporal)
@@ -116,7 +130,11 @@ class MFSTNet(nn.Module):
     def forward(
         self, cnn_maps: torch.Tensor | None, vit_maps: torch.Tensor | None
     ) -> MFSTNetOutput:
-        """Cached maps `[B, T, D, G, G]` -> per-lane logits `[B, L, n_classes]`.
+        """Raw cached maps `[B, T, C, h, w]` -> per-lane logits `[B, L, classes]`.
+
+        The two branches arrive at *different* shapes — that is the A24 defect in
+        its natural state. Alignment happens in the adapters, inside this model,
+        because they train.
 
         A branch the config disables may be passed as None; passing a tensor for
         a disabled branch raises rather than silently ignoring it, because a
@@ -125,11 +143,14 @@ class MFSTNet(nn.Module):
         cnn_maps, vit_maps = self._check_inputs(cnn_maps, vit_maps)
         present = cnn_maps if cnn_maps is not None else vit_maps
         assert present is not None
-        b, t, d, g, _ = present.shape
+        b, t = present.shape[:2]
+        d, g = self.cfg.encoder.d_model, self.cfg.encoder.grid
 
-        # Fusion is spatial and time-invariant, so time folds into the batch.
-        flat_cnn = _fold_time(cnn_maps)
-        flat_vit = _fold_time(vit_maps)
+        # Fusion is spatial and time-invariant, so time folds into the batch. The
+        # adapters run here, on the way out of the cache — they are trainable and
+        # so cannot have run on the way in.
+        flat_cnn = _adapt(cnn_maps, self.adapt_cnn)
+        flat_vit = _adapt(vit_maps, self.adapt_vit)
         fused, gate = self.fusion(flat_cnn, flat_vit)            # [B*T, G², D]
 
         maps = fused.transpose(1, 2).reshape(b, t, d, g, g)
@@ -159,6 +180,7 @@ class MFSTNet(nn.Module):
         vit_out: list[torch.Tensor] = []
         for start in range(0, frames.shape[0], chunk):
             batch = frames[start : start + chunk]
+            # `.cnn` / `.vit`, never `.adapt_*` — only the frozen half is cacheable.
             if self.cfg.fusion.use_cnn:
                 cnn_out.append(encoder.cnn(batch))
             if self.cfg.fusion.use_vit:
@@ -194,25 +216,49 @@ class MFSTNet(nn.Module):
                 )
             if tensor is not None and tensor.dim() != 5:
                 raise ValueError(
-                    f"expected {name} features [B, T, D, G, G], got "
+                    f"expected {name} features [B, T, C, h, w], got "
                     f"{tuple(tensor.shape)}"
                 )
-        if cnn_maps is not None and vit_maps is not None:
-            if cnn_maps.shape != vit_maps.shape:
+
+        # The two branches legitimately differ in shape here — 2048x7x7 against
+        # 384x16x16 — so they are checked against the config, not against each
+        # other. Channel count is the part of the geometry that identifies the
+        # backbone, and a mismatch means the cache was written by a different one.
+        enc = self.cfg.encoder
+        for name, tensor, expected in (
+            ("CNN", cnn_maps, enc.cnn_channels),
+            ("ViT", vit_maps, enc.vit_channels),
+        ):
+            if tensor is not None and tensor.shape[2] != expected:
                 raise ValueError(
-                    f"branch caches disagree: {tuple(cnn_maps.shape)} vs "
-                    f"{tuple(vit_maps.shape)} — likely two different "
-                    f"preprocessing_hash values (ADR-005)"
+                    f"{name} cache has {tensor.shape[2]} channels, but "
+                    f"{enc.cnn if name == 'CNN' else enc.vit!r} produces "
+                    f"{expected}. This cache was written by a different backbone "
+                    f"— a preprocessing_hash mismatch (ADR-005). Rebuild it; do "
+                    f"not train on it."
+                )
+        if cnn_maps is not None and vit_maps is not None:
+            if cnn_maps.shape[:2] != vit_maps.shape[:2]:
+                raise ValueError(
+                    f"branch caches cover different batches or lengths: "
+                    f"{tuple(cnn_maps.shape[:2])} vs {tuple(vit_maps.shape[:2])}"
                 )
         return cnn_maps, vit_maps
 
 
-def _fold_time(maps: torch.Tensor | None) -> torch.Tensor | None:
-    """`[B, T, D, G, G]` -> `[B*T, G², D]`."""
-    if maps is None:
+def _adapt(
+    maps: torch.Tensor | None, adapter: ProjectionAdapter | None
+) -> torch.Tensor | None:
+    """Raw cached `[B, T, C, h, w]` -> aligned `[B*T, G², D]`.
+
+    Time folds into the batch because the adapter is a 1x1 convolution and knows
+    nothing about time.
+    """
+    if maps is None or adapter is None:
         return None
-    b, t, d, g, _ = maps.shape
-    return maps.reshape(b * t, d, g * g).transpose(1, 2)
+    b, t, c, h, w = maps.shape
+    projected = adapter(maps.reshape(b * t, c, h, w))       # [B*T, D, G, G]
+    return projected.flatten(2).transpose(1, 2)
 
 
 # ---------------------------------------------------------- ablation configs --
