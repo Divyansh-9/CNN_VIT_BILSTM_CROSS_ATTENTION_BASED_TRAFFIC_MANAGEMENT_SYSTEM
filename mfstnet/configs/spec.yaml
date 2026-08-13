@@ -164,6 +164,48 @@ ablation:                  # PRD §14.4
                                     # knowing seed variance. Cached features make
                                     # this nearly free.
   backbone_arms:           # ADR-007
-    BB-1: {cnn: resnet50, vit: vit_small_patch16_224}   # the PRD's original pair
-    BB-2: {cnn: resnet50, vit: dinov2_vits14}           # default
-    BB-3: {cnn: convnext_tiny, vit: dinov2_vits14}
+    # Names are the exact strings timm/torchvision accept, NOT informal ones.
+    # They were "dinov2_vits14" until the S27 audit, which is not a name timm
+    # resolves — so the DEFAULT arm and BB-3 would both have failed the moment
+    # the ablation was driven from this file. Asserted buildable by
+    # tests/test_spec_matches_code.py.
+    BB-1: {cnn: resnet50, vit: vit_small_patch16_224}        # the PRD's original pair
+    BB-2: {cnn: resnet50, vit: vit_small_patch14_dinov2}     # default (A12)
+    BB-3: {cnn: convnext_tiny, vit: vit_small_patch14_dinov2}
+
+model:                     # PRD §8.2 — MFSTNet architecture
+  # These were living only as Python dataclass defaults until the S24-S27 audit.
+  # That is the same shape of gap that produced A15: a number correct in three
+  # documents and never checked against the code. tests/test_spec_matches_code.py
+  # now binds each of these to its dataclass field, so a drift fails CI.
+  d_model: 256
+  bilstm_hidden: 128       # bidirectional, so 2*128 = d_model. Not a coincidence
+  bilstm_layers: 2
+  temporal_attn_layers: 2
+  temporal_attn_heads: 4
+  cross_attn_heads: 4
+  head_hidden: 128
+  n_classes: 3             # LOW / MEDIUM / HIGH
+  dropout: 0.1
+
+training:                  # PRD §8.4 — MFSTNet training recipe
+  lr: 0.0001               # 1e-4. AdamW. See BUILD-LOG S26: an invented 1e-3
+                           # stalled config F at loss 0.41 for 900 steps and
+                           # read exactly like a broken graph
+  weight_decay: 0.0001
+  optimiser: adamw
+  scheduler: cosine_annealing
+  epochs: 100
+  patience: 15
+  batch_size: 32
+  loss: cross_entropy_inverse_frequency_weighted
+
+cache:                     # ADR-005 — see mfstnet/cache.py
+  # preprocessing_hash covers backbone identity, input resize and normalisation.
+  # It deliberately does NOT cover grid or d_model: those belong to the trainable
+  # adapter DOWNSTREAM of the cache, so the G=7 vs G=14 question can be re-run
+  # without recomputing a single feature.
+  dtype: float16
+  granularity: clip        # never per-sequence: windows share 54 of 60 frames
+  on_hash_mismatch: raise  # SOW R20 — never warn. A stale cache trains normally
+                           # and reports wrong numbers

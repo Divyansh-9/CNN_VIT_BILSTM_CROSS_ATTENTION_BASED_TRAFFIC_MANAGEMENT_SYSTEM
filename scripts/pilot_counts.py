@@ -92,9 +92,12 @@ def extract_counts(video_path: Path, roi: tuple[float, float, float, float] | No
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
+    # `--help` before the existence check: this is the script someone runs at
+    # Week 2 with footage in hand, and "no such file: --help" is a bad first
+    # impression of a tool whose job is to be trusted.
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
         print(__doc__)
-        return 2
+        return 0 if len(sys.argv) > 1 else 2
 
     video = Path(sys.argv[1])
     if not video.exists():
