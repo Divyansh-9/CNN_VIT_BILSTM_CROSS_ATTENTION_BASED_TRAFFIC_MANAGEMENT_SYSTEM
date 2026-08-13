@@ -1,36 +1,80 @@
 name: tests
 
-# The corpus, metrics, geometry and spec-invariant suites need no torch, no CUDA
-# and no data — pure standard library plus pytest and pyyaml. That means CI can
-# run them in seconds, on every push, from day one.
+# Two jobs, because the suites have genuinely different costs.
 #
-# It also means the test badge reports something real. A badge asserting a
-# number nobody re-checks is decoration.
+# The corpus, metrics, geometry and spec-invariant suites need no torch, no CUDA
+# and no data — pure standard library plus pytest and pyyaml, running in seconds
+# on every push.
+#
+# The model suites need torch and timm. They are the ONLY guard on amendment A24
+# (the 49-vs-257 token mismatch that made the gate unexecutable) and on the
+# per-lane ROI pooling A8 requires. They must not be skipped: `importorskip`
+# means a torchless runner reports them as skipped, the job still passes, and the
+# badge goes green over code nothing checked. Hence a job that installs torch,
+# and `--no-skip-model` below to make a missing dependency a failure.
 
 # NO path filter. A filtered workflow that does not run leaves the badge showing
 # the PREVIOUS result — so a green badge can mean "never ran against this code",
-# which is worse than a red one. The suites take nine seconds; filtering them is
-# an optimisation that buys nothing and can lie.
+# which is worse than a red one.
 on:
   push:
   pull_request:
   workflow_dispatch:
 
 jobs:
-  test:
+  fast:
+    name: fast suites (no torch)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'   # torch 2.3.1 publishes no wheels above 3.12
+          python-version: '3.12'
 
       - name: Install test dependencies only
         # Deliberately NOT requirements.txt — torch is ~2 GB and none of these
-        # suites import it. Keeping CI dependency-light keeps it fast enough
-        # that people actually read the result.
+        # suites import it. Keeping this job dependency-light keeps it fast
+        # enough that people actually read the result.
         run: pip install pytest pyyaml
 
       - name: Run suites
-        run: pytest tests/ -q --tb=short
+        run: >
+          pytest tests/ -q --tb=short
+          --ignore=tests/test_encoders.py
+          --ignore=tests/test_model.py
+
+  model:
+    name: model suites (CPU torch)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install CPU torch and timm
+        # CPU wheels only. There is no GPU on the runner and the model suites
+        # assert geometry and gradient flow, which are device-independent.
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install pytest pyyaml timm
+
+      - name: Fail if torch is missing rather than skipping
+        # Without this the suites `importorskip` away and the job passes green
+        # over completely untested code.
+        run: python -c "import torch, timm; print(torch.__version__, timm.__version__)"
+
+      - name: Run model suites
+        # pretrained=False throughout: these assert geometry and gradient flow,
+        # not representation quality, so downloading ~200 MB of backbone weights
+        # every run would buy nothing.
+        run: pytest tests/test_encoders.py tests/test_model.py -q --tb=short
+
+      - name: Overfit check (S26)
+        # The cheapest decisive test in the model track. A graph that cannot
+        # memorise ten samples has a defect, and this catches it in a minute
+        # rather than after a 14-hour training run. Kept short here; the full
+        # eight-config sweep is a local command.
+        run: python scripts/overfit_check.py --config E --steps 200 --sequences 4

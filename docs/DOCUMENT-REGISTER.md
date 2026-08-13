@@ -107,6 +107,11 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 | `tests/test_spec_invariants.py` | Active | Asserts cross-document arithmetic. Its first version encoded a wrong model of lane wait (see withdrawn claims); corrected 2026-08-10 |
 | `mfstnet/corpus/` | Active | **First project code.** Label rule, window timing, clip-level splits. Pure stdlib — no torch, no video, no GPU |
 | `mfstnet/encoders.py` | Active | Dual-path backbones + A24 grid alignment. **Verified on real tensors**: 49 vs 257 native, both aligned to 49 |
+| `mfstnet/fusion.py` | Active | Cross-attention, 4 modes. Gate behind a Phase 2 flag (PRD §2.4) |
+| `mfstnet/temporal.py` | Active | Lane ROI pooling (A8), BiLSTM, temporal attention, congestion head |
+| `mfstnet/model.py` | Active | Assembly + the §14.4 ablation table as data. Consumes cached features (ADR-005) |
+| `scripts/overfit_check.py` | Active | S26 gate. Found the dead `weight_hh_reverse` and the invented learning rate |
+| `tests/test_model.py` | Active | 43 tests. Runs in the CI `model` job |
 | `tests/test_encoders.py` | Active | 16 tests. The only guard on the A24 defect; runs in the CI `model` job |
 | `tests/test_corpus.py` | Active | 38 assertions, 6 of them A15 regressions. Runs in milliseconds |
 
