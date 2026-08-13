@@ -14,6 +14,9 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 
 > **New to the project, or the documents feel heavy?** Start with **[EXPLAIN.md](EXPLAIN.md)** —
 > everything below in plain English with worked examples, no prior knowledge assumed.
+>
+> **Want to know what to do right now?** **[BUILD-LOG.md](BUILD-LOG.md)** — every step S01–S48 with
+> its status, plus a running record of what broke and how it was fixed.
 
 > **Read the status column in every table below.** This project is mostly specification so far. A
 > README that reads as though the system exists would mislead the team and an examiner alike, so
@@ -26,6 +29,7 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 | Section | Read it if you want |
 |---|---|
 | **[EXPLAIN.md](EXPLAIN.md)** | **Everything, in simple English with examples** |
+| **[BUILD-LOG.md](BUILD-LOG.md)** | **What to do next · what is blocked · what went wrong and how we fixed it** |
 | [The problem](#the-problem) | Why this project exists |
 | [What it does](#what-it-does) | The system in one diagram |
 | [Reading paths](#reading-paths) | **Start here** — 5, 30, or 120 minutes by role |

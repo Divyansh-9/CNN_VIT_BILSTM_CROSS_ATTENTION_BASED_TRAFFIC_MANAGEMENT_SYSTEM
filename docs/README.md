@@ -13,6 +13,7 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 
 | If you are… | Read |
 |---|---|
+| **Looking for what to do next** | **[BUILD-LOG.md](../BUILD-LOG.md)** — step board S01–S48, blockers with ages, and the problem/fix journal |
 | **New, or short on time** | **[EXPLAIN.md](../EXPLAIN.md)** — the whole project in plain English with worked examples |
 | **On the team, starting work** | [Execution Manual](90-manual/EXECUTION_MANUAL.md) — Part 0 today, §1.2 pilots this week, Part 1 weekly |
 | Training models | [Training Guide](90-manual/TRAINING-GUIDE.md) |
