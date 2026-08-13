@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S07 — waiting on S04, S05, S06 |
+| **Current step** | S03c — push to GitHub, then S13 |
 
 ---
 
@@ -51,6 +51,7 @@ guesses.
 | S02 | Documentation suite | ✅ | — | 43 docs, 12 ADRs. **Now stop** |
 | S03 | Corpus logic + tests | ✅ | — | 44 tests passing |
 | S03b | Metrics module + tests | ✅ | — | 62 tests. Confusion matrix now a required artifact |
+| S03c | **Push to GitHub** | 🔵 | Team lead | 21 commits exist on one laptop only. NFR-08 |
 | S04 | **Scope variation sign-off** | ⛔ | Team lead | Blocked on faculty guide. Gates ~340 h |
 | S05 | **Python 3.11 environment** | ⛔ | Everyone | Nothing runs until this is done |
 | S06 | **Week-2 pilots** (annotation, counts, cache, persistence) | ⛔ | R1 | Needs S05 + any traffic video |
@@ -291,6 +292,35 @@ accuracy reads 0.95 while macro F1 reads 0.33 — that gap is the signal.
 **Evidence.** 18 metric assertions pass, every expected value hand-computed and written into the test
 rather than produced by the code under test. A metric suite that checks itself against its own output
 checks nothing.
+
+---
+
+### S03c · Push to GitHub
+
+**Started** 2026-08-13 · **Status** 🔵 in progress
+**Estimated** 15 min
+
+**Why this before more code.** Twenty-one commits exist on **one laptop and nowhere else**. ADR-003
+and ADR-005 both concentrate training, the edge node and the demo on that same machine, and the
+feasibility audit already lists it as hazard H3. Right now the mitigation named there — "push
+continuously" — is not actually happening.
+
+Three further reasons it cannot wait:
+
+- **NFR-08 is a graded requirement**: code on GitHub with a pinned `requirements.txt`. Currently unmet.
+- **S07 (doc walkthrough) is impossible** while 44 documents live on one machine.
+- **`.github/workflows/docs.yml` has never run.** A CI job that has never executed is a guess.
+
+**Pre-push safety check — done, clean.** No secret-shaped filenames tracked, no `.env`, no raw video,
+no large binaries. Largest tracked file is `PRD.md` at 85 KB. Git LFS configured but holds nothing
+yet, which is correct — no weights exist.
+
+**Added.** `LICENSE` (MIT), which README promised and the repo did not have. It scopes the licence to
+**source code only** and states separately that datasets carry their own terms — the curated benchmark
+is per-source, the campus subset is CC BY 4.0 anonymised, and third-party sets keep their own licences.
+A single blanket MIT over a repository that will contain other people's data would be wrong.
+
+**Decision pending: private or public.** See the recommendation in §Notes below.
 
 ---
 
