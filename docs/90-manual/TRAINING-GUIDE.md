@@ -58,6 +58,58 @@ throughput, never correctness.
 
 ---
 
+## 2.5 Who runs the training, and where
+
+**Where: locally.** ADR-005 settled this. The laptop has no session cap and, with cached features,
+outruns a Colab T4 for this workload. Colab is overflow for parallel arms only.
+
+**Who: both, but not the same runs.** This distinction is worth getting right early, because it
+affects the viva and NFR-08.
+
+| Run type | Who | Why |
+|---|---|---|
+| Pipeline development, smoke tests, 10-sequence overfit checks | Assistant | Fast iteration; failures here are code bugs |
+| **Every experiment reported in the paper** | **The team** | See below |
+
+Three reasons the reported runs must be yours:
+
+**Reproducibility is a graded requirement.** NFR-08 demands clean-machine reproduction. If only one
+party ever executed a training run, nobody has actually verified that claim.
+
+**The viva.** An examiner will ask whether you ran the experiments. "We ran them; here are the logs
+and the experiment records" is an answer. Anything else is not.
+
+**Debugging skill transfers only by doing.** When a loss curve behaves oddly in Week 12, the person
+who has watched fifty loss curves fixes it in an hour. That person needs to be a team member, not a
+tool that may not be in the room.
+
+### The run contract — write the entry point so the operator does not matter
+
+Whoever runs it, one command with the same behaviour:
+
+```bash
+python scripts/train_mfstnet.py --config mfstnet/configs/config_G_full.yaml --seed 42
+```
+
+It must:
+
+- **Checkpoint every epoch**, including optimizer and scheduler state, not just the best model
+- **Resume by default** if a checkpoint exists — long runs will be interrupted
+- **Append to the result CSV as it goes**, never only at the end. A run that dies at epoch 80 should
+  still have 80 epochs of evidence
+- **Write the experiment record at start**, not at finish
+- **Behave identically** on the laptop, on Colab, and on a lab machine — no path or environment
+  assumptions in the training code
+
+That last point is what makes the who-runs-it question answerable at all. If the entry point needs a
+human to babysit a notebook, only one person can ever reproduce anything.
+
+### A limitation worth planning around
+
+**The assistant does not persist between sessions.** A six-hour feature-extraction pass can be
+started here, but nobody is watching it if the session ends. Per-epoch checkpointing and incremental
+CSV writing are not hygiene — they are what makes an unattended run recoverable.
+
 ## 3. The feature cache — the single most important technique here
 
 At `batch_size: 32`, `T: 60`, one uncached step pushes **1,920 frames** through both backbones. That
