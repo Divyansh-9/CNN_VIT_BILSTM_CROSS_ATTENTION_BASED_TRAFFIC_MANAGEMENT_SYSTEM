@@ -1,0 +1,34 @@
+name: tests
+
+# The corpus, metrics, geometry and spec-invariant suites need no torch, no CUDA
+# and no data — pure standard library plus pytest and pyyaml. That means CI can
+# run them in seconds, on every push, from day one.
+#
+# It also means the test badge reports something real. A badge asserting a
+# number nobody re-checks is decoration.
+
+on:
+  push:
+    paths: ['**.py', 'mfstnet/configs/*.yaml', '.github/workflows/tests.yml']
+  pull_request:
+    paths: ['**.py', 'mfstnet/configs/*.yaml', '.github/workflows/tests.yml']
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # torch 2.3.1 publishes no wheels above 3.12
+
+      - name: Install test dependencies only
+        # Deliberately NOT requirements.txt — torch is ~2 GB and none of these
+        # suites import it. Keeping CI dependency-light keeps it fast enough
+        # that people actually read the result.
+        run: pip install pytest pyyaml
+
+      - name: Run suites
+        run: pytest tests/ -q --tb=short

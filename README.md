@@ -1,9 +1,45 @@
-# MFSTNet
+<div align="center">
 
-**A camera-only traffic congestion forecaster and reinforcement-learning signal controller for
-unstructured Indian intersections.**
+# 🚦 MFSTNet — CNN-ViT-BiLSTM Cross-Attention Traffic Management
 
-B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budget · targeting IEEE ITSC / CVIP
+**Camera-only congestion forecasting and reinforcement-learning signal control
+for unstructured Indian intersections**
+
+[![tests](https://github.com/Divyansh-9/CNN_VIT_BILSTM_CROSS_ATTENTION_BASED_TRAFFIC_MANAGEMENT_SYSTEM/actions/workflows/tests.yml/badge.svg)](https://github.com/Divyansh-9/CNN_VIT_BILSTM_CROSS_ATTENTION_BASED_TRAFFIC_MANAGEMENT_SYSTEM/actions/workflows/tests.yml)
+[![docs](https://github.com/Divyansh-9/CNN_VIT_BILSTM_CROSS_ATTENTION_BASED_TRAFFIC_MANAGEMENT_SYSTEM/actions/workflows/docs.yml/badge.svg)](https://github.com/Divyansh-9/CNN_VIT_BILSTM_CROSS_ATTENTION_BASED_TRAFFIC_MANAGEMENT_SYSTEM/actions/workflows/docs.yml)
+![status](https://img.shields.io/badge/STATUS-PRE--IMPLEMENTATION-orange?style=for-the-badge)
+![week](https://img.shields.io/badge/WEEK-2%20of%2020-blue?style=for-the-badge)
+![licence](https://img.shields.io/badge/LICENCE-MIT-green?style=for-the-badge)
+
+![python](https://img.shields.io/badge/PYTHON-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![pytorch](https://img.shields.io/badge/PYTORCH-2.3.1-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
+![detector](https://img.shields.io/badge/DETECTOR-YOLOv8s-00FFFF?style=for-the-badge&logoColor=black)
+![sim](https://img.shields.io/badge/SIMULATOR-SUMO%201.19-FFB000?style=for-the-badge)
+
+![cnn](https://img.shields.io/badge/CNN-ResNet--50%20(frozen)-6A5ACD?style=for-the-badge)
+![vit](https://img.shields.io/badge/ViT-DINOv2%20S%2F14%20(frozen)-8A2BE2?style=for-the-badge)
+![fusion](https://img.shields.io/badge/FUSION-Gated%20Cross--Attention-FF1493?style=for-the-badge)
+![temporal](https://img.shields.io/badge/TEMPORAL-BiLSTM%202%C3%97128-20B2AA?style=for-the-badge)
+
+![rl](https://img.shields.io/badge/RL-PPO%20%2F%20SB3-success?style=for-the-badge)
+![state](https://img.shields.io/badge/STATE-16--dim-informational?style=for-the-badge)
+![horizon](https://img.shields.io/badge/HORIZON-60s%20ahead-critical?style=for-the-badge)
+![budget](https://img.shields.io/badge/BUDGET-%E2%82%B90-brightgreen?style=for-the-badge)
+
+![docs](https://img.shields.io/badge/DOCS-44%20files%20%C2%B7%2013%20ADRs-lightgrey?style=for-the-badge)
+![target](https://img.shields.io/badge/TARGET-IEEE%20ITSC%20%2F%20CVIP-darkred?style=for-the-badge)
+![project](https://img.shields.io/badge/PROJECT-B.Tech%20CSE%20(ML%2FAI)-navy?style=for-the-badge)
+
+</div>
+
+> **Badges report what is true, not what is planned.** Status reads
+> **PRE-IMPLEMENTATION** because no model has trained and no frame has been detected. The two CI
+> badges are live workflow results, not pictures of them. When the system runs, the status badge
+> changes — and not before.
+
+---
+
+B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budget
 
 | | |
 |---|---|
