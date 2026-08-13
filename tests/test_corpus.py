@@ -192,8 +192,18 @@ def test_leakage_is_an_error_not_a_warning():
         assert_no_clip_leakage(["c1", "c1"], ["train", "test"])
 
 
-def test_leakage_message_names_the_offending_clips():
+def test_leakage_message_names_only_the_offending_clips():
+    """Assert on the structured part of the message, not on prose.
+
+    An earlier version checked `"b" not in ...` and failed in CI because the
+    letter b occurs inside the word "overlap" in the explanatory sentence. A
+    test that greps prose for a single character tests the wording, not the
+    behaviour — and breaks the next time anyone improves the sentence.
+    """
     with pytest.raises(LeakageError) as exc:
         assert_no_clip_leakage(["a", "a", "b"], ["train", "test", "train"])
-    assert "a" in str(exc.value)
-    assert "b" not in str(exc.value).split(":")[-1]
+
+    message = str(exc.value)
+    assert "a in [" in message, "the offending clip must be named"
+    assert "b in [" not in message, "a clean clip must not be reported as an offender"
+    assert "1 clip(s) span multiple splits" in message

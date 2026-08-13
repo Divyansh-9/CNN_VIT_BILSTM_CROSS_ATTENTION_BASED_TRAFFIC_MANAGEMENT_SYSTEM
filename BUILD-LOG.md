@@ -374,6 +374,14 @@ saving nine seconds and could produce a badge that lies.
 
 **Fix.** Path filter removed from `tests.yml`. It runs on every push.
 
+**Problem — fourth run: 105 of 106 passed, and the one failure was a bad test rather than bad code.**
+`test_leakage_message_names_the_offending_clips` asserted `"b" not in <message>`. The letter **b**
+occurs inside the word *overlap* in the error's explanatory sentence.
+
+**Fix.** Assert on the structured part of the message — `"a in ["` present, `"b in ["` absent — not on
+prose. A test that greps a sentence for a single character tests the wording, and breaks the next
+time anyone improves the sentence.
+
 **Worth keeping.** Three failures in a row, all found by *running* rather than reading, and none of
 them findable any other way. This is exactly the class the process review predicted: *"the next class
 of defect only appears when something runs."*
