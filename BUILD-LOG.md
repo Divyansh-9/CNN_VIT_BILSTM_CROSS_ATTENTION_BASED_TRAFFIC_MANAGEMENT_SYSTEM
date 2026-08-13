@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S16 — validation gates |
+| **Current step** | S17 golden test, or S39 MQTT contract — both unblocked |
 
 ---
 
@@ -75,7 +75,7 @@ guesses.
 | S13 | Source registry + polygon validation | ✅ | — | 31 assertions. Dev-corpus guard enforced |
 | S14 | Frame store | ⬜ | R1 | S13 |
 | S15 | Counting (centroid-in-polygon, provenance) | ⬜ | R1 | S11, S14 |
-| S16 | Validation gates (distribution, leakage, unassigned rate) | ⬜ | R1 | S15 |
+| S16 | Validation gates (distribution, leakage, unassigned rate) | ✅ | — | 7 gates, 24 assertions. Two gates added beyond spec |
 | S17 | Golden test + end-to-end integration | ⬜ | R1 | S16 |
 
 ### Phase 3 — Dataset · Weeks 3–8 → **M1**
@@ -431,6 +431,46 @@ nothing, surfacing days later as a mysteriously empty dataset.
 *Every* clip short is a hard error saying the recording protocol is wrong, not the data.
 
 **Evidence.** 31 assertions pass. Commit `TBD`.
+
+---
+
+### S16 · Corpus validation gates
+
+**Started** 2026-08-13 · **Closed** 2026-08-13 · **Status** ✅ done
+**Estimated** 1.5 h · **Actual** ~2 h
+
+**What we did.** `validation.py` — seven gates run after the corpus is built and before anything
+trains on it, returning one report rather than a series of asserts.
+
+**Decision — severity is two-valued, and the distinction is the design.** BLOCKING stops the run;
+ADVISORY is reported and does not. Only conditions that make a result **invalid** block; conditions
+that make a result **weak** advise. A gate that fires on everything gets switched off, and the checks
+that mattered go with it.
+
+| Blocking | Advisory |
+|---|---|
+| degenerate class · clip leakage · unverified test split · degenerate task | thin test split · high unassigned rate · split balance |
+
+**Two gates added beyond WI-14's list**, because the listed ones would pass a corpus that cannot
+support the experiment:
+
+**Transition rate (PRD A17)** — the most valuable check in the file. If the class at t+60s almost
+always equals the class now, a last-value baseline sits near the ceiling and **no model can be ranked
+against another**. A test demonstrates the failure directly: a corpus with *perfect* class balance
+that still blocks, because nothing ever changes.
+
+**Effective sample size (PRD A19)** — the bootstrap resamples clips, so effective *n* is the clip
+count. Five hundred sequences drawn from three clips give intervals that look tight and are not.
+Advisory, not blocking: it does not make results wrong, it makes them look more certain than they are.
+
+**Decision — `labels_now` joins the manifest.** The transition gate needs the class at the last
+observed frame. S4 already has the counts, so storing it costs nothing — and it hands us the Naive
+last-value baseline of §14.3 for free.
+
+**Decision — `raise_if_blocking()` reports every failure at once**, not the first found. A test
+enforces it. Fixing gate failures one round-trip at a time is how a morning disappears.
+
+**Evidence.** 24 assertions pass. Every threshold is a parameter, because P1 expects recalibration.
 
 ---
 

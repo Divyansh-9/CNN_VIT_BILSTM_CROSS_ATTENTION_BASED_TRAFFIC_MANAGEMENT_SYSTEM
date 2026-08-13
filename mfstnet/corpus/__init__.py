@@ -22,6 +22,7 @@ Stage mapping to the implementation plan (PLAN-01):
     S4  labels.py   counts -> smoothing -> thresholds -> label + density band
     S5  windows.py  window timing, and how many sequences a clip yields
     S5  splits.py   clip-level split assignment and the leakage guard
+    S6  validation.py  gates run before anything trains on the corpus
 """
 
 from .labels import (
@@ -44,6 +45,13 @@ from .geometry import (
     PolygonError,
     assign_lane,
     assert_disjoint,
+)
+from .validation import (
+    CorpusReport,
+    CorpusValidationError,
+    SequenceRecord,
+    Severity,
+    validate_corpus,
 )
 from .sources import (
     Clip,
@@ -74,4 +82,9 @@ __all__ = [
     "DevCorpusError",
     "load_source",
     "assert_usable_for_reporting",
+    "CorpusReport",
+    "CorpusValidationError",
+    "SequenceRecord",
+    "Severity",
+    "validate_corpus",
 ]
