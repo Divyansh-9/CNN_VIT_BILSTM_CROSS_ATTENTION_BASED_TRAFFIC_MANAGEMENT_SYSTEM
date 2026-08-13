@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S06 — needs footage. S18/S23/S32 now open |
+| **Current step** | S24 cross-attention, or S18 dataset curation |
 
 ---
 
@@ -92,7 +92,7 @@ guesses.
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S23 | Encoders + **grid alignment** (A24) | ⬜ | R2 | S05 |
+| S23 | Encoders + **grid alignment** (A24) | ✅ | — | A24 verified on real tensors. 16 tests |
 | S24 | Cross-attention (standard — Phase 1 only) | ⬜ | R2 | S23 |
 | S25 | BiLSTM + per-lane ROI head | ⬜ | R2 | S24 |
 | S26 | **Overfit 10 sequences to ~zero loss** | ⬜ | R2 | S25, S17 |

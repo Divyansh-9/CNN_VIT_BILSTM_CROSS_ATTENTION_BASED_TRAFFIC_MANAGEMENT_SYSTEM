@@ -106,6 +106,8 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 | `mfstnet/configs/spec.yaml` | Active | **Single source of truth** for numbers that span documents (NFR-16) |
 | `tests/test_spec_invariants.py` | Active | Asserts cross-document arithmetic. Its first version encoded a wrong model of lane wait (see withdrawn claims); corrected 2026-08-10 |
 | `mfstnet/corpus/` | Active | **First project code.** Label rule, window timing, clip-level splits. Pure stdlib — no torch, no video, no GPU |
+| `mfstnet/encoders.py` | Active | Dual-path backbones + A24 grid alignment. **Verified on real tensors**: 49 vs 257 native, both aligned to 49 |
+| `tests/test_encoders.py` | Active | 16 tests. The only guard on the A24 defect; runs in the CI `model` job |
 | `tests/test_corpus.py` | Active | 38 assertions, 6 of them A15 regressions. Runs in milliseconds |
 
 ## Manual and templates
