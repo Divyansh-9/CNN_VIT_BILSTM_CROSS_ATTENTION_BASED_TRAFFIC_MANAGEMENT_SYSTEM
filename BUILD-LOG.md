@@ -50,6 +50,7 @@ guesses.
 | S01 | Repository, Git LFS, tooling scripts | ✅ | — | `check_env`, `check_docs`, `seed` |
 | S02 | Documentation suite | ✅ | — | 43 docs, 12 ADRs. **Now stop** |
 | S03 | Corpus logic + tests | ✅ | — | 44 tests passing |
+| S03b | Metrics module + tests | ✅ | — | 62 tests. Confusion matrix now a required artifact |
 | S04 | **Scope variation sign-off** | ⛔ | Team lead | Blocked on faculty guide. Gates ~340 h |
 | S05 | **Python 3.11 environment** | ⛔ | Everyone | Nothing runs until this is done |
 | S06 | **Week-2 pilots** (annotation, counts, cache, persistence) | ⛔ | R1 | Needs S05 + any traffic video |
@@ -253,6 +254,43 @@ difference however many sequences they contain.
 (test deviation −0.008).
 
 **Evidence.** 44 tests passing. Commit `2403a20`.
+
+---
+
+### S03b · Metrics module and tests
+
+**Started** 2026-08-13 · **Closed** 2026-08-13 · **Status** ✅ done
+**Estimated** 1 h · **Actual** ~1.5 h
+
+**What we did.** `mfstnet/metrics.py` — confusion matrix, per-class precision/recall/F1 with support,
+macro and weighted F1, and three ordinal-aware measures. Pure standard library, so it runs before the
+environment exists.
+
+**Problem — a required artifact was required by nothing.** ADR-009 defines the PPO training surrogate
+as an oracle corrupted by **MFSTNet's measured confusion matrix**, per density band. FR-M11 listed
+accuracy, macro F1, per-class precision/recall and latency. **No confusion matrix.** Claim C4 depended
+on an artifact no requirement mandated producing.
+
+**Fix.** Amendment A25 makes it required, per density band and per lane, and the CSV row carries all
+nine cells rather than a summary.
+
+**Problem — the metrics ignored that the classes are ordered.** LOW < MEDIUM < HIGH, but standard
+multiclass F1 scores "predicted HIGH, truth LOW" identically to "predicted MEDIUM, truth LOW". One is
+a wrong nudge; the other holds a signal green on an empty approach while a queue builds elsewhere.
+
+**Fix.** Added ordinal MAE, off-by-two rate, and quadratic weighted kappa. A test demonstrates the
+gap directly: two cases with **identical accuracy**, ordinal MAE 0.5 against 1.0.
+
+**Problem — a rare class produces a flattering number.** With HIGH at 1% of samples, a model that
+always predicts LOW scores 0.95 accuracy.
+
+**Fix.** Support is reported beside every per-class figure (as FR-D08 already requires for detection),
+and the module **warns** when any class falls below the 5% distribution gate. In the test case
+accuracy reads 0.95 while macro F1 reads 0.33 — that gap is the signal.
+
+**Evidence.** 18 metric assertions pass, every expected value hand-computed and written into the test
+rather than produced by the code under test. A metric suite that checks itself against its own output
+checks nothing.
 
 ---
 

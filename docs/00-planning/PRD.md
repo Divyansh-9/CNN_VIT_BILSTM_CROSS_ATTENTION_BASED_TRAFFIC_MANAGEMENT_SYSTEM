@@ -1095,6 +1095,37 @@ Predict: Y in {0,1,2}^4   Congestion per lane, 60 seconds ahead
 | Inference Latency | ms per prediction batch on server CPU (ONNX), **with measurement host stated** |
 | **Density-stratified macro F1** — *v1.2 A10* | Macro F1 reported separately per density band (low / medium / high), alongside the aggregate |
 | **Transition-window recall** — *v1.2 A17* | **The headline metric.** Recall on windows where the label at t_label differs from the label at t_end |
+| **Confusion matrix** — *v1.2 A25* | **Required artifact**, rows = truth, columns = prediction. Overall, per density band, and per lane |
+| Per-class F1 **with support** — *A25* | Support beside every figure. A class with 4 of 100 samples produces an unstable number |
+| Ordinal MAE — *A25* | Mean error in class steps. LOW called HIGH costs 2; LOW called MEDIUM costs 1 |
+| Off-by-two rate — *A25* | Fraction predicted two classes away. The operationally dangerous error |
+| Quadratic weighted kappa — *A25* | Agreement beyond chance for **ordered** classes |
+
+> **v1.2 amendment A25 — the confusion matrix was required by ADR-009 and mandated by nothing.**
+>
+> [ADR-009](decisions/ADR-009-ppo-forecast-surrogate.md) builds the PPO training surrogate by
+> corrupting an oracle with **MFSTNet's measured confusion matrix**, per density band. FR-M11 listed
+> accuracy, macro F1, per-class precision/recall and latency — no confusion matrix. **The artifact
+> claim C4 depends on was not required to exist.** It is now, and it is emitted per density band and
+> per lane, not only overall.
+>
+> **The classes are ordered, and the original metrics ignore that.** LOW < MEDIUM < HIGH. Standard
+> multiclass F1 scores "predicted HIGH, truth LOW" exactly like "predicted MEDIUM, truth LOW". They
+> are not the same failure: one is a wrong nudge, the other holds a signal green on an empty approach
+> while a queue builds elsewhere. Ordinal MAE, off-by-two rate and quadratic weighted kappa all
+> account for the distance.
+>
+> **Support is reported beside every per-class figure**, for the same reason FR-D08 requires it for
+> detection. With HIGH at 1% of samples, macro F1 is dominated by a class measured on a handful of
+> examples — and the gap between a healthy-looking accuracy and a poor macro F1 is exactly the signal
+> the distribution gate (A17) exists to catch.
+>
+> One implementation, `mfstnet/metrics.py`, used by training logs, the ablation CSV, the dashboard
+> and the paper. NFR-09/10 requires paper tables generated from committed CSVs by a committed script,
+> and that only holds with a single implementation of each metric.
+>
+> **Report all of these on the human-verified test split only** (A9), with cluster-bootstrap
+> confidence intervals over clips and the effective *n* stated (A19).
 | Persistence rate | % of windows where label(t_label) == label(t_end). Reported for every corpus |
 
 > **v1.2 amendment A17 — persistence degeneracy.** Congestion over a 60 s horizon with three coarse
