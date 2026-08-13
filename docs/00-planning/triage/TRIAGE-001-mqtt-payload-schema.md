@@ -5,7 +5,7 @@
 | **Date** | 2026-08-10 |
 | **Reporter** | Internal review |
 | **Issue type** | **Bug** — defect in the specification artifact |
-| **Severity** | **Medium** |
+| **Severity** | **Medium** · **CLOSED 2026-08-13** |
 | **Reproducibility** | **Always** — deterministic; inspect PRD §17.1 |
 
 ---
@@ -81,6 +81,20 @@ half-day of cross-owner debugging **then**, with no schedule slack left.
 
 D5 is the compounding one: without a version field, every other mismatch presents as malformed data
 rather than as a version error.
+
+## Resolution — 2026-08-13 · CLOSED
+
+All six defects closed by PRD amendment A26 and [`contracts/mqtt.py`](../../../contracts/mqtt.py),
+covered by a 31-assertion cross-topic contract test.
+
+**Beyond the six.** Building it exposed a seventh, in the design rather than the schema. QoS was an
+attribute on an Enum member, so `Topic.EMERGENCY.qos = QoS.AT_MOST_ONCE` **succeeded** — silently
+downgrading emergency delivery from exactly-once to at-most-once for every publish in that process,
+including ones written by someone who never touched the line. The contract test set the attribute and
+a later assertion then read QoS 0 for emergency. `qos` is now a read-only property and the assignment
+raises.
+
+That is the difference between writing the contract down and making it enforceable.
 
 ## Recommended next step
 

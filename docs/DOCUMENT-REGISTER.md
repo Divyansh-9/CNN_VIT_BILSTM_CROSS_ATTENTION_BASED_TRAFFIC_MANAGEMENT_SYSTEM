@@ -40,7 +40,7 @@ changed, and the answer should be a document rather than a recollection.
 | [BIBLIOGRAPHY](00-planning/BIBLIOGRAPHY.md) | 1.0 | Active | R2 | 2026-08-10 | 35 references with a **verified/unverified** mark. Nothing enters the paper while marked ⚠️. Five-item verification queue |
 | [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Awaiting submission** | Team lead | 2026-08-10 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
 | [PROCESS-REVIEW](00-planning/PROCESS-REVIEW.md) | 1.0 | Active | All | 2026-08-10 | 17:1 docs-to-code ratio; five ordered actions for this week. **Stop planning after action 3** |
-| [TRIAGE-001](00-planning/triage/TRIAGE-001-mqtt-payload-schema.md) | 1.0 | Open | R4 | 2026-08-10 | Six §17.1 payload defects. Pending item P7 |
+| [TRIAGE-001](00-planning/triage/TRIAGE-001-mqtt-payload-schema.md) | 1.1 | **CLOSED** | R4 | 2026-08-13 | All six defects closed by A26 + `contracts/mqtt.py`. A seventh found while building: QoS was overridable |
 | [TRIAGE-002](00-planning/triage/TRIAGE-002-webster-parameterisation.md) | 1.2 | **CLOSED** | R3 | 2026-08-10 | ADR-011 closed items 3–5; [ADR-012](00-planning/decisions/ADR-012-webster-saturation-flow.md) closed 1, 2 and 6 from literature. P8 closed |
 | [RESEARCH-001](00-planning/research/RESEARCH-001-webster-parameterisation.md) | 1.1 | **Superseded by ADR-012** | R3 | 2026-08-10 | The agent run was incomplete; a direct literature pass answered the same questions. Retained for the trail |
 

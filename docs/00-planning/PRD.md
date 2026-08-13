@@ -1330,6 +1330,29 @@ actuation demo.
 
 ### 17.1 MQTT Topic Schema
 
+> **v1.2 amendment A26 — six defects closed, and QoS made structurally unoverridable.**
+> Source of truth is now [`contracts/mqtt.py`](../../contracts/mqtt.py); the sketch below is
+> illustrative. Defects from [TRIAGE-001](triage/TRIAGE-001-mqtt-payload-schema.md):
+>
+> | # | Was | Now |
+> |---|---|---|
+> | D1 | `"MED"` on the wire against `MEDIUM` in §14.1 | One spelling, `CongestionClass`, raw strings rejected |
+> | D2 | `"types": {...}` literally unspecified | The eight §12.2 classes; the breakdown must sum to `count` |
+> | D3 | No operating-mode field for the five SRS §2.3 modes | `Mode` on the heartbeat (FR-UI01, FR-UI08) |
+> | D4 | `source` showed one of the four FR-UI08 values | `CommandSource`, all four |
+> | D5 | No schema version on any payload | `"v"` on every payload; a mismatch says so |
+> | D6 | String→int mapping for PPO indices 11–14 unspecified | `to_state_value()`, defined once |
+>
+> **QoS is a read-only property of the topic, not a publish argument.** Three owners building in
+> three different weeks cannot pass three different levels. This is not cosmetic: the contract test
+> assigned `Topic.EMERGENCY.qos` and the assignment **succeeded**, silently downgrading emergency
+> delivery from exactly-once to at-most-once for the rest of the process. It now raises.
+>
+> `gate_value` **stays** in the prediction payload. A16 removed the gate from the *PPO state vector*,
+> not from this message — FR-UI05 and BR-07 depend on it, and a reader of A16 might delete it here.
+
+
+
 ```
 stms/{intersection_id}/{lane_id}/vehicle_count
   QoS: 1 | Interval: every 5s

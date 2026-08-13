@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S39 MQTT contract (clears P7) |
+| **Current step** | **Nothing unblocked left.** S04, S05, S06 are yours |
 
 ---
 
@@ -118,7 +118,7 @@ guesses.
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S39 | MQTT contract + cross-topic test (fix TRIAGE-001 first) | ⬜ | R4 | S05 |
+| S39 | MQTT contract + cross-topic test | ✅ | — | 31 assertions. P7 and TRIAGE-001 closed |
 | S40 | Edge node: capture → count → publish | ⬜ | R4 | S11, S39 |
 | S41 | FastAPI + store | ⬜ | R4 | S39 |
 | S42 | Dashboard (2 pages if ADR-008 approved) | ⬜ | R4 | S41 |
@@ -524,6 +524,46 @@ It proves the plumbing carries water.
 
 **Evidence.** `python scripts/demo_pipeline.py` — 24 clips, 312 sequences, 0 blocking failures, 2
 advisories, Naive baseline 65.2%.
+
+---
+
+### S39 · MQTT contract and cross-topic test
+
+**Started** 2026-08-13 · **Closed** 2026-08-13 · **Status** ✅ done
+**Estimated** 1.5 h · **Actual** ~2 h
+
+**What we did.** `contracts/mqtt.py` — topics, QoS, payload schemas, encode/decode — plus a
+31-assertion cross-topic test. Closes all six TRIAGE-001 defects and pending item P7.
+
+**Why now rather than Week 17.** Three owners build against this schema in three different weeks and
+the pieces only meet during integration, which §2.5.1 already flags as where trouble appears. Each
+defect is fifteen minutes now and half a day then, with no slack left.
+
+**Decision — QoS is a property of the topic, not an argument to a publish call.** A helper taking a
+QoS parameter lets three people pass three different values for the same topic. Attaching it to the
+topic removes the choice.
+
+**Problem — the design did not actually do that, and my own test caught it.**
+`Topic` is an Enum, and Enum members accept attribute assignment. `Topic.EMERGENCY.qos = QoS.AT_MOST_ONCE`
+**succeeded**. The override test set it, and a later assertion then read **QoS 0 for emergency** —
+exactly-once silently downgraded to at-most-once, process-wide, for every publish including ones
+written by someone who never touched that line.
+
+Emergency is QoS 2 because a duplicate fires a spurious preemption and a loss risks a life. It is the
+one topic where the level is not a preference.
+
+**Fix.** `qos` and `template` are read-only properties over private attributes. Assignment raises.
+
+**Worth keeping.** The contract was correct as *written* and unenforceable as *built*. Writing a rule
+down and making it impossible to break are different jobs, and only the second survives three owners
+and fifteen weeks.
+
+**Also guarded.** A test asserts `gate_value` survives the round trip, because A16 removed the gate
+from the **PPO state vector** and a reader of that amendment might reasonably delete it from this
+payload too — where FR-UI05 and BR-07 still need it.
+
+**Evidence.** 31 assertions. Emergency QoS 2, counts and commands QoS 1, predictions and heartbeat
+QoS 0, matching PRD §17.1.
 
 ---
 
