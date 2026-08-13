@@ -182,6 +182,33 @@ def test_not_measured_is_not_a_failure():
     assert check_unassigned_rate({}).passed
 
 
+# -------------------------------------------------------------- balance --
+
+def test_a_badly_skewed_split_is_flagged():
+    """Regression. An earlier version returned passed=True unconditionally, and
+    the end-to-end demo produced 58/4/38 while the gate said PASS. A check that
+    cannot fail is decoration."""
+    from mfstnet.corpus.validation import check_split_balance
+
+    records = ([rec(f"a{i}", f"ca{i}", "train", (0, 1, 2, 0)) for i in range(58)]
+               + [rec(f"b{i}", f"cb{i}", "val", (0, 1, 2, 0)) for i in range(4)]
+               + [rec(f"c{i}", f"cc{i}", "test", (0, 1, 2, 0)) for i in range(38)])
+
+    g = check_split_balance(records)
+    assert not g.passed
+    assert g.severity is Severity.ADVISORY, "skew makes results weak, not invalid"
+    assert "60 source clips" in g.detail, "must name the real cause"
+
+
+def test_a_balanced_split_passes():
+    from mfstnet.corpus.validation import check_split_balance
+
+    records = ([rec(f"a{i}", f"ca{i}", "train", (0, 1, 2, 0)) for i in range(60)]
+               + [rec(f"b{i}", f"cb{i}", "val", (0, 1, 2, 0)) for i in range(20)]
+               + [rec(f"c{i}", f"cc{i}", "test", (0, 1, 2, 0)) for i in range(20)])
+    assert check_split_balance(records).passed
+
+
 # ------------------------------------------------------------ orchestration --
 
 def test_a_healthy_corpus_produces_no_blocking_failures():

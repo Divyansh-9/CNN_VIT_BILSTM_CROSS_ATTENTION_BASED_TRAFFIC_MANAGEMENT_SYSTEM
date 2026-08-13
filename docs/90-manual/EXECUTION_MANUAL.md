@@ -344,6 +344,7 @@ publish and one you cannot.
 | Angle | Fixed, downward. **Do not pan or zoom** | A moving camera breaks lane ROIs and makes counts meaningless |
 | Framing | All four approaches visible, or one approach fully | Partial approaches produce ambiguous counts |
 | Resolution | 1080p @ 30 fps | Sufficient; higher wastes storage |
+| **Number of sessions** | **≥60 separate clips.** Splits are cut by clip, so the clip count *is* your statistical sample size. At 24 clips the split lands near 11/5/8 and no interval means anything; 60 gives ~32/13/15 ([ADR-006](../00-planning/decisions/ADR-006-curate-then-collect-dataset.md)) |
 | Continuity | **Unbroken sessions of ≥6 min — aim for 30+ min** | One MFSTNet sample needs **355 s** (295 s observed + 60 s horizon). A 6-min clip yields exactly **one** sequence; 12 min yields 13; a continuous hour yields ~109. **A 5-minute clip yields zero.** See PRD §8.6 |
 
 > The continuity requirement is the one teams forget. A phone that stops and restarts recording every

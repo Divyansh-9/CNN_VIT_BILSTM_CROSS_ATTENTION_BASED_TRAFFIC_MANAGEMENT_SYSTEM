@@ -297,14 +297,46 @@ def check_unassigned_rate(
                       f"mean {mean:.1%}, worst {worst[0][0]} {worst[0][1]:.1%}")
 
 
-def check_split_balance(records: Sequence[SequenceRecord]) -> GateResult:
-    """Sequences per split, for the record. Advisory only."""
+def check_split_balance(
+    records: Sequence[SequenceRecord],
+    target: tuple[float, float, float] = (0.60, 0.20, 0.20),
+    max_deviation: float = 0.10,
+) -> GateResult:
+    """Sequences per split, against the intended ratio.
+
+    An earlier version of this gate returned `passed=True` unconditionally — it
+    reported the numbers and flagged nothing. The end-to-end demo then produced a
+    **58/4/38** split from 24 clips and the gate said PASS. A check that cannot
+    fail is decoration, so it now flags real deviation.
+
+    Advisory, not blocking: a skewed split does not make results wrong, it makes
+    early stopping unreliable (a 4% validation split is noise) and the test split
+    unrepresentative.
+
+    The cause is upstream and worth understanding: splits are assigned by hashing
+    the **clip** id, and hash assignment is lumpy at small clip counts. Below ~60
+    source clips this gate will fire routinely, and the fix is more clips rather
+    than a different splitter.
+    """
     counts = Counter(r.split for r in records)
     total = sum(counts.values())
     if not total:
         return GateResult("split_balance", False, Severity.ADVISORY, "corpus is empty")
-    detail = " · ".join(f"{s} {counts.get(s, 0)} ({counts.get(s, 0) / total:.0%})"
+
+    shares = {s: counts.get(s, 0) / total for s in ("train", "val", "test")}
+    detail = " · ".join(f"{s} {counts.get(s, 0)} ({shares[s]:.0%})"
                         for s in ("train", "val", "test"))
+
+    worst = max(
+        (abs(shares[s] - t), s) for s, t in zip(("train", "val", "test"), target)
+    )
+    if worst[0] > max_deviation:
+        return GateResult(
+            "split_balance", False, Severity.ADVISORY,
+            f"{detail} — '{worst[1]}' is {worst[0]:.0%} off target. Hash-based clip "
+            f"assignment is lumpy below ~60 source clips; collect more clips rather "
+            f"than reaching for a different splitter.",
+        )
     return GateResult("split_balance", True, Severity.ADVISORY, detail)
 
 

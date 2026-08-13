@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S17 golden test, or S39 MQTT contract — both unblocked |
+| **Current step** | S39 MQTT contract (clears P7) |
 
 ---
 
@@ -74,9 +74,9 @@ guesses.
 |---|---|---|---|---|
 | S13 | Source registry + polygon validation | ✅ | — | 31 assertions. Dev-corpus guard enforced |
 | S14 | Frame store | ⬜ | R1 | S13 |
-| S15 | Counting (centroid-in-polygon, provenance) | ⬜ | R1 | S11, S14 |
+| S15 | Counting (centroid-in-polygon, provenance) | 🔵 | R1 | Geometry half **done**; detector half needs S11 |
 | S16 | Validation gates (distribution, leakage, unassigned rate) | ✅ | — | 7 gates, 24 assertions. Two gates added beyond spec |
-| S17 | Golden test + end-to-end integration | ⬜ | R1 | S16 |
+| S17 | End-to-end demo on synthetic data | ✅ | — | `scripts/demo_pipeline.py`. Found 2 defects on first run |
 
 ### Phase 3 — Dataset · Weeks 3–8 → **M1**
 
@@ -471,6 +471,59 @@ last-value baseline of §14.3 for free.
 enforces it. Fixing gate failures one round-trip at a time is how a morning disappears.
 
 **Evidence.** 24 assertions pass. Every threshold is a parameter, because P1 expects recalibration.
+
+---
+
+### S17 · End-to-end pipeline demonstration
+
+**Started** 2026-08-13 · **Closed** 2026-08-13 · **Status** ✅ done
+**Estimated** 1 h · **Actual** ~1.5 h
+
+**Why, stated bluntly.** Three thousand lines existed, every module unit-tested, and **not one of
+those tests exercised two modules together**. A pile of individually-correct parts is not a pipeline,
+and the defects that matter live at the seams. That is the documentation failure one layer down.
+
+**What we did.** `counting.py` (the geometry half of S3 — the detector is blocked, assigning boxes to
+lanes is not) and `scripts/demo_pipeline.py`, which runs detections → counts → smoothing → labels →
+windows → clip-level splits → seven gates → metrics. Synthetic input, standard library, ten seconds.
+
+**It found two defects on the first run.**
+
+**Defect 1 — my own gate could not fail.** `check_split_balance` returned `passed=True`
+unconditionally. It printed the numbers and flagged nothing. The demo produced a **58/4/38** split
+and the gate said `PASS`. A 4% validation split is noise; early stopping on it is meaningless. Fixed
+to flag deviation above 10 points, advisory rather than blocking — skew makes results weak, not
+invalid.
+
+**Defect 2 — a collection requirement nobody had stated.** Chasing why the split skewed produced
+this, measured against the actual splitter:
+
+| Source clips | train / val / test |
+|---|---|
+| 24 | 11 / 5 / 8 |
+| 40 | 21 / 8 / 11 |
+| **60** | **32 / 13 / 15** |
+| 120 | 71 / 24 / 25 |
+
+Splits are cut by clip, so under PRD A19 **the clip count *is* the statistical sample size**. Below
+~60 clips, validation and test each hold fewer than ten and no interval separates a two-point F1
+difference — however many sequences those clips contain.
+
+ADR-006 specified Part B in **frames** (1,500–3,000) and said nothing about how many sessions they
+come from. Now amended: **≥60 continuous sessions of ≥6 minutes.** The Execution Manual's recording
+table carries it too. Same order of footage as before; the *unit* is sessions, not hours, and that
+distinction was missing.
+
+**Limitation added to ADR-006.** Sixty clips from one campus position are not sixty independent
+scenes. Clip-level splitting prevents *frame* leakage; it does nothing about overfitting to one
+intersection's geometry and lighting. The test split measures temporal generalisation, not spatial.
+
+**What the demo does not prove**, and says so in its own output: nothing about whether the detector
+works, whether real traffic transitions often enough to be learnable, or whether any model helps.
+It proves the plumbing carries water.
+
+**Evidence.** `python scripts/demo_pipeline.py` — 24 clips, 312 sequences, 0 blocking failures, 2
+advisories, Naive baseline 65.2%.
 
 ---
 

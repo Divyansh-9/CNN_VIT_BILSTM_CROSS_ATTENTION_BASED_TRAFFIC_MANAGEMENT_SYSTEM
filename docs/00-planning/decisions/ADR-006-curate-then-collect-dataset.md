@@ -59,6 +59,31 @@ contribution.
 This supplies the deployment viewpoint — fixed, elevated, looking down at an intersection — that no
 public dataset provides. Per [DATASETS.md §2](../DATASETS.md), that gap is the real one.
 
+**Amended 2026-08-13 — a clip-count requirement nobody had stated.** Part B was specified in *frames*
+(1,500–3,000) and said nothing about how many separate recording sessions those frames come from.
+Measured against the actual splitter:
+
+| Source clips | train / val / test | Usable? |
+|---|---|---|
+| 24 | 11 / 5 / 8 | No — bootstrap has no power |
+| 40 | 21 / 8 / 11 | Marginal |
+| **60** | **32 / 13 / 15** | **Minimum viable** |
+| 120 | 71 / 24 / 25 | Comfortable |
+
+Splits are cut by clip, so **the clip count *is* the statistical sample size** (PRD A19). Below ~60
+clips, validation and test each hold fewer than ten, and no confidence interval separates a two-point
+F1 difference however many sequences those clips contain.
+
+**Requirement: ≥60 continuous recording sessions of ≥6 minutes.** At 12 minutes each that is ~12
+hours of footage — the same order the original plan assumed, but the *unit* is sessions, not hours,
+and that distinction was missing.
+
+**Limitation to declare (§20).** Sixty clips from one campus position are not sixty independent
+scenes. Clip-level splitting prevents *frame* leakage; it does not prevent overfitting to one
+intersection's geometry, lighting and vehicle mix. The test split measures temporal generalisation,
+not spatial. Record from at least two distinct positions if the schedule allows, and state the
+limitation either way.
+
 ## Consequences
 
 **Positive.** The contribution is preserved and arguably strengthened: the field genuinely lacks a
