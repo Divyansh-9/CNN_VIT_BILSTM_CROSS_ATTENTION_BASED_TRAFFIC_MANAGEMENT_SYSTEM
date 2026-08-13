@@ -7,11 +7,13 @@ name: tests
 # It also means the test badge reports something real. A badge asserting a
 # number nobody re-checks is decoration.
 
+# NO path filter. A filtered workflow that does not run leaves the badge showing
+# the PREVIOUS result — so a green badge can mean "never ran against this code",
+# which is worse than a red one. The suites take nine seconds; filtering them is
+# an optimisation that buys nothing and can lie.
 on:
   push:
-    paths: ['**.py', 'mfstnet/configs/*.yaml', '.github/workflows/tests.yml']
   pull_request:
-    paths: ['**.py', 'mfstnet/configs/*.yaml', '.github/workflows/tests.yml']
   workflow_dispatch:
 
 jobs:

@@ -359,10 +359,28 @@ clean checkout, `tests/` is collected and `mfstnet/` is never on the path.
 **Fix.** `pyproject.toml` with `pythonpath = ["."]`, plus `mfstnet/__init__.py` to make the package
 explicit rather than implicit.
 
-**Worth keeping.** This is the first defect found by *running* rather than by reading, and it is
-exactly the class the process review predicted: *"the next class of defect only appears when
-something runs."* The local verification was not wrong, but it was more permissive than the real
-environment — and a check that is easier than reality passes things reality will not.
+**Problem — second CI failure, exit 4.** `pyproject.toml` carried both `[tool.pytest.ini_options]`
+and an empty `[tool.pytest]`. Pytest refuses both: *"Cannot use both [tool.pytest] (native TOML
+types) and [tool.pytest.ini_options] (string-based INI format) simultaneously."* My error. Removed the
+empty table and left a comment saying why it must not return.
+
+**Problem — the third push triggered no workflow at all.** `tests.yml` had a `paths:` filter listing
+`**.py` and the workflow file. The fix commit touched only `pyproject.toml`, so nothing matched and
+nothing ran.
+
+**This is worse than a failing build.** A workflow that does not run leaves the badge showing the
+*previous* result — so a green badge can mean "never executed against this code". The filter was
+saving nine seconds and could produce a badge that lies.
+
+**Fix.** Path filter removed from `tests.yml`. It runs on every push.
+
+**Worth keeping.** Three failures in a row, all found by *running* rather than reading, and none of
+them findable any other way. This is exactly the class the process review predicted: *"the next class
+of defect only appears when something runs."*
+
+The first one is the instructive one. Local verification was not wrong, it was **more permissive than
+reality** — the stdlib driver put the repo root on `sys.path`, so it never tested whether anything
+else would. **A check easier than the real environment passes things the real environment will not.**
 
 ---
 
