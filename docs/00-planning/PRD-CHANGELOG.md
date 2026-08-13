@@ -125,10 +125,10 @@ inferred.
 Arising from the [feasibility audit](FEASIBILITY-AUDIT.md) and the
 [corpus HLD](../02-design/HLD-detection-corpus-pipeline.md).
 
-**A8–A12 are engineering amendments and have been applied to the PRD.** **A13 and A14 change graded
-requirements (M1's acceptance criterion, and Must-Have FR-UI/NFR items) and are therefore recorded as
-proposed only** — §12 carries an inline banner, and neither is in force until the faculty guide signs
-a scope variation.
+**A8–A12 applied as engineering amendments. A13 and A14 accepted by the project owner on
+2026-08-13** and now in force. They change M1's acceptance criterion and several Must-Have
+FR-UI/NFR targets, so the approval is recorded explicitly: **approved by the project owner, not
+by a faculty guide.** If a guide later reviews scope, this line is the record of who decided.
 
 | # | Section | Change | Source | Blocked? |
 |---|---|---|---|---|
@@ -137,8 +137,8 @@ a scope variation.
 | A10 ✅applied | §14.5 | Add density-stratified reporting alongside aggregate metrics | Corpus spec §5.3 | No |
 | A11 ✅applied | §14.5 | Note that count-consuming baselines share error structure with auto-derived labels; verified test labels are what make the comparison valid | Corpus spec §5.1 | No |
 | A12 ✅applied | §8.1, §8.2, §8.4, §9.4 | DINOv2 ViT-S/14 as the default ViT branch, supervised ViT-S/16 retained as ablation arm BB-1; add a 3-arm backbone ablation. Replace `unfreeze_epoch: 30` with a late LoRA experiment | [ADR-007](decisions/ADR-007-backbones-and-training-recipe.md) | No |
-| A13 ⛔blocked | §12, FR-D01..D07, M1 | Redefine Novel Contribution 1 as curate-then-collect: a harmonised benchmark plus a 1,500–3,000 frame campus set, replacing the 12,000-frame public-road campaign | [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) | **Yes** |
-| A14 ⛔blocked | §11, §16, FR-UI*, NFR-06, NFR-12 | Prototype descoping — SQLite+Parquet, 2 dashboard pages, shared password, 1-hour uptime test | [ADR-008](decisions/ADR-008-prototype-descoping.md) | **Yes** |
+| A13 ✅**applied 2026-08-13** | §12, FR-D01..D07, M1 | Redefine Novel Contribution 1 as curate-then-collect: a harmonised benchmark plus a 1,500–3,000 frame campus set, replacing the 12,000-frame public-road campaign | [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) | **Yes** |
+| A14 ✅**applied 2026-08-13** | §11, §16, FR-UI*, NFR-06, NFR-12 | Prototype descoping — SQLite+Parquet, 2 dashboard pages, shared password, 1-hour uptime test | [ADR-008](decisions/ADR-008-prototype-descoping.md) | **Yes** |
 
 ---
 

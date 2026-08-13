@@ -2,7 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Proposed — **requires faculty guide sign-off** |
+| **Status** | **Accepted 2026-08-13** |
+| **Approved by** | Project owner. **Not a faculty-guide signature** - if the guide later reviews scope, this is the record of who decided and when |
 | **Date** | 2026-08-08 |
 | **Affects** | PRD §12, FR-D01..FR-D07, M1, BR-03, BR-04, R2 |
 | **Supersedes** | ADR-001 Track B scope (Track A unchanged) |

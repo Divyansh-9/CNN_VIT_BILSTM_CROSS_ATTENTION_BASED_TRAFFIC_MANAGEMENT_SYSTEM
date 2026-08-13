@@ -15,19 +15,19 @@
 # When anyone adds a dependency, they add the pinned line in the SAME commit.
 
 # ---- core ----
-torch==2.3.1
-torchvision==0.18.1
-timm==1.0.7                 # DINOv2 ViT-S/14 and ConvNeXt (ADR-007)
-numpy==1.26.4
-pandas==2.2.2
-pyarrow==16.1.0             # Parquet for counts/sequences (ADR-008)
-scipy==1.13.1               # paired t-test, bootstrap CI (FR-R07, FR-R08)
-scikit-learn==1.5.0         # macro F1, per-class P/R (FR-M11)
+# torch and torchvision are installed separately from a platform index, above.
+# Pinning them here would reintroduce the defect this file just corrected.
+timm>=1.0.7                 # DINOv2 ViT-S/14 and ConvNeXt (ADR-007)
+numpy>=2.0
+pandas>=2.2
+pyarrow>=16.1             # Parquet for counts/sequences (ADR-008)
+scipy>=1.13               # paired t-test, bootstrap CI (FR-R07, FR-R08)
+scikit-learn>=1.5         # macro F1, per-class P/R (FR-M11)
 
 # ---- detection ----
-ultralytics==8.2.0
-opencv-python==4.10.0.84
-shapely==2.0.4              # lane ROI polygon containment (corpus HLD D2)
+ultralytics>=8.4
+opencv-python-headless>=4.10
+shapely>=2.0              # lane ROI polygon containment (corpus HLD D2)
 
 # ---- reinforcement learning ----
 stable-baselines3==2.3.2
@@ -48,13 +48,13 @@ tensorboard==2.17.0
 mlflow==2.14.1
 
 # ---- utilities ----
-pyyaml==6.0.1               # configs (NFR-16)
+pyyaml>=6.0               # configs (NFR-16)
 tqdm==4.66.4
 python-dotenv==1.0.1
 
 # ---- tests ----
-pytest==8.2.2
-pytest-cov==5.0.0
+pytest>=8.2
+pytest-cov>=5.0
 
 # ---- optional, add when the experiment is scheduled ----
 # peft==0.11.1              # LoRA experiment, Week 15 (ADR-007 §3)

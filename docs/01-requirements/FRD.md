@@ -38,14 +38,13 @@ Test case IDs (`TC-*`) are defined in the [STD](../03-testing/), delivered in Wa
 
 ## 3. Dataset and detection — FR-D01 to FR-D09
 
-> **⚠ FR-D01 to FR-D07 are subject to proposed amendment A13**
-> ([ADR-006](../00-planning/decisions/ADR-006-curate-then-collect-dataset.md), awaiting faculty
-> sign-off). If approved, the criteria below change as follows and the RTM rows for BR-01/BR-03/BR-04
-> must be re-checked:
+> **✅ A13 IN FORCE from 2026-08-13.** The criteria in the table below are **superseded** by this
+> banner ([ADR-006](../00-planning/decisions/ADR-006-curate-then-collect-dataset.md)); the original
+> rows are retained for the trail. RTM rows for BR-01/BR-03/BR-04 re-checked.
 >
 > | ID | Would become |
 > |---|---|
-> | FR-D01 | ≥3 documented public sources with verified licences (Part A) **+** ≥1 campus location with written permission (Part B) |
+> | FR-D01 | ≥3 documented public sources with verified licences (Part A) **+ ≥60 continuous sessions of ≥6 min** from ≥1 permissioned location (Part B) |
 > | FR-D02 | Peak and off-peak coverage in Part B; source diversity documented for Part A |
 > | FR-D03 | Unchanged — 8 classes, plus a documented mapping from each source taxonomy |
 > | FR-D04 | Part A: harmonised benchmark published. Part B: **≥1,500** frames |
@@ -53,7 +52,7 @@ Test case IDs (`TC-*`) are defined in the [STD](../03-testing/), delivered in Wa
 > | FR-D06 | Part A: images where licences permit, else conversion scripts + manifest. Part B: CC BY 4.0, **anonymised** |
 > | FR-D07 | Additionally: per-source licence table, blurring method, consent basis, residual risk |
 >
-> Until sign-off, the criteria in the table below remain in force.
+> The rows below are historical. Verify against this banner.
 
 | ID | Acceptance criterion | Method | TC | Owner | Milestone |
 |---|---|---|---|---|---|

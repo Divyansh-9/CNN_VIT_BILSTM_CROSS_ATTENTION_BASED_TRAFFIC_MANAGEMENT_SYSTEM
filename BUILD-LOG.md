@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | **Nothing unblocked left.** S04, S05, S06 are yours |
+| **Current step** | S06 — needs footage. S18/S23/S32 now open |
 
 ---
 
@@ -53,9 +53,9 @@ guesses.
 | S03b | Metrics module + tests | ✅ | — | 62 tests. Confusion matrix now a required artifact |
 | S03c | Push to GitHub | ✅ | — | Live, CI green. **Repo is PUBLIC** |
 | S03d | CI test workflow + README badges | ✅ | — | Tests now run under pytest in CI, not a local driver |
-| S04 | **Scope variation sign-off** | ⛔ | Team lead | Blocked on faculty guide. Gates ~340 h |
-| S05 | **Python 3.11 environment** | ⛔ | Everyone | Nothing runs until this is done |
-| S06 | **Week-2 pilots** (annotation, counts, cache, persistence) | ⛔ | R1 | Needs S05 + any traffic video |
+| S04 | Scope variation sign-off | ✅ | — | **Accepted 2026-08-13** by project owner. ~340 h recovered |
+| S05 | Environment | ✅ | — | **The blocker was our own pin, not Python.** torch 2.13 runs on 3.14 |
+| S06 | Week-2 pilots | ⛔ | R1 | Tooling ready and installed. **Needs ≥6 min of real traffic footage** |
 | S07 | Doc walkthrough — each owner presents their part | ⬜ | All | 90 min. Fixes "nobody has read it" |
 
 ### Phase 1 — Detection · Weeks 2–3
@@ -82,8 +82,8 @@ guesses.
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S18 | Curate Part A benchmark (harmonise taxonomies) | ⬜ | R1 | S04, S09 |
-| S19 | Campus permission + recording sessions | ⬜ | R1 | S04 |
+| S18 | Curate Part A benchmark (harmonise taxonomies) | ⬜ | R1 | **unblocked** · S09 |
+| S19 | Recording sessions (≥60 × ≥6 min) | ⬜ | R1 | **unblocked** |
 | S20 | Annotation | ⬜ | All | S19, S06 |
 | S21 | Face/plate blurring script | ⬜ | R1 | S19 |
 | S22 | Publish → **M1** | ⬜ | R1 | S18, S20, S21 |
@@ -583,28 +583,73 @@ blocker in the project and the cheapest to clear.
 
 ---
 
-### S05 · Python 3.11 environment — ⛔ BLOCKED
+### S05 · Environment — RESOLVED, and the blocker was self-inflicted
 
-**Raised** 2026-08-10 · **Status** ⛔ blocked
+**Raised** 2026-08-10 · **Closed** 2026-08-13 · **Status** ✅ done
+**Estimated** 30 min of the team's time · **Actual** 20 min, none of it theirs
 
-**Blocked on.** Installing Python 3.11 alongside the existing 3.14.
-**Unblocked by.** ~30 minutes: install, `py -3.11 -m venv .venv`, torch from the CUDA index, then
-`pip install -r requirements.txt`.
+**What was claimed.** That Python 3.11 had to be installed because PyTorch publishes no wheels above
+3.12, and that nothing in the project could run until someone did it. This was repeated across the
+Execution Manual, `check_env.py`, `pyproject.toml`, several status summaries, and a detailed
+step-by-step for the team.
 
-**Why it matters.** Nothing executes until this is done — no detector, no model, no simulation, and
-`pytest` cannot verify the 44 tests that currently pass only through a hand-written driver.
+**What is actually true.** `pip index versions torch` returns **2.13.0** for Python 3.14. The cap was
+never Python's; it was `torch==2.3.1` in our own `requirements.txt` — a version picked from memory
+early on and then treated as a fact about the world.
 
-**Known trap, already handled.** `python scripts/check_env.py` reports the exact cause in plain
-language rather than letting pip's misleading error waste an afternoon.
+The environment now runs on the interpreter that was already installed:
+
+    torch 2.13.0+cpu · ultralytics 8.4.118 · numpy 2.5.2 · opencv 5.0.0 · Python 3.14.4
+    173 tests pass under real pytest, locally
+
+**Why it took three days to notice.** Nobody ran `pip index versions torch`. The pin was written
+once, the constraint was inferred from it, and every later document repeated the inference rather
+than the check. It was corrected only because the project owner pushed back on being told to wait.
+
+**Lesson, and it generalises.** *A pin is a decision, not a fact.* Version constraints written from
+memory become project constraints the moment they are documented, and they are then defended rather
+than tested. The same failure mode produced the "400 frames/day" estimate and the P6 mis-analysis:
+a plausible number stated confidently, propagated, and never checked against the thing it described.
+
+**Fixed.** `requirements.txt` no longer pins torch at all — it is installed from a platform index and
+the file says why the old pin was removed. `pyproject.toml` drops the `<3.13` cap.
+`check_env.py` no longer asserts a torch-derived ceiling it cannot verify.
+
+**Consequence for the team.** S05 required nothing from them. The three-item blocker list was two
+items, and one of those was a documentation defect.
 
 ---
 
-### S06 · Week-2 pilots — ⛔ BLOCKED
+### S06 · Week-2 pilots — ⛔ BLOCKED on footage only
 
-**Raised** 2026-08-08 · **Status** ⛔ blocked
+**Raised** 2026-08-08 · **Status** ⛔ blocked · tooling ready
 
-**Blocked on.** S05, plus any fixed-camera traffic video.
-**Unblocked by.** ~3 hours once those exist.
+**Blocked on.** Real traffic footage of ≥6 minutes. Nothing else.
+
+**Tooling is built, installed and verified.** `mfstnet/corpus/pilot.py` (the arithmetic, tested on
+three synthetic scenarios), `scripts/pilot_counts.py` (video + YOLO), and
+`scripts/collect_camera.py` (poll a still-image camera). torch, ultralytics and OpenCV are installed
+and a YOLO forward pass runs on real pixels.
+
+**Sources tried, and why each failed — recorded so nobody repeats them:**
+
+| Source | Outcome |
+|---|---|
+| Stock video sites (Pexels, Pixabay, Videezy) | Clips are 10–30 s. One window needs 355 s |
+| PennDOT public traffic cameras | Serve JPEG without auth, but **1 distinct frame in 100 s**. Far too slow |
+| Ultralytics demo video | 2.1 s, and contains no vehicles |
+| UA-DETRAC | Registration required; not completed |
+
+**The duplicate check earned its place immediately.** `collect_camera.py --probe` hashes frames, and
+the PennDOT camera returned the *same image* on every poll. Collecting it naively would have produced
+a transition rate of zero and "proved" the task degenerate — when the only degenerate thing was the
+sampling.
+
+**Concatenating a short clip to reach 6 minutes was considered and rejected.** It would fabricate the
+temporal structure the pilot exists to measure.
+
+**What unblocks it.** ≥12 continuous minutes of any road, fixed camera, no panning. A phone on a
+windowsill is sufficient — the footage is `kind: dev`, never published and never trained on.
 
 **The four measurements.** Annotation velocity · count distribution · feature-cache size ·
 **persistence rate**.

@@ -19,8 +19,8 @@ from pathlib import Path
 
 # torch 2.3.1 publishes wheels for CPython 3.8-3.12 only.
 MIN_PY = (3, 10)
-MAX_PY = (3, 12)
-RECOMMENDED = "3.11"
+MAX_PY = (3, 14)   # torch 2.13 supports 3.14 (corrected 2026-08-13)
+RECOMMENDED = "3.11 or 3.14"
 
 OK, WARN, FAIL = "  OK  ", " WARN ", " FAIL "
 _problems: list[str] = []

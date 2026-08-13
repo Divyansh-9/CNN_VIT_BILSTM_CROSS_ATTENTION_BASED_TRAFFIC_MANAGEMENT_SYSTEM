@@ -865,7 +865,7 @@ defence in the viva.
 
 ## 12. Novel Contribution 1 — IndiaTrafficNet Dataset
 
-> ### ⚠ PROPOSED CHANGE — amendment A13, awaiting faculty guide sign-off
+> ### ✅ AMENDMENT A13 — IN FORCE from 2026-08-13
 >
 > [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) proposes replacing the 12,000-frame
 > public-road campaign below with **curate-then-collect**: a harmonised benchmark assembled from
@@ -878,8 +878,13 @@ defence in the viva.
 > people under CC BY 4.0 raises unresolved DPDP Act 2023 questions, and seeking municipal permission
 > has unbounded lead time.
 >
-> **This changes M1's acceptance criterion, so it is not adopted unilaterally.** Until signed off,
-> §12.0 and §12.1 below remain in force.
+> **Approved by the project owner on 2026-08-13** - not by a faculty guide. Recorded so the
+> decision trail names who decided.
+>
+> **§12.1's 12,000-frame campaign below is SUPERSEDED**, retained for the trail. The binding
+> targets are: Part A published with a datasheet, and Part B **≥1,500 anonymised frames from
+> ≥60 continuous sessions of ≥6 minutes** - the session count is the statistical sample size
+> (ADR-006).
 
 ### 12.0 Two-Track Strategy
 

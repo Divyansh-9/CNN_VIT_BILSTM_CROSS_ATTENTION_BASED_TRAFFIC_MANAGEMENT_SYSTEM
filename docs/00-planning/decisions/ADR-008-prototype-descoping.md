@@ -2,7 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Proposed — **requires faculty guide sign-off** |
+| **Status** | **Accepted 2026-08-13** |
+| **Approved by** | Project owner. **Not a faculty-guide signature** - if the guide later reviews scope, this is the record of who decided and when |
 | **Date** | 2026-08-08 |
 | **Affects** | FR-UI01..FR-UI10, NFR-06, NFR-11, NFR-12, M8, M9, M10; PRD §11, §16 |
 | **Evidence** | [FEASIBILITY-AUDIT §2, §3.2, §3.3, §5.2](../FEASIBILITY-AUDIT.md) |

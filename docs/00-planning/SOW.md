@@ -74,10 +74,18 @@ is how a plan becomes 1.6× overcommitted without anyone noticing.
 Estimated work as originally specified: **~1,200 person-hours**. Full breakdown in
 [FEASIBILITY-AUDIT §2](FEASIBILITY-AUDIT.md).
 
-The gap is closed by [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) (−200 h) and
-[ADR-008](decisions/ADR-008-prototype-descoping.md) (−140 h), both **awaiting faculty guide
-sign-off**. Until they are signed, this SOW is knowingly overcommitted and the team should say so at
-every review rather than absorb it silently.
+**Closed 2026-08-13.** [ADR-006](decisions/ADR-006-curate-then-collect-dataset.md) (−200 h) and
+[ADR-008](decisions/ADR-008-prototype-descoping.md) (−140 h) accepted by the project owner.
+
+| | Hours |
+|---|---|
+| As originally specified | ~1,200 |
+| ADR-006 + ADR-008 | −340 |
+| ADR-009 three-arm PPO · ADR-010 SUMO heterogeneity | +35 |
+| **Current** | **~895** against ~715 available |
+
+Still ~1.25× over, which is where a final-year project should sit: the conditional scope in §2.3
+absorbs the difference and is dropped without penalty if the schedule does not allow.
 
 ## 3. Team and responsibilities
 
@@ -123,9 +131,9 @@ Four roles. With a three-member team, R4 is absorbed by R1 and R3.
 | D-13 | Conference paper + submission receipt | PDF | Week 20 |
 | D-14 | Final project report + open-source repository | PDF + GitHub | Week 20 |
 
-† **D-02 and D-10/D-11 are subject to proposed scope variations.** ADR-006 would redefine D-02 as a
-curated benchmark plus a ~1,500–3,000 frame campus set; ADR-008 would reduce D-10/D-11's
-infrastructure. Both need faculty sign-off — see §2.4.
+† **A13 and A14 are IN FORCE from 2026-08-13** (project owner). D-02 is a curated benchmark plus a
+≥1,500-frame permissioned set from ≥60 sessions. D-10/D-11 carry the ADR-008 reductions: SQLite +
+Parquet, shared password, 2 dashboard pages, 1-hour uptime evaluation.
 
 ## 5. Milestones and acceptance criteria
 
@@ -134,7 +142,7 @@ only when its criterion is demonstrated with evidence committed to the repositor
 
 | ID | Milestone | Acceptance criterion | Due | Evidence artifact |
 |---|---|---|---|---|
-| M1 | IndiaTrafficNet published | 12,000+ frames, 8 classes, live on Roboflow + Kaggle. **If ADR-006 is approved:** Part A benchmark published with datasheet + Part B ≥1,500 anonymised campus frames | W8 | Public URLs |
+| M1 | IndiaTrafficNet published | **A13 in force:** Part A benchmark published with datasheet **+** Part B ≥1,500 anonymised frames from **≥60 sessions** | W8 | Public URLs |
 | M2 | YOLOv8 validated | ≥10% mAP improvement over COCO on Indian classes; ≥25% on auto-rickshaw | W9 | `experiments/results/detection_map.csv` |
 | M3 | SUMO running | All 4 signal methods run; traffic calibrated from dataset | W10 | Config + calibration report |
 | M4 | MFSTNet core working | CNN+ViT+CrossAttn+BiLSTM trains and converges | W12 | TensorBoard loss curves |
@@ -210,7 +218,7 @@ The full register is PRD §19 (R1–R10). Risks introduced or altered by the ADR
 | R13 | Track B (IndiaTrafficNet) is deprioritised once Track A works | Medium | High | M1 is a graded Week 8 milestone; weekly frames/day velocity tracked | R1 |
 | R14 | Documentation Waves 2–4 not written under deadline pressure | Medium | Medium | Wave gates scheduled at W05/W11/W16 as milestones (ADR-004) | All |
 | R15 | Laptop-proxy latency figures challenged in viva | Low | Low | Every latency table states its measurement host; **also report CPU-only figures** — an RTX 4050 is an optimistic proxy for a Jetson, not a representative one | R4 |
-| R16 | **Scope remains 1.6× overcommitted** because ADR-006/008 are declined or not raised | Medium | **High** | Raise both in Week 1–2 with the feasibility audit. If declined, cut SOW §2.3 conditional scope immediately and re-baseline — never absorb it silently | All |
+| ~~R16~~ | ~~Scope remains 1.6× overcommitted~~ | — | — | **Closed 2026-08-13** — ADR-006 and ADR-008 accepted; ~340 h recovered | — |
 | R17 | Annotation velocity turns out worse than the Week-2 pilot suggests | Medium | High | Pilot in Week 2 (Manual §1.2); track weekly; Part B's smaller target gives headroom the 12,000-frame plan did not | R1 |
 | R18 | Congestion thresholds produce a degenerate class on real data | Medium | High | Week-2 count-distribution pilot; S6 distribution gate fails before training; S3/S4 seam makes recalibration a 30-second rebuild (P1) | R1/R2 |
 | R19 | Reviewer identifies the fusion mechanisms as prior art (Conformer, ViLBERT, Flamingo) | **High** | Medium | Narrow the claim per [RELATED-WORK §3](RELATED-WORK.md); cite the precedents in the related-work section rather than being informed of them | R2 |

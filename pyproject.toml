@@ -2,7 +2,7 @@
 name = "mfstnet"
 version = "0.1.0"
 description = "Camera-only congestion forecasting and RL signal control for unstructured Indian intersections"
-requires-python = ">=3.10,<3.13"   # torch 2.3.1 publishes no wheels above 3.12
+requires-python = ">=3.10"   # torch 2.13 supports 3.14; the old <3.13 cap came from a stale pin
 license = { file = "LICENSE" }
 
 [tool.pytest.ini_options]

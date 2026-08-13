@@ -38,7 +38,7 @@ changed, and the answer should be a document rather than a recollection.
 | [RELATED-WORK](00-planning/RELATED-WORK.md) | 1.1 | Active | R2 | 2026-08-10 | **§2.6 added — vision-based congestion prediction, missed by the first survey. C1 narrowed** |
 | [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | 1.1 | Active | All | 2026-08-10 | Governs scope decisions. Revised total ~890 h after ADR-009/010 |
 | [BIBLIOGRAPHY](00-planning/BIBLIOGRAPHY.md) | 1.0 | Active | R2 | 2026-08-10 | 35 references with a **verified/unverified** mark. Nothing enters the paper while marked ⚠️. Five-item verification queue |
-| [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Awaiting submission** | Team lead | 2026-08-10 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
+| [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | 1.0 | **Decided — accepted** | Project owner | 2026-08-13 | One page for the guide. **Submit Week 1–2** — ADR-006/008 block the plan until decided |
 | [PROCESS-REVIEW](00-planning/PROCESS-REVIEW.md) | 1.0 | Active | All | 2026-08-10 | 17:1 docs-to-code ratio; five ordered actions for this week. **Stop planning after action 3** |
 | [TRIAGE-001](00-planning/triage/TRIAGE-001-mqtt-payload-schema.md) | 1.1 | **CLOSED** | R4 | 2026-08-13 | All six defects closed by A26 + `contracts/mqtt.py`. A seventh found while building: QoS was overridable |
 | [TRIAGE-002](00-planning/triage/TRIAGE-002-webster-parameterisation.md) | 1.2 | **CLOSED** | R3 | 2026-08-10 | ADR-011 closed items 3–5; [ADR-012](00-planning/decisions/ADR-012-webster-saturation-flow.md) closed 1, 2 and 6 from literature. P8 closed |
@@ -53,9 +53,9 @@ changed, and the answer should be a document rather than a recollection.
 | [003](00-planning/decisions/ADR-003-laptop-as-edge.md) laptop as edge | Active | Team | — |
 | [004](00-planning/decisions/ADR-004-phased-document-delivery.md) document waves | Active | Team | — |
 | [005](00-planning/decisions/ADR-005-local-first-training.md) local-first + feature cache | Active | Team | — |
-| [006](00-planning/decisions/ADR-006-curate-then-collect-dataset.md) curate-then-collect | **Proposed** | *Faculty guide — pending* | PRD A13, FR-D01..D07, M1 |
+| [006](00-planning/decisions/ADR-006-curate-then-collect-dataset.md) curate-then-collect | **Accepted** | Project owner, 2026-08-13 | — |
 | [007](00-planning/decisions/ADR-007-backbones-and-training-recipe.md) DINOv2 / bf16 / LoRA | Active | Team | — |
-| [008](00-planning/decisions/ADR-008-prototype-descoping.md) prototype descoping | **Proposed** | *Faculty guide — pending* | PRD A14, FR-UI*, NFR-06, NFR-12, M9, M10 |
+| [008](00-planning/decisions/ADR-008-prototype-descoping.md) prototype descoping | **Accepted** | Project owner, 2026-08-13 | — |
 | [009](00-planning/decisions/ADR-009-ppo-forecast-surrogate.md) PPO forecast surrogate, 16-dim state | Active | Team | PRD A16 |
 | [010](00-planning/decisions/ADR-010-sumo-heterogeneous-traffic.md) SUMO sublane + heterogeneous vTypes | Active | Team | FR-S01, FR-S02 |
 | [011](00-planning/decisions/ADR-011-webster-definition.md) Webster cycle clamping, starvation semantics, two roles | Active | Team | Closes P6; advances P8; opens P9 |
@@ -131,6 +131,7 @@ rediscovers them in an old draft and acts on them.
 
 | Withdrawn | Where it appeared | Correction |
 |---|---|---|
+| "PyTorch requires Python ≤3.12, so the project is blocked on installing 3.11" | Execution Manual §0.3, `check_env.py`, `pyproject.toml`, several status summaries | **Wrong, and self-inflicted.** torch 2.13 supports 3.14. The cap came from our own `torch==2.3.1` pin, chosen from memory and then treated as a fact about the world. Cost three days. **A pin is a decision, not a fact** |
 | "400 frames/day/person" annotation velocity | Execution Manual Part 2 | Wrong by roughly 3× for dense Indian scenes (20–60 objects/frame). Measure it in Week 2 — Manual §1.2 |
 | "MFSTNet trains on SUMO sequences" | PRD §20 L1 (original) | Never viable with frozen ImageNet backbones. Corpus is auto-labelled real video — PRD §8.6 |
 | Global average pooling before the congestion head | PRD §8.1 (original) | Produces four identical lane predictions. Replaced by per-lane ROI pooling — A8 |
