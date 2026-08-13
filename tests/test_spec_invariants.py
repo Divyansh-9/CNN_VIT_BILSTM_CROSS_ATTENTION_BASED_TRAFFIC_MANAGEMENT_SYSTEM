@@ -169,19 +169,34 @@ def test_action_space_size_is_twelve(spec):
 # starvation threshold must exceed the worst-case CYCLE (186 s) and marked the
 # result as a known contradiction (P6). That was wrong: it conflated cycle
 # length with lane wait. A lane is served in one phase, so it waits for the
-# OTHER phase's green plus two all-reds -- 96 s at maximum, not 186 s. There is
-# no contradiction under strict phase alternation.
+# OTHER phase's green plus the clearances -- not 186 s. There is no
+# contradiction under strict phase alternation.
+#
+# SECOND CORRECTION, 2026-08-13 (amendment A27). That revision said 96 s,
+# because spec.yaml had no yellow interval at all. Building the real SUMO
+# network in S32 made the omission visible: netconvert emits a yellow phase
+# whether or not the specification mentions one. An approach is red for the
+# other phase's green AND its yellow, plus both all-reds -- 99 s. Every derived
+# signal figure moved with it, including the Webster clamp bounds.
 #
 # The tests below assert the correct model, and the genuinely undefined thing
 # the correction exposed: whether phase repetition is legal (P9).
 # --------------------------------------------------------------------------
 
 def _worst_wait_single_alternation(sig: dict) -> int:
-    """Longest a lane waits when phases strictly alternate.
+    """Longest an approach is RED when phases strictly alternate.
 
-    Its green ends, then: all-red, the other phase's green, all-red.
+    Its own green ends, then: all-red, the other phase's green, the other
+    phase's yellow, all-red.
+
+    Its own yellow is deliberately excluded -- traffic still discharges during
+    it, so it is not wait time. The other phase's yellow IS included, because
+    this approach is red throughout it. That asymmetry is the whole reason the
+    figure is 99 and not 96 or 102.
     """
-    return sig["max_green_s"] + 2 * sig["all_red_s"]
+    return (
+        sig["max_green_s"] + sig["yellow_s"] + 2 * sig["all_red_s"]
+    )
 
 
 def test_strict_alternation_can_never_trigger_starvation(spec):
@@ -192,7 +207,7 @@ def test_strict_alternation_can_never_trigger_starvation(spec):
         f"worst alternating wait {worst}s >= starvation limit "
         f"{sig['starvation_s']}s -- the penalty would fire on legal operation"
     )
-    assert worst == 96, f"expected 96 s, got {worst}"
+    assert worst == 99, f"expected 99 s, got {worst}"
 
 
 def test_starvation_penalty_is_reachable_when_a_phase_repeats(spec):
@@ -230,8 +245,8 @@ def test_cycle_bounds_are_recorded_and_are_about_cycles_not_waits(spec):
     sig = spec["signal"]
     n = len(sig["phases"])
 
-    assert n * (sig["min_green_s"] + sig["all_red_s"]) == sig["min_cycle_s"] == 26
-    assert n * (sig["max_green_s"] + sig["all_red_s"]) == sig["max_cycle_s"] == 186
+    assert n * (sig["min_green_s"] + sig["yellow_s"] + sig["all_red_s"])         == sig["min_cycle_s"] == 32
+    assert n * (sig["max_green_s"] + sig["yellow_s"] + sig["all_red_s"])         == sig["max_cycle_s"] == 192
     # The distinction the earlier revision got wrong:
     assert sig["max_cycle_s"] > _worst_wait_single_alternation(sig)
 

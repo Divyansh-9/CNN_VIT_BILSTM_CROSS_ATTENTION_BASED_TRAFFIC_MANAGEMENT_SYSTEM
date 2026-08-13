@@ -55,6 +55,10 @@ ppo_state:                 # PRD §13.1 as amended by A16 (ADR-009)
 signal:                    # PRD §9.6 — enforced by actuation, not learned
   min_green_s: 10
   max_green_s: 90
+  yellow_s: 3              # A27 — was MISSING entirely until S32 built a real
+                           # SUMO network. Its absence made every derived number
+                           # below too small. netconvert emits a yellow phase
+                           # whether or not the specification mentions one.
   all_red_s: 3
   starvation_s: 180        # FR-R04. See the note below — this is NOT in conflict
                            # with the cycle bounds; an earlier reading conflated
@@ -62,13 +66,15 @@ signal:                    # PRD §9.6 — enforced by actuation, not learned
   green_durations_s: [10, 20, 30, 45, 60, 90]
   phases: [NS, EW]
 
-  # Derived, asserted in tests:
-  #   worst lane wait under strict alternation = max_green + 2*all_red = 96 s
-  #     (a lane waits for the OTHER phase's green, not for a whole cycle)
-  #   two repeated max greens                  = 189 s  -> penalised, as intended
-  #   two repeated 60 s greens                 = 129 s  -> tolerated
-  min_cycle_s: 26          # 2 * (min_green + all_red)  — Webster clamp floor
-  max_cycle_s: 186         # 2 * (max_green + all_red)  — Webster clamp ceiling
+  # Derived, asserted in tests. Every figure here was corrected by A27 when a
+  # real network made the omitted yellow interval visible:
+  #   an approach is RED for   other_green + other_yellow + 2*all_red = 99 s
+  #     (a lane waits for the OTHER phase, not for a whole cycle. It is NOT
+  #      waiting during its own yellow — it can still discharge then)
+  #   two repeated max greens  = 198 s  -> penalised, as intended
+  #   two repeated 60 s greens = 138 s  -> tolerated
+  min_cycle_s: 32          # 2 * (min_green + yellow + all_red)  — clamp floor
+  max_cycle_s: 192         # 2 * (max_green + yellow + all_red)  — clamp ceiling
 
   # P9 — UNDECIDED. May the controller serve the same phase twice in a row?
   # If false, starvation is structurally impossible and FR-R04 is dead code.

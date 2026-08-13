@@ -67,12 +67,16 @@ def rel(p: Path) -> str:
     return p.relative_to(ROOT).as_posix()
 
 
+# Directories whose markdown belongs to somebody else. `.venv` joined this list
+# when `pip install eclipse-sumo` landed SUMO's own documentation inside it and
+# this checker started reporting broken links in third-party files — noise that
+# would train a reader to ignore the output, which is the one thing a checker
+# must never do.
+VENDOR_DIRS = {".git", ".venv", "venv", "node_modules", "site-packages", "__pycache__"}
+
+
 def markdown_files() -> list[Path]:
-    return [
-        p
-        for p in ROOT.rglob("*.md")
-        if ".git" not in p.parts and "node_modules" not in p.parts
-    ]
+    return [p for p in ROOT.rglob("*.md") if VENDOR_DIRS.isdisjoint(p.parts)]
 
 
 def check_links(files: list[Path]) -> None:

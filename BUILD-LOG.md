@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S18 dataset curation, or S32 SUMO network |
+| **Current step** | S33 sublane + vTypes wiring, or S18 dataset curation |
 
 ---
 
