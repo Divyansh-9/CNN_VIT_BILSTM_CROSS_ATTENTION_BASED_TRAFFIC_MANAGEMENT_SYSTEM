@@ -112,7 +112,7 @@ guesses.
 | S35 | Webster saturation-flow sweep (ADR-012) → **M3** | ✅ | — | 21 runs. **Broke ADR-012's selection rule** |
 | S36 | Gym environment, `check_env` clean | ✅ | — | check_env clean. 16-dim contract read from spec |
 | S37 | PPO training, three arms → **M6** | 🟨 | R3 | Harness + config done, smoke run trains. Full 500k pending |
-| S38 | 30-seed benchmark + statistics → **M7** | ⬜ | R3 | S37, S29 |
+| S38 | 30-seed benchmark + statistics → **M7** | 🟨 | R3 | Stats + harness done, baselines benchmarked. PPO arms pending |
 
 ### Phase 6 — System · Weeks 4–19 → **M8, M9, M10**
 
@@ -163,6 +163,14 @@ surfaced it: torch 2.3.1 publishes no wheels above Python 3.12. `pip install` fa
 
 **Fix.** `check_env.py` checks the interpreter version first and explains the cause in plain language.
 Manual now requires Python 3.11 explicitly. **Still open as S05** — the interpreter is not installed.
+
+> **WITHDRAWN — this problem did not exist.** `pip index versions torch` reports **2.13.0, which
+> supports Python 3.14**. The ceiling came entirely from the `torch==2.3.1` pin *I* chose from memory
+> and then propagated into the manual, `check_env.py` and `pyproject.toml` — and then asked for 30
+> minutes of the user's time to install an interpreter nobody needed. It cost three days.
+>
+> The paragraph above is left standing because deleting it would erase the mistake. It is history,
+> not guidance. **A pin is a decision, not a fact** — see the S05 correction entry.
 
 **Problem — documentation drifted silently.** ADRs 005–008 changed the plan while five documents
 still described the superseded approach.

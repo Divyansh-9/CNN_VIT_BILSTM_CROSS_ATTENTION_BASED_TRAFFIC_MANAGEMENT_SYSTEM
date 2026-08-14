@@ -112,6 +112,9 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 | `notebooks/README.md` | Active | Notebook policy: presentation and driver layer only, never model or training code |
 | `notebooks/03_results.ipynb` | Active | Renders committed result CSVs. Computes no metric of its own |
 | `tests/test_spec_matches_code.py` | Active | Binds Python defaults to `spec.yaml`. Runs in both CI jobs |
+| `experiments/statistics.py` | Active | Bootstrap CI, paired t-test, Cohen's d. No SciPy; t-dist checked against published critical values |
+| `scripts/benchmark.py` | Active | 30-seed benchmark, all methods on the same seeds so pairing holds |
+| `tests/test_statistics.py` | Active | 26 tests. 3 gaps found by mutation testing and closed |
 | `simulation/webster.py` | Active | Webster + `select_best`. Two disqualifications found by running the sweep |
 | `simulation/envs/traffic_env.py` | Active | Gymnasium env. 16-dim contract read from `spec.yaml`, `check_env` clean |
 | `simulation/configs/ppo_config.yaml` | Active | PRD §13.1 hyperparameters + the three ADR-009 arms |
