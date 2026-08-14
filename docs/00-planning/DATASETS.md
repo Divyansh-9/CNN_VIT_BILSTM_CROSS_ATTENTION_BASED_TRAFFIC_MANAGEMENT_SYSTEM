@@ -214,6 +214,124 @@ limitation is addressable rather than merely acknowledged.
 
 ---
 
+## 4.5 Two data needs, and why no public dataset solves the second
+
+Added 2026-08-14, after a candidate dataset was proposed as a way to unblock S06.
+It is written down because the same confusion has now cost time twice.
+
+**The project needs two different things and they have been treated as one.**
+
+| Need | Shape required | Public sources |
+|---|---|---|
+| **Detector** — S08–S12, YOLOv8 fine-tuning | still images + bounding boxes | plentiful (IDD, FGVD, and the candidate below) |
+| **MFSTNet corpus** — S06, S28–S31 | **continuous fixed-camera video, ≥360 s**, one signalised intersection | **essentially none** |
+
+The second row is the blocker, and it is the one no public dataset has solved.
+Published vehicle datasets are almost universally either image collections or
+dashcam clips. MFSTNet forecasts congestion **60 s ahead**, which requires
+T=60 frames at 5 s spacing plus a label 60 s past the window end — amendment A15
+puts the minimum clip at **360 s from a stationary camera**. A photo collection
+has no temporal structure at all, and a dashcam has no fixed frame, so lane
+polygons cannot be defined.
+
+**State it once so it is not rediscovered a third time: the corpus need has no
+public substitute.** Filming, or a live municipal camera feed, are the only two
+shapes that fit — which is what PRD §22 and [ADR-001](decisions/ADR-001-two-track-dataset-strategy.md)
+specified from the start when they called IndiaTrafficNet self-collected.
+
+### Candidate assessed — DataCluster Labs "Indian Vehicle Dataset"
+
+- Kaggle: <https://www.kaggle.com/datasets/dataclusterlabs/indian-vehicle-dataset>
+- GitHub: <https://github.com/datacluster-labs/Indian-Vehicle-Dataset>
+- Roboflow mirror: <https://universe.roboflow.com/datacluster-labs-agryi/indian-vehicle-auto>
+
+| | |
+|---|---|
+| Size | ~40,000 images, **15,000 annotated**, ~53,000 boxes |
+| Classes | Indian Auto, Indian Truck, Bus, Truck, Tempo Traveller, Tractor, Car, Two Wheelers |
+| Formats | COCO, YOLO, PASCAL-VOC, TFRecord |
+| Media | **Still images** |
+
+**Verdict: useful for the detector, useless for the corpus.** Its class list
+overlaps ours better than any foreign footage does — *Indian Auto* is our
+auto-rickshaw, the single most important India-specific class — and 15,000
+pre-annotated images directly attacks the annotation burden the
+[FEASIBILITY-AUDIT](FEASIBILITY-AUDIT.md) found underestimated by roughly 3×.
+It contains **no e-rickshaw and no cattle**, so it cannot replace self-collection
+even for detection.
+
+> **Licence must be checked before any use.** The images are stated to be
+> *"exclusively owned by Data Cluster Labs"*, with a licence *"purchased"* for
+> research and commercial use, and the GitHub repository states **no licence terms
+> at all**. [ADR-013](decisions/ADR-013-artifact-hosting-and-publication.md)
+> Decision 4 commits this project to properly-licensed sources. Read the licence
+> field on the Kaggle page itself — that is the only authoritative statement — and
+> prefer **IDD (§3.1)**, which is the academic standard, citable, and unambiguously
+> licensed for research. An unclear commercial sample is a poor trade when a
+> citable academic alternative already exists.
+
+### Foreign and highway footage — evaluate on it, never train the corpus on it
+
+Non-Indian footage was proposed for generalisation. Three separate uses, and
+mixing them is the risk:
+
+1. **Detector** — genuinely helps robustness to lighting and camera height, but
+   adds **zero** examples of auto-rickshaw, e-rickshaw or cattle, and skews class
+   balance toward cars.
+2. **MFSTNet labels** — actively harmful. The §14.1 thresholds are calibrated for
+   Indian lane occupancy *with lateral filtering*; the same count means a
+   different congestion state elsewhere.
+3. **Highway versus signalised intersection** — the decisive one. See §4.6.
+
+**Better use: a domain-shift evaluation.** Train on Indian data, evaluate
+zero-shot on foreign footage, report the drop. That is a stronger contribution
+than a silently mixed training set — reviewers reward an honest generalisation
+section and penalise unclear provenance. The A9 human-verified **test split stays
+Indian-intersection only**.
+
+## 4.6 "Do auto-rickshaws and cattle appear on highways?" — the signal answers it
+
+A reasonable objection: highways have traffic lights too, so is the India-specific
+class list really tied to local roads?
+
+**The distinction is not highway versus city. It is access-controlled versus not** —
+and the presence of a traffic signal settles it.
+
+NHAI prohibits, on access-controlled expressways and highways: motorcycles and
+scooters, **three-wheelers including e-carts and e-rickshaws**, non-motorised
+vehicles, tractors, and quadricycles. The stated reason is the speed differential
+between fast and slow traffic. Access-controlled corridors are also
+**grade-separated** — they use interchanges, not signalised crossings.
+
+So the two facts compose:
+
+> **If a road has a traffic signal, it is not access-controlled. If it is not
+> access-controlled, three-wheelers and slow traffic are permitted — and present.**
+
+This *inverts* the concern rather than confirming it. Every location this project
+can legitimately study is a signalised intersection, and every signalised
+intersection in India is one where auto-rickshaws, e-rickshaws and stray cattle
+are legal and common. A National Highway running through a town — extremely common
+in India — becomes a mixed-traffic arterial with signals, and is an **excellent**
+filming site: high volume, genuinely heterogeneous, real signal cycle.
+
+Conversely, an expressway with no signal is **out of scope entirely**, not because
+of its vehicle mix but because there is no signal to control. The PPO half of this
+project has nothing to act on there.
+
+### The practical consequence
+
+**Stop filtering candidate footage by "highway versus urban". Filter by:**
+
+1. a **signalised** intersection in frame,
+2. **mixed traffic** — three-wheelers visible,
+3. a **stationary** camera,
+4. **≥360 s** continuous (A15).
+
+That is a cleaner inclusion criterion than any road-class label, and criterion 1
+makes criterion 2 nearly automatic. `scripts/capture_stream.py --check` already
+enforces 3 and 4 mechanically; 1 and 2 are a human glance at the first frame.
+
 ## 5. Practical handling — the storage problem
 
 22.8 GB does not fit in a free 15 GB Google Drive. Do not try.
@@ -304,6 +422,11 @@ subsampling, class mapping applied, and which experiments used it.
 ---
 
 ## Change history
+
+- **2026-08-14** — added §4.5 (two data needs; DataCluster Labs assessed; foreign footage
+  becomes a domain-shift evaluation rather than training data) and §4.6 (the signal, not the
+  road class, decides whether the India-specific classes are present).
+
 
 | Version | Date | Change |
 |---|---|---|
