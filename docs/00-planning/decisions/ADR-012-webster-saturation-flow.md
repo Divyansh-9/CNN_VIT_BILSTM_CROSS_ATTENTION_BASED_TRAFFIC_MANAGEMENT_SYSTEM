@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted |
+| **Status** | Accepted · **rev 2** (S35 measured the sweep; the selection rule was not safe as written) |
 | **Date** | 2026-08-10 |
 | **Affects** | FR-S02, FR-R08, M3, M7; pending item P8 |
 | **Closes** | [TRIAGE-002](../triage/TRIAGE-002-webster-parameterisation.md) items 1, 2 and 6 |
@@ -132,3 +132,66 @@ site, which is a study in itself. Recorded as future work.
 
 **Take the mean of the published range.** Simple. Rejected — averaging incompatible PCU conventions
 produces a number that belongs to no methodology and cannot be cited.
+
+
+---
+
+## Rev 2 — running the sweep broke the selection rule (S35, 2026-08-13)
+
+This ADR said: report the **best-performing** saturation flow. Building it and running all seven
+values across three regimes showed that rule is not safe on its own. Two configurations can post the
+lowest wait while being the wrong answer, and both cases occurred in real data rather than in theory.
+
+### Measured sweep (1200 s, seed 42, `experiments/results/webster_sweep.csv`)
+
+| s (PCU/h/m) | light wait | saturated wait | saturated clamp | oversat wait | oversat arrived |
+|---|---|---|---|---|---|
+| 525 | 8.1 s | 34.9 s | 5% | 74.9 s | 0.78 |
+| 600 | **7.7 s** | 38.0 s | 4% | 80.2 s | 0.77 |
+| 660 | 7.7 s | 36.4 s | 8% | 78.2 s | 0.77 |
+| 750 | 7.7 s | **26.8 s** | **14%** | 81.0 s | 0.77 |
+| 900 | 7.7 s | 13.8 s | 85% | 84.4 s | 0.77 |
+| 1050 | 8.1 s | **13.7 s** | **100%** | **63.2 s** | **0.55** |
+| 1283 | 8.2 s | 13.7 s | 100% | 86.1 s | 0.75 |
+
+**Finding 1 confirmed with force.** At the capacity knee the saturation flow changes Webster's mean
+wait from 13.7 s to 38.0 s — a **2.8× spread** from a parameter choice alone. Picking one value would
+have decided the headline comparison before any agent was trained. The sweep was the right call.
+
+### Finding 7 — a fully-clamped Webster is not Webster
+
+The naive best at the knee is s=1050 at 13.7 s. Its **clamp rate is 100%**: every cycle hit a bound,
+so `C0 = (1.5L + 5)/(1 − Y)` never decided anything and the method degenerated to a fixed 32 s cycle.
+Reporting that as "Webster's best" would put a fixed-time controller in the results table under
+Webster's name — neither an honest Webster nor an honest fixed-time.
+
+### Finding 8 — a low mean wait can be survivorship
+
+In the oversaturated regime s=1050 posts the **lowest** wait of the sweep, 63.2 s, while completing
+**55%** of trips against ~77% elsewhere, with a mean queue of 211 against ~85. Its wait looks good
+because the vehicles that waited longest never finished and so never entered the tripinfo average.
+`runner.run_episode` documents this bias; here it is caught in the wild.
+
+### Amended decision
+
+`simulation.webster.select_best` picks the lowest mean wait **among configurations that are genuinely
+running the method and genuinely serving the traffic**: clamp rate ≤ 50% and arrived fraction ≥ 85%.
+Both thresholds are parameters, both disqualifications are reported with reasons, and the full sweep
+is committed regardless.
+
+Applied to the measured data:
+
+| Regime | Result |
+|---|---|
+| light | **No configuration qualifies** — all seven clamp 100% of the time. At light demand `C0` falls below the minimum cycle, so Webster is not applicable |
+| saturated | **s = 750, 26.8 s**, clamp 14%, arrived 91% |
+| oversaturated | **No configuration qualifies** — every one fails the completion threshold |
+
+**When nothing qualifies, that is the finding.** Report the sweep, claim no "Webster's best".
+
+### What this does to the headline claim
+
+Webster's honest best at the knee is **26.8 s**. The longest-queue baseline is **21.7 s**. So the
+number PPO has to beat is **longest-queue, not Webster** — and FR-R08's "beats Webster by ≥10%" is
+the *weaker* of the two comparisons the project can now make. Reporting only against Webster would
+now be the softer claim, which is the opposite of the assumption the requirement was written under.

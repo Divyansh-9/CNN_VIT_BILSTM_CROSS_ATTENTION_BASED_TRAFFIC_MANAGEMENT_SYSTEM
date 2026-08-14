@@ -148,3 +148,74 @@ def test_a_queue_responsive_baseline_beats_fixed_time():
     adaptive = run_episode(LongestQueue(), regime="saturated", duration_s=600)
 
     assert adaptive.mean_wait_s < fixed.mean_wait_s
+
+
+# ------------------------------------------------------------ webster --
+
+def test_optimum_cycle_is_infinite_at_capacity():
+    """Y >= 1 means no cycle length serves the demand. Returning a finite number
+    would hide that behind a clamp."""
+    from simulation.webster import optimum_cycle
+
+    assert optimum_cycle(1.0, 14) == float("inf")
+    assert optimum_cycle(0.5, 14) == pytest.approx((1.5 * 14 + 5) / 0.5)
+
+
+def test_critical_flow_ratio_is_capped_below_one():
+    """Uncapped, an oversaturated approach makes 1 - Y negative and the optimum
+    cycle NEGATIVE — which then clamps into range and looks reasonable."""
+    from simulation.webster import critical_flow_ratio
+
+    assert critical_flow_ratio(99_999, 1000) == 0.95
+    assert critical_flow_ratio(0, 1000) == 0.0
+
+
+def test_saturation_flow_is_width_based_not_per_lane():
+    """ADR-012: lanes are not the unit of discharge when two- and three-wheelers
+    filter laterally."""
+    from simulation.webster import Webster
+
+    w = Webster(saturation_flow_per_metre=660.0, approach_width_m=6.4)
+    assert w.saturation_pcu_per_hour == pytest.approx(660 * 6.4)
+
+
+def test_a_fully_clamped_configuration_is_disqualified():
+    """It is a fixed cycle wearing Webster's name. Measured: at the knee, s=1050
+    and s=1283 posted the LOWEST waits at a 100% clamp rate."""
+    from simulation.webster import select_best
+
+    rows = [
+        {"saturation_flow": 1050, "mean_wait_s": 13.7, "clamp_rate": 1.00, "arrived_fraction": 0.94},
+        {"saturation_flow": 750, "mean_wait_s": 26.8, "clamp_rate": 0.14, "arrived_fraction": 0.91},
+    ]
+    selection = select_best(rows)
+    assert selection.best["saturation_flow"] == 750, "the cheapest wait is not the best baseline"
+    assert "clamp" in selection.rejected[0][1]
+
+
+def test_a_configuration_that_failed_is_disqualified():
+    """Survivorship. Measured: oversaturated s=1050 posted the lowest wait of the
+    sweep while completing 55% of trips — the slowest vehicles never finished, so
+    they never entered the average."""
+    from simulation.webster import select_best
+
+    rows = [
+        {"saturation_flow": 1050, "mean_wait_s": 63.2, "clamp_rate": 0.43, "arrived_fraction": 0.55},
+        {"saturation_flow": 660, "mean_wait_s": 78.2, "clamp_rate": 0.48, "arrived_fraction": 0.90},
+    ]
+    selection = select_best(rows)
+    assert selection.best["saturation_flow"] == 660
+    assert "waited longest" in selection.rejected[0][1]
+
+
+def test_no_qualifying_configuration_is_a_finding_not_a_crash():
+    """Measured in both the light and oversaturated regimes. The honest response
+    is to report the sweep and make no 'Webster's best' claim."""
+    from simulation.webster import select_best
+
+    rows = [{"saturation_flow": s, "mean_wait_s": 8.0, "clamp_rate": 1.0,
+             "arrived_fraction": 0.96} for s in (525, 600, 660)]
+    selection = select_best(rows)
+    assert selection.best is None
+    assert len(selection.rejected) == 3
+    assert "claim nothing" in selection.explain()

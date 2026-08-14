@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S35 Webster sweep, or S18 dataset curation |
+| **Current step** | S36 Gym environment, or S18 dataset curation |
 
 ---
 
@@ -109,7 +109,7 @@ guesses.
 | S32 | SUMO 4-way network | ⬜ | R3 | S05 |
 | S33 | Sublane model + heterogeneous vTypes (ADR-010) | ⬜ | R3 | S32 |
 | S34 | Fixed / Random / Webster baselines | ⬜ | R3 | S33 |
-| S35 | Webster saturation-flow sweep (ADR-012) → **M3** | ⬜ | R3 | S34 |
+| S35 | Webster saturation-flow sweep (ADR-012) → **M3** | ✅ | — | 21 runs. **Broke ADR-012's selection rule** |
 | S36 | Gym environment, `check_env` clean | ⬜ | R3 | S35 |
 | S37 | PPO training, three arms → **M6** | ⬜ | R3 | S36 |
 | S38 | 30-seed benchmark + statistics → **M7** | ⬜ | R3 | S37, S29 |
