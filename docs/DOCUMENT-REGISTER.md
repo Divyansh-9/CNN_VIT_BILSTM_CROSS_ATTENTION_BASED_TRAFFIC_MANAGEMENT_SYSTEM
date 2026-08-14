@@ -61,6 +61,7 @@ changed, and the answer should be a document rather than a recollection.
 | [011](00-planning/decisions/ADR-011-webster-definition.md) Webster cycle clamping, starvation semantics, two roles | Active | Team | Closes P6; advances P8; opens P9 |
 | [012](00-planning/decisions/ADR-012-webster-saturation-flow.md) Sweep the published saturation-flow range | Active | Team | **Closes P8** |
 | [013](00-planning/decisions/ADR-013-artifact-hosting-and-publication.md) GitHub for code, Hugging Face for use, Zenodo for citation | **Proposed** | Guide | Retires Git LFS for weights. **Opens P10** — what may be published from IndiaTrafficNet |
+| [015](00-planning/decisions/ADR-015-success-criteria-and-priorities.md) FR-R08 vs the strongest baseline; both action spaces; staged compute; no frames published; S06 deadline | **Proposed** | Guide | Webster is not significantly better than fixed-time (p=0.225). **Closes P10 and P11 pending sign-off** |
 | [014](00-planning/decisions/ADR-014-dashboard-metrics-separation.md) Benchmark panel and live monitor are separate and never merge | **Proposed** | Guide | Live accuracy would be circular (A9). Derived overlay replaces video (NFR-13) |
 
 ## Requirements

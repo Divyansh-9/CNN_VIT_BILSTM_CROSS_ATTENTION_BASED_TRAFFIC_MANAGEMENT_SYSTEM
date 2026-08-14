@@ -65,3 +65,6 @@ simulation/networks/*.tmp
 
 # Weights live on Hugging Face, not in git (ADR-013 rev 2)
 models/
+
+# Dev footage — never committed, never published (ADR-013, P10, NFR-13)
+data/dev_footage/
