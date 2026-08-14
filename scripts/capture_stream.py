@@ -152,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--search", help="find candidates long enough to use")
     parser.add_argument(
         "--check", type=Path,
-        help="check a file you recorded yourself (phone, tripod) — same bar",
+        help="check a file OR a folder of files against the same bar",
     )
     parser.add_argument("--seconds", type=int, default=420)
     parser.add_argument("--out", type=Path, default=OUT)
@@ -174,7 +174,31 @@ def main(argv: list[str] | None = None) -> int:
         # the plan rather than the fallback. This applies exactly the same bar a
         # downloaded stream has to clear.
         if not args.check.exists():
-            raise SystemExit(f"no such file: {args.check}")
+            raise SystemExit(f"no such path: {args.check}")
+
+        if args.check.is_dir():
+            videos = sorted(
+                q for q in args.check.rglob("*")
+                if q.suffix.lower() in {".mp4", ".mkv", ".webm", ".mov", ".avi"}
+            )
+            if not videos:
+                raise SystemExit(f"no video files under {args.check}")
+            print(f"{'sec':>8} {'distinct':>9} {'resolution':>12}  verdict  file")
+            usable = 0
+            for video in videos:
+                r = inspect(video)
+                verdict = "USABLE " if r["usable"] else "reject "
+                usable += r["usable"]
+                print(
+                    f"{r['seconds']:>8} {r['distinct_sampled']:>9} "
+                    f"{r['resolution']:>12}  {verdict}  {video.name[:44]}"
+                )
+            print(
+                f"\n  {usable} of {len(videos)} clear the A15 bar "
+                f"(>= {MIN_USABLE_S}s, and actually moving)"
+            )
+            return 0 if usable else 1
+
         report = inspect(args.check)
         for key, value in report.items():
             print(f"  {key:18} {value}")
