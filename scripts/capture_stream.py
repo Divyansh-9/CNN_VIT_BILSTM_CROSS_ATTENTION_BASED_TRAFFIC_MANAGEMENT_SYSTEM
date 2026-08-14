@@ -150,6 +150,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("url", nargs="?")
     parser.add_argument("--search", help="find candidates long enough to use")
+    parser.add_argument(
+        "--check", type=Path,
+        help="check a file you recorded yourself (phone, tripod) — same bar",
+    )
     parser.add_argument("--seconds", type=int, default=420)
     parser.add_argument("--out", type=Path, default=OUT)
     args = parser.parse_args(argv)
@@ -164,8 +168,46 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {length:>5}  {entry['id']}  {entry['title'][:58]}")
         return 0
 
+    if args.check:
+        # Self-capture is the P0 sourcing track (ADR-015 Decision 5): the PRD
+        # specifies IndiaTrafficNet as self-collected, so a phone on a tripod is
+        # the plan rather than the fallback. This applies exactly the same bar a
+        # downloaded stream has to clear.
+        if not args.check.exists():
+            raise SystemExit(f"no such file: {args.check}")
+        report = inspect(args.check)
+        for key, value in report.items():
+            print(f"  {key:18} {value}")
+        if report["usable"]:
+            print(
+                "\n  USABLE. Move it into data/dev_footage/ and run:"
+                "\n      python scripts/pilot_counts.py <file>"
+            )
+            return 0
+        reasons = []
+        if report["seconds"] < MIN_USABLE_S:
+            reasons.append(
+                f"only {report['seconds']}s — needs >= {MIN_USABLE_S}s "
+                f"(A15: a T=60 window spans 295s and its label sits 60s past "
+                f"the end, so a shorter clip yields ZERO sequences)"
+            )
+        if report["distinct_sampled"] <= 20:
+            reasons.append(
+                f"only {report['distinct_sampled']}/40 sampled frames differ — "
+                f"the camera or the scene is not moving"
+            )
+        print("\n  NOT USABLE:")
+        for reason in reasons:
+            print(f"    - {reason}")
+        print(
+            "\n  Record again in ONE continuous take with the phone fixed in "
+            "place. Do not stitch clips\n  together: that fabricates the temporal "
+            "structure the pilot exists to measure."
+        )
+        return 1
+
     if not args.url:
-        parser.error("give a URL, or --search to find one")
+        parser.error("give a URL, --search to find one, or --check a file you recorded")
 
     path = capture(args.url, seconds=args.seconds, out=args.out)
     report = inspect(path)
