@@ -1,0 +1,48 @@
+# PPO hyperparameters — PRD §13.1. SINGLE SOURCE OF TRUTH.
+#
+# NFR-16: no training script may hardcode a value that appears here. The three
+# arms differ ONLY by config, so switching arms never edits code.
+
+seed: 42                     # NFR-07 — PyTorch, NumPy, SB3
+
+ppo:                         # PRD §13.1 verbatim
+  learning_rate: 0.0003      # 3e-4
+  n_steps: 2048
+  batch_size: 64
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  total_timesteps: 500000
+
+env:
+  episode_s: 1800            # 30 min per episode
+  regime: saturated          # the measured capacity knee — see build_sumo_demand
+  starvation_penalty: 1.0    # FR-R04. Longest-queue starves 4x under
+                             # oversaturation; that is the weakness this penalty
+                             # exists to make a learned policy avoid
+  switch_penalty: 0.05       # discourages churn without forbidding adaptation
+
+arms:                        # ADR-009
+  no-forecast:
+    use_mfstnet: false
+    note: >
+      State indices 11-14 zeroed. The honest floor, and the only arm that can
+      run before MFSTNet exists. Any claim that the forecast helps is measured
+      against THIS.
+  surrogate:
+    use_mfstnet: false
+    note: >
+      ADR-009. A SUMO-derived congestion proxy fills 11-14 so the RL half is not
+      blocked on the vision half. It is a proxy and is labelled as one — it is
+      NOT evidence that MFSTNet helps.
+  mfstnet:
+    use_mfstnet: true
+    note: >
+      The real forecast in the loop. Phase 3 (PRD §2.4) — not before Phase 1
+      converges.
+
+benchmark:
+  seeds: 30                  # FR-R07 — 30 evaluation runs per method
+  bootstrap_resamples: 10000 # NFR-10 — mean +/- 95% CI
+  alpha: 0.05                # paired t-test

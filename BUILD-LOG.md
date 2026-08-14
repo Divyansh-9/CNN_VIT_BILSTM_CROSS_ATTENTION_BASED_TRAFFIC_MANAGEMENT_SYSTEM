@@ -6,7 +6,7 @@
 |---|---|
 | **Started** | 2026-08-07 |
 | **Last entry** | 2026-08-13 |
-| **Current step** | S36 Gym environment, or S18 dataset curation |
+| **Current step** | S37 full PPO runs (long), or S18 dataset curation |
 
 ---
 
@@ -110,8 +110,8 @@ guesses.
 | S33 | Sublane model + heterogeneous vTypes (ADR-010) | ⬜ | R3 | S32 |
 | S34 | Fixed / Random / Webster baselines | ⬜ | R3 | S33 |
 | S35 | Webster saturation-flow sweep (ADR-012) → **M3** | ✅ | — | 21 runs. **Broke ADR-012's selection rule** |
-| S36 | Gym environment, `check_env` clean | ⬜ | R3 | S35 |
-| S37 | PPO training, three arms → **M6** | ⬜ | R3 | S36 |
+| S36 | Gym environment, `check_env` clean | ✅ | — | check_env clean. 16-dim contract read from spec |
+| S37 | PPO training, three arms → **M6** | 🟨 | R3 | Harness + config done, smoke run trains. Full 500k pending |
 | S38 | 30-seed benchmark + statistics → **M7** | ⬜ | R3 | S37, S29 |
 
 ### Phase 6 — System · Weeks 4–19 → **M8, M9, M10**

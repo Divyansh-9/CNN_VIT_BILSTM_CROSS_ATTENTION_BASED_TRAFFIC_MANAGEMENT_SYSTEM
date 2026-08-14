@@ -9,6 +9,8 @@ safety clamping and the interphase actually happen.
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
 from scripts.build_sumo_demand import REGIMES, TURN_RATIOS, routes_xml
@@ -219,3 +221,83 @@ def test_no_qualifying_configuration_is_a_finding_not_a_crash():
     assert selection.best is None
     assert len(selection.rejected) == 3
     assert "claim nothing" in selection.explain()
+
+
+# ------------------------------------------------- gym environment (S36) --
+
+def _env_module():
+    pytest.importorskip("gymnasium")
+    from simulation.envs import traffic_env
+
+    return traffic_env
+
+
+def test_state_dim_matches_the_spec():
+    """FR-M14, amendment A16. 16, not the original 17 — `mfst_gate_mean` was
+    removed because SUMO has no camera, and a feature that is always zero in
+    training and non-zero in deployment is worse than absent."""
+    import pathlib
+
+    import yaml
+
+    module = _env_module()
+    spec = yaml.safe_load(
+        (pathlib.Path("mfstnet/configs/spec.yaml")).read_text(encoding="utf-8")
+    )
+    assert module.STATE_DIM == spec["ppo_state"]["dim"] == 16
+
+
+def test_the_index_map_is_read_from_spec_not_restated():
+    """A second copy of an index map is a second chance to permute it, and a
+    permuted state invalidates every trained checkpoint silently."""
+    source = pathlib.Path("simulation/envs/traffic_env.py").read_text(encoding="utf-8")
+    for name in ("count_N", "queue_S", "phase_remaining", "mfst_pred_E"):
+        assert f'"{name}"' not in source or "index[f" in source, (
+            f"{name} looks hardcoded; read it from spec.yaml's index_map"
+        )
+
+
+def test_action_space_is_the_prd_twelve():
+    """PRD §13.1: NS/EW x 10/20/30/45/60/90."""
+    module = _env_module()
+    assert len(module.GREEN_DURATIONS) == 6
+    assert 2 * len(module.GREEN_DURATIONS) == 12
+
+
+def test_green_durations_lie_within_the_signal_bounds():
+    import yaml
+
+    module = _env_module()
+    signal = yaml.safe_load(
+        pathlib.Path("mfstnet/configs/spec.yaml").read_text(encoding="utf-8")
+    )["signal"]
+    assert tuple(signal["green_durations_s"]) == module.GREEN_DURATIONS
+    assert min(module.GREEN_DURATIONS) >= signal["min_green_s"]
+    assert max(module.GREEN_DURATIONS) <= signal["max_green_s"]
+
+
+@needs_sumo
+def test_forecast_indices_are_zeroed_not_dropped():
+    """PRD §7.2 / FR-A06. Shortening the vector changes the observation space and
+    breaks the checkpoint; zeroing keeps the contract and states 'no forecast'."""
+    module = _env_module()
+    env = module.TrafficSignalEnv(regime="light", episode_s=120)
+    try:
+        observation, _ = env.reset()
+        assert observation.shape == (16,)
+        assert all(observation[i] == 0.0 for i in (11, 12, 13, 14))
+    finally:
+        env.close()
+
+
+@needs_sumo
+def test_env_passes_sb3_check_env():
+    module = _env_module()
+    pytest.importorskip("stable_baselines3")
+    from stable_baselines3.common.env_checker import check_env
+
+    env = module.TrafficSignalEnv(regime="light", episode_s=200)
+    try:
+        check_env(env, warn=True)
+    finally:
+        env.close()

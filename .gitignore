@@ -62,3 +62,6 @@ experiments/results/cache/
 
 # SUMO network build outputs are committed; nothing else here
 simulation/networks/*.tmp
+
+# Weights live on Hugging Face, not in git (ADR-013 rev 2)
+models/

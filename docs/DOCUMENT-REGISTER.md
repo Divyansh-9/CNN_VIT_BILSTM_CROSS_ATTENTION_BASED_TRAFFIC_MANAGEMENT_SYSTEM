@@ -112,6 +112,9 @@ Not documentation, but part of the pre-implementation deliverable and checked in
 | `notebooks/README.md` | Active | Notebook policy: presentation and driver layer only, never model or training code |
 | `notebooks/03_results.ipynb` | Active | Renders committed result CSVs. Computes no metric of its own |
 | `tests/test_spec_matches_code.py` | Active | Binds Python defaults to `spec.yaml`. Runs in both CI jobs |
+| `simulation/webster.py` | Active | Webster + `select_best`. Two disqualifications found by running the sweep |
+| `simulation/envs/traffic_env.py` | Active | Gymnasium env. 16-dim contract read from `spec.yaml`, `check_env` clean |
+| `simulation/configs/ppo_config.yaml` | Active | PRD §13.1 hyperparameters + the three ADR-009 arms |
 | `mfstnet/cache.py` | Active | ADR-005 cache. Stores the frozen half only; hash mismatch raises (SOW R20) |
 | `tests/test_cache.py` | Active | 23 tests, mostly refusals. CI `model` job |
 | `mfstnet/fusion.py` | Active | Cross-attention, 4 modes. Gate behind a Phase 2 flag (PRD §2.4) |

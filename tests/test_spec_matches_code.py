@@ -216,3 +216,47 @@ def test_the_default_arm_is_what_the_code_defaults_to(spec):
 
     bb2 = spec["ablation"]["backbone_arms"]["BB-2"]
     assert (EncoderConfig().cnn, EncoderConfig().vit) == (bb2["cnn"], bb2["vit"])
+
+
+def test_ppo_config_matches_the_prd(spec):
+    """PRD §13.1. These live in simulation/configs/ppo_config.yaml because the
+    three ADR-009 arms differ only by config (NFR-16)."""
+    import pathlib
+
+    config = yaml.safe_load(
+        pathlib.Path("simulation/configs/ppo_config.yaml").read_text(encoding="utf-8")
+    )
+    ppo = config["ppo"]
+    assert ppo["learning_rate"] == 3e-4
+    assert ppo["n_steps"] == 2048
+    assert ppo["batch_size"] == 64
+    assert ppo["gamma"] == 0.99
+    assert ppo["gae_lambda"] == 0.95
+    assert ppo["clip_range"] == 0.2
+    assert ppo["ent_coef"] == 0.01
+    assert ppo["total_timesteps"] == 500_000
+    assert config["seed"] == spec["seed"]
+
+
+def test_the_benchmark_declares_thirty_seeds_and_bootstrap(spec):
+    """FR-R07 / NFR-10. A mean without a CI is not a result."""
+    import pathlib
+
+    config = yaml.safe_load(
+        pathlib.Path("simulation/configs/ppo_config.yaml").read_text(encoding="utf-8")
+    )["benchmark"]
+    assert config["seeds"] == 30
+    assert config["bootstrap_resamples"] == 10_000
+    assert config["alpha"] == 0.05
+
+
+def test_the_no_forecast_arm_exists_and_is_the_floor():
+    """ADR-009. Any claim that the forecast helps is measured against this arm,
+    so it must be present and must not use MFSTNet."""
+    import pathlib
+
+    arms = yaml.safe_load(
+        pathlib.Path("simulation/configs/ppo_config.yaml").read_text(encoding="utf-8")
+    )["arms"]
+    assert arms["no-forecast"]["use_mfstnet"] is False
+    assert set(arms) == {"no-forecast", "surrogate", "mfstnet"}
