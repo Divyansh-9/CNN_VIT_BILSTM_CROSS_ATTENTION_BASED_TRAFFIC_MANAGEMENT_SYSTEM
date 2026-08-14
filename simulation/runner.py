@@ -141,7 +141,6 @@ def run_episode(
         command += ["--lateral-resolution", str(lateral_resolution)]
 
     lanes = lane_ids()
-    flat = [lane for group in lanes.values() for lane in group]
 
     controller.reset()
     traci.start(command)

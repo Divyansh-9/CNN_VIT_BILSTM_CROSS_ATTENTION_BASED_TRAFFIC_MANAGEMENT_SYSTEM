@@ -247,14 +247,103 @@ def test_state_dim_matches_the_spec():
     assert module.STATE_DIM == spec["ppo_state"]["dim"] == 16
 
 
-def test_the_index_map_is_read_from_spec_not_restated():
+@needs_sumo
+def test_the_index_map_is_actually_read_from_spec(monkeypatch):
     """A second copy of an index map is a second chance to permute it, and a
-    permuted state invalidates every trained checkpoint silently."""
-    source = pathlib.Path("simulation/envs/traffic_env.py").read_text(encoding="utf-8")
-    for name in ("count_N", "queue_S", "phase_remaining", "mfst_pred_E"):
-        assert f'"{name}"' not in source or "index[f" in source, (
-            f"{name} looks hardcoded; read it from spec.yaml's index_map"
-        )
+    permuted state invalidates every trained checkpoint silently.
+
+    The first version of this test grepped the source for hardcoded names with
+    an `or` clause that short-circuited to True on every possible input — it
+    passed on deliberately hardcoded source. A test that cannot fail is
+    decoration.
+
+    This one permutes the map and asserts the observation follows it. If the
+    environment held its own copy, the value would stay at the old index.
+    """
+    module = _env_module()
+    import copy
+
+    real = module._load_spec()
+    permuted = copy.deepcopy(real)
+    index = permuted["ppo_state"]["index_map"]
+    index["count_N"], index["emergency_flag"] = index["emergency_flag"], index["count_N"]
+    monkeypatch.setattr(module, "_load_spec", lambda: permuted)
+
+    env = module.TrafficSignalEnv(regime="saturated", episode_s=200)
+    try:
+        env.reset()
+        for _ in range(3):
+            observation, *_ = env.step(0)     # NS green, so N accumulates traffic
+            if observation[real["ppo_state"]["index_map"]["emergency_flag"]] > 0:
+                break
+        else:
+            pytest.fail("no traffic appeared on N; cannot distinguish the indices")
+    finally:
+        env.close()
+
+
+@needs_sumo
+def test_phase_remaining_is_structurally_zero_at_decision_points():
+    """Pending item P11, asserted so it cannot be quietly forgotten.
+
+    The agent acts only at the end of a phase, so by the time `step()` observes,
+    the requested green has fully elapsed and `phase_remaining` is 0. PRD §13.1
+    lists this feature assuming a controller that can observe mid-phase; the
+    §13.1 action space is precisely one that cannot. One of sixteen dimensions
+    carries no information.
+
+    An earlier version of this test asserted the value merely "varies", which it
+    technically does — 0.111 once at reset, then 0 forever. That passed on a
+    distinction without a difference. This asserts the real property, so the day
+    the action space changes to a fixed decision interval, this test fails and
+    P11 gets closed deliberately rather than by accident.
+    """
+    module = _env_module()
+    env = module.TrafficSignalEnv(regime="light", episode_s=400)
+    try:
+        env.reset()
+        at_decisions = []
+        for action in (0, 7, 2, 9):
+            observation, _, _, truncated, _ = env.step(action)
+            at_decisions.append(round(float(observation[10]), 4))
+            if truncated:
+                break
+    finally:
+        env.close()
+
+    assert at_decisions and all(v == 0.0 for v in at_decisions), (
+        f"phase_remaining is no longer structurally zero: {at_decisions}. "
+        f"If the action space now allows mid-phase decisions, close P11 and "
+        f"replace this test — do not delete it."
+    )
+
+
+def test_env_and_runner_read_the_same_safety_bounds():
+    """Claimed in the S36 log before it was written — see the correction there.
+
+    The environment and the runner each enforce min/max green, yellow and
+    all-red. Two enforcement sites is one more than ideal; the guard is that
+    both read the same spec, so they cannot drift apart silently.
+    """
+    import inspect
+
+    import yaml
+
+    module = _env_module()
+    signal = yaml.safe_load(
+        pathlib.Path("mfstnet/configs/spec.yaml").read_text(encoding="utf-8")
+    )["signal"]
+
+    env = module.TrafficSignalEnv.__init__
+    defaults = inspect.signature(
+        __import__("simulation.runner", fromlist=["run_episode"]).run_episode
+    ).parameters
+
+    assert defaults["min_green_s"].default == signal["min_green_s"]
+    assert defaults["max_green_s"].default == signal["max_green_s"]
+    assert defaults["yellow_s"].default == signal["yellow_s"]
+    assert defaults["all_red_s"].default == signal["all_red_s"]
+    assert defaults["starvation_s"].default == signal["starvation_s"]
 
 
 def test_action_space_is_the_prd_twelve():

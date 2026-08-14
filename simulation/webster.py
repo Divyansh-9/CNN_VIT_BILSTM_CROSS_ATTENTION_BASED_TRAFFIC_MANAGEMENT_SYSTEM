@@ -115,7 +115,6 @@ class Webster:
         self.clamps = 0
         self.decisions = 0
         self._phase = EW
-        self._seen: dict[str, float] = {}
 
     def decide(self, observation: dict) -> tuple[int, int]:
         counts = observation["counts"]

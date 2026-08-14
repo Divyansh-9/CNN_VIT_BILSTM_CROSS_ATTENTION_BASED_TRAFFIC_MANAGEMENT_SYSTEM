@@ -165,11 +165,13 @@ class TrafficSignalEnv(gym.Env):
             self._traci.trafficlight.setPhase("C", self._phase * 3)
 
         starved = 0
+        self._remaining = green
         for _ in range(green):
             if self._step_s >= self.episode_s:
                 break
             self._traci.simulationStep()
             self._step_s += 1
+            self._remaining -= 1
             starved += self._advance_starvation()
 
         observation = self._observe()
@@ -195,6 +197,20 @@ class TrafficSignalEnv(gym.Env):
 
         state[index["phase_NS"]] = 1.0 if self._phase == NS else 0.0
         state[index["phase_EW"]] = 1.0 if self._phase == EW else 0.0
+        # STRUCTURALLY ZERO at every decision point, and that is a finding, not
+        # a bug in this line — see pending item P11.
+        #
+        # The agent acts only at the END of a phase, so by the time `step()`
+        # observes, the green it requested has fully elapsed and `_remaining` is
+        # 0. PRD §13.1 lists this feature assuming a controller that can observe
+        # MID-phase; the §13.1 action space (12 discrete phase-and-duration
+        # pairs) is precisely one that cannot. One of sixteen dimensions
+        # therefore carries no information.
+        #
+        # It is kept and computed rather than removed, because the vector length
+        # is a contract (FR-M14) and dropping an index breaks every checkpoint.
+        # Resolving it means changing the action space to a fixed decision
+        # interval, which is a PRD amendment, not a code edit.
         state[index["phase_remaining"]] = (
             max(0, self._remaining) / self._norm["phase_remaining_divisor"]
         )
