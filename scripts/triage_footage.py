@@ -42,6 +42,10 @@ VIDEO_SUFFIXES = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4v"}
 # polygon drawn at t=0 no longer means the same region later.
 MAX_CAMERA_SHIFT_PX = 2.0
 
+# Reported for diagnosis only — see the note in `probe` for why it must not be
+# used to admit a clip.
+MAX_DIRECTIONALITY = 0.25     # net displacement as a share of total path length
+
 
 def printable(text: str, width: int = 40) -> str:
     """ASCII-safe filename for the console.
@@ -70,6 +74,7 @@ def probe(path: Path, *, samples: int = 24) -> dict:
 
     hashes: set[str] = set()
     shifts: list[float] = []
+    vectors: list[tuple[float, float]] = []
     step = max(1, frames // samples) if frames else 1
 
     for index in range(0, max(frames - int(fps or 25) - 1, 1), step):
@@ -92,15 +97,49 @@ def probe(path: Path, *, samples: int = 24) -> dict:
             np.float32(small_a), np.float32(small_b)
         )
         # Report in source pixels, not the downscaled ones.
-        shifts.append(float(np.hypot(dx, dy)) * (width / 320.0))
+        scale = width / 320.0
+        shifts.append(float(np.hypot(dx, dy)) * scale)
+        vectors.append((dx * scale, dy * scale))
 
     handle.release()
 
-    shifts.sort()
-    median_shift = shifts[len(shifts) // 2] if shifts else float("nan")
+    ordered = sorted(shifts)
+    median_shift = ordered[len(ordered) // 2] if ordered else float("nan")
+
+    # Jitter or drift? The magnitude alone cannot tell them apart, and they have
+    # opposite consequences.
+    #
+    #   a footbridge flexing as a bus passes  -> the camera returns to where it
+    #       started, so the displacement VECTORS cancel. Stabilisable.
+    #   a hand-held walk or a slow pan        -> the vectors accumulate. The
+    #       scene genuinely leaves the frame, and no amount of stabilisation
+    #       recovers a lane polygon that has slid off its approach.
+    #
+    # So: compare the length of the SUM of vectors against the sum of their
+    # lengths. Near 0 means oscillation; near 1 means the camera is going
+    # somewhere. Treating those alike rejects footage that is merely shaky.
+    path_length = sum(shifts)
+    net = (sum(v[0] for v in vectors), sum(v[1] for v in vectors))
+    net_length = float(np.hypot(*net)) if vectors else 0.0
+    directionality = net_length / path_length if path_length > 1e-6 else 0.0
+
     long_enough = seconds >= MIN_USABLE_S
     scene_moves = len(hashes) > samples // 2
-    camera_fixed = median_shift == median_shift and median_shift <= MAX_CAMERA_SHIFT_PX
+    steady = median_shift == median_shift and median_shift <= MAX_CAMERA_SHIFT_PX
+    # `directionality` is REPORTED, never used to pass a clip. It distinguishes
+    # a consistent pan from non-directional motion, and that is all it does.
+    #
+    # It was briefly used to mark low-directionality clips "stabilisable". That
+    # was wrong and the measurement said so: correcting a 60 s segment of the
+    # 8.19 px / 0.076 clip moved its median shift from 5.78 px to 7.39 px — no
+    # improvement at all.
+    #
+    # The reasoning error is worth keeping. Low directionality does not mean the
+    # camera oscillates about a fixed point; a RANDOM WALK also scores near zero,
+    # because net displacement grows as sqrt(n) while path length grows as n. So
+    # it rules out a pan and proves nothing about recoverability. A wandering
+    # handheld shot looks identical to a vibrating tripod by this statistic.
+    stabilisable = False
 
     return {
         "file": path.name,
@@ -109,10 +148,12 @@ def probe(path: Path, *, samples: int = 24) -> dict:
         "fps": round(fps, 1),
         "distinct": len(hashes),
         "camera_shift_px": round(median_shift, 2),
+        "directionality": round(directionality, 3),
         "long_enough": long_enough,
         "scene_moves": scene_moves,
-        "camera_fixed": camera_fixed,
-        "mechanically_ok": long_enough and scene_moves and camera_fixed,
+        "camera_fixed": steady,
+        "stabilisable": stabilisable,
+        "mechanically_ok": long_enough and scene_moves and steady,
     }
 
 
@@ -123,7 +164,10 @@ def verdict(row: dict) -> str:
     if not row["long_enough"]:
         reasons.append(f"{row['seconds']:.0f}s<{MIN_USABLE_S}")
     if not row["camera_fixed"]:
-        reasons.append(f"camera moves {row['camera_shift_px']}px")
+        reasons.append(
+            f"camera moves {row['camera_shift_px']}px "
+            f"(directionality {row.get('directionality', float('nan')):.2f})"
+        )
     if not row["scene_moves"]:
         reasons.append("static scene")
     return "reject: " + ", ".join(reasons)
