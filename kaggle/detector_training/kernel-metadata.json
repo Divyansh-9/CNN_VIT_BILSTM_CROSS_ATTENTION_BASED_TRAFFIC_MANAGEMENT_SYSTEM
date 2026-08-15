@@ -1,0 +1,13 @@
+{
+  "id": "divyanshuniyal05/cnn-vit-bilstm-traffic-system-s11-detector",
+  "title": "CNN_VIT_BILSTM_CROSS_ATTENTION_TRAFFIC_SYSTEM - S11 detector",
+  "code_file": "s11_train_detector.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["divyanshuniyal05/indiatrafficnet-bootstrap-idd-yolo"],
+  "competition_sources": [],
+  "kernel_sources": []
+}

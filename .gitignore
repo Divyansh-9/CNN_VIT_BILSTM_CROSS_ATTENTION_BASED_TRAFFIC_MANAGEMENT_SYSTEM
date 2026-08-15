@@ -72,3 +72,6 @@ data/dev_footage/
 # Converted training sets — regenerate with scripts/prepare_idd.py
 data/idd_yolo/
 data/idd_smoke/
+
+# Kaggle dataset metadata is copied in at push time
+data/idd_yolo/dataset-metadata.json
