@@ -123,3 +123,45 @@ def test_a_missing_mapping_file_refuses_rather_than_defaulting(tmp_path):
 
     with pytest.raises(SystemExit, match="must not be inlined"):
         load_mapping(tmp_path / "absent.yaml")
+
+
+# ------------------------------- decisions with owners, not notes (S09b) --
+
+def test_e_rickshaw_has_a_pre_registered_rule_not_just_a_note(spec):
+    """P12. No public source assessed carries this class — not IDD, not the
+    DataCluster sample — so the bootstrap error is total, not bounded. A note
+    without an owner is how a defect survives to week 15."""
+    p12 = spec["p12_e_rickshaw"]
+    assert p12["status"] == "OPEN"
+    assert p12["decide_by"]
+    assert "1%" in p12["rule"], "the threshold must be explicit"
+    assert p12["bias_note"], (
+        "the cutoff must be fixed BEFORE the footage exists, for the same reason "
+        "A28's statistic was"
+    )
+
+
+def test_s12_states_its_dependency_on_s06(spec):
+    """S12 validates the viewpoint claim 'on real junction footage' — which is
+    the same blocker the corpus track has. Left unstated, the detector track
+    would appear to finish while S06 was still open."""
+    dependency = spec["sampling"]["s12_dependency"]
+    assert "S06" in dependency["blocked_on"]
+    assert dependency["answerable_now"], (
+        "the part that needs no new footage must be named, or the whole step "
+        "looks blocked when most of it is not"
+    )
+
+
+def test_thin_class_gate_exists_and_exempts_a_known_absence():
+    """The --smoke discipline from the PPO harness. A distribution surprise costs
+    minutes at 2,000 images and a whole fine-tune to discover afterwards."""
+    import inspect
+
+    from scripts import prepare_idd
+
+    source = inspect.getsource(prepare_idd.main)
+    assert "min_boxes_per_class" in source
+    assert 'name != "e_rickshaw"' in source, (
+        "failing on a class known absent from IDD would be failing on a fact"
+    )

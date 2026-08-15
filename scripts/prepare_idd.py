@@ -134,6 +134,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--count", type=int, default=8000,
                         help="images to convert (FEASIBILITY-AUDIT: annotation "
                              "effort is the constraint, not image supply)")
+    parser.add_argument(
+        "--min-boxes-per-class", type=int, default=50,
+        help="fail if any class falls below this — catches a distribution "
+             "surprise at 2,000 images rather than after a fine-tune",
+    )
     parser.add_argument("--idd", type=Path, default=IDD)
     parser.add_argument("--out", type=Path, default=Path("data/idd_yolo"))
     parser.add_argument("--copy-images", action="store_true",
@@ -217,6 +222,30 @@ def main(argv: list[str] | None = None) -> int:
         for k, v in sorted(undeclared.items(), key=lambda kv: -kv[1]):
             print(f"    {k[11:]:<20} {v:>8,}")
     print(f"\n  wrote {data_yaml}")
+
+    # The `--smoke` discipline from the PPO harness, applied to data prep. A
+    # class-distribution surprise costs minutes to catch at 2,000 images and a
+    # whole fine-tune to discover afterwards.
+    #
+    # `e_rickshaw` is exempt: it is known absent from IDD (P12), so failing on it
+    # would be failing on a fact rather than on a surprise.
+    thin = {
+        name: totals.get(name, 0)
+        for name in spec["targets"]
+        if name != "e_rickshaw" and totals.get(name, 0) < args.min_boxes_per_class
+    }
+    if thin:
+        print(
+            f"\n  THIN CLASSES (< {args.min_boxes_per_class} boxes): "
+            + ", ".join(f"{k}={v}" for k, v in sorted(thin.items()))
+        )
+        print(
+            "  FR-D08 requires per-class support beside every metric, and a class "
+            "this sparse produces\n  an mAP that swings wildly and means almost "
+            "nothing. Raise --count, or accept it\n  deliberately and record the "
+            "support in the datasheet."
+        )
+        return 1
     return 0
 
 

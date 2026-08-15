@@ -56,10 +56,53 @@ mapping:                   # IDD label -> our class, or null to DROP
 # for the detector, not only for the corpus (DATASETS §4.4).
 absent_from_idd:
   e_rickshaw: >
-    No IDD label corresponds. Trained as background until IndiaTrafficNet
-    supplies it (ADR-001 swaps detector weights at Week 8). Any e-rickshaw in a
-    bootstrap-era count is therefore a miss, not a misclassification — and that
-    is a known, bounded error rather than a silent one.
+    No IDD label corresponds. NOR does the DataCluster Labs sample (DATASETS
+    §4.5). No public source assessed so far contains this class at all.
+
+    An earlier version of this note called that a "known, bounded" error. That
+    was wrong and undersold it: bounded implies the size is known and tolerable,
+    but if no public data carries the class, the bootstrap-era error is not
+    bounded, it is TOTAL — the detector may never see a labelled e-rickshaw
+    before deployment. Pending item P12 exists to resolve it rather than record
+    it.
+
+# P12 — an owner and a rule, not a note.
+#
+# The national trend does NOT support dropping the class: the Indian e-rickshaw
+# market is growing at roughly 14% CAGR, Uttar Pradesh alone is ~38% of sales,
+# and north India dominates. What IS happening in metros is enforcement —
+# crackdowns on unregistered vehicles and restrictions on main arterials — which
+# is very likely what "they are disappearing" describes. Both are true at once:
+# restricted on big arterials, dominant on feeder routes and in tier-2/3 cities.
+#
+# So the question is not national, it is about THIS junction. And it is settled
+# by the S06 recording rather than by opinion.
+p12_e_rickshaw:
+  status: OPEN
+  decide_by: first S06 recording
+  rule: >
+    Count e-rickshaws in the first qualifying clip, over its full duration.
+
+      >= 1% of vehicles  -> KEEP the class. Source it from IndiaTrafficNet
+                            annotation; it is observable at the deployment site
+                            and the taxonomy is right.
+      <  1% of vehicles  -> PROPOSE dropping e_rickshaw to a 7-class taxonomy.
+                            A class the deployment site never shows cannot be
+                            evaluated: its per-class recall would be undefined
+                            or computed from single digits, which FR-D08's
+                            support requirement exists to prevent.
+
+    Dropping is a graded change (PRD §12.2, FR-D03) and goes through the same
+    sign-off queue as ADR-013/014/015. It is NOT taken unilaterally.
+  bias_note: >
+    The 1% threshold is fixed BEFORE the footage exists, for the same reason
+    A28's statistic was: a cutoff chosen after seeing the count is a cutoff
+    chosen to reach a preferred answer.
+  siting_consequence: >
+    If the class is kept, the filming site must be chosen so e-rickshaws are
+    present — a feeder road or a tier-2 junction rather than a metro arterial.
+    That is a decision about WHERE to film, and it has to be made before filming,
+    not discovered afterwards.
 
 # Sampling. IDD is a CAR-MOUNTED RIG; deployment is an elevated fixed camera
 # (DATASETS §2, the viewpoint problem). Camera position is recorded per image, so
@@ -106,3 +149,31 @@ sampling:
   # The weights are left unchanged rather than quietly retuned: changing them now,
   # on evidence that speaks to a different question, would be the same
   # after-the-fact adjustment A28 was corrected for.
+  #
+  # S12 IS BLOCKED ON S06, and that dependency was not stated when this was
+  # written. "Report the mAP gap on real junction footage" is not IDD data — it
+  # is exactly the elevated fixed-camera footage the corpus track has been stuck
+  # on. The detector track looked decoupled from S06 because TRAINING does not
+  # need real footage; VALIDATING its one novel claim does. Left unsaid, the
+  # detector track would appear to finish while S06 was open.
+  #
+  # Most of the question can be answered now, without any new footage, because
+  # IDD is ALREADY a multi-viewpoint dataset. Six camera positions with different
+  # geometry is a built-in cross-viewpoint benchmark:
+  #
+  #     train on sideLeft+sideRight  -> evaluate on frontNear+frontFar
+  #     train on frontNear+frontFar  -> evaluate on sideLeft+sideRight
+  #
+  # If a detector transfers freely between IDD's own viewpoints, the premise that
+  # viewpoint matters is already weak and the weights should go to 1.0. If it
+  # drops sharply, the premise is supported and the size of the drop is a prior
+  # on what elevated footage will cost. Neither settles the elevated case — the
+  # geometry is different again — but it converts S12 from blocked to
+  # PARTIALLY ANSWERABLE TODAY, and it costs only GPU time.
+  s12_dependency:
+    blocked_on: S06 footage — for the elevated fixed-camera half only
+    answerable_now: cross-camera transfer within IDD (side <-> front)
+    note: >
+      Run the IDD cross-camera experiment first. It is free of the blocker, it
+      tests the same hypothesis at lower fidelity, and if it shows no gap the
+      elevated experiment may not be worth waiting for at all.
