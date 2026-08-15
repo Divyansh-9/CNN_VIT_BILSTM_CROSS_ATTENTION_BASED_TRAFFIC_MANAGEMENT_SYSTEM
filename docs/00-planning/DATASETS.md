@@ -214,6 +214,45 @@ limitation is addressable rather than merely acknowledged.
 
 ---
 
+## 4.4 IDD Detection — acquired and verified (2026-08-15)
+
+`D:/traffic dataset/downloads/idd-detection/IDD_Detection`, standard VOC layout
+(`Annotations/`, `JPEGImages/`, `train.txt`, `val.txt`, `test.txt`).
+
+| Split | Images |
+|---|---|
+| train | **31,569** |
+| val | **10,225** |
+| test | **4,794** |
+
+**Verified rather than assumed.** 400 randomly sampled training annotations
+(seed 42) were parsed: **400 of 400 succeeded, none missing or malformed.**
+13 distinct classes, with the counts in that sample:
+
+| IDD class | count | maps to IndiaTrafficNet |
+|---|---|---|
+| motorcycle | 998 | motorcycle |
+| person | 942 | pedestrian |
+| rider | 924 | see §6.1 — the `rider` question |
+| car | 827 | car |
+| **autorickshaw** | **272** | **auto-rickshaw** |
+| truck | 247 | truck |
+| vehicle fallback | 179 | IDD's catch-all; see §6 |
+| bus | 149 | bus |
+| traffic sign | 129 | not used |
+| **animal** | **121** | **cattle** |
+| bicycle | 37 | bicycle |
+| traffic light | 30 | not used |
+| train | 1 | not used |
+
+**This is a materially better fit than any alternative assessed.** IDD carries
+**auto-rickshaw and animal natively** — two of the three India-specific classes
+that the DataCluster sample (§4.5) lacks, and the two that no foreign dataset can
+supply at all. Only **e-rickshaw** is absent, and it remains a reason
+self-collection is still required for the detector, not only for the corpus.
+
+**S08–S12 are unblocked.** The detector track needs no further data acquisition.
+
 ## 4.5 Two data needs, and why no public dataset solves the second
 
 Added 2026-08-14, after a candidate dataset was proposed as a way to unblock S06.
