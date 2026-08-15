@@ -251,6 +251,35 @@ that the DataCluster sample (§4.5) lacks, and the two that no foreign dataset c
 supply at all. Only **e-rickshaw** is absent, and it remains a reason
 self-collection is still required for the detector, not only for the corpus.
 
+### Full label census — 507,576 boxes (FR-D07 datasheet evidence)
+
+§6 requires enumerating the labels in the download rather than trusting any
+second-hand list. Done over every annotation:
+`experiments/results/idd_label_census.csv`.
+
+| | boxes | | boxes |
+|---|---|---|---|
+| motorcycle | 103,608 | bus | 18,745 |
+| **rider** | **97,626** | traffic sign | 14,203 |
+| car | 90,520 | **animal** | **6,224** |
+| person | 88,397 | traffic light | 3,699 |
+| **autorickshaw** | **32,280** | bicycle | 3,142 |
+| truck | 27,837 | caravan | 136 |
+| vehicle fallback | 21,081 | train / trailer | 60 / 18 |
+
+**Two findings.**
+
+**1. The test split has no labels.** `test.txt` lists 4,794 ids and **zero** have
+annotation files — labels are withheld, as is normal for a benchmark. Usable
+data is train + val = **41,794 images / 507,576 boxes**. `prepare_idd.py` draws
+from `train.txt` and re-splits 70/15/15 (FR-D05), so nothing depends on the
+withheld set, but any figure quoting "46,588 images" is wrong.
+
+**2. `rider` is the second-largest class at 97,626 boxes.** That is the §6.1
+decision measured: dropping it removes **19% of all boxes**, and *not* dropping
+it would have added a phantom object to nearly every motorcycle. The convention
+was right and its magnitude is now documented rather than estimated.
+
 **S08–S12 are unblocked.** The detector track needs no further data acquisition.
 
 ## 4.5 Two data needs, and why no public dataset solves the second

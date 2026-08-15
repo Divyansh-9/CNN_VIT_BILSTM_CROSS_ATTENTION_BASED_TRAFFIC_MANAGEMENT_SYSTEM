@@ -80,3 +80,29 @@ sampling:
     real junction footage. That turns the viewpoint gap into a measured number
     instead of an assertion, and if the gap is negligible these weights should be
     set to 1.0 everywhere and the claim withdrawn.
+
+  # PARTIALLY UNDERCUT BY THE CENSUS, recorded before it is trained on.
+  #
+  # The full label census (experiments/results/idd_label_census.csv, 507,576
+  # boxes) reports auto-rickshaw share by camera position:
+  #
+  #     highquality_16k   7.1%   (25,920 / 364,308 — 72% of ALL boxes)
+  #     rearNear          6.5%
+  #     sideLeft          4.5%
+  #     sideRight         4.3%
+  #     frontFar          4.2%
+  #     frontNear         3.4%
+  #
+  # The side views are NOT richer in the class that matters most — 4.4% against
+  # 3.8% for the front views is nearly nothing, and `highquality_16k` beats both
+  # by a wide margin while already dominating by volume.
+  #
+  # So the up-weighting of side views can no longer rest on class composition. It
+  # rests only on GEOMETRY — a side-on view of cross traffic resembles an
+  # intersection approach more than a forward dashcam does — and geometry is
+  # precisely what the census cannot measure. The prior is weaker than it was
+  # written, and S12's test matters more, not less.
+  #
+  # The weights are left unchanged rather than quietly retuned: changing them now,
+  # on evidence that speaks to a different question, would be the same
+  # after-the-fact adjustment A28 was corrected for.

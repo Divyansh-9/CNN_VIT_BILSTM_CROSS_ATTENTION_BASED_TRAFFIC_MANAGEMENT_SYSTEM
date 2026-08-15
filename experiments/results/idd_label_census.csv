@@ -1,0 +1,31 @@
+split,class,boxes
+train,motorcycle,78119
+train,rider,73108
+train,person,70319
+train,car,65676
+train,autorickshaw,24498
+train,truck,20759
+train,vehicle fallback,14992
+train,bus,13829
+train,traffic sign,9916
+train,animal,4764
+train,traffic light,2780
+train,bicycle,2573
+train,caravan,125
+train,train,47
+train,trailer,11
+val,motorcycle,25489
+val,car,24844
+val,rider,24518
+val,person,18078
+val,autorickshaw,7782
+val,truck,7078
+val,vehicle fallback,6089
+val,bus,4916
+val,traffic sign,4287
+val,animal,1460
+val,traffic light,919
+val,bicycle,569
+val,train,13
+val,caravan,11
+val,trailer,7
