@@ -78,3 +78,6 @@ data/idd_yolo/dataset-metadata.json
 
 # Playwright MCP artifacts — CREDENTIALS CAN LAND HERE
 .playwright-mcp/
+
+# Detector weights live on Hugging Face, not git (ADR-013 rev 2)
+models/detector/
