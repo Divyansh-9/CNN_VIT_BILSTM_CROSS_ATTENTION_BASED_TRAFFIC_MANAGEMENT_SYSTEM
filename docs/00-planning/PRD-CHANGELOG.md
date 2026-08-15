@@ -415,14 +415,40 @@ inherits that directly.
 It also explains the A17 pilot: the transitions being counted were largely
 threshold-crossing noise rather than congestion changing.
 
-### Caveats — this is an upper bound, and preliminary
+### Replicated across four independent vantage points
+
+The single-clip figure above was extended to every stationary South Asian clip
+at a **distinct camera and location** (`experiments/results/p5_label_noise.csv`):
+
+| Vantage point | n | median count | noise sd | signal sd | SNR | near threshold |
+|---|---|---|---|---|---|---|
+| Mumbai Andheri | 365 | 13 | 1.13 | 3.30 | 2.92 | **26%** |
+| Dhaka Rampura | 400 | 8 | 1.46 | 3.01 | 2.06 | **19%** |
+| Delhi South Extension | 265 | 21 | 2.08 | 6.77 | 3.25 | **23%** |
+| `video1` | 187 | 5 | 0.83 | 1.86 | 2.24 | **11%** |
+
+**The consistency is the result.** Four unrelated locations, three cities, two
+countries, day and night, counts from 5 to 21 — and signal-to-noise lands
+between **2.06 and 3.25** every time, with **11–26%** of labels inside the noise
+band. This is not a quirk of one clip.
+
+**Noise scales with density**, and that has a design consequence. `video1` at a
+median of 5 vehicles shows noise of 0.83; South Extension at 21 shows 2.08. So
+the **HIGH threshold at 15 sits in a noisier regime than the LOW threshold at 4**,
+and uniformly spaced thresholds are not uniformly reliable. §14.1's boundaries
+should be checked against the noise at their own density, not chosen on the count
+scale alone.
+
+### Caveats — an upper bound, and one vantage point short
 
 * **Stock COCO YOLOv8n**, not the fine-tuned detector S08–S12 will produce. A
-  detector trained on Indian classes should be markedly quieter, so 1.13 is a
-  ceiling rather than the expected value.
+  detector trained on Indian classes should be markedly quieter, so these are
+  ceilings rather than expected values.
 * **Whole-frame counts**, not per-lane. Per-lane counts are smaller, so a fixed
   threshold sits differently against the noise.
-* **One clip, one location.** Preliminary by the same rule as A28.
+* **Four independent vantage points against A28's bar of five.** By this project's
+  own rule this remains **preliminary** — consistent, replicated, and one location
+  short of the standard it set for itself.
 
 ### What follows
 
