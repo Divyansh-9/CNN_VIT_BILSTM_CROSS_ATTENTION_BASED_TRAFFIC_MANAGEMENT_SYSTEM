@@ -1,5 +1,9 @@
 {
   "title": "IndiaTrafficNet Bootstrap - IDD YOLO 8class",
-  "id": "divyanshuniyal05/indiatrafficnet-bootstrap-idd-yolo",
-  "licenses": [{"name": "other"}]
+  "id": "idredk/indiatrafficnet-bootstrap-idd-yolo",
+  "licenses": [
+    {
+      "name": "other"
+    }
+  ]
 }
