@@ -59,6 +59,84 @@ def printable(text: str, width: int = 40) -> str:
     return text.encode("ascii", "replace").decode()[:width]
 
 
+
+# Cumulative drift, as a share of frame width. THIS is the physically meaningful
+# quantity, and the per-second jitter figure above is not.
+#
+# A lane occupies roughly 15% of frame width. A polygon edge that wanders by more
+# than a few percent of the frame stops describing the approach it was drawn on,
+# so the tolerance is expressed against the frame rather than in raw pixels — a
+# 2 px threshold means something different at 640 and at 3840.
+MAX_DRIFT_FRACTION = 0.02      # 2% of width: ~38 px at 1920, ~13% of a lane
+
+# Phase correlation returns a peak response even for unrelated images. Below this
+# the answer is noise dressed as a measurement.
+MIN_CORRELATION = 0.08
+
+
+def background(handle, t0: float, fps: float, *, span: float = 12.0, k: int = 20):
+    """Median of `k` frames over `span` seconds: moving traffic disappears.
+
+    Correlating raw frames minutes apart does not measure camera drift. Dense
+    traffic rearranges completely, so the correlation peak is noise — measured at
+    a confidence of 0.009 on real footage, while returning a confident-looking
+    694 px. The median over a window removes the vehicles and leaves buildings,
+    kerbs and road markings, which are what the camera is actually pointed at.
+    """
+    import cv2
+    import numpy as np
+
+    frames = []
+    for i in range(k):
+        handle.set(cv2.CAP_PROP_POS_FRAMES, int((t0 + i * span / k) * fps))
+        ok, frame = handle.read()
+        if ok:
+            frames.append(cv2.cvtColor(cv2.resize(frame, (320, 180)), cv2.COLOR_BGR2GRAY))
+    if not frames:
+        return None
+    return np.median(np.stack(frames), axis=0).astype(np.float32)
+
+
+def measure_drift(path: Path) -> dict:
+    """Largest confident background-to-background displacement across the clip."""
+    import cv2
+    import numpy as np
+
+    handle = cv2.VideoCapture(str(path))
+    fps = handle.get(cv2.CAP_PROP_FPS) or 25.0
+    frames = int(handle.get(cv2.CAP_PROP_FRAME_COUNT))
+    width = int(handle.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1
+    seconds = frames / fps if fps else 0.0
+
+    if seconds < 40:
+        handle.release()
+        return {"drift_px": float("nan"), "drift_fraction": float("nan"),
+                "drift_confident": False}
+
+    scale = width / 320.0
+    reference = background(handle, 5.0, fps)
+    worst, confident = 0.0, False
+    if reference is not None:
+        for fraction in (0.25, 0.5, 0.75, 0.95):
+            moment = seconds * fraction
+            if moment + 12 > seconds:
+                continue
+            other = background(handle, moment, fps)
+            if other is None:
+                continue
+            (dx, dy), response = cv2.phaseCorrelate(reference, other)
+            if response >= MIN_CORRELATION:
+                confident = True
+                worst = max(worst, float(np.hypot(dx, dy)) * scale)
+    handle.release()
+
+    return {
+        "drift_px": round(worst, 1),
+        "drift_fraction": round(worst / width, 4),
+        "drift_confident": confident,
+    }
+
+
 def probe(path: Path, *, samples: int = 24) -> dict:
     import hashlib
 
@@ -123,9 +201,18 @@ def probe(path: Path, *, samples: int = 24) -> dict:
     net_length = float(np.hypot(*net)) if vectors else 0.0
     directionality = net_length / path_length if path_length > 1e-6 else 0.0
 
+    drift = measure_drift(path)
+    drifts_too_far = (
+        drift["drift_confident"] and drift["drift_fraction"] > MAX_DRIFT_FRACTION
+    )
+
     long_enough = seconds >= MIN_USABLE_S
     scene_moves = len(hashes) > samples // 2
-    steady = median_shift == median_shift and median_shift <= MAX_CAMERA_SHIFT_PX
+    steady = (
+        median_shift == median_shift
+        and median_shift <= MAX_CAMERA_SHIFT_PX
+        and not drifts_too_far
+    )
     # `directionality` is REPORTED, never used to pass a clip. It distinguishes
     # a consistent pan from non-directional motion, and that is all it does.
     #
@@ -152,6 +239,7 @@ def probe(path: Path, *, samples: int = 24) -> dict:
         "long_enough": long_enough,
         "scene_moves": scene_moves,
         "camera_fixed": steady,
+        **drift,
         "stabilisable": stabilisable,
         "mechanically_ok": long_enough and scene_moves and steady,
     }
@@ -164,10 +252,13 @@ def verdict(row: dict) -> str:
     if not row["long_enough"]:
         reasons.append(f"{row['seconds']:.0f}s<{MIN_USABLE_S}")
     if not row["camera_fixed"]:
-        reasons.append(
-            f"camera moves {row['camera_shift_px']}px "
-            f"(directionality {row.get('directionality', float('nan')):.2f})"
-        )
+        if row.get("drift_confident") and row.get("drift_fraction", 0) > MAX_DRIFT_FRACTION:
+            reasons.append(
+                f"drifts {row['drift_px']}px "
+                f"({row['drift_fraction'] * 100:.1f}% of frame)"
+            )
+        else:
+            reasons.append(f"camera moves {row['camera_shift_px']}px")
     if not row["scene_moves"]:
         reasons.append("static scene")
     return "reject: " + ", ".join(reasons)
@@ -200,6 +291,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--contact-sheet", type=Path,
                         help="also write one representative frame per video")
     parser.add_argument("--csv", type=Path, default=Path("experiments/results/footage_triage.csv"))
+    parser.add_argument(
+        "--rescan", action="store_true",
+        help="re-probe files already in the CSV (default: skip them)",
+    )
     args = parser.parse_args(argv)
 
     videos = sorted(
@@ -208,9 +303,24 @@ def main(argv: list[str] | None = None) -> int:
     if not videos:
         raise SystemExit(f"no video files under {args.directory}")
 
+    # Incremental by default. Probing seeks through the whole file, so a 13 GB
+    # library costs ~20 minutes; re-paying that to assess ten new clips is waste,
+    # and waste that discourages running the check at all.
+    previous: dict[str, dict] = {}
+    if args.csv.exists() and not args.rescan:
+        with args.csv.open(encoding="utf-8") as handle:
+            previous = {row["file"]: row for row in csv.DictReader(handle)}
+
+    fresh = [v for v in videos if v.name not in previous]
+    if previous:
+        print(
+            f"  {len(previous)} already triaged, {len(fresh)} new "
+            f"(use --rescan to redo everything)\n"
+        )
+
     rows = []
     print(f"{'sec':>7} {'shift':>7} {'dist':>5}  {'verdict':<34} file")
-    for video in videos:
+    for video in fresh:
         try:
             row = probe(video)
         except Exception as error:                       # noqa: BLE001
@@ -230,16 +340,26 @@ def main(argv: list[str] | None = None) -> int:
             except Exception:                            # noqa: BLE001
                 pass
 
-    if rows:
+    # Merge new results over the retained ones so the CSV always describes the
+    # whole library, not just this run.
+    merged = list(previous.values()) + rows
+    if merged:
         args.csv.parent.mkdir(parents=True, exist_ok=True)
+        fields = sorted({k for row in merged for k in row})
         with args.csv.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+            writer = csv.DictWriter(handle, fieldnames=fields)
             writer.writeheader()
-            writer.writerows(rows)
-        print(f"\n  wrote {args.csv}")
+            for row in merged:
+                writer.writerow({k: row.get(k, "") for k in fields})
+        print(f"\n  wrote {args.csv} ({len(merged)} files)")
 
-    passing = [r for r in rows if r["mechanically_ok"]]
-    print(f"  {len(passing)} of {len(rows)} pass duration + stationary camera + motion")
+    def passes(row: dict) -> bool:
+        # Rows read back from CSV carry strings, not booleans.
+        value = row.get("mechanically_ok")
+        return value is True or value == "True"
+
+    passing = [r for r in merged if passes(r)]
+    print(f"  {len(passing)} of {len(merged)} pass duration + stationary camera + motion")
     if passing:
         print(
             "\n  These still need a HUMAN check of the two criteria a script "

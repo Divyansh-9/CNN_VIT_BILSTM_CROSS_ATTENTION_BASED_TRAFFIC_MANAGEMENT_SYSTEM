@@ -1,33 +1,43 @@
-file,seconds,resolution,fps,distinct,camera_shift_px,long_enough,scene_moves,camera_fixed,mechanically_ok
-4K Road traffic video for object detection and tracking - free download now!.mp4,306.1,3840x2160,30.0,24,0.69,False,True,True,False
-4K Road traffic video for object detection and tracking.mp4,2093.1,1920x1080,30.0,24,0.49,True,True,True,True
-4K Video of Highway Traffic! (1).mp4,150.5,1920x1080,30.0,24,3.25,False,True,False,False
-4K Video of Highway Traffic!.mp4,150.5,1920x1080,30.0,24,3.25,False,True,False,False
-A circular intersection [Roundabout] where merit is not utilized.mp4,325.0,1920x1080,30.0,24,6.74,False,True,False,False
-Bus And Heavy Load Lorry Risk Driving Dangerous Turning Dhimbam Hairpin Bend Hills Road.mp4,141.9,1920x1080,30.0,24,16.4,False,True,False,False
-Busy Indian Crossroad_ Amazing Traffic Video.mp4,39.0,1920x1080,30.0,24,0.55,False,True,True,False
-"Covid-time Delhi traffic goes into gridlock mode once again, on a daily basis!.mp4",267.5,1920x1080,25.0,24,4.6,False,True,False,False
-Dhaka Traffic Reality _ Science Lab to New Market Rush Hour 🚦🌆.mp4,859.4,1920x1080,25.0,24,8.19,True,True,False,False
-fast motion cars moving on highway.mp4,30.8,1920x1080,30.0,24,1.15,False,True,True,False
-FASTEST AMBULANCE EVER!.mp4,27.0,1920x1080,30.0,24,0.34,False,True,True,False
-Highway sounds cars trucks passing by for sleeping relaxing.mp4,3601.8,3840x2160,30.0,24,0.52,True,True,True,True
-HTC Sensation FULL HD 1080p Video Sample (highway traffic).mp4,158.1,1920x1080,30.0,24,95.62,False,True,False,False
-"Incredible traffic jam in Dhaka ,Bangladesh। Farmgate..mp4",507.0,1920x1080,30.0,24,2.68,True,True,False,False
-"Incredible traffic Sound in Dhaka, Bangladesh। Rampura  [4K ASMR] #TheSoundofDhaka.mp4",1206.5,1920x1080,30.0,24,0.5,True,True,True,True
-kolkata traffic #india #youtubeshorts.mp4,10.3,720x1280,30.0,24,4.14,False,True,False,False
-M6 Motorway Traffic.mp4,2048.5,1920x1080,25.0,24,0.47,True,True,True,True
-MUMBAI _ Heavy Traffic on Western Express Highway at Bandra Kherwad _ Mumbai Traffic _ News9.mp4,258.4,1920x1080,30.0,24,3.04,False,True,False,False
-MUMBAI TRAFFIC _ INDIA.mp4,104.5,3840x2160,30.0,24,33.72,False,True,False,False
-Mumbai Traffic Chaos - Near Andheri Station.mp4,349.2,1920x1080,24.0,24,0.74,False,True,True,False
-Pov_Thursday Traffic From Footover bridge। Cloudy Seen।.mp4,496.7,1920x1080,60.0,24,1.15,True,True,True,True
-Relaxing highway traffic.mp4,840.5,1280x720,30.0,24,0.18,True,True,True,True
-Road traffic video for object recognition.mp4,2048.0,1280x720,25.0,24,0.32,True,True,True,True
-"Traffic jam in Dhaka ,Bijoy Saroni..mp4",209.0,1920x1080,30.0,24,11.34,False,True,False,False
-"Traffic Sound, Indian Traffic Sound, Traffic noise, vehicle noise, traffic sound, road traffic.mp4",513.2,1920x1076,30.0,24,26.31,True,True,False,False
-TRUCKS ON M6 MOTORWAY IN HEAVY TRAFFIC AUGUST 2011.mp4,558.3,1920x1080,25.0,24,16.13,True,True,False,False
-"Vehicle Noise in Dhaka Street - Incredible Traffic in Dhaka, Bangladesh - Street View -.mp4",250.1,1280x720,30.0,24,2.64,False,True,False,False
-Vehicle Noise in Dhaka Street। Traffic In Kawran Bazar..mp4,305.7,1920x1080,30.0,24,2.26,False,True,False,False
-"🎧 Incredible traffic Sound in Dhaka, Bangladesh। Rampura [4K ASMR] #TheSoundOfDhaka.mp4",1169.6,3840x2160,30.0,24,0.79,True,True,True,True
-🚌 Unbelievable Traffic Management in Dhaka City 🇧🇩  _ 🌸 Kadam Foara _ ASMR Traffic Soundscape.mp4,207.1,1920x1080,59.9,24,2.51,False,True,False,False
-🚗🚦4K Auto Traffic Management in Dhaka City _ Prithibi Traffic Signal _ ASMR Traffic Soundscape.mp4,246.1,1920x1080,59.9,24,5.61,False,True,False,False
-"🛵 Navigating the Chaos_ The Vibrant Energy of Bangla Motor, Dhaka 🇧🇩.mp4",120.7,1920x1080,30.0,24,14.25,False,True,False,False
+camera_fixed,camera_shift_px,directionality,distinct,file,fps,long_enough,mechanically_ok,resolution,scene_moves,seconds,stabilisable
+True,0.69,,24,4K Road traffic video for object detection and tracking - free download now!.mp4,30.0,False,False,3840x2160,True,306.1,
+True,0.49,,24,4K Road traffic video for object detection and tracking.mp4,30.0,True,True,1920x1080,True,2093.1,
+False,3.25,,24,4K Video of Highway Traffic! (1).mp4,30.0,False,False,1920x1080,True,150.5,
+False,3.25,,24,4K Video of Highway Traffic!.mp4,30.0,False,False,1920x1080,True,150.5,
+False,6.74,,24,A circular intersection [Roundabout] where merit is not utilized.mp4,30.0,False,False,1920x1080,True,325.0,
+False,16.4,,24,Bus And Heavy Load Lorry Risk Driving Dangerous Turning Dhimbam Hairpin Bend Hills Road.mp4,30.0,False,False,1920x1080,True,141.9,
+True,0.55,,24,Busy Indian Crossroad_ Amazing Traffic Video.mp4,30.0,False,False,1920x1080,True,39.0,
+False,4.6,,24,"Covid-time Delhi traffic goes into gridlock mode once again, on a daily basis!.mp4",25.0,False,False,1920x1080,True,267.5,
+False,8.19,,24,Dhaka Traffic Reality _ Science Lab to New Market Rush Hour 🚦🌆.mp4,25.0,True,False,1920x1080,True,859.4,
+True,1.15,,24,fast motion cars moving on highway.mp4,30.0,False,False,1920x1080,True,30.8,
+True,0.34,,24,FASTEST AMBULANCE EVER!.mp4,30.0,False,False,1920x1080,True,27.0,
+True,0.52,,24,Highway sounds cars trucks passing by for sleeping relaxing.mp4,30.0,True,True,3840x2160,True,3601.8,
+False,95.62,,24,HTC Sensation FULL HD 1080p Video Sample (highway traffic).mp4,30.0,False,False,1920x1080,True,158.1,
+False,2.68,,24,"Incredible traffic jam in Dhaka ,Bangladesh। Farmgate..mp4",30.0,True,False,1920x1080,True,507.0,
+True,0.5,,24,"Incredible traffic Sound in Dhaka, Bangladesh। Rampura  [4K ASMR] #TheSoundofDhaka.mp4",30.0,True,True,1920x1080,True,1206.5,
+False,4.14,,24,kolkata traffic #india #youtubeshorts.mp4,30.0,False,False,720x1280,True,10.3,
+True,0.47,,24,M6 Motorway Traffic.mp4,25.0,True,True,1920x1080,True,2048.5,
+False,3.04,,24,MUMBAI _ Heavy Traffic on Western Express Highway at Bandra Kherwad _ Mumbai Traffic _ News9.mp4,30.0,False,False,1920x1080,True,258.4,
+False,33.72,,24,MUMBAI TRAFFIC _ INDIA.mp4,30.0,False,False,3840x2160,True,104.5,
+True,0.74,,24,Mumbai Traffic Chaos - Near Andheri Station.mp4,24.0,False,False,1920x1080,True,349.2,
+True,1.15,,24,Pov_Thursday Traffic From Footover bridge। Cloudy Seen।.mp4,60.0,True,True,1920x1080,True,496.7,
+True,0.18,,24,Relaxing highway traffic.mp4,30.0,True,True,1280x720,True,840.5,
+True,0.32,,24,Road traffic video for object recognition.mp4,25.0,True,True,1280x720,True,2048.0,
+False,11.34,,24,"Traffic jam in Dhaka ,Bijoy Saroni..mp4",30.0,False,False,1920x1080,True,209.0,
+False,26.31,,24,"Traffic Sound, Indian Traffic Sound, Traffic noise, vehicle noise, traffic sound, road traffic.mp4",30.0,True,False,1920x1076,True,513.2,
+False,16.13,,24,TRUCKS ON M6 MOTORWAY IN HEAVY TRAFFIC AUGUST 2011.mp4,25.0,True,False,1920x1080,True,558.3,
+False,2.64,,24,"Vehicle Noise in Dhaka Street - Incredible Traffic in Dhaka, Bangladesh - Street View -.mp4",30.0,False,False,1280x720,True,250.1,
+False,2.26,,24,Vehicle Noise in Dhaka Street। Traffic In Kawran Bazar..mp4,30.0,False,False,1920x1080,True,305.7,
+True,0.79,,24,"🎧 Incredible traffic Sound in Dhaka, Bangladesh। Rampura [4K ASMR] #TheSoundOfDhaka.mp4",30.0,True,True,3840x2160,True,1169.6,
+False,2.51,,24,🚌 Unbelievable Traffic Management in Dhaka City 🇧🇩  _ 🌸 Kadam Foara _ ASMR Traffic Soundscape.mp4,59.9,False,False,1920x1080,True,207.1,
+False,5.61,,24,🚗🚦4K Auto Traffic Management in Dhaka City _ Prithibi Traffic Signal _ ASMR Traffic Soundscape.mp4,59.9,False,False,1920x1080,True,246.1,
+False,14.25,,24,"🛵 Navigating the Chaos_ The Vibrant Energy of Bangla Motor, Dhaka 🇧🇩.mp4",30.0,False,False,1920x1080,True,120.7,
+False,110.53,0.095,24,CRAZY INDIAN TRAFFIC CONGESTION.mp4,25.0,False,False,1920x1080,True,96.5,False
+False,10.4,0.354,24,"Daily life in India_ Chaotic Traffic of Old Delhi, India.mp4",30.0,False,False,1920x1080,True,129.6,False
+False,32.99,0.111,24,"Incredible traffic jam in Bangla Motor,Dhaka ,Bangladesh..mp4",30.0,False,False,3840x2160,True,262.5,False
+True,1.12,0.963,24,"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.mp4",25.0,False,False,1920x1080,True,264.0,False
+True,1.04,0.783,24,South Extension traffic rush is back_ Covid no dampener to peak hour traffic in New Delhi.mp4,25.0,False,False,1920x1080,True,129.5,False
+False,6.57,0.246,24,Try crossing this street in India!! Part 2.mp4,30.0,False,False,854x480,True,104.1,False
+True,0.47,0.687,24,video1.mp4,29.6,False,False,1920x1080,True,182.6,False
+False,55.49,0.363,24,video3.mp4,29.7,False,False,1920x1080,True,60.3,False
+False,88.26,0.068,24,video4.mp4,30.0,False,False,1920x1080,True,109.6,False
+False,2.15,0.366,24,What do you think is the cause of this traffic jam_.mp4,30.0,True,False,1920x1080,True,434.9,False
