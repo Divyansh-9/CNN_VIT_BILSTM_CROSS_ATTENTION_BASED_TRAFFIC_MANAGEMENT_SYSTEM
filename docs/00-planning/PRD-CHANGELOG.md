@@ -265,3 +265,60 @@ clips are correctly rejected — but that will be a finding rather than an assum
 **Nothing is relaxed by this.** T=60, the 60 s horizon, clip-level splits, the
 stationary-camera requirement and the human-verified test split are all untouched. One
 undocumented constant becomes measured.
+
+### The circularity in the version above, and how it is removed
+
+**As first written, this amendment committed the error it was meant to avoid.** The
+table lists five candidate values; `step_s = 2` is the *smallest one that unlocks
+exactly the three clips already in hand*. That is a parameter chosen after seeing which
+value makes the available data pass — structurally identical to the 15% success
+threshold rejected in [ADR-015](decisions/ADR-015-success-criteria-and-priorities.md)
+Decision 1, and no more defensible for being a preprocessing constant rather than a
+success metric.
+
+A pre-committed decision rule does not fix it, because the pilot as scoped would have
+run on **the three clips that need the answer to come out a particular way**.
+
+**The fix is to decouple the measurement from the selection**, which is possible because
+they have different data requirements:
+
+| | needs | available |
+|---|---|---|
+| **Measuring** the transition timescale | a clip long enough to observe several class changes — roughly 120 s | **20+ clips** |
+| **Training** on a clip | ≥ `(T−1)·step_s + horizon` | 8 to 13 clips, depending on the value being chosen |
+
+The timescale can therefore be measured at **1 s resolution on every clip over ~120 s**,
+including every clip this amendment would *not* rescue. The measurement does not depend
+on the threshold, so it cannot be bent by it.
+
+**Pre-registered before the pilot runs:**
+
+1. Sample the congestion class at **1 s** on every clip ≥ 120 s, whatever its verdict.
+2. Report the transition timescale for **South Asian junction footage and Western
+   motorway footage separately.** They are different processes — a motorway has no
+   signal, no cycle and often no congestion — so pooling them would average two
+   distributions and call the result stability. A large difference between them is
+   *expected* and is not evidence of instability.
+3. Set `step_s` so the observation window spans **at least one full transition cycle**
+   of the South Asian measurement, rounded to a value the footage supports.
+4. **If that rule selects 5 s, the three clips stay rejected** and this amendment is
+   withdrawn.
+5. Any timescale estimated from fewer than 5 independent clips is reported as
+   **preliminary**, never as the basis for a final value.
+
+### The cost this amendment did not price
+
+`step_s = 2` samples **2.5× more densely**, so building the corpus needs 2.5× the
+detector inference passes — 175 frames rather than 70 for a 349 s clip.
+
+One clarification on the comparison, because the two costs are in different currencies.
+The [FEASIBILITY-AUDIT](FEASIBILITY-AUDIT.md)'s 3× underestimate concerns **human
+annotation hours** for IndiaTrafficNet, which trains the detector. The corpus is
+**auto-labelled** (ADR-002), so this is GPU time, not person-time, and it does not
+compound with that finding. It is still a real cost and it is still 2.5×.
+
+**Weighed against the alternative it is not obviously worth it.** One clean 15-minute
+recording satisfies `step_s = 5` with four times the margin, needs no amendment, no
+sign-off and no extra compute. This amendment exists to make already-collected footage
+usable **in parallel with** filming, never instead of it — ADR-015 Decision 5's P0 track
+is unchanged.
