@@ -379,3 +379,58 @@ recording satisfies `step_s = 5` with four times the margin, needs no amendment,
 sign-off and no extra compute. This amendment exists to make already-collected footage
 usable **in parallel with** filming, never instead of it — ADR-015 Decision 5's P0 track
 is unchanged.
+
+---
+
+## P5 — label noise, measured (2026-08-15)
+
+Pending item P5 asked for an estimate of label noise in the auto-labelled corpus
+(ADR-002). It has been carried as a worry since the corpus spec was written. Here
+is a number.
+
+Measured on the Mumbai Andheri clip, 365 samples at 1 Hz, stock COCO YOLOv8n,
+whole-frame counts:
+
+| | |
+|---|---|
+| Count range | 6 – 23, median 13 |
+| Adjacent-second \|difference\| | mean 2.00, median 2, max 7 |
+| **Implied detector noise (sd)** | **~1.13 vehicles** |
+| Smoothed signal (sd) | ~3.30 vehicles |
+| **Signal-to-noise** | **2.92** |
+| **Samples within one noise-sd of a §14.1 threshold** | **26%** |
+| Label changes | 0.071 / s — one every ~14 s |
+
+**Real traffic barely changes in one second, so most of the adjacent-sample
+difference is the detector disagreeing with itself.** That gives a direct noise
+estimate without needing ground truth.
+
+### The finding
+
+**About a quarter of frames carry a label that detector noise alone can flip.**
+Counts near 4 or 15 sit inside the noise band, so their LOW/MEDIUM or MEDIUM/HIGH
+assignment is close to a coin toss. A corpus auto-labelled from these counts
+inherits that directly.
+
+It also explains the A17 pilot: the transitions being counted were largely
+threshold-crossing noise rather than congestion changing.
+
+### Caveats — this is an upper bound, and preliminary
+
+* **Stock COCO YOLOv8n**, not the fine-tuned detector S08–S12 will produce. A
+  detector trained on Indian classes should be markedly quieter, so 1.13 is a
+  ceiling rather than the expected value.
+* **Whole-frame counts**, not per-lane. Per-lane counts are smaller, so a fixed
+  threshold sits differently against the noise.
+* **One clip, one location.** Preliminary by the same rule as A28.
+
+### What follows
+
+1. **Run this again after S08–S12.** The comparison stock-vs-fine-tuned is itself
+   a reportable result, and it quantifies what the detection work buys the corpus.
+2. **Thresholds should be checked against the noise band, not only against
+   traffic.** A threshold sitting where 26% of the mass is unstable is badly
+   placed regardless of whether the class balance looks reasonable.
+3. **Report this in the paper.** A corpus paper that states its label-noise
+   estimate is more credible than one that does not mention it, and reviewers of
+   auto-labelled datasets ask.
