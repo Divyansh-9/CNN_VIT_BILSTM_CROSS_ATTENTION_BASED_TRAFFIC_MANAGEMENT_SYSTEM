@@ -1,0 +1,9 @@
+detector,vantage_point,samples,count_median,noise_sd,signal_sd,snr,near_threshold_frac
+stock_coco,Mumbai Andheri,365,13,1.13,3.3,2.92,0.263
+stock_coco,Dhaka Rampura,400,8.0,1.46,3.01,2.06,0.19
+stock_coco,Delhi South Ext,265,21,2.08,6.77,3.25,0.23
+stock_coco,video1,187,5,0.83,1.86,2.24,0.112
+s11_finetuned,Mumbai Andheri,365,6,1.38,2.88,2.08,0.425
+s11_finetuned,Dhaka Rampura,400,4.0,1.3,2.53,1.94,0.435
+s11_finetuned,Delhi South Ext,265,24,2.91,8.27,2.84,0.132
+s11_finetuned,video1,187,0,0.34,0.35,1.04,0.0

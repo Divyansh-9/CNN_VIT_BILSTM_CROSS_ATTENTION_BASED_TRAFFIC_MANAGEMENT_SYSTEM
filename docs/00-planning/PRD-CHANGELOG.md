@@ -460,3 +460,71 @@ scale alone.
 3. **Report this in the paper.** A corpus paper that states its label-noise
    estimate is more credible than one that does not mention it, and reviewers of
    auto-labelled datasets ask.
+
+---
+
+## P5 rev 2 — the fine-tuned detector did NOT reduce label noise (2026-08-15)
+
+The S11 detector was trained precisely so this could be measured: the earlier P5
+figures came from stock COCO YOLOv8n, a model with no auto-rickshaw class at all,
+so they were declared an upper bound that fine-tuning should improve.
+
+**It did not.** `experiments/results/p5_label_noise_comparison.csv`, same four
+independent vantage points, same 1 Hz sampling, same smoothing:
+
+| | stock COCO | S11 fine-tuned |
+|---|---|---|
+| median detector noise (sd) | **1.29** | 1.34 |
+| median signal-to-noise | **2.58** | 2.01 |
+| median labels within a noise-sd of a threshold | **21%** | 28% |
+
+Every headline moved the wrong way. And the reason is visible in the counts:
+
+| Vantage point | stock | tuned | change |
+|---|---|---|---|
+| Mumbai Andheri | 13 | 6 | **−54%** |
+| Dhaka Rampura | 8 | 4 | **−50%** |
+| Delhi South Extension | 21 | 24 | +14% |
+| `video1` | 5 | **0** | **−100%** |
+
+**The fine-tuned detector sees roughly half the vehicles, and on one clip none at
+all.** Its SNR on `video1` is 1.04 — indistinguishable from noise.
+
+### This is not a broken model, it is the viewpoint gap — measured
+
+The same weights score **mAP50 0.6201** on IDD's own test split, with
+`auto_rickshaw` at 0.703. The detector works. It works *on dashcam imagery*,
+because that is all IDD contains — a car-mounted rig at roughly 1.5 m, where
+vehicles are large and near.
+
+These clips are elevated fixed cameras looking down at a junction, where vehicles
+are small and distant. That is precisely the gap [DATASETS §2](../00-planning/DATASETS.md)
+opens with and the reason `class_mapping.yaml` weights side views. **It has now
+been measured rather than asserted, and it is severe.**
+
+### Consequences, and they are not small
+
+1. **The S11 detector cannot auto-label the corpus as it stands.** ADR-002 derives
+   every congestion label from detector counts. A detector that misses half the
+   vehicles produces labels that are wrong in a systematic, direction-consistent
+   way — far worse than the random noise P5 was originally measuring.
+2. **ADR-001's bootstrap strategy is insufficient by itself.** "Fine-tune on a
+   public Indian dataset, swap in IndiaTrafficNet at Week 8" assumed the public
+   dataset transfers. For classes it does; for *viewpoint* it does not.
+3. **The one fix that works is the one already blocked.** Elevated fixed-camera
+   footage is needed as *training* data, not only as evaluation data — which
+   raises S06 from important to load-bearing for the detector track too.
+4. **S12's cross-camera experiment is now the priority**, because it measures how
+   far viewpoint transfer degrades *within* IDD and therefore how much elevated
+   data the fine-tune will need.
+
+### What must not be done
+
+Reporting the S11 mAP of 0.62 as the detector's performance without this result
+beside it. The number is true on IDD and misleading about deployment, which is
+the exact shape of claim this project has spent its effort removing.
+
+**This is a negative result and it is reported, not buried** (PRD §2.5.5, BR-19).
+It is also the most useful thing the detector track has produced: it converts a
+documented worry into a measured constraint, before 12,000 frames were annotated
+against a detector that cannot see them.
