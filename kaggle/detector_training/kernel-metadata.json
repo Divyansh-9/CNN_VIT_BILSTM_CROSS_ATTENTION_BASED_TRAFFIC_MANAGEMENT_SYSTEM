@@ -11,5 +11,6 @@
     "idredk/indiatrafficnet-bootstrap-idd-yolo"
   ],
   "competition_sources": [],
-  "kernel_sources": []
+  "kernel_sources": [],
+  "machine_shape": "Gpu"
 }
