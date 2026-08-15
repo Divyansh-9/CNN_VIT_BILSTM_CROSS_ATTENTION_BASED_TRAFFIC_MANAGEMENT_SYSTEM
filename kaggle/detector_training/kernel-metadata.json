@@ -1,6 +1,6 @@
 {
-  "id": "idredk/cnn-vit-bilstm-traffic-system-s11-detector",
-  "title": "CNN_VIT_BILSTM_CROSS_ATTENTION_TRAFFIC_SYSTEM - S11 detector",
+  "id": "idredk/cnn-vit-bilstm-cross-attention-traffic-system-s11",
+  "title": "CNN ViT BiLSTM Cross Attention Traffic System S11",
   "code_file": "s11_train_detector.ipynb",
   "language": "python",
   "kernel_type": "notebook",
