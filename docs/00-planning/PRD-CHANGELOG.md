@@ -299,12 +299,69 @@ on the threshold, so it cannot be bent by it.
    signal, no cycle and often no congestion — so pooling them would average two
    distributions and call the result stability. A large difference between them is
    *expected* and is not evidence of instability.
-3. Set `step_s` so the observation window spans **at least one full transition cycle**
-   of the South Asian measurement, rounded to a value the footage supports.
+3. **The exact statistic, fixed now.** `step_s = ceil(P75 / (T−1))`, where P75 is the
+   **75th-percentile inter-transition interval** in seconds across qualifying South
+   Asian clips, and T=60. Nothing is chosen after the numbers are seen.
+
+   A high percentile and a ceiling are both deliberate: **each pushes toward a LARGER
+   `step_s`**, which is the direction *against* the outcome this amendment would prefer.
+   A 25th percentile with rounding-down was considered and rejected for exactly that
+   reason — it biases toward the small values that rescue the clips in hand, which is
+   the flexibility this pre-registration exists to remove. When a statistic must be
+   picked in advance, pick the one that makes your preferred answer harder.
 4. **If that rule selects 5 s, the three clips stay rejected** and this amendment is
    withdrawn.
-5. Any timescale estimated from fewer than 5 independent clips is reported as
-   **preliminary**, never as the basis for a final value.
+5. Any timescale estimated from fewer than 5 **independent** clips is reported as
+   **preliminary**, never as the basis for a final value. **Independent means a distinct
+   physical camera and location** — not a distinct file. Two recordings of the same
+   junction at different times are correlated observations of one process, and counting
+   them separately would inflate confidence in a result resting on fewer vantage points
+   than it appears to.
+
+### The census, stated plainly rather than implied
+
+"20+ clips" is true and misleading. The honest breakdown of the 33 clips over 120 s:
+
+| | count |
+|---|---|
+| Measurable (≥120 s) | 33 |
+| South Asian / Indian | 20 |
+| Western motorway / other | 13 |
+| **South Asian AND camera passes stationarity** | **6** |
+| **South Asian, stationary, distinct location** | **~4** |
+
+The six are Dhaka Rampura (×2, evidently the same vantage point), Mumbai Andheri,
+South Extension (×2, same location), and `video1`. That is roughly **four independent
+South Asian vantage points**, against a rule requiring five.
+
+**So rule 5 will almost certainly trigger on the exact population the PRD's core claim
+depends on.** The pilot runs on 33 clips and will still be *preliminary for Indian
+signalised junctions*. This must be said to the guide in those words — "20 clips" would
+imply coverage that does not exist.
+
+It also settles the standing of self-filming. It is not merely the good path running in
+parallel: **it is the only route by which this measurement stops being preliminary on
+the side that matters.** One additional independent vantage point takes the count from
+four to five.
+
+### The cost, in hours — and a correction
+
+The "2.5×" figure was quoted without absolute numbers, which was the right thing to
+object to. Measured over the 33 clips:
+
+| | frames | at 25 fps | at 40 fps |
+|---|---|---|---|
+| `step_s = 5` | 4,142 | 0.05 h | 0.03 h |
+| `step_s = 2` | 10,382 | **0.12 h** | 0.07 h |
+| difference | +6,240 | **+0.07 h (~4 minutes)** | +0.04 h |
+
+**The correction runs opposite to the way it was framed.** Presented as a multiplier,
+2.5× sounded like a genuine trade-off worth weighing. In absolute terms it is roughly
+**four minutes of GPU time**. The compute objection to this amendment does not survive
+contact with the arithmetic, and it should not be offered at sign-off as though it did.
+
+What remains a real cost is neither compute nor annotation: it is **one more PRD
+amendment awaiting a decision** at a point where three already are.
 
 ### The cost this amendment did not price
 
