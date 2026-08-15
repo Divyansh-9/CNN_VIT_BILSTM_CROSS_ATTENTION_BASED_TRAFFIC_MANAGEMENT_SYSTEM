@@ -110,6 +110,34 @@ def convert(xml_path: Path, spec: dict) -> tuple[list[str], collections.Counter]
     return lines, counts
 
 
+def _downscale(source: Path, target: Path, long_edge: int) -> bool:
+    """Resize so the long edge is `long_edge`. Returns False to fall back to copy.
+
+    Safe for labels: YOLO coordinates are normalised to the image, so scaling the
+    pixels changes nothing about the annotation. Upscaling is never done — an
+    image already smaller than the target is copied untouched.
+    """
+    try:
+        import cv2
+    except ImportError:
+        return False
+
+    image = cv2.imread(str(source))
+    if image is None:
+        return False
+    height, width = image.shape[:2]
+    longest = max(height, width)
+    if longest <= long_edge:
+        return False
+
+    scale = long_edge / longest
+    resized = cv2.resize(
+        image, (round(width * scale), round(height * scale)),
+        interpolation=cv2.INTER_AREA,
+    )
+    return bool(cv2.imwrite(str(target), resized, [cv2.IMWRITE_JPEG_QUALITY, 90]))
+
+
 def choose(ids: list[str], spec: dict, count: int) -> list[str]:
     """Weighted stratified sample by camera position, deterministic."""
     by_camera: dict[str, list[str]] = collections.defaultdict(list)
@@ -142,7 +170,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--idd", type=Path, default=IDD)
     parser.add_argument("--out", type=Path, default=Path("data/idd_yolo"))
     parser.add_argument("--copy-images", action="store_true",
-                        help="copy JPEGs (24 GB source; symlink-free but slow)")
+                        help="materialise images (downscaled — see --long-edge)")
+    parser.add_argument(
+        "--long-edge", type=int, default=960,
+        help="downscale the long edge on copy. YOLO trains at 640, so shipping "
+             "1920px costs disk and I/O for nothing (0 = copy untouched)",
+    )
     args = parser.parse_args(argv)
 
     if not (args.idd / "train.txt").exists():
@@ -190,8 +223,18 @@ def main(argv: list[str] | None = None) -> int:
         image_dir.mkdir(parents=True, exist_ok=True)
         (label_dir / f"{flat}.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
         if args.copy_images:
-            shutil.copy2(jpg_path, image_dir / f"{flat}.jpg")
+            # Downscale on the way out. YOLO trains at 640, so 1920px costs 4.3 GB
+            # and slower I/O for detail the network never sees. **Labels need no
+            # change**: YOLO coordinates are normalised, so a resize is free.
+            if args.long_edge and _downscale(jpg_path, image_dir / f"{flat}.jpg",
+                                             args.long_edge):
+                pass
+            else:
+                shutil.copy2(jpg_path, image_dir / f"{flat}.jpg")
         else:
+            # A path pointer, NOT an image. Ultralytics cannot read this — it is
+            # only for inspecting the split without materialising 4 GB. Training
+            # requires --copy-images.
             (image_dir / f"{flat}.txt").write_text(str(jpg_path), encoding="utf-8")
 
         totals.update(counts)
