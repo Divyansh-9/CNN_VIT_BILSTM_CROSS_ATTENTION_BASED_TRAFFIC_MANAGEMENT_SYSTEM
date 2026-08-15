@@ -1,0 +1,82 @@
+# IDD Detection -> IndiaTrafficNet class mapping (S09, DATASETS §6, FR-D03)
+#
+# Versioned rather than remembered. This file is the single authority for how a
+# public label becomes one of our eight, and `scripts/prepare_idd.py` reads it —
+# it never hardcodes a name.
+#
+# Evidence for the mapping is `experiments/results/idd_label_census.csv`, a full
+# enumeration of every <name> in every annotation, produced as DATASETS §6
+# requires ("do not trust this table or any second-hand list").
+
+target_classes:            # PRD §12.2, FR-D03. Order IS the YOLO class index.
+  - car                    # 0
+  - motorcycle             # 1
+  - auto_rickshaw          # 2
+  - e_rickshaw             # 3
+  - bus                    # 4
+  - truck                  # 5
+  - pedestrian             # 6
+  - cattle                 # 7
+
+mapping:                   # IDD label -> our class, or null to DROP
+  car: car
+  motorcycle: motorcycle
+  autorickshaw: auto_rickshaw
+  bus: bus
+  truck: truck
+  person: pedestrian
+  animal: cattle
+
+  # --- deliberately dropped, each for a stated reason ---
+
+  rider: null
+  # DATASETS §6.1, decided. A motorcyclist is annotated as a `rider` ON a
+  # `motorcycle`. Our task counts VEHICLES for congestion, so counting both
+  # inflates every count by roughly the two-wheeler share — PRD §12.2 puts that
+  # at ~30%, and it would bias every congestion label the §8.6 pipeline derives.
+  # IndiaTrafficNet annotation must follow the same convention.
+
+  bicycle: null
+  # Not in the §12.2 taxonomy. Dropped rather than merged into motorcycle: a
+  # bicycle's PCE is not a motorcycle's (ADR-012), so merging would corrupt the
+  # saturation-flow arithmetic downstream as well as the class.
+
+  vehicle fallback: null
+  # IDD's catch-all for vehicles that fit no class. Mapping it anywhere teaches
+  # the detector a category that does not exist in our label space; mapping it to
+  # `car` would be worse, since it contains carts, tractors and trailers.
+
+  traffic sign: null       # not a vehicle
+  traffic light: null      # not a vehicle; the signal state is not perceived
+  train: null              # 1 box in a 400-image sample. Out of scope
+  caravan: null            # absent or negligible; listed so silence is deliberate
+  trailer: null
+
+# Classes with NO source in IDD. They are why self-collection is still required
+# for the detector, not only for the corpus (DATASETS §4.4).
+absent_from_idd:
+  e_rickshaw: >
+    No IDD label corresponds. Trained as background until IndiaTrafficNet
+    supplies it (ADR-001 swaps detector weights at Week 8). Any e-rickshaw in a
+    bootstrap-era count is therefore a miss, not a misclassification — and that
+    is a known, bounded error rather than a silent one.
+
+# Sampling. IDD is a CAR-MOUNTED RIG; deployment is an elevated fixed camera
+# (DATASETS §2, the viewpoint problem). Camera position is recorded per image, so
+# stratifying by it costs nothing and is not a guess.
+sampling:
+  strategy: stratified_by_camera_position
+  seed: 42
+  weights:                 # relative sampling weight per camera position
+    sideLeft: 1.0          # side-on view of cross traffic — nearest to an
+    sideRight: 1.0         #   intersection approach, the deployment geometry
+    highquality_16k: 1.0   # the best-annotated subset
+    frontNear: 0.4         # pure forward dashcam — furthest from the target view
+    frontFar: 0.4
+    rearNear: 0.4
+  note: >
+    Weights are a stated prior, not a measurement. S12 tests them: fine-tune on a
+    side-weighted subset and on a front-weighted one, and report the mAP gap on
+    real junction footage. That turns the viewpoint gap into a measured number
+    instead of an assertion, and if the gap is negligible these weights should be
+    set to 1.0 everywhere and the claim withdrawn.

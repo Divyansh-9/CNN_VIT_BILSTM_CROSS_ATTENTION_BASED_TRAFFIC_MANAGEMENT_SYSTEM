@@ -68,3 +68,7 @@ models/
 
 # Dev footage — never committed, never published (ADR-013, P10, NFR-13)
 data/dev_footage/
+
+# Converted training sets — regenerate with scripts/prepare_idd.py
+data/idd_yolo/
+data/idd_smoke/
