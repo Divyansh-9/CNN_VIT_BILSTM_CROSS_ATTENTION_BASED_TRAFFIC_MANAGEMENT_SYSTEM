@@ -49,12 +49,36 @@ from scripts.triage_footage import printable  # noqa: E402
 T_MINUS_ONE = 59            # T=60 timesteps, so 59 intervals span the window
 PERCENTILE = 75             # A28: pre-registered, biases toward a LARGER step_s
 
-# COCO ids that are vehicles. Person and bicycle are excluded: §14.1 counts
-# vehicles, and a footpath crowded with pedestrians is not congestion.
-VEHICLE_IDS = {2, 3, 5, 7}          # car, motorcycle, bus, truck
+# Names, not ids. A hardcoded id list is only correct for one model, and the S11
+# metrics defect was exactly that mistake in another place: an index that meant
+# something different than assumed, producing a plausible number.
+#
+# Stock COCO and our fine-tuned detector share almost no numbering — `2` is `car`
+# in COCO and `auto_rickshaw` in ours — so ids are resolved from `model.names`
+# at run time and a model missing all of them raises.
+VEHICLE_NAMES = {
+    "car", "motorcycle", "bus", "truck",          # both taxonomies
+    "auto_rickshaw", "e_rickshaw",                # ours only
+}
+# §14.1 counts VEHICLES. `person`/`pedestrian` and `cattle` are excluded: a
+# crowded footpath is not congestion, and a cow is an obstacle, not traffic.
 
 
-def count_series(path: Path, *, every_s: float = 1.0, model=None) -> list[int]:
+def vehicle_ids(model) -> set[int]:
+    """Resolve class ids from the model's own names."""
+    names = model.names if isinstance(model.names, dict) else dict(enumerate(model.names))
+    ids = {i for i, n in names.items() if str(n).lower() in VEHICLE_NAMES}
+    if not ids:
+        raise SystemExit(
+            f"none of {sorted(VEHICLE_NAMES)} appear in this model's classes "
+            f"({sorted(names.values())}). Counting nothing would report every "
+            f"frame as LOW."
+        )
+    return ids
+
+
+def count_series(path: Path, *, every_s: float = 1.0, model=None,
+                 ids: set[int] | None = None) -> list[int]:
     """Vehicle count once per second. 1 Hz regardless of the step_s under debate.
 
     Sampling faster than any candidate `step_s` is what keeps the measurement
@@ -75,7 +99,7 @@ def count_series(path: Path, *, every_s: float = 1.0, model=None) -> list[int]:
             break
         result = model(frame, verbose=False, imgsz=640)[0]
         classes = result.boxes.cls.tolist() if result.boxes is not None else []
-        counts.append(sum(1 for c in classes if int(c) in VEHICLE_IDS))
+        counts.append(sum(1 for c in classes if int(c) in ids))
         index += int(fps * every_s)
 
     handle.release()
@@ -99,8 +123,8 @@ def tercile_labels(counts: list[int]) -> list[int]:
     return [0 if c <= low else (2 if c > high else 1) for c in counts]
 
 
-def analyse(path: Path, model) -> dict:
-    counts = count_series(path, model=model)
+def analyse(path: Path, model, ids: set[int]) -> dict:
+    counts = count_series(path, model=model, ids=ids)
     if len(counts) < 30:
         return {"file": path.name, "samples": len(counts), "usable": False}
 
@@ -156,6 +180,9 @@ def main(argv: list[str] | None = None) -> int:
     from ultralytics import YOLO
 
     model = YOLO(args.weights)
+    ids = vehicle_ids(model)
+    names = model.names if isinstance(model.names, dict) else dict(enumerate(model.names))
+    print("  counting", sorted(names[i] for i in ids))
 
     videos = sorted(
         p for p in args.clips.rglob("*") if p.suffix.lower() in {".mp4", ".mkv", ".mov"}
@@ -167,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     for video in videos:
         print(f"  {printable(video.name, 46):<46}", end="", flush=True)
         try:
-            row = analyse(video, model)
+            row = analyse(video, model, ids)
         except Exception as error:                       # noqa: BLE001
             print(f" ERROR {printable(str(error), 40)}")
             continue
