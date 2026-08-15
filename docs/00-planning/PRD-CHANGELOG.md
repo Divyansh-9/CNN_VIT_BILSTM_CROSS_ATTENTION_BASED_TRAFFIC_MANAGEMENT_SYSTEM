@@ -195,3 +195,73 @@ Reviewed at each wave gate (W05, W11, W16).
 | **P11** | **State index 10 (`phase_remaining`) carries no information** | **Before M6 (W13)** | Found in S36 by measuring the observation rather than trusting the spec. The §13.1 action space is 12 discrete (phase, duration) pairs, so the agent acts only at phase end — by which time the requested green has fully elapsed and `phase_remaining` is 0 at **every** decision point. §13.1 lists the feature assuming a controller that can observe mid-phase; its own action space is one that cannot. One of sixteen dimensions is dead. Two resolutions: (a) change the action space to a fixed decision interval with keep-or-switch actions, the standard RL traffic-control formulation, which makes the feature meaningful — a **PRD amendment**, not a code edit; or (b) accept the dead index, document it, and keep it zeroed for contract compatibility (FR-M14 forbids shortening the vector). Asserted by `test_phase_remaining_is_structurally_zero_at_decision_points` so it cannot be forgotten |
 | ~~P7~~ **CLOSED** | MQTT payload schema defects | Closed 2026-08-13 | All six closed by amendment A26 and `contracts/mqtt.py`, with a 31-assertion cross-topic contract test. TRIAGE-001 closed |
 | ~~P8~~ **CLOSED** | Webster parameterisation | Closed 2026-08-10 | [ADR-011](decisions/ADR-011-webster-definition.md) settled cycle clamping, splits and the two roles. [ADR-012](decisions/ADR-012-webster-saturation-flow.md) settles saturation flow and lost time: the published range spans 525W–1283W PCU/h per metre of approach width, so **sweep it and report Webster's best** rather than picking a value. PCE motorcycle 0.24, auto-rickshaw 0.78. Lost time 4–5 s start, ~3 s clearance |
+
+---
+
+## A28 (proposed) — `step_s` is a pilot-determined parameter, not a fixed 5 s
+
+**Raised** 2026-08-15 · **Affects** PRD §8.2, §8.6, A15, `spec.yaml sequence.step_s`
+**Status** PROPOSED — needs guide sign-off
+
+### The problem
+
+A15 fixed the minimum clip length at **355 s**, derived as `(T−1)·step_s + horizon_s`
+= 59×5 + 60. Forty-two candidate clips were then rejected against it, several of them
+excellent Indian intersection footage with verified-stationary cameras.
+
+**But `step_s = 5` is not derived anywhere.** T=60 and the 60 s horizon both trace to
+stated requirements; the 5 s spacing appears in §8.2 as a bare number. The minimum
+clip length — the single constraint that has blocked S06 for two weeks — rests
+entirely on it.
+
+### What changes if it moves
+
+Measured against the 42 triaged clips (`experiments/results/footage_triage.csv`),
+counting only those whose camera already passes the stationarity check:
+
+| `step_s` | history span | min clip | clips that qualify |
+|---|---|---|---|
+| 5 (current) | 295 s | 355 s | **8** — all Western motorways |
+| 4 | 236 s | 296 s | 10 |
+| 3 | 177 s | 237 s | 11 |
+| **2** | **118 s** | **178 s** | **12** |
+| 1 | 59 s | 119 s | 13 |
+
+At `step_s = 2` three Indian and Delhi clips become usable that are currently rejected
+**purely on this arithmetic**:
+
+| Clip | Duration | Camera |
+|---|---|---|
+| Mumbai Traffic Chaos — Near Andheri Station | 349 s | jitter 0.74 px, drift 32.7 px (1.7%) — **passes** |
+| South Extension, multi-coloured buses and autos | 264 s | jitter 1.12 px — **passes** |
+| `video1.mp4` | 183 s | jitter 0.47 px, drift 1.7 px (0.1%) — **passes** |
+
+The Andheri clip is the best-composed Indian intersection scene in the entire
+collection: elevated, stationary, black-and-yellow auto-rickshaws throughout, BEST
+bus, handcarts, pedestrians.
+
+### Is 118 s of history enough?
+
+Not obviously, and that is the point — **neither is 295 s obviously necessary.** Both
+are assertions. What can be said:
+
+- The signal cycle in this project is clamped to **32–192 s** (A27). 118 s covers most
+  of a cycle; 295 s covers one and a half to nine.
+- Sampling every 2 s captures queue build-up and discharge at a resolution 5 s misses,
+  which is the dynamic the forecast depends on.
+- Traffic autocorrelation decays. 60 samples at 5 s spacing may be largely redundant.
+
+### Decision requested
+
+**`step_s` becomes an output of the Week-2 pilot rather than an input to it.** The A17
+transition-rate analysis measures the timescale on which the congestion class actually
+changes; the sampling interval should be set from that measurement, with **2 s as the
+working default** because it unlocks the footage already in hand.
+
+Rejecting real footage to protect a number nobody derived is the wrong trade. If the
+pilot shows the class changes on a 300 s timescale, `step_s = 5` is vindicated and the
+clips are correctly rejected — but that will be a finding rather than an assumption.
+
+**Nothing is relaxed by this.** T=60, the 60 s horizon, clip-level splits, the
+stationary-camera requirement and the human-verified test split are all untouched. One
+undocumented constant becomes measured.
