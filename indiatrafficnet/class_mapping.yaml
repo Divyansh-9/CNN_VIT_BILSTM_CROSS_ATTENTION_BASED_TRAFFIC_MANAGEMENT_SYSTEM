@@ -242,3 +242,32 @@ bmd45:
     already specified for MFSTNet (PRD §8.4) applies here too, and the per-class
     support table (FR-D08) is what makes the imbalance visible rather than
     surprising.
+
+# ------------------------------------------- counting operating point (S14b) --
+#
+# A COUNT IS PRODUCED AT ONE THRESHOLD. mAP is not — it integrates over the whole
+# precision-recall curve, so the operating point never enters it. That is why an
+# 18% over-count survived two evaluation steps that both looked healthy.
+#
+# Ultralytics' default of 0.25 was never chosen for counting. At 0.45 the elevated
+# ratio is 0.999 and the density spread collapses from 0.046 to 0.028
+# (experiments/results/s14_counting_threshold_sweep.csv).
+#
+# This lives here, not in a script default, because ADR-002 derives every
+# congestion label from counts produced at this number.
+counting:
+  confidence_threshold: 0.45
+  fitted_on: BMD-45 elevated evaluation split, 498 frames, 5,273 vehicles
+  status: PROVISIONAL — re-confirm on S06 deployment footage before site use
+  bias_note: >
+    0.45 was selected by looking at the evaluation set, which is a fitted
+    parameter and the same move A28 was corrected for. It is acceptable only
+    because it is declared. If the deployment camera's geometry or mounting
+    differs materially from Bengaluru Safe City CCTV, the operating point moves
+    with it and must be re-swept.
+  per_frame_caveat: >
+    An unbiased RATIO is not a small per-frame error. MAE at 0.45 is still 1.07
+    vehicles/frame, roughly 28% relative against a sparse-third mean of 3.8.
+    Congestion labels are assigned per frame, so those errors do not cancel the
+    way the aggregate ratio does. Density-stratified reporting (A10) exists to
+    keep that visible rather than averaged away.

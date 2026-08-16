@@ -217,3 +217,31 @@ def test_the_licence_is_recorded_beside_the_source(spec):
     """ADR-013 Decision 4. DataCluster was rejected on exactly this field."""
     assert spec["bmd45"]["licence"] == "CC BY 4.0"
     assert spec["bmd45"]["source"].startswith("https://")
+
+
+# ------------------------------------ counting operating point (S14b, FR-P02) --
+
+def test_the_counting_threshold_is_versioned_not_a_library_default(spec):
+    """A count is produced at ONE threshold; mAP is not. Ultralytics' default of
+    0.25 produced an 18% over-count that survived two healthy-looking evaluation
+    steps. ADR-002 derives every congestion label from counts made at this
+    number, so it belongs in the authority file."""
+    assert spec["counting"]["confidence_threshold"] == 0.45
+
+
+def test_the_counting_threshold_is_declared_provisional_and_fitted(spec):
+    """0.45 was chosen by looking at the evaluation set. That is a fitted
+    parameter, and A28 exists because fitting after the fact is how a preferred
+    answer gets reached. Declaring it is what makes it acceptable."""
+    counting = spec["counting"]
+    assert "PROVISIONAL" in counting["status"]
+    assert "S06" in counting["status"], "the held-out confirmation must be named"
+    assert counting["fitted_on"].strip()
+    assert "A28" in counting["bias_note"]
+
+
+def test_the_per_frame_error_is_recorded_beside_the_ratio(spec):
+    """detected/true = 0.999 is aggregate. MAE is still 1.07 vehicles/frame, and
+    congestion labels are assigned per frame, where errors do not cancel."""
+    caveat = spec["counting"]["per_frame_caveat"]
+    assert "1.07" in caveat and "per frame" in caveat.lower()

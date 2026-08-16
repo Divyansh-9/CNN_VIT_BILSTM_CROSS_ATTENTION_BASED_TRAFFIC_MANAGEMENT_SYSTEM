@@ -768,3 +768,88 @@ publishable independently of whether MFSTNet beats its baselines.
 Weights are gitignored per ADR-013 rev 2. The four CSVs are committed as written
 by the scripts, never transcribed (NFR-09), and the per-frame counting files were
 independently re-aggregated locally to confirm the run's summary figures.
+
+---
+
+## S14b — the over-count was the operating point, not the model (2026-08-16)
+
+S14 left one thing unexplained, and auto-labelling stayed blocked on it: the
+joint detector over-counted elevated frames by 18% (ratio 1.178), with the ratio
+still varying across density. The convenient reading was "BMD-45's annotators
+missed small vehicles". That reading was not adopted; it was tested.
+
+### Matching predictions to ground truth named the excess
+
+498 elevated frames, 5,273 ground-truth vehicles, IoU ≥ 0.5:
+
+| | |
+|---|---|
+| matched | **5,010** (95% of ground truth found) |
+| unmatched predictions | **1,172** — 19% of all detections |
+| missed ground truth | 263 |
+
+The unmatched detections are not like the matched ones:
+
+| | matched | unmatched |
+|---|---|---|
+| median confidence | **0.863** | **0.415** |
+| median box area | 4,330 px | **1,494 px** |
+
+**64% of them sit below confidence 0.5**, and they are roughly a third the area of
+a real vehicle box. That is a threshold signature, not a modelling failure.
+
+### The reason this was missed for two steps
+
+**mAP is threshold-independent; a count is not.** mAP integrates over the whole
+precision-recall curve, so the operating point never enters it. A count is one
+integer per frame produced at exactly one threshold — and that threshold was
+Ultralytics' default of 0.25, which nobody had ever chosen for counting.
+
+### Sweeping it settles the question
+
+`experiments/results/s14_counting_threshold_sweep.csv`:
+
+| conf | detected/true | sparsest third | densest third | MAE |
+|---|---|---|---|---|
+| 0.25 (default) | 1.172 | 1.215 | 1.169 | 2.00 |
+| 0.35 | 1.079 | 1.121 | 1.075 | 1.35 |
+| 0.40 | 1.037 | 1.061 | 1.036 | 1.15 |
+| **0.45** | **0.999** | **1.025** | **0.997** | **1.07** |
+| 0.50 | 0.964 | 0.989 | 0.958 | 1.10 |
+| 0.60 | 0.901 | 0.944 | 0.892 | 1.36 |
+
+At conf 0.45 the ratio is **0.999** and the density spread collapses to **0.028**:
+
+| | ratio | sparse → dense spread |
+|---|---|---|
+| S11, dashcam-only | 0.391 | 0.112 |
+| S14 at conf 0.25 | 1.172 | 0.046 |
+| **S14 at conf 0.45** | **0.999** | **0.028** |
+
+The density dependence that blocked auto-labelling is **not merely reduced, it is
+gone to within 3%**. No recalibration constant is needed, which is the outcome
+that could not be reached by moving the §14.1 thresholds.
+
+### Two things that must be said with it
+
+**The threshold is fitted, and fitted parameters need held-out confirmation.**
+0.45 was chosen by looking at these 498 frames. That is the same move A28 was
+corrected for, and it is acceptable here only because it is declared: **conf 0.45
+is fitted on BMD-45 elevated imagery and must be re-confirmed on S06 deployment
+footage before it is trusted at the site.** If the site's geometry or camera
+differs enough, the operating point moves with it.
+
+**An unbiased ratio is not a small per-frame error.** MAE at the optimum is still
+**1.07 vehicles per frame**. Against a sparse-third mean of 3.8 vehicles that is
+roughly 28% relative error on individual frames, and a congestion label is
+assigned per frame, not in aggregate. The errors cancel in the ratio; they do not
+cancel in a label. Density-stratified reporting (A10) is what keeps this visible.
+
+### Consequence
+
+**ADR-002's auto-labelling is unblocked for elevated footage**, conditional on the
+operating point being pinned at conf 0.45, recorded in the corpus spec rather
+than left to a library default, and re-confirmed on S06 footage.
+
+The prohibition recorded in S13 is lifted on evidence, not on the passage of
+time — and it was correct to hold it until the excess had a cause.
