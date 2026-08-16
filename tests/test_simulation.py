@@ -489,3 +489,87 @@ def test_fr_a05_three_second_bound_is_unreachable_when_the_approach_is_red():
         "FR-A05's 3 s bound was met on a red approach. That is only possible if "
         "clearance was skipped — check FR-A04 before celebrating"
     )
+
+
+# ------------------------------- action-space screening (ADR-015, P11) --
+
+@needs_sumo
+def test_keep_or_switch_makes_phase_remaining_carry_information():
+    """P11's resolution, demonstrated rather than argued.
+
+    Under (phase, duration) the agent acts only at phase end, so by the time
+    `step()` observes, the requested green has fully elapsed and index 10 is 0 at
+    every decision point — one of sixteen dimensions is dead.
+
+    Under keep-or-switch the agent decides every fixed interval, so the time left
+    before max green forces a change is a REAL quantity. This is the measurable
+    difference the guide is being asked to choose between.
+    """
+    from simulation.envs.traffic_env import TrafficSignalEnv, _load_spec
+
+    index = _load_spec()["ppo_state"]["index_map"]["phase_remaining"]
+
+    def distinct_values(mode: str) -> int:
+        env = TrafficSignalEnv(action_space=mode, regime="saturated",
+                               seed=42, episode_s=300)
+        env.reset()
+        seen, done = set(), False
+        while not done:
+            observation, _, terminated, truncated, _ = env.step(
+                env.action_space.sample()
+            )
+            seen.add(round(float(observation[index]), 4))
+            done = terminated or truncated
+        env.close()
+        return len(seen)
+
+    assert distinct_values("keep_or_switch") > distinct_values("phase_duration"), (
+        "keep-or-switch must give index 10 more than the near-constant it is "
+        "under (phase, duration) — otherwise the amendment buys nothing"
+    )
+
+
+@needs_sumo
+def test_keep_or_switch_still_honours_minimum_green():
+    """Safety is an actuation property, not something a policy is trusted to have
+    learned (PRD §9.6). An agent that requests `switch` every single interval must
+    still not produce greens shorter than FR-A03's minimum."""
+    from simulation.envs.traffic_env import TrafficSignalEnv
+
+    env = TrafficSignalEnv(action_space="keep_or_switch", regime="saturated",
+                           seed=42, episode_s=600, decision_interval_s=5)
+    env.reset()
+    phases, done = [], False
+    while not done:
+        _, _, terminated, truncated, _ = env.step(1)     # always ask to switch
+        phases.append(env._phase)
+        done = terminated or truncated
+    env.close()
+
+    runs, current = [], 1
+    for previous, this in zip(phases, phases[1:]):
+        if this == previous:
+            current += 1
+        else:
+            runs.append(current)
+            current = 1
+    intervals = min(runs) if runs else len(phases)
+    assert intervals * 5 >= env.min_green_s, (
+        f"shortest phase ran {intervals * 5}s against a {env.min_green_s}s "
+        f"minimum — the policy was allowed to violate FR-A03"
+    )
+
+
+def test_both_action_spaces_are_declared():
+    """ADR-015 turns on there being two arms to compare. If one is deleted, the
+    decision the guide is being asked to make no longer exists."""
+    from simulation.envs.traffic_env import ACTION_SPACES
+
+    assert set(ACTION_SPACES) == {"phase_duration", "keep_or_switch"}
+
+
+def test_an_unknown_action_space_is_refused():
+    from simulation.envs.traffic_env import TrafficSignalEnv
+
+    with pytest.raises(ValueError, match="action_space must be one of"):
+        TrafficSignalEnv(action_space="whatever")

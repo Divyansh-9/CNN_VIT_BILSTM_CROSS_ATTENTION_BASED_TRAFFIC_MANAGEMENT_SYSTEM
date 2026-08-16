@@ -47,6 +47,7 @@ __all__ = ["TrafficSignalEnv", "GREEN_DURATIONS", "STATE_DIM"]
 
 STATE_DIM = 16
 GREEN_DURATIONS = (10, 20, 30, 45, 60, 90)     # PRD §13.1
+ACTION_SPACES = ("phase_duration", "keep_or_switch")   # ADR-015
 NS, EW = 0, 1
 _SPEC = Path(__file__).resolve().parents[2] / "mfstnet" / "configs" / "spec.yaml"
 
@@ -78,6 +79,8 @@ class TrafficSignalEnv(gym.Env):
         use_mfstnet: bool = False,
         starvation_penalty: float = 1.0,
         switch_penalty: float = 0.05,
+        action_space: str = "phase_duration",
+        decision_interval_s: int = 5,
     ) -> None:
         super().__init__()
         spec = _load_spec()
@@ -107,7 +110,25 @@ class TrafficSignalEnv(gym.Env):
         self.max_green_s = int(signal["max_green_s"])
         self.starvation_s = int(signal["starvation_s"])
 
-        self.action_space = spaces.Discrete(2 * len(GREEN_DURATIONS))
+        # ADR-015: BOTH action spaces exist behind a flag, so the choice is made
+        # on measured numbers rather than on argument. Screening costs a fraction
+        # of one arm; discovering the answer after a 30-seed run costs every
+        # checkpoint, because changing the action space invalidates them all.
+        if action_space not in ACTION_SPACES:
+            raise ValueError(
+                f"action_space must be one of {sorted(ACTION_SPACES)}, got "
+                f"{action_space!r}"
+            )
+        self.action_mode = action_space
+        self.decision_interval_s = int(decision_interval_s)
+        if self.action_mode == "keep_or_switch":
+            # The literature-standard formulation: decide every fixed interval,
+            # keep the current phase or switch. This is what makes state index 10
+            # `phase_remaining` carry information — under (phase, duration) the
+            # agent only acts at phase end, so it is structurally 0 (P11).
+            self.action_space = spaces.Discrete(2)
+        else:
+            self.action_space = spaces.Discrete(2 * len(GREEN_DURATIONS))
         self.observation_space = spaces.Box(
             low=0.0, high=np.inf, shape=(STATE_DIM,), dtype=np.float32
         )
@@ -144,6 +165,10 @@ class TrafficSignalEnv(gym.Env):
         self._step_s = 0
         self._phase = NS
         self._remaining = self.min_green_s
+        # Tracked separately from `_remaining` because keep-or-switch may cut a
+        # green short, and the minimum-green guarantee is about how long the
+        # phase has ACTUALLY run, not how long was requested.
+        self._green_elapsed = 0
         self._red_since = dict.fromkeys(APPROACHES, 0)
         self._prev_wait = 0.0
         traci.trafficlight.setPhase("C", self._phase * 3)
@@ -154,24 +179,50 @@ class TrafficSignalEnv(gym.Env):
         if self._traci is None:
             raise RuntimeError("step() before reset()")
 
-        phase = int(action) // len(GREEN_DURATIONS)
-        green = GREEN_DURATIONS[int(action) % len(GREEN_DURATIONS)]
-        green = max(self.min_green_s, min(self.max_green_s, green))
+        if self.action_mode == "keep_or_switch":
+            # Decide every `decision_interval_s`; action 1 requests a switch.
+            # A switch is REFUSED until the minimum green has actually elapsed —
+            # safety is an actuation property, not something a policy is trusted
+            # to have learned (PRD §9.6), exactly as in the runner.
+            want_switch = int(action) == 1
+            switched = want_switch and self._green_elapsed >= self.min_green_s
+            if switched:
+                self._interphase()
+                self._phase = EW if self._phase == NS else NS
+                self._traci.trafficlight.setPhase("C", self._phase * 3)
+                self._green_elapsed = 0
+            elif self._green_elapsed >= self.max_green_s:
+                # FR-A03's maximum green is an actuation bound too. Without this
+                # a policy that always says "keep" would hold one phase forever.
+                self._interphase()
+                self._phase = EW if self._phase == NS else NS
+                self._traci.trafficlight.setPhase("C", self._phase * 3)
+                self._green_elapsed = 0
+                switched = True
+            green = self.decision_interval_s
+            # `phase_remaining` is now the time left before max green forces a
+            # change — a real quantity, which is the point of this arm.
+            self._remaining = max(0, self.max_green_s - self._green_elapsed)
+        else:
+            phase = int(action) // len(GREEN_DURATIONS)
+            green = GREEN_DURATIONS[int(action) % len(GREEN_DURATIONS)]
+            green = max(self.min_green_s, min(self.max_green_s, green))
 
-        switched = phase != self._phase
-        if switched:
-            self._interphase()
-            self._phase = phase
-            self._traci.trafficlight.setPhase("C", self._phase * 3)
+            switched = phase != self._phase
+            if switched:
+                self._interphase()
+                self._phase = phase
+                self._traci.trafficlight.setPhase("C", self._phase * 3)
+            self._remaining = green
 
         starved = 0
-        self._remaining = green
         for _ in range(green):
             if self._step_s >= self.episode_s:
                 break
             self._traci.simulationStep()
             self._step_s += 1
             self._remaining -= 1
+            self._green_elapsed += 1
             starved += self._advance_starvation()
 
         observation = self._observe()
