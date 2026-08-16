@@ -177,3 +177,68 @@ sampling:
       Run the IDD cross-camera experiment first. It is free of the blocker, it
       tests the same hypothesis at lower fidelity, and if it shows no gap the
       elevated experiment may not be worth waiting for at all.
+
+# ---------------------------------------------------------------- BMD-45 --
+#
+# The second source, and the one that addresses the gap P5 rev 2 MEASURED.
+# 45,986 images / 481,947 boxes from 3,679 operational Safe City CCTV cameras in
+# Bengaluru (CVPR 2026, arXiv 2604.24419), CC BY 4.0 and ungated.
+#
+# IDD is a car-mounted rig; BMD-45 is the elevated fixed camera this project
+# actually deploys. It is NOT a replacement — it carries no pedestrian, no cattle
+# and no e_rickshaw — so the two are complementary and are trained JOINTLY.
+# Fine-tuning on IDD last would end training on a 100% dashcam corpus and pull
+# the viewpoint skill straight back out.
+bmd45:
+  source: https://huggingface.co/datasets/iisc-aim/BMD-45
+  licence: CC BY 4.0
+  citation: "BMD-45: A Large-Scale CCTV Vehicle Detection Dataset for Urban Traffic in Developing Cities, CVPR 2026"
+
+  # These are MERGES OF LIKE THINGS, which §6.1 permits. Four car body styles are
+  # all cars; the rule §6.1 forbids is merging UNLIKE things, as `vehicle
+  # fallback` would have done by folding carts and tractors into `car`.
+  mapping:
+    Hatchback: car             # 35,101 boxes
+    Sedan: car                 # 19,970
+    SUV: car                   # 15,573
+    MUV: car                   #  9,092
+    Van: car                   #  4,020 — Eeco/Omni class, a car by size and behaviour
+    Two-wheeler: motorcycle    # 171,283 — the largest class in the dataset
+    Three-wheeler: auto_rickshaw   # 65,899. See three_wheeler_caveat below
+    Bus: bus                   # 13,899
+    Mini-bus: bus              #  1,439
+    Tempo-traveller: bus       #  4,060 — 12+ seats; a minibus, not a van
+    Truck: truck               #  9,968
+    LCV: truck                 # 18,115 — light commercial; goods vehicle, not a car
+    Bicycle: null              #  4,713 — dropped, consistent with the IDD decision
+
+  absent:
+    pedestrian: >
+      BMD-45 is a VEHICLE dataset. IDD remains the only source for this class,
+      which is one reason the two are trained jointly rather than sequentially.
+    cattle: >
+      Same. IDD's `animal` is still the only source.
+    e_rickshaw: >
+      Still unsourced. See p12_e_rickshaw — this does NOT close P12.
+
+  three_wheeler_caveat: >
+    `Three-wheeler` may conflate auto-rickshaws with e-rickshaws, which are both
+    three-wheeled and visually similar at CCTV distance. That must be CHECKED on
+    sampled crops before any claim is made in either direction.
+
+    It does not change P12's pre-registered 1% rule. P12 asks whether the
+    DEPLOYMENT SITE shows e-rickshaws, and a Bengaluru dataset cannot answer a
+    question about our junction. If the check shows the class is conflated, the
+    honest consequence is that our `auto_rickshaw` label is impure on BMD-45
+    data — recorded as a limitation, not silently absorbed.
+
+  joint_training: >
+    Train on the mapped UNION of BMD-45 and IDD, not IDD after BMD-45. Sequential
+    fine-tuning ends on whichever corpus went last, and IDD is 100% dashcam — the
+    exact geometry the S11 detector already over-fitted to.
+
+    Class balance needs care: BMD-45 alone contributes 171,283 two-wheeler boxes
+    against IDD's few thousand pedestrians, so the inverse-frequency weighting
+    already specified for MFSTNet (PRD §8.4) applies here too, and the per-class
+    support table (FR-D08) is what makes the imbalance visible rather than
+    surprising.

@@ -165,3 +165,55 @@ def test_thin_class_gate_exists_and_exempts_a_known_absence():
     assert 'name != "e_rickshaw"' in source, (
         "failing on a class known absent from IDD would be failing on a fact"
     )
+
+
+# ------------------------------------------------ BMD-45 (S13, DATASETS) --
+
+def test_bmd45_targets_are_all_declared_classes(spec):
+    targets = set(spec["target_classes"])
+    for source, target in spec["bmd45"]["mapping"].items():
+        assert target is None or target in targets, f"{source} -> unknown {target}"
+
+
+def test_bmd45_covers_every_class_in_the_published_taxonomy(spec):
+    """All 13 annotated BMD-45 categories are decided explicitly.
+
+    An omitted category is silently dropped by the converter, which is how a
+    third of a dataset disappears without anyone noticing.
+    """
+    published = {
+        "Hatchback", "Sedan", "SUV", "MUV", "Van", "Two-wheeler", "Three-wheeler",
+        "Bus", "Mini-bus", "Tempo-traveller", "Truck", "LCV", "Bicycle",
+    }
+    assert set(spec["bmd45"]["mapping"]) == published
+
+
+def test_bmd45_does_not_claim_the_three_classes_it_lacks(spec):
+    """It is a VEHICLE dataset. Believing otherwise would drop IDD entirely and
+    lose `pedestrian` and `cattle` with it."""
+    for name in ("pedestrian", "cattle", "e_rickshaw"):
+        assert name in spec["bmd45"]["absent"]
+        assert spec["bmd45"]["absent"][name].strip()
+        assert name not in set(spec["bmd45"]["mapping"].values())
+
+
+def test_bmd45_does_not_close_p12(spec):
+    """`Three-wheeler` is tempting to read as auto-rickshaw and be done. P12 asks
+    whether OUR junction shows e-rickshaws, which Bengaluru data cannot answer."""
+    assert spec["p12_e_rickshaw"]["status"] == "OPEN"
+    caveat = spec["bmd45"]["three_wheeler_caveat"]
+    assert "P12" in caveat and "conflate" in caveat.lower()
+
+
+def test_joint_training_is_recorded_as_a_requirement_not_a_preference(spec):
+    """Sequential fine-tuning ending on IDD un-teaches the viewpoint, which is
+    the entire reason BMD-45 was adopted. One line to get wrong."""
+    note = spec["bmd45"]["joint_training"]
+    assert "not IDD after BMD-45" in note or "not sequential" in note.lower()
+    assert "dashcam" in note.lower()
+
+
+def test_the_licence_is_recorded_beside_the_source(spec):
+    """ADR-013 Decision 4. DataCluster was rejected on exactly this field."""
+    assert spec["bmd45"]["licence"] == "CC BY 4.0"
+    assert spec["bmd45"]["source"].startswith("https://")

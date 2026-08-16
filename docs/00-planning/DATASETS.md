@@ -400,6 +400,27 @@ deployment geometry, in the deployment country, under an open licence.**
 The whole IDD bootstrap yielded 1,001 auto-rickshaw boxes in its test split, all
 from a dashcam.
 
+#### Two things found by rendering the converted labels, not by reading the card
+
+A converted sample was drawn with its boxes and inspected. Both findings came
+from looking, and neither is in the dataset description.
+
+**The conversion is geometrically correct.** COCO stores absolute top-left `xywh`;
+YOLO wants normalised centre `cxcywh`. Getting that wrong produces plausible
+numbers and a broken dataset. Every box landed on its vehicle, with
+`auto_rickshaw` on the yellow-and-green three-wheelers, `motorcycle` on the
+scooters and `bus` on the bus.
+
+**BMD-45 ships with faces blurred**, and that is a precedent worth having. **P10**
+asks what may be published from IndiaTrafficNet under India's DPDP Rules. A CVPR
+2026 dataset of Indian street CCTV, released CC BY 4.0 with faces obscured, is a
+concrete published answer to that question by a group at IISc — considerably
+better than reasoning about the rules unaided. It does not decide P10, but it
+gives it a reference point instead of a blank page.
+
+The rendered sample also confirms the complementarity claim empirically: dozens
+of pedestrians stand unlabelled in the frame, and there is no cattle box anywhere.
+
 #### It does not replace IDD, and saying so precisely matters
 
 BMD-45 is a **vehicle** dataset. It has no `pedestrian`, no `cattle`, and no

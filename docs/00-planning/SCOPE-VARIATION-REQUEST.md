@@ -68,12 +68,47 @@ annotate well rather than hurriedly.
 | Dashboard pages | 4 | 2 — Live, and Results |
 | Uptime evaluation | 4 hours ≥95% | 1 hour ≥95% |
 
-**Unchanged:** both fallback paths (FR-A06), emergency preemption within 3 s (FR-A05), all safety
+**Unchanged:** both fallback paths (FR-A06), emergency preemption *behaviour* (FR-A05 — see
+Variation C; the 3 s figure is withdrawn as unachievable, the override is not), all safety
 invariants (FR-A03/A04), the MQTT contract and its per-topic QoS, and the benchmark and ablation
 tables (FR-UI06/UI07) that carry the evidential weight.
 
 This reduces *infrastructure*, not system behaviour. PRD §2.5.3 requires "a working hardware
 prototype" for distinction — it does not require a production observability stack.
+
+### Variation C — emergency vehicles: keep the override, drop the visual detector
+
+**This is the one variation we are asking for on evidence rather than on effort.**
+
+FR-P03 requires detecting emergency vehicles from the camera. We do not believe that can be
+delivered to a reportable standard, and the reason is measured rather than felt:
+
+- **No dataset carries the class.** Not IDD. Not BMD-45 — 45,986 CCTV images from Bengaluru, 14
+  vehicle classes, no ambulance. Not the DataCluster sample. We would be annotating from zero.
+- **It would be our thinnest class by far.** `cattle` had 183 boxes in the S11 test split and scored
+  **mAP50 0.362** — our worst class by a wide margin. Ambulances are rarer than cattle on an Indian
+  junction approach, so the result would sit below the support floor FR-D08 exists to enforce.
+- **They frequently do not look distinct.** Many Indian ambulances are ordinary vans carrying a
+  sticker and a light. This is a hard visual problem, not a labelling shortfall.
+
+Camera is the wrong sensor for this. Real preemption systems use RF, GPS or siren audio.
+
+| | From | To |
+|---|---|---|
+| FR-P03 | Detect emergency vehicles from video | **Withdrawn** as a graded deliverable |
+| FR-P04 | Confidence ≥0.75 AND ≥2 consecutive detections | **Kept** — it governs the trigger contract, whatever raises it |
+| FR-A05 | Preemption overrides the controller | **Kept and already implemented** |
+
+**What we deliver instead, and it is already built and tested:** the preemption *policy*, driven by
+an `EmergencyDetect` message on the existing QoS 2 MQTT topic — raised in the demo by an operator
+control, and in evaluation by an injected event. Preemption overrides the controller (a controller
+that permanently demands the wrong phase still loses), and never shortens clearance.
+
+This separates the half we can evidence from the half we cannot. We would rather demonstrate a
+correct override driven by a real trigger than publish an ambulance detector built on fifty boxes.
+
+**A29 is attached to this variation** — FR-A05's "within 3 seconds" contradicts FR-A03 and FR-A04
+and is unreachable when the emergency approach is red. Measured worst case **15 s**; floor **6 s**.
 
 ## 3. What we are protecting
 
@@ -82,7 +117,7 @@ Everything that is graded and everything that gets published:
 - The 7-configuration ablation study, run at full 100 epochs
 - The 30-run RL benchmark with paired t-tests, 95% CIs, and Cohen's *d*
 - Reproducibility (NFR-07–10): fixed seeds, pinned dependencies, raw result CSVs committed
-- The working prototype demo and emergency preemption
+- The working prototype demo and the emergency preemption override (Variation C)
 - The conference paper
 
 ## 4. Two improvements we are making regardless
