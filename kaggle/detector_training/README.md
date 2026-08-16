@@ -63,3 +63,47 @@ no public dataset assessed carries it, which is pending item **P12**.
 
 The fps figure is a **proxy**. ADR-003 made the edge node a laptop, and a T4 is
 not it, so that number bounds FR-D06 rather than demonstrating it.
+
+---
+
+## 4. `kernels push` cannot set the GPU **type**, and a new notebook defaults to P100
+
+Learned twice, which is once too many.
+
+`kernel-metadata.json` carries `"enable_gpu": true` and `"machine_shape": "Gpu"`.
+Neither selects *which* GPU. The accelerator is a per-notebook **session setting**
+that only the editor UI can change, and **every new notebook starts on GPU P100**
+regardless of what any earlier notebook was set to.
+
+Kaggle's P100 is compute capability **sm_60**. Current PyTorch builds start at
+sm_70, so the card is **unusable, not merely slow** — and the only signal is a
+`UserWarning` that scrolls past while the run continues to its eventual failure.
+
+S14 version 1 hit this. The hard gate in cell 1 caught it in **14.4 seconds**:
+
+```
+arch   sm_60 | build supports ['sm_70', 'sm_75', ...]
+SystemExit: INCOMPATIBLE GPU sm_60; ... Settings -> Accelerator -> GPU T4 x2 (sm_75).
+```
+
+That gate is the reason this cost seconds rather than an hour of a 30-hour weekly
+quota. **Keep it in every notebook.**
+
+### The fix, in order
+
+1. Open the notebook editor.
+2. Right panel → **Session options** → **Accelerator** → **GPU T4 x2**, and
+   confirm the "Turn on GPU T4 x2" dialog.
+3. Check the **Input** panel lists `IndiaTrafficNet Bootstrap - IDD YOLO 8class`.
+   `dataset_sources` in `kernel-metadata.json` does carry across a push, but a
+   UI *Save & Run All* uses whatever the **draft** has attached.
+4. **Save Version** → type **Save & Run All (Commit)** → Save.
+
+### Confirm it from the command line rather than the tab
+
+```
+python -m kaggle kernels status idredk/cnn-vit-bilstm-cross-attention-traffic-system-s14
+```
+
+`KernelWorkerStatus.RUNNING` means it is genuinely queued and running, which the
+editor does not always make obvious.
