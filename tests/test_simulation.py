@@ -390,3 +390,102 @@ def test_env_passes_sb3_check_env():
         check_env(env, warn=True)
     finally:
         env.close()
+
+
+# --------------------------------- emergency preemption (FR-A05, A29) --
+
+class _Obstinate:
+    """A controller that ALWAYS requests the phase the emergency does not need.
+
+    Stands in for a PPO agent that has learned a policy hostile to preemption.
+    Safety must be an actuation property, not something a policy is trusted to
+    have learned (PRD §9.6), so preemption has to win against a controller that
+    actively works against it — not merely against one that happens to agree.
+    """
+
+    name = "obstinate"
+
+    def __init__(self, always: int) -> None:
+        self.always = always
+
+    def reset(self) -> None:
+        pass
+
+    def decide(self, observation: dict) -> tuple[int, int]:
+        return self.always, 90
+
+
+@needs_sumo
+def test_preemption_overrides_a_controller_that_refuses_to_yield():
+    """FR-A05. The controller is not consulted while preemption is active."""
+    from simulation.runner import EW, run_episode
+
+    # Emergency on N (needs phase NS); controller permanently demands EW.
+    result = run_episode(
+        _Obstinate(always=EW), regime="saturated", seed=42, duration_s=200,
+        emergency_at=30, emergency_approach="N",
+    )
+    assert result.extra["emergency_latency_s"] is not None, (
+        "the emergency approach was never served — the controller won, which is "
+        "exactly what FR-A05 forbids"
+    )
+
+
+@needs_sumo
+def test_preemption_never_skips_yellow_and_all_red():
+    """FR-A04 outranks FR-A05's timing, and this is the assertion that says so.
+
+    Reaching a green faster by dropping clearance means releasing one approach
+    into an intersection another is still crossing. If a future edit "optimises"
+    preemption latency by skipping the interphase, this fails.
+    """
+    from simulation.runner import run_episode
+
+    yellow_s, all_red_s = 3, 3
+    result = run_episode(
+        Fixed(green_s=30), regime="saturated", seed=42, duration_s=200,
+        yellow_s=yellow_s, all_red_s=all_red_s,
+        emergency_at=5, emergency_approach="E",     # E is red at t=5
+    )
+    latency = result.extra["emergency_latency_s"]
+    assert latency >= yellow_s + all_red_s, (
+        f"latency {latency}s is below the {yellow_s + all_red_s}s of clearance "
+        f"that FR-A04 makes unskippable — the interphase was cut"
+    )
+
+
+@needs_sumo
+def test_an_emergency_on_an_already_green_approach_costs_nothing():
+    """The one case FR-A05's 3 s bound is actually satisfiable in."""
+    from simulation.runner import run_episode
+
+    result = run_episode(
+        Fixed(green_s=30), regime="saturated", seed=42, duration_s=200,
+        emergency_at=5, emergency_approach="N",     # N is green at t=5
+    )
+    assert result.extra["emergency_latency_s"] == 0
+
+
+@needs_sumo
+def test_fr_a05_three_second_bound_is_unreachable_when_the_approach_is_red():
+    """A29. This test asserts a REQUIREMENTS DEFECT, deliberately.
+
+    FR-A05 says "clear emergency lane green within 3 seconds". FR-A04 mandates
+    at least 3 s of all-red, and the program also runs 3 s of yellow, so a phase
+    change costs 6 s before the emergency approach can see green — and FR-A03's
+    minimum green may add up to 10 s more.
+
+    If this test ever fails, either the clearance intervals were removed (a
+    safety regression) or FR-A05 was amended (in which case update A29 and delete
+    this test). Both need a human; neither should pass silently.
+    """
+    from simulation.runner import run_episode
+
+    result = run_episode(
+        Fixed(green_s=30), regime="saturated", seed=42, duration_s=200,
+        emergency_at=5, emergency_approach="E",
+    )
+    assert result.extra["emergency_latency_s"] > 3, (
+        "FR-A05's 3 s bound was met on a red approach. That is only possible if "
+        "clearance was skipped — check FR-A04 before celebrating"
+    )

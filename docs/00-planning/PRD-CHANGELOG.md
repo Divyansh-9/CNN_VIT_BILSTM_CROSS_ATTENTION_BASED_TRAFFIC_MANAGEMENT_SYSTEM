@@ -530,3 +530,64 @@ the exact shape of claim this project has spent its effort removing.
 It is also the most useful thing the detector track has produced: it converts a
 documented worry into a measured constraint, before 12,000 frames were annotated
 against a detector that cannot see them.
+
+---
+
+## A29 (proposed) — FR-A05's 3-second preemption bound contradicts FR-A03 and FR-A04
+
+**Raised** 2026-08-16 · **Affects** PRD §9.6 FR-A05 · **Status** PROPOSED — needs guide sign-off
+
+Found while implementing emergency preemption, which the PRD has required all
+along and which nothing had implemented.
+
+FR-A05: *"Emergency preemption SHALL override PPO: clear emergency lane green
+**within 3 seconds**."*
+
+That is unreachable whenever the emergency approach is red, because two other
+Must-Have requirements stand in the way:
+
+* **FR-A04** — all-red clearance, minimum 3 s between transitions.
+* The program also runs 3 s of yellow, so **a phase change costs 6 s** before the
+  emergency approach can legally see green.
+* **FR-A03** — minimum green 10 s. Preemption arriving just after a green starts
+  waits out the rest of it.
+
+Measured on the real runner (`Fixed(green_s=30)`, saturated, seed 42):
+
+| emergency | latency | |
+|---|---|---|
+| N at t=5 s | **0 s** | already green — the only case the bound is met |
+| N at t=41 s | **15 s** | |
+| E at t=5 s | **11 s** | |
+| E at t=40 s | **6 s** | the floor: yellow + all-red |
+
+**Worst observed 15 s against a specified 3 s.** The floor is 6 s and cannot be
+lowered without deleting clearance.
+
+### The implementation does not resolve this by cheating
+
+Preemption overrides the controller — a controller that permanently demands the
+wrong phase still loses, asserted by
+`test_preemption_overrides_a_controller_that_refuses_to_yield`. But it does not
+override safety. Reaching green sooner by dropping the interphase would release
+one approach into an intersection another is still crossing.
+`test_preemption_never_skips_yellow_and_all_red` fails if a future edit
+"optimises" the latency that way.
+
+`test_fr_a05_three_second_bound_is_unreachable_when_the_approach_is_red`
+asserts the defect itself, so it cannot quietly stop being true.
+
+### Proposed amendment
+
+> FR-A05 — Emergency preemption SHALL override the controller within **1 signal
+> decision step**, and SHALL clear the emergency approach to green at the
+> earliest time permitted by FR-A03 and FR-A04. Clearance intervals SHALL NOT be
+> shortened for preemption. The measured latency SHALL be reported per episode.
+
+This keeps the intent — nothing outranks an ambulance except physics — while
+stating a bound that can be met and verified. The published figure becomes a
+**measured latency distribution**, not an unmet assertion.
+
+**Do not implement against this until the guide signs off.** The code above is
+the safe behaviour under the *existing* requirements; only the numeric claim in
+FR-A05 is in question.

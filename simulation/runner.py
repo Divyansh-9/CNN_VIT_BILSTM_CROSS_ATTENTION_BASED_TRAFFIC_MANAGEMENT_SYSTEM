@@ -101,12 +101,25 @@ def run_episode(
     starvation_s: int = 180,
     lateral_resolution: float | None = 0.8,
     collect_lateral: bool = False,
+    emergency_at: int | None = None,
+    emergency_approach: str = "N",
 ) -> EpisodeResult:
     """Run one episode. Returns metrics; writes nothing.
 
     `lateral_resolution=None` disables the sublane model, which is the (b) arm of
     ADR-010's declared comparison — the same demand under lane-disciplined SUMO,
     reported so the heterogeneity claim is evidenced rather than asserted.
+
+    **Emergency preemption (FR-A05).** `emergency_at` raises an emergency on
+    `emergency_approach` at that step. Preemption overrides the controller — that
+    is the requirement — but it does **not** override safety: the minimum green
+    already running is honoured (FR-A03) and yellow plus all-red are always
+    inserted (FR-A04). Skipping clearance to reach a green sooner would mean
+    releasing one approach into an intersection another is still crossing.
+
+    The measured latency is reported as `emergency_latency_s`, and it is measured
+    rather than assumed because **FR-A05's "within 3 seconds" is not reachable
+    when the emergency approach is red** — see A29.
     """
     ensure_sumo_home()
     import tempfile
@@ -161,7 +174,26 @@ def run_episode(
         traci.trafficlight.setPhase("C", current_phase * 3)
         remaining = min_green_s
 
+        # FR-A05. `green_elapsed` is tracked separately from `remaining` because
+        # preemption may cut a green short, and the minimum-green guarantee is
+        # about how long the phase has ACTUALLY run, not how long was requested.
+        green_elapsed = 0
+        preempt_phase = NS if emergency_approach in ("N", "S") else EW
+        raised_at: int | None = None
+        green_at: int | None = None
+
         while step < duration_s:
+            if emergency_at is not None and step >= emergency_at and raised_at is None:
+                raised_at = step
+
+            preempting = raised_at is not None and green_at is None
+            if preempting and current_phase == preempt_phase:
+                green_at = step              # already serving it — latency 0
+                preempting = False
+            elif preempting and green_elapsed >= min_green_s:
+                # Force a decision now. The interphase below still runs in full.
+                remaining = 0
+
             counts, queues, waits = {}, {}, {}
             for approach, group in lanes.items():
                 counts[approach] = sum(
@@ -178,10 +210,15 @@ def run_episode(
                 )
 
             if remaining <= 0:
-                phase, green = controller.decide({
-                    "counts": counts, "queues": queues, "waits": waits,
-                    "phase": current_phase, "step": step,
-                })
+                if preempting:
+                    # FR-A05: preemption OVERRIDES the controller. The controller
+                    # is not consulted, so a PPO agent cannot decline to yield.
+                    phase, green = preempt_phase, max_green_s
+                else:
+                    phase, green = controller.decide({
+                        "counts": counts, "queues": queues, "waits": waits,
+                        "phase": current_phase, "step": step,
+                    })
                 # Clamping happens HERE, not in the controller. A policy that
                 # has learned to request a 300 s green is still a policy that
                 # gets 90 (PRD §9.6).
@@ -197,11 +234,15 @@ def run_episode(
                     step += yellow_s + all_red_s
                     current_phase = phase
                     traci.trafficlight.setPhase("C", current_phase * 3)
+                    green_elapsed = 0
+                    if preempting and current_phase == preempt_phase:
+                        green_at = step
                 remaining = green
 
             traci.simulationStep()
             step += 1
             remaining -= 1
+            green_elapsed += 1
 
             departed += traci.simulation.getDepartedNumber()
             arrived += traci.simulation.getArrivedNumber()
@@ -233,6 +274,16 @@ def run_episode(
     tripinfo.unlink(missing_ok=True)
 
     extra = {}
+    if emergency_at is not None:
+        extra["emergency_approach"] = emergency_approach
+        extra["emergency_raised_s"] = raised_at
+        # None means the emergency was never served before the episode ended —
+        # reported as None rather than as a number, for the same reason a class
+        # with no instances is NOT EVALUATED rather than borrowing a neighbour's.
+        extra["emergency_latency_s"] = (
+            green_at - raised_at if (green_at is not None and raised_at is not None)
+            else None
+        )
     if collect_lateral:
         for kind, values in sorted(lateral_spread.items()):
             extra[f"lat_mean_{kind}"] = round(sum(values) / len(values), 4)
