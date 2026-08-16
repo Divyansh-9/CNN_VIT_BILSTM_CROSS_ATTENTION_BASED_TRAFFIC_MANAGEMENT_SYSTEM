@@ -338,6 +338,50 @@ even for detection.
 > licensed for research. An unclear commercial sample is a poor trade when a
 > citable academic alternative already exists.
 
+### DataCluster re-assessed after the viewpoint gap was measured — REJECTED
+
+Re-examined once P5 rev 2 showed the real problem is viewpoint, not classes.
+Two independent reasons, either sufficient.
+
+**1. The licence is `copyright-authors`.** That is Kaggle's all-rights-reserved
+marker, confirmed from the dataset's own metadata rather than its description.
+[ADR-013](decisions/ADR-013-artifact-hosting-and-publication.md) Decision 4
+commits this project to properly-licensed sources for anything that reaches a
+publication. This disqualifies it before any technical question is asked.
+
+**2. The imagery is street-level phone stills, which is the wrong geometry.**
+Filenames encode 4160×3120, 3264×2448, 2592×1944 — 4:3 phone-camera stills, and
+the dataset describes itself as crowdsourced. Two samples inspected directly:
+
+| | |
+|---|---|
+| Sample A | a parked Tempo Traveller filling most of a portrait frame, shot from a few metres at eye level |
+| Sample B | a signalised junction from the kerb — sparse traffic, distant vehicles, ~60% of the frame bare tarmac |
+
+Sample B is closer to useful than Sample A, but neither is an elevated fixed
+camera looking down at dense traffic. **It would add more of what IDD already
+over-supplies — large, near, eye-level vehicles — and none of what the measured
+gap needs.**
+
+### The gap points at aerial data, and that is worth knowing before acting on it
+
+The geometry that resembles an elevated junction camera — small objects, oblique
+downward view, dense scenes — is what **drone datasets** contain.
+[VisDrone2019-DET](https://docs.ultralytics.com/datasets/detect/visdrone) is the
+obvious candidate: 8,629 aerial images across 14 cities, and its class list
+includes **`tricycle` and `awning-tricycle`**, the closest public analogue to an
+auto-rickshaw that any non-Indian dataset offers.
+
+**It is not being adopted yet, deliberately.** Drone altitude is tens of metres
+where a footbridge is five to ten, so it is *closer* than dashcam without being
+the same thing, and the cities are Chinese. Adding it now would be augmenting on
+a hunch, which is the pattern this project has spent its effort correcting.
+
+**Run S12 first.** The cross-camera experiment measures what viewpoint transfer
+actually costs, using IDD alone and no new data. If the drop is large, VisDrone
+becomes a justified augmentation with a number behind it. If it is small, the
+whole line of reasoning was wrong and no third dataset is needed.
+
 ### Foreign and highway footage — evaluate on it, never train the corpus on it
 
 Non-Indian footage was proposed for generalisation. Three separate uses, and
