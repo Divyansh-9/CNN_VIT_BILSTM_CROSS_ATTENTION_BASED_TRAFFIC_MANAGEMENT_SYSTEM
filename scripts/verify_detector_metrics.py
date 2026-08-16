@@ -34,18 +34,60 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-def load_names(data_yaml: Path) -> list[str]:
+def load_config(data_yaml: Path) -> dict:
     import yaml
 
-    return yaml.safe_load(data_yaml.read_text(encoding="utf-8"))["names"]
+    return yaml.safe_load(data_yaml.read_text(encoding="utf-8"))
 
 
-def support(root: Path, split: str, names: list[str]) -> dict[str, int]:
+def label_dirs(config: dict, data_yaml: Path, split: str) -> list[Path]:
+    """Label directories for `split`, derived from the config's IMAGE paths.
+
+    The obvious implementation — `data_yaml.parent / "labels" / split` — is wrong
+    the moment a config lives anywhere other than the dataset root, which is
+    exactly what the joint eval configs do. It returns zero boxes for every
+    class, and the table then prints an mAP beside a support of 0: the same
+    impossible pairing this script exists to prevent, arriving by a different
+    route.
+
+    Ultralytics resolves labels by substituting `images` -> `labels` in the image
+    path, so that is what is done here rather than assumed about the layout.
+    """
+    entry = config.get(split) or config.get("val") or config.get("train")
+    entries = entry if isinstance(entry, list) else [entry]
+    base = Path(config["path"]) if config.get("path") else data_yaml.parent
+
+    resolved = []
+    for item in entries:
+        path = Path(item)
+        if not path.is_absolute():
+            path = base / path
+        parts = list(path.parts)
+        if "images" not in parts:
+            raise SystemExit(
+                f"cannot derive a labels directory from {path}: no 'images' "
+                f"component. Ultralytics needs that substitution too."
+            )
+        parts[len(parts) - 1 - parts[::-1].index("images")] = "labels"
+        resolved.append(Path(*parts))
+    return resolved
+
+
+def support(directories: list[Path], names: list[str]) -> dict[str, int]:
     counts = {name: 0 for name in names}
-    for label_file in (root / "labels" / split).glob("*.txt"):
-        for line in label_file.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                counts[names[int(line.split()[0])]] += 1
+    seen = 0
+    for directory in directories:
+        for label_file in directory.glob("*.txt"):
+            seen += 1
+            for line in label_file.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    counts[names[int(line.split()[0])]] += 1
+    if not seen:
+        raise SystemExit(
+            f"no label files under {[str(d) for d in directories]}. Reporting "
+            f"metrics with a support of 0 for every class would be worse than "
+            f"reporting nothing."
+        )
     return counts
 
 
@@ -63,8 +105,9 @@ def main(argv: list[str] | None = None) -> int:
 
     from ultralytics import YOLO
 
-    names = load_names(args.data)
-    boxes = support(args.data.parent, args.split, names)
+    config = load_config(args.data)
+    names = config["names"]
+    boxes = support(label_dirs(config, args.data, args.split), names)
 
     model = YOLO(str(args.weights))
     metrics = model.val(

@@ -4,6 +4,8 @@
     python scripts/kaggle_push.py --dataset    # upload data/idd_yolo (959 MB)
     python scripts/kaggle_push.py --kernel     # push the notebook
 
+    python scripts/kaggle_push.py --kernel --dir kaggle/joint_training   # S14
+
 **Why the API rather than clicking through the browser.** A browser session is
 not reproducible, breaks whenever Kaggle changes its UI, and leaves no record of
 what was uploaded. This is one command, it is versioned in the repository, and it
@@ -32,11 +34,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-HERE = Path("kaggle/detector_training")
+DEFAULT_KERNEL_DIR = Path("kaggle/detector_training")
 DATA = Path("data/idd_yolo")
 KAGGLE_DIR = Path.home() / ".kaggle"
 CREDENTIAL_PATHS = (KAGGLE_DIR / "kaggle.json", KAGGLE_DIR / "access_token")
@@ -63,7 +66,7 @@ def credentials_present() -> tuple[bool, str]:
     return False, ""
 
 
-def check() -> int:
+def check(here: Path = DEFAULT_KERNEL_DIR) -> int:
     ok = True
 
     present, how = credentials_present()
@@ -95,19 +98,31 @@ def check() -> int:
         print(f"  dataset      MISSING  {DATA}")
         print("     Build it: python scripts/prepare_idd.py --count 8000 --copy-images")
 
-    for name in ("dataset-metadata.json", "kernel-metadata.json",
-                 "s11_train_detector.ipynb"):
-        path = HERE / name
-        print(f"  {name:<28} {'OK' if path.exists() else 'MISSING'}")
-        ok &= path.exists()
+    print(f"\n  kernel dir   {here}")
+    metadata = here / "kernel-metadata.json"
+    if not metadata.exists():
+        print(f"  kernel-metadata.json         MISSING in {here}")
+        return 1
+    kernel = json.loads(metadata.read_text(encoding="utf-8"))
 
-    if ok:
-        kernel = json.loads((HERE / "kernel-metadata.json").read_text(encoding="utf-8"))
-        dataset = json.loads((HERE / "dataset-metadata.json").read_text(encoding="utf-8"))
-        print(f"\n  would create dataset  {dataset['id']}")
-        print(f"  would create notebook {kernel['id']}")
-        print(f"  notebook title        {kernel['title']}")
-        print(f"  gpu {kernel['enable_gpu']}   private {kernel['is_private']}")
+    notebook = here / kernel["code_file"]
+    print(f"  {kernel['code_file']:<28} {'OK' if notebook.exists() else 'MISSING'}")
+    ok &= notebook.exists()
+
+    # Kaggle derives the kernel slug from the TITLE. A title that slugifies to
+    # anything else creates a SECOND notebook instead of versioning this one,
+    # which is how a run history quietly forks. Cost six versions to learn once.
+    slug = re.sub(r"[^a-z0-9]+", "-", kernel["title"].lower()).strip("-")
+    expected = kernel["id"].split("/")[-1]
+    if slug != expected:
+        ok = False
+        print(f"  TITLE SLUG MISMATCH  {slug!r} != {expected!r}")
+        print("     Kaggle would create a NEW notebook, not a new version.")
+
+    print(f"\n  would push notebook   {kernel['id']}")
+    print(f"  notebook title        {kernel['title']}")
+    print(f"  gpu {kernel['enable_gpu']}   private {kernel['is_private']}")
+    print(f"  datasets              {kernel.get('dataset_sources') or 'none'}")
     return 0 if ok else 1
 
 
@@ -123,10 +138,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", action="store_true")
     parser.add_argument("--kernel", action="store_true")
     parser.add_argument("--message", default="S11 detector bootstrap")
+    parser.add_argument("--dir", type=Path, default=DEFAULT_KERNEL_DIR,
+                        help="notebook directory (kaggle/joint_training for S14)")
     args = parser.parse_args(argv)
 
     if not (args.dataset or args.kernel):
-        return check()
+        return check(args.dir)
 
     present, _ = credentials_present()
     if not present:
@@ -138,7 +155,8 @@ def main(argv: list[str] | None = None) -> int:
         # Metadata must sit beside the files Kaggle uploads.
         target = DATA / "dataset-metadata.json"
         target.write_text(
-            (HERE / "dataset-metadata.json").read_text(encoding="utf-8"), encoding="utf-8"
+            (DEFAULT_KERNEL_DIR / "dataset-metadata.json").read_text(encoding="utf-8"),
+            encoding="utf-8",
         )
         listing = subprocess.run(
             [python, "-m", "kaggle", "datasets", "list", "-m"],
@@ -152,10 +170,12 @@ def main(argv: list[str] | None = None) -> int:
         print("  dataset pushed. A NEW VERSION — earlier ones stay on Kaggle.")
 
     if args.kernel:
-        code = run([python, "-m", "kaggle", "kernels", "push", "-p", str(HERE)])
+        code = run([python, "-m", "kaggle", "kernels", "push", "-p", str(args.dir)])
         if code:
             return code
-        kernel = json.loads((HERE / "kernel-metadata.json").read_text(encoding="utf-8"))
+        kernel = json.loads(
+            (args.dir / "kernel-metadata.json").read_text(encoding="utf-8")
+        )
         print(f"  notebook pushed: https://www.kaggle.com/code/{kernel['id']}")
         print("  Open it, confirm the GPU is on, and Run All.")
 
