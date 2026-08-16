@@ -363,6 +363,89 @@ camera looking down at dense traffic. **It would add more of what IDD already
 over-supplies — large, near, eye-level vehicles — and none of what the measured
 gap needs.**
 
+### BMD-45 — Indian, CCTV, and open. This is the answer to the measured gap
+
+Found while checking the reviewer's UA-DETRAC suggestion, and it supersedes it.
+[BMD-45](https://huggingface.co/datasets/iisc-aim/BMD-45) (CVPR 2026,
+[arXiv 2604.24419](https://arxiv.org/abs/2604.24419)) is
+**45,986 images / 481,947 boxes from 3,679 operational Safe City CCTV cameras in
+Bengaluru**. Verified against the Hub API and the COCO file itself, not the
+abstract:
+
+| | |
+|---|---|
+| licence | **CC BY 4.0**, ungated — satisfies ADR-013 Decision 4 outright |
+| viewpoint | fixed CCTV, junction **and** mid-block, 1920×1080 |
+| country | India |
+| format | COCO JSON |
+| size | 153.2 GB (3.33 MB/image, PNG) |
+
+Train-split box counts, read from `_annotations.coco.json`:
+
+| class | boxes | | class | boxes |
+|---|---|---|---|---|
+| Two-wheeler | 171,283 | | Truck | 9,968 |
+| **Three-wheeler** | **65,899** | | MUV | 9,092 |
+| Hatchback | 35,101 | | Bicycle | 4,713 |
+| Sedan | 19,970 | | Tempo-traveller | 4,060 |
+| LCV | 18,115 | | Van | 4,020 |
+| SUV | 15,573 | | Mini-bus | 1,439 |
+| Bus | 13,899 | | | |
+
+A sample image was inspected directly: an elevated CCTV view down onto a
+Bengaluru road, with a second CCTV camera visible in frame. **This is the
+deployment geometry, in the deployment country, under an open licence.**
+
+**65,899 three-wheeler boxes at the right viewpoint** is the number that matters.
+The whole IDD bootstrap yielded 1,001 auto-rickshaw boxes in its test split, all
+from a dashcam.
+
+#### It does not replace IDD, and saying so precisely matters
+
+BMD-45 is a **vehicle** dataset. It has no `pedestrian`, no `cattle`, and no
+`e_rickshaw`. Our taxonomy needs all three. The two sources are complementary
+along exactly the axis that failed:
+
+* **BMD-45** — vehicles, at the correct viewpoint, in India.
+* **IDD** — `pedestrian` and `cattle`, at the wrong viewpoint.
+* **P12 `e_rickshaw`** — still unsourced. `Three-wheeler` may conflate
+  auto-rickshaw with e-rickshaw; that must be checked before it is claimed either
+  way, and it does not change P12's pre-registered 1% rule.
+
+A mapping is required — four car subtypes (Hatchback/Sedan/SUV/MUV, plus Van)
+collapse to our single `car`, `Bus`+`Mini-bus` to `bus`, `Truck`+`LCV` to
+`truck`. That is a **merge of like things**, which DATASETS §6.1 permits, unlike
+the `vehicle fallback` case it forbids.
+
+#### Mix, do not sequence
+
+The obvious plan — fine-tune on elevated data, then fine-tune on IDD — ends
+training on a corpus that is 100% dashcam and would pull the viewpoint skill
+straight back out. **Train jointly on the mapped union**, so the pedestrian and
+cattle examples arrive without the geometry being un-taught.
+
+#### 153 GB is a Kaggle problem, not a blocker
+
+Do the subsample **inside the Kaggle notebook**, pulling from the Hub and
+downscaling before training. Kaggle's bandwidth and disk are free; a student
+connection is neither.
+
+### On UA-DETRAC, and why the aerial route is now second choice
+
+The reviewer's reasoning was right and is what prompted this search: **viewpoint
+is a separable skill that transfers across countries, while class taxonomy and
+driving behaviour are not.** That decomposition holds.
+
+Its specific pick is superseded, and the BMD-45 paper happens to measure exactly
+why: **models fine-tuned on UA-DETRAC reach 33.6% mAP@0.50:0.95 on Bengaluru
+CCTV, against 83.8% trained in-domain.** Foreign elevated data transfers, but not
+nearly as far as Indian elevated data. BMD-45 wins on viewpoint *and* country
+*and* the three-wheeler class *and* licence.
+
+[VisDrone2019-DET](https://docs.ultralytics.com/datasets/detect/visdrone) stays
+recorded as a fallback, not adopted: drone altitude is tens of metres where a
+footbridge is five to ten, and the cities are Chinese.
+
 ### The gap points at aerial data, and that is worth knowing before acting on it
 
 The geometry that resembles an elevated junction camera — small objects, oblique

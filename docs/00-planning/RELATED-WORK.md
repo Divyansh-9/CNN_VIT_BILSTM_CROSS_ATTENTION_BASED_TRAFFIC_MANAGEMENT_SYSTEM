@@ -250,3 +250,58 @@ Week 3–4, one paper each, presented to the group in fifteen minutes:
 5. **IDD** — your data foundation and its stated limitations.
 
 Not reading these is the most common way a strong project gets a weak viva.
+
+---
+
+## Saxena et al., IM-VRM (IEEE TITS 26(6), 2025) — one idea to take, two errors to avoid
+
+[DOI 10.1109/TITS.2025.3557826](https://doi.org/10.1109/TITS.2025.3557826), CC BY 4.0.
+Multi-depot delivery routing: a GNN with greedy search picks initial routes, an
+XGBoost model forecasts congestion, Dijkstra selects on "green parameters" (fuel,
+CO₂, time, distance). Evaluated on an extended T-Drive Beijing taxi-trajectory
+dataset.
+
+**It is not a competitor.** Different problem (routing, not signal control),
+different input (GPS trajectories, not video), different output. It does not
+touch our claim and should be cited as adjacent context, not as prior art we beat.
+
+### The one thing worth taking: XGBoost on counts, as a baseline
+
+IM-VRM predicts a three-class congestion state — `no-traffic` / `mild-traffic` /
+`heavy-traffic`, the same cardinality as our LOW/MED/HIGH — and reports **92.5%
+accuracy from gradient-boosted trees on tabular features**.
+
+That is a baseline we do not currently have and should. PRD §14.3's baselines are
+all rule-based. **If MFSTNet — ResNet-50 plus DINOv2 plus bidirectional
+cross-attention plus BiLSTM — cannot beat XGBoost on raw detector counts, that is
+the single most important finding this project could produce**, and it costs
+minutes of CPU to establish. It also gives the ablation a floor that is a real
+model rather than a threshold rule.
+
+Raised as **P13**. It belongs in the ablation table as a row, not in a footnote.
+
+### Two errors to avoid, and they are instructive because this is a TITS paper
+
+**Table VI compares across different datasets.** PCNN is scored on vehicle
+passage records, LSTM on Caltrans PeMS in Oakland, GNN on Beijing/Hangzhou, and
+IM-VRM on T-Drive — then the lowest loss and RMSE are claimed as superiority.
+Those numbers are not comparable; nothing is held fixed. Our §14.4 ablation runs
+every config on the same splits with the same seeds for exactly this reason, and
+that discipline is worth stating explicitly in the paper rather than assuming a
+reviewer notices.
+
+**Table IV's "P-value" column contains values above 1** — 4.0017, 7.6766, 5.8369.
+A p-value is a probability and cannot exceed 1, so whatever that column holds, it
+is not what it is labelled. The accompanying claim that a declining trend "suggests
+the outcomes are not mere chance" is not an inference a p-value supports.
+
+Related: Fig. 6 reports accuracy 0.9552, precision 0.9553, recall 0.9551 and
+F1 0.9552 — four metrics agreeing to four decimals, which happens only under near
+perfect class balance and is left unremarked. Our own reporting requires support
+counts beside every per-class number (FR-D08) precisely so a reader can tell
+whether that is real.
+
+**None of this makes the paper worthless** — the routing contribution is separate
+from these reporting problems. It is recorded because a published TITS paper
+making a comparison error we have built machinery to avoid is the clearest
+argument for why that machinery is worth its cost.
