@@ -50,6 +50,7 @@ def train(
     episode_s: int | None = None,
     out: Path = Path("models/ppo"),
     smoke: bool = False,
+    action_space: str = "phase_duration",
 ) -> dict:
     from stable_baselines3 import PPO
     from stable_baselines3.common.monitor import Monitor
@@ -72,6 +73,9 @@ def train(
             seed=seed,
             episode_s=episode_s,
             use_mfstnet=config["arms"][arm]["use_mfstnet"],
+            # ADR-015. The screening arm the guide is being asked to choose
+            # between; see DECISION-BRIEF item 1.
+            action_space=action_space,
         )
     )
 
@@ -91,12 +95,14 @@ def train(
     model.learn(total_timesteps=timesteps, progress_bar=False)
 
     out.mkdir(parents=True, exist_ok=True)
-    path = out / f"ppo_{arm}_{regime}_seed{seed}"
+    suffix = "" if action_space == "phase_duration" else f"_{action_space}"
+    path = out / f"ppo_{arm}_{regime}{suffix}_seed{seed}"
     model.save(path)
     env.close()
 
     return {
         "arm": arm,
+        "action_space": action_space,
         "regime": regime,
         "seed": seed,
         "timesteps": timesteps,
@@ -108,6 +114,9 @@ def train(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--arm", default="no-forecast")
+    parser.add_argument("--action-space", default="phase_duration",
+                        choices=("phase_duration", "keep_or_switch"),
+                        help="ADR-015 screening arm")
     parser.add_argument("--regime", default="saturated")
     parser.add_argument("--timesteps", type=int)
     parser.add_argument("--seed", type=int)
@@ -117,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
 
     info = train(
         args.arm, timesteps=args.timesteps, regime=args.regime,
-        seed=args.seed, smoke=args.smoke,
+        seed=args.seed, smoke=args.smoke, action_space=args.action_space,
     )
     for key, value in info.items():
         print(f"  {key:12} {value}")

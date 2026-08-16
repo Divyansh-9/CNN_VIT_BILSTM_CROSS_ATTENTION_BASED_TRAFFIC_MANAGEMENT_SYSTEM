@@ -134,6 +134,7 @@ class TrafficSignalEnv(gym.Env):
         )
 
         self._traci = None
+        self._tripinfo = None
         self._episode = 0
 
     # ------------------------------------------------------------ gym api --
@@ -143,8 +144,15 @@ class TrafficSignalEnv(gym.Env):
         self._close()
 
         ensure_sumo_home()
+        import tempfile
+
         import traci
 
+        handle = tempfile.NamedTemporaryFile(
+            suffix=".tripinfo.xml", delete=False, mode="w"
+        )
+        handle.close()
+        self._tripinfo = Path(handle.name)
         self._traci = traci
         run_seed = self.base_seed + self._episode if seed is None else seed
         self._episode += 1
@@ -159,6 +167,13 @@ class TrafficSignalEnv(gym.Env):
             "--no-warnings", "true",
             "--time-to-teleport", "-1",
             "--waiting-time-memory", str(self.episode_s),
+            # Per-vehicle trip records, for the SAME reason run_episode collects
+            # them: the reward is a lane-sum shaping signal and the §14.3
+            # headline is a per-vehicle mean. Screening two action spaces on the
+            # shaping signal and then benchmarking on tripinfo would be a
+            # comparison of two different quantities, and could pick the wrong
+            # arm. `mean_wait_s()` reads this after an episode ends.
+            "--tripinfo-output", str(self._tripinfo),
         ])
 
         self._lanes = lane_ids()
@@ -328,3 +343,26 @@ class TrafficSignalEnv(gym.Env):
             except Exception:
                 pass
             self._traci = None
+
+    def mean_wait_s(self) -> float:
+        """Per-vehicle mean wait over COMPLETED trips, from tripinfo.
+
+        This is the §14.3 headline and the metric `run_episode` reports, so a
+        screened action space and a benchmarked controller are compared on the
+        same quantity. The reward is deliberately NOT this — it is a lane-sum
+        shaping signal, and `traci.lane.getWaitingTime` is a SUM over vehicles
+        rather than a mean, which is how a 468 s "mean wait" was once reported.
+
+        Call after the episode ends; SUMO writes tripinfo on close.
+        """
+        import xml.etree.ElementTree as ET
+
+        self._close()
+        if self._tripinfo is None or not self._tripinfo.exists():
+            return float("nan")
+        try:
+            root = ET.parse(self._tripinfo).getroot()
+        except ET.ParseError:
+            return float("nan")
+        waits = [float(t.get("waitingTime", 0.0)) for t in root.findall("tripinfo")]
+        return sum(waits) / len(waits) if waits else float("nan")
