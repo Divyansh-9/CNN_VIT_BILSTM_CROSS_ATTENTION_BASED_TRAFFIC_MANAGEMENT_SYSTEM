@@ -591,3 +591,94 @@ stating a bound that can be met and verified. The published figure becomes a
 **Do not implement against this until the guide signs off.** The code above is
 the safe behaviour under the *existing* requirements; only the numeric claim in
 FR-A05 is in question.
+
+---
+
+## S13 — the viewpoint gap measured as mAP, and FR-P02 measured for the first time (2026-08-16)
+
+P5 rev 2 showed detector counts halving on elevated footage and attributed it to
+viewpoint. That was an inference from counts, on unlabelled clips. BMD-45 provides
+**labelled** elevated Indian CCTV, so the same claim can now be tested directly.
+
+498 BMD-45 images, 5,273 vehicle boxes, evaluated with the unchanged S11 weights
+(`experiments/results/s11_on_bmd45_elevated.csv`).
+
+### The gap is not subtle
+
+| class | IDD test (dashcam) | BMD-45 (elevated) | change |
+|---|---|---|---|
+| car | 0.717 | 0.525 | −27% |
+| motorcycle | 0.662 | 0.381 | −42% |
+| **auto_rickshaw** | **0.703** | **0.349** | **−50%** |
+| bus | 0.729 | 0.109 | **−85%** |
+| truck | 0.689 | 0.248 | −64% |
+| **overall mAP50** | **0.6201** | **0.3223** | **−48%** |
+
+**mAP50 halves.** `auto_rickshaw` — the class the entire India-specific argument
+rests on — loses half its performance. `bus` very nearly disappears.
+
+**Precision holds while recall collapses.** `auto_rickshaw` precision falls only
+0.847 → 0.719, but recall falls 0.626 → 0.293. The detector is not confused about
+what it sees; it does not see. That is the signature of a scale and geometry
+mismatch, not a class-confusion problem, and it is why more Indian *dashcam* data
+would not have fixed it.
+
+This independently corroborates BMD-45's own reported figure — UA-DETRAC-tuned
+models reach 33.6% mAP@0.50:0.95 on this data against 83.8% in-domain — from a
+different starting point, which is worth more than either number alone.
+
+### FR-P02 has never been measured. It has now, and it fails
+
+"System SHALL detect and count vehicles per lane" is Must Have and is the
+backbone of everything downstream. `experiments/results/counting_accuracy.csv`:
+
+| | |
+|---|---|
+| true vehicles | 5,273 |
+| detected | **2,061** |
+| detected / true | **0.391** |
+| mean signed error | **−6.45 vehicles/frame** |
+
+**The detector finds 39% of the vehicles.** mAP would never have said this
+plainly: mAP is a per-class ranking measure over IoU thresholds, a count is one
+integer per frame, and a detector can hold a respectable mAP while losing the
+same fraction of vehicles in every frame.
+
+### The finding that changes the plan
+
+| | mean true count | detected / true |
+|---|---|---|
+| sparsest third | 3.8 | **0.480** |
+| densest third | 18.7 | **0.368** |
+
+**The shortfall is not a constant — it grows with density.** That distinction
+decides whether this is fixable by recalibration:
+
+* A *constant* fraction would be correctable. The §14.1 count thresholds could be
+  divided through and the congestion labels would survive.
+* A fraction that **falls as density rises** compresses the top of the range. The
+  gap between a MED scene and a HIGH scene shrinks precisely where the label
+  needs it to be widest.
+
+So the §14.1 thresholds **cannot be recalibrated around this**, and ADR-002's
+auto-labelling would not merely be noisy on elevated footage — it would be
+**biased toward "less congested"**, which is the worst available direction for a
+congestion predictor. A model trained on those labels would learn to under-call
+exactly the congestion it exists to predict.
+
+### Consequences
+
+1. **The S11 detector must not auto-label any elevated corpus.** Not as a caution
+   — as a measured prohibition.
+2. **Joint BMD-45 + IDD training is now the critical path**, not an improvement.
+3. **This is a publishable result on its own.** A quantified cross-viewpoint
+   generalisation gap for Indian traffic detection, with the recall/precision
+   decomposition that identifies the cause, is a contribution independent of
+   whether MFSTNet beats its baselines.
+4. **FR-P02 needs an acceptance threshold.** It currently states a capability with
+   no number attached, which is how it went unmeasured for the whole project.
+   Proposed with A30, once the joint model gives a figure worth setting it against.
+
+Credit where it belongs: this was found because the question "shouldn't we
+measure vehicle count?" was asked. It was already required, already relied upon,
+and nobody had checked it.

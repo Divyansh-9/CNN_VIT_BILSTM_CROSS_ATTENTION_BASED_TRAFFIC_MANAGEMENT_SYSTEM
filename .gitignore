@@ -81,3 +81,7 @@ data/idd_yolo/dataset-metadata.json
 
 # Detector weights live on Hugging Face, not git (ADR-013 rev 2)
 models/detector/
+
+# Elevated evaluation set — rebuildable by scripts/prepare_bmd45.py
+data/bmd45_eval/
+data/_bmd45_annotations.json

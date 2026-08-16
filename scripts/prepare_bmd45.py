@@ -108,6 +108,55 @@ def to_yolo(boxes: list, width: float, height: float, spec: dict,
     return lines, counts
 
 
+def fetch_images(pending: list, long_edge: int, workers: int) -> list:
+    """Download and downscale concurrently. Returns the ones that failed.
+
+    Serial fetching runs at roughly 6 images a minute — the cost is per-request
+    latency, not bandwidth, so it barely improves on a faster connection. An hour
+    for 500 images makes the elevated evaluation set feel expensive enough to
+    skip, which is how a measurement stops happening.
+    """
+    import concurrent.futures
+    import urllib.request
+
+    failures: list = []
+
+    def one(job) -> tuple | None:
+        file_name, stem, image_dir = job
+        target = image_dir / f"{stem}.jpg"
+        if target.exists():
+            return None
+        temporary = image_dir / f"{stem}.png"
+        try:
+            # `urlretrieve` has NO default timeout. One hung connection blocks a
+            # worker forever, and the run stalls at 498 of 499 with no error —
+            # observed, not hypothesised.
+            with urllib.request.urlopen(
+                BASE + f"{TRAIN_PREFIX}/{file_name}", timeout=60
+            ) as response:
+                temporary.write_bytes(response.read())
+        except Exception:                                # noqa: BLE001
+            temporary.unlink(missing_ok=True)
+            return (stem, image_dir)
+        if long_edge and _downscale(temporary, target, long_edge):
+            temporary.unlink(missing_ok=True)
+        else:
+            temporary.replace(target)
+        return None
+
+    done = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        for outcome in pool.map(one, pending):
+            done += 1
+            if outcome:
+                failures.append(outcome)
+            if done % 100 == 0:
+                print(f"    {done:,} / {len(pending):,}  ({len(failures)} failed)")
+    if failures:
+        print(f"  {len(failures)} image(s) failed; their labels were removed too")
+    return failures
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--count", type=int, default=8000,
@@ -118,8 +167,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cache", type=Path,
                         default=Path("data/_bmd45_annotations.json"))
     parser.add_argument("--min-boxes-per-class", type=int, default=50)
+    parser.add_argument("--workers", type=int, default=16,
+                        help="concurrent downloads; the cost is per-request "
+                             "latency, not bandwidth")
     parser.add_argument("--no-images", action="store_true",
                         help="labels only — inspect the split without the download")
+    parser.add_argument(
+        "--eval-only", action="store_true",
+        help="put every image in `test`. For measuring an EXISTING detector on "
+             "elevated imagery, where a 70/15/15 split would spend most of the "
+             "download on training data nothing is going to train on",
+    )
     args = parser.parse_args(argv)
 
     spec = load_bmd_mapping()
@@ -135,16 +193,20 @@ def main(argv: list[str] | None = None) -> int:
     rng.shuffle(images)
     chosen = images[: args.count]
 
-    n_train = int(len(chosen) * SPLITS["train"])
-    n_val = int(len(chosen) * SPLITS["val"])
-    assignment = (
-        [("train", i) for i in chosen[:n_train]]
-        + [("val", i) for i in chosen[n_train:n_train + n_val]]
-        + [("test", i) for i in chosen[n_train + n_val:]]
-    )
+    if args.eval_only:
+        assignment = [("test", i) for i in chosen]
+    else:
+        n_train = int(len(chosen) * SPLITS["train"])
+        n_val = int(len(chosen) * SPLITS["val"])
+        assignment = (
+            [("train", i) for i in chosen[:n_train]]
+            + [("val", i) for i in chosen[n_train:n_train + n_val]]
+            + [("test", i) for i in chosen[n_train + n_val:]]
+        )
 
     totals: collections.Counter = collections.Counter()
     written = skipped = 0
+    pending = []
     for split, image in assignment:
         lines, counts = to_yolo(
             by_image[image["id"]], float(image["width"]), float(image["height"]),
@@ -160,30 +222,20 @@ def main(argv: list[str] | None = None) -> int:
         label_dir.mkdir(parents=True, exist_ok=True)
         image_dir.mkdir(parents=True, exist_ok=True)
         (label_dir / f"{stem}.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-        if not args.no_images:
-            import urllib.request
-
-            target = image_dir / f"{stem}.jpg"
-            if not target.exists():
-                temporary = image_dir / f"{stem}.png"
-                try:
-                    urllib.request.urlretrieve(
-                        BASE + f"{TRAIN_PREFIX}/{image['file_name']}", temporary
-                    )
-                except Exception as error:              # noqa: BLE001
-                    print(f"    fetch failed {stem}: {error}")
-                    skipped += 1
-                    continue
-                if not (args.long_edge and _downscale(temporary, target, args.long_edge)):
-                    temporary.replace(target)
-                else:
-                    temporary.unlink(missing_ok=True)
-
+        pending.append((image["file_name"], stem, image_dir))
         totals.update(counts)
         written += 1
-        if written % 500 == 0:
-            print(f"    {written:,} / {len(assignment):,}")
+
+    if not args.no_images:
+        failures = fetch_images(pending, args.long_edge, args.workers)
+        # A label without its image is a silent training-set hole: Ultralytics
+        # resolves labels FROM image paths, so the orphan is simply never seen.
+        for stem, image_dir in failures:
+            (Path(str(image_dir).replace("images", "labels")) / f"{stem}.txt").unlink(
+                missing_ok=True
+            )
+        written -= len(failures)
+        skipped += len(failures)
 
     (args.out / "data.yaml").write_text(
         "# GENERATED by scripts/prepare_bmd45.py — do not edit.\n"

@@ -1,0 +1,9 @@
+class,precision,recall,mAP50,mAP50_95,test_boxes,evaluated
+car,0.6579,0.5223,0.5254,0.3993,1189,True
+motorcycle,0.6225,0.3427,0.3806,0.1853,2454,True
+auto_rickshaw,0.7192,0.2931,0.3488,0.2356,962,True
+e_rickshaw,,,,,0,False
+bus,0.3809,0.1138,0.1088,0.0802,290,True
+truck,0.4174,0.2619,0.2479,0.1655,378,True
+pedestrian,,,,,0,False
+cattle,,,,,0,False
