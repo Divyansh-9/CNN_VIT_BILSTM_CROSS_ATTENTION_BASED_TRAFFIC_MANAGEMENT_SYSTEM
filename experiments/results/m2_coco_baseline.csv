@@ -1,0 +1,8 @@
+class,comparable,coco_mAP50,ours_mAP50,delta,boxes
+car,True,0.6048,0.7133,0.1085,2772
+motorcycle,True,0.4285,0.6784,0.2499,3197
+bus,True,0.4852,0.7141,0.2288,558
+truck,True,0.3097,0.6958,0.3861,759
+auto_rickshaw,False,,0.7109,,
+e_rickshaw,False,,,,
+cattle,False,,0.3516,,

@@ -85,3 +85,6 @@ models/detector/
 # Elevated evaluation set — rebuildable by scripts/prepare_bmd45.py
 data/bmd45_eval/
 data/_bmd45_annotations.json
+
+# M2 baseline scratch — rebuildable by scripts/verify_m2_baseline.py
+data/_m2_coco_indexed/

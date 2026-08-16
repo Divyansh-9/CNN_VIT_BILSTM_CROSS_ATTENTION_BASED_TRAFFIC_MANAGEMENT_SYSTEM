@@ -128,10 +128,44 @@ and must be re-confirmed on our own footage.
 **p = 0.225 — not significant**. Longest-queue beats both at 18.51 s. We report
 that rather than the flattering framing.
 
-**One blocker remains, and it is the same one it has always been: S06 footage.**
-Fifteen minutes of elevated recording at a junction unblocks corpus
-construction, the operating-point confirmation, and the P12 e-rickshaw decision
-simultaneously.
+**M2 is met, seven weeks early and measured properly.** Its criterion is ">=10%
+mAP improvement over COCO on Indian classes", which had been claimed by
+implication and never actually measured. On the same test split, remapping the
+ground truth so Ultralytics' own validator scores both sides:
+
+| class | COCO | ours | delta |
+|---|---|---|---|
+| car | 0.605 | 0.713 | +0.108 |
+| motorcycle | 0.428 | 0.678 | +0.250 |
+| bus | 0.485 | 0.714 | +0.229 |
+| truck | 0.310 | 0.696 | +0.386 |
+| **shared mean** | **0.457** | **0.700** | **+53.2%** |
+
+Five times the threshold. On `auto_rickshaw` (0.711) and `cattle` (0.352) no
+percentage is honest — COCO has no such class, so the baseline is not low, it is
+undefined. That is a stronger statement than any number.
+
+### The schedule, stated plainly
+
+We are at **Week 2 of 20**. Against that:
+
+| milestone | due | status |
+|---|---|---|
+| M2 detector validated | Week 9 | **met at Week 2** |
+| M3 SUMO running, all methods | Week 10 | **met at Week 2** |
+| M4 MFSTNet core converges | Week 12 | graph verified; needs the corpus |
+| §12 identify intersections, begin collection | **Week 2–3** | **not started** |
+
+**The risk is not that we are behind. It is the shape of being ahead.** Every
+unblocked track has run well clear of its milestone, and the one task actually
+scheduled for this week — siting the cameras and starting collection — is the
+blocker for corpus construction, for confirming the counting operating point,
+and for the P12 e-rickshaw decision.
+
+Each early win on a different track makes that one feel less urgent, and that is
+precisely how a project reaches Week 8 with an excellent detector and no dataset
+of its own. **Fifteen minutes of elevated footage at one junction unblocks three
+things at once**, and it is the only item on the critical path.
 
 ---
 
