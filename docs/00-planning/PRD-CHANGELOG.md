@@ -682,3 +682,89 @@ exactly the congestion it exists to predict.
 Credit where it belongs: this was found because the question "shouldn't we
 measure vehicle count?" was asked. It was already required, already relied upon,
 and nobody had checked it.
+
+---
+
+## S14 — joint BMD-45 + IDD training closes the viewpoint gap (2026-08-16)
+
+The run S13 made the case for. `yolov8s`, 60 epochs, seed 42, identical recipe to
+S11 so the comparison is about **data, not hyperparameters**. Trained on the
+mapped union; evaluated on the two test splits **separately**, which is the whole
+reason they were kept apart.
+
+### Elevated CCTV — the gap is closed
+
+`experiments/results/s14_metrics_bmd45.csv`, 1,200 frames / 12,357 vehicles:
+
+| class | P | R | mAP50 | mAP50-95 | boxes |
+|---|---|---|---|---|---|
+| car | 0.860 | 0.900 | **0.920** | 0.813 | 2,770 |
+| motorcycle | 0.870 | 0.828 | **0.906** | 0.698 | 5,910 |
+| **auto_rickshaw** | 0.883 | 0.867 | **0.914** | 0.784 | 2,132 |
+| bus | 0.852 | 0.805 | 0.876 | 0.749 | 606 |
+| truck | 0.797 | 0.774 | 0.841 | 0.698 | 939 |
+| e_rickshaw · pedestrian · cattle | — | — | — | — | 0, NOT EVALUATED |
+
+**Overall mAP50 0.8915** (S11: 0.3223) · **mAP50-95 0.7485**
+
+`auto_rickshaw` **0.349 → 0.914**, recall **0.293 → 0.867**. The class the entire
+India-specific argument rests on went from missing seven vehicles in ten to
+finding nine in ten, at the deployment viewpoint.
+
+### Dashcam — no trade
+
+`experiments/results/s14_metrics_idd.csv`, 1,170 frames / 8,287 vehicles.
+**Overall mAP50 0.6174** against S11's **0.6201** — a 0.4% difference.
+
+| class | S11 | S14 | |
+|---|---|---|---|
+| car | 0.717 | 0.713 | −0.004 |
+| motorcycle | 0.662 | 0.678 | **+0.016** |
+| auto_rickshaw | 0.703 | 0.711 | **+0.008** |
+| bus | 0.729 | 0.714 | −0.015 |
+| truck | 0.689 | 0.696 | **+0.007** |
+| pedestrian | 0.478 | 0.458 | −0.020 |
+| cattle | 0.362 | 0.352 | −0.010 |
+
+Three up, four down, net −0.4%. **Elevated performance nearly tripled at no
+measurable dashcam cost**, and this is a claim rather than a hope only because
+the test splits were never merged.
+
+**The two that fell are the two only IDD supplies.** `pedestrian` and `cattle`
+have no elevated source, so joint training dilutes them without giving anything
+back. −0.020 and −0.010 are small, but the direction is systematic and predicted,
+and it is recorded rather than averaged away.
+
+### Counting — much better, not yet enough
+
+| | S11 elevated | **S14 elevated** | S14 dashcam |
+|---|---|---|---|
+| detected / true | 0.391 | **1.178** | 0.813 |
+| sparsest third | 0.480 | 1.285 | 1.033 |
+| densest third | 0.368 | 1.149 | 0.775 |
+
+It now **over-counts by 18%** instead of missing 61%, and the density dependence
+more than halved in relative terms (−23% across the range → −11%).
+
+**ADR-002's auto-labelling stays blocked on elevated footage, for two reasons.**
+
+1. **The density slope is reduced, not removed.** A single recalibration constant
+   still leaves MED and HIGH compressed against each other, which is exactly the
+   distinction the label turns on.
+2. **The over-count is unexplained, and an unexplained error is not a corrected
+   one.** 1.285 in the *sparsest* frames — where annotation is easiest and
+   crowding cannot excuse it — points at false positives rather than at
+   annotators missing vehicles. That is a hypothesis, and it is checkable by
+   rendering predictions against ground truth. Until it is checked, the
+   convenient reading is not the one to adopt.
+
+### What is now established
+
+**A camera-only detector that works at the deployment viewpoint**, with the
+India-specific class at mAP50 0.914 — and a measured cross-viewpoint gap, its
+cause (recall collapse, not class confusion), and its closure. That sequence is
+publishable independently of whether MFSTNet beats its baselines.
+
+Weights are gitignored per ADR-013 rev 2. The four CSVs are committed as written
+by the scripts, never transcribed (NFR-09), and the per-frame counting files were
+independently re-aggregated locally to confirm the run's summary figures.
