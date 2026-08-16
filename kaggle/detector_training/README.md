@@ -107,3 +107,49 @@ python -m kaggle kernels status idredk/cnn-vit-bilstm-cross-attention-traffic-sy
 
 `KernelWorkerStatus.RUNNING` means it is genuinely queued and running, which the
 editor does not always make obvious.
+
+---
+
+## 5. **`kernels push` RESETS the accelerator to P100.** Always set it after pushing
+
+This is the one that makes the API path incomplete, and it is worth stating
+bluntly because behaviour 4 alone implies the wrong workflow.
+
+Setting **GPU T4 x2** in the editor is not sticky across a push. S14 version 2
+ran on T4 x2 after the setting was made by hand. Version 3 was then pushed with
+`kernels push` — no metadata change touching the GPU — and **ran on P100 again**,
+dying in 14.7 s on the sm_60 gate.
+
+So `kernel-metadata.json` is authoritative for code, inputs and privacy, and the
+accelerator is **session state the push overwrites with the default**.
+
+### The workflow that actually works
+
+```
+python scripts/kaggle_push.py --kernel --dir kaggle/joint_training
+```
+
+then, **every time, in the editor**:
+
+1. Session options → Accelerator → **GPU T4 x2** → confirm the dialog
+2. Check the Input panel still lists the dataset
+3. **Save Version** → **Save & Run All (Commit)** → Save
+4. `python -m kaggle kernels status <id>` → expect `RUNNING`
+
+**Never push and walk away.** A pushed version starts running immediately, on
+P100, and fails — burning a version number and, without the gate, potentially an
+hour of quota.
+
+### Cost so far, and why the gate earns its place
+
+| version | accelerator | outcome |
+|---|---|---|
+| 1 | P100 (default) | gate fired at **14.4 s** |
+| 2 | T4 x2 (set by hand) | trained 2.6 h, failed on a data defect the gate could not see |
+| 3 | P100 (**push reset it**) | gate fired at **14.7 s** |
+| 4 | T4 x2 (set by hand again) | running |
+
+Two of four versions died to this single behaviour, and both cost seconds
+because cell 1 checks `torch.cuda.get_device_capability` against
+`torch.cuda.get_arch_list()`. Without it, both would have been hour-scale
+failures against a 30-hour weekly quota.
