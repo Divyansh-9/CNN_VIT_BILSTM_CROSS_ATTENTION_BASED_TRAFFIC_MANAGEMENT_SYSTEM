@@ -108,18 +108,45 @@ def to_yolo(boxes: list, width: float, height: float, spec: dict,
     return lines, counts
 
 
-def fetch_images(pending: list, long_edge: int, workers: int) -> list:
-    """Download and downscale concurrently. Returns the ones that failed.
+def fetch_images(pending: list, long_edge: int, workers: int,
+                 max_failure_rate: float = 0.02, attempts: int = 4) -> list:
+    """Download and downscale concurrently, with backoff and a failure gate.
 
     Serial fetching runs at roughly 6 images a minute — the cost is per-request
-    latency, not bandwidth, so it barely improves on a faster connection. An hour
-    for 500 images makes the elevated evaluation set feel expensive enough to
-    skip, which is how a measurement stops happening.
+    latency, not bandwidth. Concurrency fixes that, but 32 workers against the
+    Hub gets throttled: an 8,000-image run lost **4,996 of them in 153 seconds**,
+    then trained for 2.6 hours on the remainder before anything complained.
+
+    Three things came out of that, and all three are here.
+
+    **Retry with backoff.** A throttled request is a request to make again in a
+    moment, not a lost image.
+
+    **Report WHY.** The first version swallowed every exception and printed only
+    a count. "4,996 failed" with no reason is not diagnosable; the first few
+    errors are now shown.
+
+    **Abort on a bad failure rate.** This is the important one. A run that loses
+    most of its data should stop in the third minute, not surface two and a half
+    hours later as a metrics error. Losing a couple of images is attrition;
+    losing half the dataset is a different dataset.
     """
+    import collections
     import concurrent.futures
+    import random
+    import shutil
+    import time
     import urllib.request
 
+    try:
+        from huggingface_hub import hf_hub_download as _hub
+    except ImportError:                                  # pragma: no cover
+        _hub = None
+        print("  huggingface_hub not installed — falling back to raw HTTP, "
+              "which the Hub throttles. `pip install huggingface_hub`.")
+
     failures: list = []
+    reasons: collections.Counter = collections.Counter()
 
     def one(job) -> tuple | None:
         file_name, stem, image_dir = job
@@ -127,17 +154,39 @@ def fetch_images(pending: list, long_edge: int, workers: int) -> list:
         if target.exists():
             return None
         temporary = image_dir / f"{stem}.png"
-        try:
-            # `urlretrieve` has NO default timeout. One hung connection blocks a
-            # worker forever, and the run stalls at 498 of 499 with no error —
-            # observed, not hypothesised.
-            with urllib.request.urlopen(
-                BASE + f"{TRAIN_PREFIX}/{file_name}", timeout=60
-            ) as response:
-                temporary.write_bytes(response.read())
-        except Exception:                                # noqa: BLE001
-            temporary.unlink(missing_ok=True)
+        last = ""
+        for attempt in range(attempts):
+            try:
+                if _hub is not None:
+                    # The supported client. It negotiates the CDN endpoint and
+                    # handles rate-limit responses itself, which raw urllib does
+                    # not — and anonymous raw requests are what the Hub throttles.
+                    cached = _hub(
+                        repo_id=REPO, repo_type="dataset",
+                        filename=f"{TRAIN_PREFIX}/{file_name}",
+                    )
+                    shutil.copyfile(cached, temporary)
+                else:
+                    # Fallback. `urlretrieve` has NO default timeout — one hung
+                    # connection blocks a worker forever, observed at 498 of 499.
+                    with urllib.request.urlopen(
+                        BASE + f"{TRAIN_PREFIX}/{file_name}", timeout=60
+                    ) as response:
+                        temporary.write_bytes(response.read())
+                break
+            except Exception as error:                   # noqa: BLE001
+                last = f"{type(error).__name__}: {error}"
+                temporary.unlink(missing_ok=True)
+                status = getattr(error, "code", None)
+                if status in (401, 403, 404):
+                    break                                # retrying will not help
+                if attempt < attempts - 1:
+                    # Full jitter. Synchronised retries are what caused this.
+                    time.sleep(random.uniform(0, 2 ** attempt))
+        if not temporary.exists():
+            reasons[last or "unknown"] += 1
             return (stem, image_dir)
+
         if long_edge and _downscale(temporary, target, long_edge):
             temporary.unlink(missing_ok=True)
         else:
@@ -150,10 +199,28 @@ def fetch_images(pending: list, long_edge: int, workers: int) -> list:
             done += 1
             if outcome:
                 failures.append(outcome)
-            if done % 100 == 0:
+            if done % 250 == 0:
                 print(f"    {done:,} / {len(pending):,}  ({len(failures)} failed)")
+
+    rate = len(failures) / max(len(pending), 1)
     if failures:
-        print(f"  {len(failures)} image(s) failed; their labels were removed too")
+        print(f"  {len(failures):,} of {len(pending):,} image(s) failed "
+              f"({rate:.1%}); their labels were removed too")
+        for reason, count in reasons.most_common(3):
+            print(f"    {count:>6,}  {reason[:96]}")
+
+    if rate > max_failure_rate:
+        raise SystemExit(
+            f"\nABORTING: {rate:.1%} of downloads failed, above the "
+            f"{max_failure_rate:.0%} limit.\n"
+            f"This is a DIFFERENT DATASET, not a slightly smaller one, and "
+            f"training on it\nwould spend hours producing a number that means "
+            f"something else.\n\n"
+            f"The usual cause is throttling from too much concurrency. Retry "
+            f"with fewer\nworkers: --workers 8. Completed images are kept and "
+            f"skipped on the next run,\nso a re-run resumes rather than starts "
+            f"over."
+        )
     return failures
 
 
@@ -167,9 +234,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cache", type=Path,
                         default=Path("data/_bmd45_annotations.json"))
     parser.add_argument("--min-boxes-per-class", type=int, default=50)
-    parser.add_argument("--workers", type=int, default=16,
-                        help="concurrent downloads; the cost is per-request "
-                             "latency, not bandwidth")
+    parser.add_argument(
+        "--workers", type=int, default=8,
+        help="concurrent downloads. 32 gets throttled by the Hub — an 8,000 "
+             "image run lost 4,996 of them. 8 is the tested default",
+    )
+    parser.add_argument(
+        "--max-failure-rate", type=float, default=0.02,
+        help="abort if more than this fraction of downloads fail. A run that "
+             "loses most of its data must stop in the third minute, not "
+             "surface hours later as a metrics error",
+    )
     parser.add_argument("--no-images", action="store_true",
                         help="labels only — inspect the split without the download")
     parser.add_argument(
@@ -227,7 +302,8 @@ def main(argv: list[str] | None = None) -> int:
         written += 1
 
     if not args.no_images:
-        failures = fetch_images(pending, args.long_edge, args.workers)
+        failures = fetch_images(pending, args.long_edge, args.workers,
+                                args.max_failure_rate)
         # A label without its image is a silent training-set hole: Ultralytics
         # resolves labels FROM image paths, so the orphan is simply never seen.
         for stem, image_dir in failures:
