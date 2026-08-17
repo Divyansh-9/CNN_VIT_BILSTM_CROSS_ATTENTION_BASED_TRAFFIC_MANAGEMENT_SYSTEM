@@ -914,3 +914,74 @@ Tuning percentiles per corpus until the classes balance. The cut points are one
 pre-registered rule applied everywhere; a corpus that comes out imbalanced is
 reported imbalanced, with inverse-frequency weighting (PRD §8.4) and
 density-stratified metrics (A10) doing the work they already exist for.
+
+---
+
+## A30 — measurement WITHDRAWN; the detector does not work on Bellevue (2026-08-17)
+
+A30 was raised yesterday on the finding that Bellevue never reaches HIGH under
+§14.1's thresholds. **That measurement is withdrawn.** It was computed from
+detector counts, and the detector does not recognise Bellevue's cameras.
+
+### What rendering one frame showed
+
+Four automated checks had passed. One glance did not:
+
+| | |
+|---|---|
+| 116th/NE12th | ~30 vehicles visible, **3 detected**. A bus labelled `car 0.54`, a sedan labelled `motorcycle 0.52` |
+| Bellevue/NE8th | ~10 vehicles visible, **3 detected**, all distant. One labelled **`auto_rickshaw 0.57`** — in Washington State |
+
+Bellevue's cameras are **near-overhead fisheye**. That is a *third* viewpoint
+class, distinct both from IDD's dashcam and from BMD-45's oblique elevated CCTV.
+The detector has seen neither near-overhead framing nor barrel distortion, and it
+fails on both.
+
+### Everything downstream of those counts is void
+
+* **"HIGH never occurs, max count 11"** — measuring a detector that finds one
+  vehicle in ten. Withdrawn.
+* **"traffic present: median 6 vehicles/frame"** — same.
+* **"viewpoint 0.46× the BMD-45 reference"** — worse than wrong, it was
+  **self-confirming**: it measured the size of *detections*, so a detector firing
+  only on small distant objects always produces a "correct" median. It graded the
+  detector's failures and called them a camera property.
+
+**The claim that §14.1's thresholds are camera-dependent still stands on its own
+reasoning** — a wider field of view sees more vehicles at identical congestion,
+which is true regardless of Bellevue. But it now has **no measurement behind it**,
+and A30 is demoted from a finding to an argument until one exists.
+
+### The check that no statistic replaces
+
+Two automated substitutes were tried and both were circular:
+
+1. **Mean detection confidence** — the mean of boxes above 0.45 is always above
+   0.45. Passes by construction.
+2. **Detections at conf 0.10 ÷ detections at 0.45.** Genuinely discriminating
+   (BMD-45 1.36, Bellevue 2.56 and 4.17) but it **confounds domain shift with
+   density**: a good dense Indian clip scores 2.80, worse than Bellevue. Shipping
+   it as a gate would have rejected exactly the footage we want.
+
+So `check_recording.py` now **renders one annotated frame and tells the operator
+to look at it**, keeping the ratio as advisory. Automated domain-shift detection
+is a research problem; looking at one frame is five seconds and it is what caught
+this.
+
+### Consequence for ADR-016
+
+**Bellevue is not usable as a corpus** without detector work we cannot afford —
+it ships no annotations, so adapting to near-overhead fisheye would mean
+annotating from zero, which is the cost the whole bootstrap strategy exists to
+avoid.
+
+ADR-016's *structure* survives: two phases, pipeline first, claim second. Its
+*source* does not.
+
+**And the failure is informative.** "Elevated fixed camera" is not one viewpoint —
+it is at least three: dashcam, **oblique elevated** (BMD-45, a footbridge, a first-floor
+window), and near-overhead fisheye (much municipal CCTV). Our detector handles
+the middle one, which is precisely what a phone on a footbridge produces.
+
+**That makes self-recorded footage a better match than Bellevue ever was**, not a
+worse one — and it is the strongest argument yet for S06.

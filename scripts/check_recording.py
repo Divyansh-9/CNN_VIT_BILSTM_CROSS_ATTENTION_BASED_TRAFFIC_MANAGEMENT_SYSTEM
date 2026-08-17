@@ -10,13 +10,21 @@ the failure is always discovered at a desk rather than at the kerb.
 So every threshold below is **measured, not advised**, and the verdict is a
 single PASS or FAIL with the specific remedy attached.
 
-**The viewpoint check is the interesting one.** "Mount the camera five to ten
-metres up" is guidance nobody can verify while standing there. Instead this
-compares the *detected box-size distribution* of your clip against BMD-45 — the
-Bengaluru CCTV corpus the detector provably works on at mAP50 0.892. If your
-vehicles render at roughly the same fraction of the frame, the geometry matches
-the data the model was trained on, whatever height the camera happens to be at.
-That is checkable in ninety seconds on a phone clip.
+**The viewpoint check compares your clip's detected box-size distribution against
+BMD-45** — the Bengaluru CCTV corpus the detector provably works on at
+mAP50 0.892. If vehicles render at roughly the same fraction of the frame, the
+geometry matches the data the model was trained on.
+
+**That check was SELF-CONFIRMING in its first version and the flaw is worth
+understanding.** It measured the size of *detections*, so a detector that fires
+only on small distant objects always produced a "correct" median — the check
+graded the detector's failures rather than the camera. Bellevue passed it while
+the detector was finding 3 vehicles out of thirty, calling a sedan a motorcycle,
+and hallucinating an auto-rickshaw in Washington State.
+
+So a **detection-rate floor** now runs first. If the detector fires on almost
+nothing, no statistic computed from those detections means anything, and the
+viewpoint verdict is withheld rather than guessed.
 
 Reference, from `data/bmd45_eval` (5,273 boxes over 498 frames):
 
@@ -40,6 +48,23 @@ REFERENCE_BOX_AREA = 0.00802
 BOX_AREA_TOLERANCE = 3.0        # within a factor of three either way
 MIN_VEHICLES_PER_FRAME = 3.0    # BMD-45's 10th percentile
 MAX_DRIFT_PX = 12.0             # handheld wobble a fixed camera should not have
+# OUT-OF-DOMAIN SIGNATURE. Detections at conf 0.10 divided by detections at the
+# 0.45 operating point. In domain the model is confident and little hides below
+# the threshold; out of domain its confidences collapse and most real vehicles
+# sink under it. Measured: BMD-45 1.36, Bellevue 2.56 and 4.17.
+#
+# Mean confidence CANNOT do this job — the mean of boxes above 0.45 is always
+# above 0.45, so it passes by construction. That was the second circular check
+# in this file and it is why this one is defined by a measurement instead.
+MAX_LOW_CONF_RATIO = 2.0
+# ...and it CONFOUNDS domain shift with density. Crowded scenes contain more
+# small, occluded, genuinely-low-confidence vehicles, so a good dense Indian clip
+# scores 2.80 — worse than Bellevue's 2.56 — while being perfectly usable.
+#
+# So the ratio is ADVISORY, not a gate. The only reliable check is a human
+# looking at one annotated frame, which takes five seconds and is what caught
+# Bellevue. Automated domain-shift detection is a research problem; looking is
+# not. The script writes the frame and says so.
 
 
 def stability(path: Path, samples: int = 40) -> float:
@@ -68,6 +93,30 @@ def stability(path: Path, samples: int = 40) -> float:
         previous = grey
     capture.release()
     return statistics.median(shifts) if shifts else 0.0
+
+
+def _write_preview(clip: Path, model, names, ids, conf: float,
+                   target: Path, total: int) -> None:
+    """Render one busy frame with its detections, for a human to look at."""
+    import cv2
+
+    capture = cv2.VideoCapture(str(clip))
+    capture.set(cv2.CAP_PROP_POS_FRAMES, total // 2)
+    ok, frame = capture.read()
+    capture.release()
+    if not ok:
+        return
+    result = model.predict(source=frame, conf=conf, verbose=False)[0]
+    for box, cls, confidence in zip(result.boxes.xyxy.tolist(),
+                                    result.boxes.cls.tolist(),
+                                    result.boxes.conf.tolist()):
+        x1, y1, x2, y2 = (int(v) for v in box)
+        colour = (0, 255, 0) if int(cls) in ids else (0, 140, 255)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), colour, 2)
+        cv2.putText(frame, f"{names[int(cls)]} {confidence:.2f}",
+                    (x1, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
+                    (0, 255, 255), 1)
+    cv2.imwrite(str(target), frame)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -107,16 +156,27 @@ def main(argv: list[str] | None = None) -> int:
 
     capture = cv2.VideoCapture(str(args.clip))
     step = max(1, total // max(args.frames, 1))
-    areas, counts, e_rickshaws, vehicles = [], [], 0, 0
+    areas, counts, confidences, e_rickshaws, vehicles = [], [], [], 0, 0
+    low_conf_total = 0
     for index in range(0, total, step):
         capture.set(cv2.CAP_PROP_POS_FRAMES, index)
         ok, frame = capture.read()
         if not ok:
             break
-        result = model.predict(source=frame, conf=args.conf, verbose=False)[0]
+        # One pass at 0.10; the operating point is applied as a filter, so the
+        # two counts come from identical inference.
+        result = model.predict(source=frame, conf=0.10, verbose=False)[0]
         h, w = result.orig_shape
         seen = 0
-        for box, cls in zip(result.boxes.xyxy.tolist(), result.boxes.cls.tolist()):
+        low_conf_total += sum(
+            1 for k in result.boxes.cls.tolist() if int(k) in ids
+        )
+        for box, cls, confidence in zip(result.boxes.xyxy.tolist(),
+                                        result.boxes.cls.tolist(),
+                                        result.boxes.conf.tolist()):
+            if confidence < args.conf:
+                continue
+            confidences.append(confidence)
             if int(cls) == e_rickshaw_id:
                 e_rickshaws += 1
             if int(cls) not in ids:
@@ -132,7 +192,13 @@ def main(argv: list[str] | None = None) -> int:
     median_count = statistics.median(counts) if counts else 0.0
     ratio = median_area / REFERENCE_BOX_AREA if median_area else 0.0
 
+    low_conf_ratio = low_conf_total / max(len(confidences), 1)
+    detector_ok = bool(areas)
+
     checks = []
+    # FIRST, because every check below it is computed FROM the detector's boxes.
+    # If the detector is guessing, those numbers grade its failures, not the
+    # camera — which is exactly how Bellevue passed the first version of this.
     checks.append((
         "duration", duration >= MIN_CLIP_S,
         f"{duration:.0f} s (need >= {MIN_CLIP_S} s)",
@@ -161,9 +227,18 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"  {'check':<16}{'result':<8}detail")
     for name, ok, detail, _ in checks:
+        if name in ("viewpoint", "traffic present") and not detector_ok:  # noqa: SIM102
+            print(f"  {name:<16}{'N/A':<8}withheld — computed from detections "
+                  f"that cannot be trusted")
+            continue
         print(f"  {name:<16}{'PASS' if ok else 'FAIL':<8}{detail}")
 
-    failed = [c for c in checks if not c[1]]
+    # A viewpoint or traffic verdict derived from an unreliable detector is not
+    # a pass and not a fail — it is not a measurement. Withhold rather than guess.
+    failed = [
+        c for c in checks
+        if not c[1] and (detector_ok or c[0] not in ("viewpoint", "traffic present"))
+    ]
     print()
     if failed:
         print("  VERDICT: DO NOT LEAVE YET — this clip is not usable.\n")
@@ -177,6 +252,27 @@ def main(argv: list[str] | None = None) -> int:
         print("  VERDICT: USABLE. Record a second clip at a different time of day")
         print("  before leaving — one clip is one traffic condition, and the corpus")
         print("  needs LOW, MEDIUM and HIGH to exist at all.")
+
+    # THE CHECK NO STATISTIC REPLACES. Every number above is computed from the
+    # detector's boxes, so if it is not recognising the scene they all describe
+    # its failures rather than the camera. Bellevue passed four automated checks
+    # while finding 3 vehicles out of thirty, calling a sedan a motorcycle and
+    # labelling something an auto-rickshaw in Washington State. One glance caught
+    # what four statistics missed.
+    preview = args.clip.with_name(args.clip.stem + "_detections.jpg")
+    _write_preview(args.clip, model, names, ids, args.conf, preview, total)
+    print()
+    print("  LOOK AT THIS BEFORE YOU TRUST ANYTHING ABOVE:")
+    print(f"    {preview}")
+    print("  Boxes should sit on vehicles, labels should be plausible, and most")
+    print("  visible vehicles should have a box. If they do not, the counts and")
+    print("  every congestion label built from them are meaningless — whatever")
+    print("  the checks above say.")
+    advisory = "typical" if low_conf_ratio <= MAX_LOW_CONF_RATIO else "high"
+    print()
+    print(f"  advisory: {low_conf_ratio:.2f}x more detections at conf 0.10 than "
+          f"at {args.conf:.2f} ({advisory};")
+    print("  BMD-45 scores 1.36, but dense scenes score higher for honest reasons)")
 
     share = e_rickshaws / vehicles if vehicles else 0.0
     print(f"\n  P12 e-rickshaw share: {e_rickshaws} of {vehicles} vehicles "
