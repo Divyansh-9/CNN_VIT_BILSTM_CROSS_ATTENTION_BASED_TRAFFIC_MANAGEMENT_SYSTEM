@@ -1137,3 +1137,53 @@ If it works, Bellevue becomes usable after all, and more importantly **the
 deployment stops depending on mounting the camera at the one angle the detector
 happens to like.** That is the real argument: we will not always control where a
 municipal camera points.
+
+---
+
+## S34 rev 2 — the baselines re-run with a working controller, and the ordering inverts (2026-08-17)
+
+First measurement taken after the P15 fix. 30 paired seeds, saturated regime,
+1200 s episodes — same harness, same seeds, same statistics. The only change is
+that the traffic light now obeys the controller.
+
+| method | mean wait | 95% CI | | before P15 |
+|---|---|---|---|---|
+| **Webster** | **14.05 s** | [13.41, 14.71] | | 29.32 s |
+| fixed | 26.18 s | [24.87, 27.53] | | 31.09 s |
+| longest-queue | 27.94 s | [26.35, 29.57] | | 18.51 s |
+
+| comparison | difference | p | Cohen's d | |
+|---|---|---|---|---|
+| fixed vs Webster | +12.13 s | **< 0.00001** | **2.94** | significant |
+| longest-queue vs Webster | +13.89 s | **< 0.00001** | **2.92** | significant |
+| fixed vs longest-queue | −1.76 s | 0.097 | −0.31 | not significant |
+
+### Every conclusion from the old table is reversed
+
+* **Webster was reported as no better than fixed-time (p = 0.225).** It is better
+  by **86%** with an effect size near 3. It was never a weak method; it was a
+  method that could not reach the actuator.
+* **Longest-queue was reported best at 18.51 s.** It is now the *worst* arm and
+  statistically indistinguishable from fixed-time.
+* The one honest thing about the old table — that two of the arms did not
+  differ — was true for the wrong reason.
+
+Webster's result is what theory predicts once it can act: a principled cycle-time
+allocation should beat both a fixed cycle and a greedy queue rule.
+
+### What this means for the project
+
+**The bar for PPO just moved a long way up, and that is correct.** Beating a
+broken 29.32 s would have been meaningless; beating a properly-actuated Webster
+at 14.05 s with a CI of [13.41, 14.71] is a real claim, and it may well not be
+achievable. If PPO cannot beat Webster, that is the result and it gets reported
+(PRD §2.5.5, BR-19).
+
+It also makes the RL contribution honest rather than decorative. A paper whose
+learned controller beats a crippled baseline is worse than no paper.
+
+### Superseded
+
+`experiments/results/VOID-PRE-P15.md` still lists the pre-fix files. `baselines.csv`
+and `webster_sweep.csv` remain to be regenerated; `benchmark_runs.csv` and
+`benchmark_stats.csv` are now post-fix and current.

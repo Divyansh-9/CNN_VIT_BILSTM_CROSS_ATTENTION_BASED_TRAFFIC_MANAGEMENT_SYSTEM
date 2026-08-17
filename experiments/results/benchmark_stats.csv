@@ -1,4 +1,4 @@
 method_a,method_b,n_pairs,mean_a,ci_a_low,ci_a_high,mean_b,ci_b_low,ci_b_high,mean_difference,ci_diff_low,ci_diff_high,t,p,cohens_d,significant,improvement_percent,regime,metric
-fixed,longest_queue,30,31.0872,29.8276,32.3772,18.5086,17.7109,19.312,12.5786,10.9814,14.2773,14.7842,0.0,2.6992,True,-67.96,saturated,mean_wait_s
-fixed,webster,30,31.0872,29.8276,32.3772,29.3202,26.943,31.6564,1.7669,-1.0021,4.4956,1.2385,0.225471,0.2261,False,-6.03,saturated,mean_wait_s
-longest_queue,webster,30,18.5086,17.7109,19.312,29.3202,26.943,31.6564,-10.8116,-13.2057,-8.3406,-8.6096,0.0,-1.5719,True,36.87,saturated,mean_wait_s
+fixed,longest_queue,30,26.1842,24.8678,27.5258,27.9423,26.35,29.571,-1.7582,-3.7504,0.1696,-1.716,0.096823,-0.3133,False,6.29,saturated,mean_wait_s
+fixed,webster,30,26.1842,24.8678,27.5258,14.0531,13.4106,14.7119,12.1311,10.6643,13.587,16.1281,0.0,2.9446,True,-86.32,saturated,mean_wait_s
+longest_queue,webster,30,27.9423,26.35,29.571,14.0531,13.4106,14.7119,13.8892,12.2075,15.6093,16.0093,0.0,2.9229,True,-98.83,saturated,mean_wait_s
