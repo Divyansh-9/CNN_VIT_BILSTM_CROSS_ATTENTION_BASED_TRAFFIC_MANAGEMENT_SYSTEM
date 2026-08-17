@@ -1062,3 +1062,78 @@ one that switches constantly must produce *different* numbers.
 A `NamedTemporaryFile` created per `reset()` and never deleted. **9,931 leaked
 files** had accumulated and eventually broke SUMO startup outright, which is what
 killed the screening run.
+
+---
+
+## A31 (proposed) — viewpoint robustness is a detector requirement, not a dataset criterion (2026-08-17)
+
+Raised by the project owner, and they are right. I had been treating the
+detector's viewpoint limitation as a **filter on data** — "Bellevue is
+near-overhead, so Bellevue is the wrong dataset". The correct reading is that
+**the deployment camera is an elevated fixed camera whose exact geometry we do
+not control**, so a detector that handles only one pitch is carrying a defect,
+and selecting datasets around that defect hides it instead of fixing it.
+
+### I also misattributed the cause
+
+I said Bellevue failed because of **fisheye distortion**. Measured on BMD-45 by
+applying increasing barrel distortion, using the out-of-domain ratio
+(detections at conf 0.10 ÷ detections at 0.45) that needs no labels:
+
+| barrel k | ratio | detections/frame |
+|---|---|---|
+| 0.0 | 1.37 | 9.5 |
+| −0.4 | 1.41 | 8.8 |
+| −0.8 | 1.38 | **7.9** |
+
+**Distortion is not the problem.** The ratio never moves and detections fall
+17% across the entire range.
+
+Repeating it with a perspective warp that simulates raising the camera toward
+vertical:
+
+| pitch | ratio | detections/frame |
+|---|---|---|
+| 0.00 | 1.37 | 9.5 |
+| 0.50 | 1.40 | 7.7 |
+| 0.75 | 1.44 | 6.3 |
+| **1.00** | **1.72** | **4.2** |
+
+**Viewing angle costs 56% of detections against distortion's 17%.** A vehicle
+from directly above shows roof only — no side, no front — and that is a
+different object to a detector that has only seen it obliquely.
+
+### Why it is fragile, and it is not inherent
+
+The S14 run used Ultralytics' defaults:
+
+    perspective  0.0
+    degrees      0.0
+    shear        0.0
+
+**Every geometric augmentation that would teach viewpoint invariance was off.**
+The detector is not fragile because oblique data is all that exists — it is
+fragile because we never asked it to generalise across pitch.
+
+### Proposed amendment
+
+Retrain the joint detector with geometric augmentation enabled:
+
+    perspective  0.0006      # Ultralytics range is 0 to 0.001
+    degrees      8.0
+    shear        4.0
+
+**Pre-registered success criterion, fixed before the run:** detections per frame
+at pitch 1.0 must reach **at least 70% of** the pitch-0.0 figure, against today's
+44% (4.2 of 9.5) — while elevated mAP50 on BMD-45 stays within 2 points of
+0.8915. Robustness bought by making the model worse everywhere is not robustness.
+
+The pitch sweep is the measurement, it needs no new labels, and it runs in
+minutes on the existing eval split.
+
+### Consequence
+
+If it works, Bellevue becomes usable after all, and more importantly **the
+deployment stops depending on mounting the camera at the one angle the detector
+happens to like.** That is the real argument: we will not always control where a
+municipal camera points.
