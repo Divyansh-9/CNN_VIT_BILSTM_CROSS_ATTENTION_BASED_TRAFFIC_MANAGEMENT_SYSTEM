@@ -171,7 +171,13 @@ def run_episode(
     try:
         step = 0
         current_phase = NS
+        # setPhase ALONE DOES NOT HOLD. SUMO's built-in program keeps advancing
+        # on its own schedule, so the controller sets a phase and the light
+        # cycles straight past it — measured: we set 0 and SUMO went
+        # 0, 3, 5, 0, 3, 4 over sixty seconds. setPhaseDuration pins it until the
+        # controller says otherwise (pending item P15).
         traci.trafficlight.setPhase("C", current_phase * 3)
+        traci.trafficlight.setPhaseDuration("C", 100_000)
         remaining = min_green_s
 
         # FR-A05. `green_elapsed` is tracked separately from `remaining` because
@@ -234,6 +240,7 @@ def run_episode(
                     step += yellow_s + all_red_s
                     current_phase = phase
                     traci.trafficlight.setPhase("C", current_phase * 3)
+                    traci.trafficlight.setPhaseDuration("C", 100_000)
                     green_elapsed = 0
                     if preempting and current_phase == preempt_phase:
                         green_at = step

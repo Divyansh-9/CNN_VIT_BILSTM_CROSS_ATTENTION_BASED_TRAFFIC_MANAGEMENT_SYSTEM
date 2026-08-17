@@ -186,7 +186,13 @@ class TrafficSignalEnv(gym.Env):
         self._green_elapsed = 0
         self._red_since = dict.fromkeys(APPROACHES, 0)
         self._prev_wait = 0.0
+            # setPhase ALONE DOES NOT HOLD. SUMO's built-in program keeps
+            # advancing on its own schedule, so the controller sets a phase and
+            # the light immediately cycles past it — measured: we set 0 and SUMO
+            # went 0, 3, 5, 0, 3, 4 over sixty seconds. setPhaseDuration pins it
+            # until the controller says otherwise (pending item P15).
         traci.trafficlight.setPhase("C", self._phase * 3)
+        traci.trafficlight.setPhaseDuration("C", 100_000)
 
         return self._observe(), {}
 
@@ -205,6 +211,7 @@ class TrafficSignalEnv(gym.Env):
                 self._interphase()
                 self._phase = EW if self._phase == NS else NS
                 self._traci.trafficlight.setPhase("C", self._phase * 3)
+                self._traci.trafficlight.setPhaseDuration("C", 100_000)
                 self._green_elapsed = 0
             elif self._green_elapsed >= self.max_green_s:
                 # FR-A03's maximum green is an actuation bound too. Without this
@@ -212,6 +219,7 @@ class TrafficSignalEnv(gym.Env):
                 self._interphase()
                 self._phase = EW if self._phase == NS else NS
                 self._traci.trafficlight.setPhase("C", self._phase * 3)
+                self._traci.trafficlight.setPhaseDuration("C", 100_000)
                 self._green_elapsed = 0
                 switched = True
             green = self.decision_interval_s
@@ -228,6 +236,7 @@ class TrafficSignalEnv(gym.Env):
                 self._interphase()
                 self._phase = phase
                 self._traci.trafficlight.setPhase("C", self._phase * 3)
+                self._traci.trafficlight.setPhaseDuration("C", 100_000)
             self._remaining = green
 
         starved = 0

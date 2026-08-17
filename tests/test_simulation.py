@@ -573,3 +573,60 @@ def test_an_unknown_action_space_is_refused():
 
     with pytest.raises(ValueError, match="action_space must be one of"):
         TrafficSignalEnv(action_space="whatever")
+
+
+# ------------------ the check that was missing entirely (P15) --
+
+class _NeverSwitches:
+    """Always requests the phase it is already in."""
+
+    name = "never_switches"
+
+    def reset(self) -> None:
+        pass
+
+    def decide(self, observation: dict) -> tuple[int, int]:
+        return observation["phase"], 90
+
+
+class _AlwaysSwitches:
+    """Always requests the other phase, at minimum green."""
+
+    name = "always_switches"
+
+    def reset(self) -> None:
+        pass
+
+    def decide(self, observation: dict) -> tuple[int, int]:
+        from simulation.runner import EW, NS
+
+        return (EW if observation["phase"] == NS else NS), 10
+
+
+@needs_sumo
+def test_the_controller_actually_reaches_the_simulation():
+    """P15. Nothing asserted this, because it seemed too basic to check.
+
+    `traci.trafficlight.setPhase()` sets a phase but does NOT hold it — SUMO's
+    built-in program keeps advancing on its own schedule, so for the whole
+    project the light ran its default program and every benchmarked controller
+    was decorative. Two arms that switched 0 and 56 times produced identical
+    waits to three decimals.
+
+    A controller that never switches and one that switches constantly must
+    produce different outcomes. If this fails, the signal is running itself.
+    """
+    from simulation.runner import run_episode
+
+    still = run_episode(_NeverSwitches(), regime="saturated", seed=42, duration_s=400)
+    busy = run_episode(_AlwaysSwitches(), regime="saturated", seed=42, duration_s=400)
+
+    assert still.phase_switches != busy.phase_switches, (
+        "the two controllers requested opposite behaviour and the runner "
+        "recorded the same number of switches"
+    )
+    assert still.mean_wait_s != pytest.approx(busy.mean_wait_s, abs=0.01), (
+        f"a never-switching controller and an always-switching one both scored "
+        f"{still.mean_wait_s:.3f}s — the controller is not reaching SUMO, which "
+        f"is P15. Check that setPhaseDuration follows every setPhase."
+    )

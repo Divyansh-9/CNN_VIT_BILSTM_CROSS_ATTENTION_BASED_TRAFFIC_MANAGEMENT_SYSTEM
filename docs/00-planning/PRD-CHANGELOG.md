@@ -985,3 +985,80 @@ the middle one, which is precisely what a phone on a footbridge produces.
 
 **That makes self-recorded footage a better match than Bellevue ever was**, not a
 worse one — and it is the strongest argument yet for S06.
+
+---
+
+## P15 — the signal controller was never controlling the signal (2026-08-17)
+
+**Status:** OPEN · **Severity:** every SUMO result to date is suspect
+
+Found while diagnosing why the two PPO action spaces produced *byte-identical*
+evaluation numbers.
+
+### The symptom that gave it away
+
+| arm | phase switches | completed trips | mean wait |
+|---|---|---|---|
+| `phase_duration` | **0** | 706 | **10.013 s** |
+| `keep_or_switch` | **56** | 706 | **10.013 s** |
+
+One controller never switched the light. The other switched it 56 times. Both
+produced the same 706 trips and the same mean wait to three decimals. That is
+only possible if the controller has no effect on the simulation.
+
+### The cause
+
+`traci.trafficlight.setPhase()` sets the current phase **but does not hold it**.
+SUMO's built-in program keeps advancing on its own schedule. Measured directly —
+we set phase 0 and read it back every ten seconds:
+
+    t=10s  phase 0     t=40s  phase 0     t=70s  phase 0
+    t=20s  phase 3     t=50s  phase 3     t=80s  phase 2
+    t=30s  phase 5     t=60s  phase 4     t=90s  phase 3
+
+The light was running its default fixed program throughout. **Every controller
+this project has benchmarked was decorative**; the differences between them came
+from where the interphase blocked the loop, not from signal policy.
+
+### The fix, and that it works
+
+`setPhaseDuration(tls, 100_000)` after every `setPhase` pins the phase until the
+controller changes it. With it, the phase holds at 0 for the full sixty seconds,
+and controllers separate as they should — over 600 s at seed 42:
+
+| | mean wait | switches |
+|---|---|---|
+| fixed | 21.55 s | 16 |
+| longest-queue | **16.53 s** | 18 |
+
+Applied to both `runner.run_episode` and `TrafficSignalEnv`, which had the same
+call and therefore the same defect.
+
+### What is now void
+
+Every committed SUMO result predates the fix and must be regenerated:
+
+* `baselines.csv`, `benchmark_runs.csv`, `benchmark_stats.csv` — including the
+  headline **"fixed 31.09 s vs Webster 29.32 s, p = 0.225"**. That comparison was
+  between two labels attached to the same underlying program.
+* `webster_sweep.csv` — the s=750 selection.
+* `action_space_screen.csv` — void twice over, since both arms were also the
+  same program.
+
+**The `p = 0.225` result is not merely unconfirmed, it is explained.** Two
+methods that were secretly identical *should* fail to differ significantly. The
+statistic was correct; the thing it was computed on was not.
+
+### Why it survived
+
+The runner's tests assert bounds, clamping and interphase behaviour — all of
+which were genuinely correct. Nothing asserted that **the controller's decision
+reaches the simulation**, because that seemed too basic to check. The regression
+test to add is exactly the diagnostic above: a controller that never switches and
+one that switches constantly must produce *different* numbers.
+
+### Also fixed
+
+A `NamedTemporaryFile` created per `reset()` and never deleted. **9,931 leaked
+files** had accumulated and eventually broke SUMO startup outright, which is what
+killed the screening run.
