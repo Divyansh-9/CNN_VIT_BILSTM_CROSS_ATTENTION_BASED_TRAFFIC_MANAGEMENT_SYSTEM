@@ -77,9 +77,28 @@ def main(argv: list[str] | None = None) -> int:
 
     from scripts.train_ppo import train
 
+    # RESUME. Each cell costs about half an hour, so a killed run must not throw
+    # away the ones that finished — this happened once and cost 65 minutes.
     rows = []
+    if args.out.exists():
+        with args.out.open(encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                row["seed"] = int(row["seed"])
+                row["timesteps"] = int(row["timesteps"])
+                row["episode_s"] = int(row["episode_s"])
+                row["eval_episodes"] = int(row["eval_episodes"])
+                row["mean_wait_s"] = float(row["mean_wait_s"])
+                row["seconds"] = float(row["seconds"])
+                rows.append(row)
+        if rows:
+            print(f"  resuming: {len(rows)} cell(s) already done in {args.out}")
+
+    done = {(r["action_space"], r["seed"]) for r in rows}
     for action_space in ACTION_SPACES:
         for seed in range(1, args.seeds + 1):
+            if (action_space, seed) in done:
+                print(f"  {action_space:<16} seed {seed}  skipped (already done)")
+                continue
             started = time.perf_counter()
             train(
                 args.arm, timesteps=args.timesteps, regime=args.regime,
