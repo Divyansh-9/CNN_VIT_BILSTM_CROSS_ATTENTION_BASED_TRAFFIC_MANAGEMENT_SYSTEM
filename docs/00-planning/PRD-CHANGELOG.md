@@ -853,3 +853,64 @@ than left to a library default, and re-confirmed on S06 footage.
 
 The prohibition recorded in S13 is lifted on evidence, not on the passage of
 time — and it was correct to hold it until the excess had a cause.
+
+---
+
+## A30 (proposed) — §14.1's congestion thresholds are camera-dependent and must be calibrated per corpus
+
+**Raised** 2026-08-17 · **Affects** PRD §14.1, §8.6, ADR-002, ADR-016 · **Status** PROPOSED
+
+Found by measuring Bellevue footage before committing the project to it, rather
+than after.
+
+### The measurement
+
+§14.1 fixes absolute counts: `LOW < 5`, `MEDIUM 5–15`, `HIGH > 15`. Applied to
+Bellevue with the calibrated detector (conf 0.45), sampled at the A15 5 s step:
+
+| clip | duration | samples | max count | LOW | MEDIUM | **HIGH** |
+|---|---|---|---|---|---|---|
+| 116th/NE12th, 17:08 evening peak | 427 s | 81 | 11 | 34.6% | 65.4% | **0.0%** |
+| Bellevue/NE8th, 08:08 morning peak | 3,600 s | 720 | 11 | 87.6% | 12.4% | **0.0%** |
+
+**Two cameras, both rush hours, 68 minutes: the count never exceeds 11 and HIGH
+never occurs.** A corpus built this way would contain zero examples of the class
+the model most needs to predict.
+
+### The deeper problem, which is not about Bellevue
+
+An absolute count threshold is **a property of the camera, not of the traffic**.
+A wider field of view sees more vehicles at identical congestion; a camera aimed
+further down the approach sees more again. §14.1's numbers encode one particular
+framing that was never specified, so they were never portable — Bellevue merely
+made that visible by being different enough to fail loudly.
+
+This would have surfaced eventually as an unexplained distribution shift when the
+deployment camera was mounted at a slightly different angle from the pilot.
+
+### Proposed amendment
+
+Thresholds become **per-camera percentiles of that camera's own count
+distribution**, pre-registered before any labelling:
+
+> LOW below the 50th percentile · MEDIUM 50th–85th · HIGH above the 85th,
+> computed per camera over at least one full daily cycle.
+
+* The label becomes "congested **for this junction**", which is what a signal
+  controller actually acts on.
+* It transfers across countries and cameras without re-deriving anything by hand.
+* §14.1's absolute numbers are retained as the **expected instance** of this rule
+  for an Indian junction — if the deployment camera's percentiles land near
+  5 and 15, the PRD was right and nothing changes.
+* The percentile cut points are fixed **before** seeing any corpus, for the same
+  reason A28's statistic was.
+
+**Cost of not doing it:** a Bellevue-trained model that has never seen HIGH, and
+an Indian model whose labels silently depend on where the camera was pointed.
+
+### What this does NOT license
+
+Tuning percentiles per corpus until the classes balance. The cut points are one
+pre-registered rule applied everywhere; a corpus that comes out imbalanced is
+reported imbalanced, with inverse-frequency weighting (PRD §8.4) and
+density-stratified metrics (A10) doing the work they already exist for.

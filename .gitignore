@@ -88,3 +88,6 @@ data/_bmd45_annotations.json
 
 # M2 baseline scratch — rebuildable by scripts/verify_m2_baseline.py
 data/_m2_coco_indexed/
+
+# Bellevue dev footage — rebuildable via gdown, never published (NFR-13, P10)
+data/dev_footage/
