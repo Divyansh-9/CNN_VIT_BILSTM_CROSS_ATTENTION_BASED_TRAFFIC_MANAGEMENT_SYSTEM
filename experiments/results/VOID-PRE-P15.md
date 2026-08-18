@@ -4,10 +4,7 @@ Every CSV listed here was produced before  was added, so the
 traffic light was running SUMO built-in program throughout and the controller
 label on each row describes an intention rather than a behaviour.
 
-* baselines.csv
-* benchmark_runs.csv
-* benchmark_stats.csv
-* webster_sweep.csv
+* baselines.csv   <- ONLY THIS REMAINS VOID
 * action_space_screen.csv
 
 They are kept rather than deleted: they are the evidence for P15, and the

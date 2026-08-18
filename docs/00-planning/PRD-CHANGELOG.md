@@ -1252,3 +1252,55 @@ enough.
    that **near-overhead is a genuinely different domain requiring labelled data
    from it**, and no amount of warping oblique imagery substitutes. Two failed
    attempts would be evidence for that rather than for trying a third.
+
+---
+
+## ADR-012 rev 3 — Webster sweep re-run post-P15; s=750 re-selected on valid evidence (2026-08-18)
+
+The original sweep ran before P15, so no configuration was controlling anything
+and every row described the same default SUMO cycle under a different label. It
+mattered more than the other voided results, because post-P15 Webster is the
+strongest baseline and its parameterisation sets the bar PPO must clear.
+
+`experiments/results/webster_sweep.csv`, 5 seeds, saturated, 1200 s:
+
+| s (pcu/h/m) | mean wait | clamp rate | arrived | |
+|---|---|---|---|---|
+| 525 | 20.60 s | 3.5% | 93.9% | |
+| 660 | 16.11 s | 12.3% | 94.5% | |
+| **750** | **14.22 s** | **37.8%** | **94.8%** | **SELECTED** |
+| 900 | 14.41 s | 80.5% | 95.0% | rejected — clamp |
+| 1050 | **14.03 s** | 99.2% | 94.9% | rejected — clamp |
+| 1283 | **14.03 s** | 100.0% | 94.9% | rejected — clamp |
+
+**The disqualification rule earned its place again.** s=1050 and s=1283 post the
+*lowest* waits in the sweep and clamp on essentially every decision — the cycle
+formula decides nothing and they are fixed cycles wearing Webster's name.
+Reporting either as "Webster's best" would put a fixed-time controller in the
+results table under the adaptive baseline's label.
+
+### The selection is unchanged, and that is worth stating precisely
+
+The pre-P15 sweep also chose s=750, and `benchmark.py` already used it. So the
+30-seed headline of **14.05 s** was computed at the right saturation flow, and
+the sweep's 14.22 s at 5 seeds agrees with it.
+
+**The old sweep's numbers were meaningless and its conclusion happened to
+survive.** That is luck, not vindication, and it is recorded as luck — had it
+selected differently, the entire benchmark would have needed re-running rather
+than merely re-justifying.
+
+### The headline also passes its own survivorship check
+
+ADR-012's second disqualification applies to the benchmark itself, not just the
+sweep. Checked directly:
+
+| method | mean wait | arrived | throughput |
+|---|---|---|---|
+| fixed | 26.18 s | 92.6% | 930 |
+| longest-queue | 27.94 s | 92.1% | 925 |
+| **Webster** | **14.05 s** | **92.0%** | **922** |
+
+All three sit well above the 85% floor with throughput within 1% of each other,
+so Webster's 86% improvement is genuine and not achieved by dropping the
+vehicles that waited longest.
