@@ -212,19 +212,21 @@ def main(argv: list[str] | None = None) -> int:
         "frame turns parked cars into traffic and every count downstream is wrong.",
     ))
     checks.append((
-        "viewpoint", 1 / BOX_AREA_TOLERANCE <= ratio <= BOX_AREA_TOLERANCE,
-        f"median box {median_area:.5f} of frame, {ratio:.2f}x the BMD-45 reference",
-        "Too LARGE means the camera is too low or too close — move higher or "
-        "further back. Too SMALL means too far — move closer or zoom in. The "
-        "detector scores 0.892 on footage in this range and 0.322 outside it.",
-    ))
-    checks.append((
         "traffic present", median_count >= MIN_VEHICLES_PER_FRAME,
         f"median {median_count:.0f} vehicles/frame (need >= {MIN_VEHICLES_PER_FRAME:.0f})",
         "An empty approach produces only LOW labels and teaches the model "
         "nothing. Record at a busier time or point at a busier approach.",
     ))
 
+    # VIEWPOINT IS ADVISORY, not a gate. It was calibrated on BMD-45, whose
+    # depth range is compressed; a clip with a long sightline has many distant
+    # vehicles and a small MEDIAN box even when every one of them is detected
+    # correctly. It rejected a 2048 s fixed-camera motorway clip on which the
+    # detector boxes every visible vehicle at 0.54-0.93 confidence.
+    #
+    # That is the second flaw found in this one statistic — it was also
+    # self-confirming, because it measured the size of DETECTIONS. Two failures
+    # of the same number is enough: it informs, it does not decide.
     print(f"  {'check':<16}{'result':<8}detail")
     for name, ok, detail, _ in checks:
         if name in ("viewpoint", "traffic present") and not detector_ok:  # noqa: SIM102
@@ -268,6 +270,11 @@ def main(argv: list[str] | None = None) -> int:
     print("  visible vehicles should have a box. If they do not, the counts and")
     print("  every congestion label built from them are meaningless — whatever")
     print("  the checks above say.")
+    print()
+    print(f"  advisory: median box {median_area:.5f} of frame, "
+          f"{ratio:.2f}x the BMD-45 reference")
+    print("  (informative only — a long sightline lowers the median without")
+    print("  hurting detection, and this number twice rejected usable footage)")
     advisory = "typical" if low_conf_ratio <= MAX_LOW_CONF_RATIO else "high"
     print()
     print(f"  advisory: {low_conf_ratio:.2f}x more detections at conf 0.10 than "
