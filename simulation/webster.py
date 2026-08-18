@@ -179,11 +179,54 @@ class Selection:
         return "\n".join(lines)
 
 
+MAX_CLAMP_RATE = 0.50
+MIN_ARRIVED_FRACTION = 0.85
+
+
+def disqualification(
+    row: dict,
+    *,
+    max_clamp_rate: float = MAX_CLAMP_RATE,
+    min_arrived_fraction: float = MIN_ARRIVED_FRACTION,
+) -> str | None:
+    """Why this measurement cannot be cited, or None if it can.
+
+    Split out of `select_best` because the two checks are not specific to
+    choosing a saturation flow — they say whether a **row** describes what its
+    label claims — and they were being applied only in the sweep, which is not
+    where the reported comparison is produced.
+
+    Measured consequence of that gap: the three-regime benchmark reported a
+    Webster arm at light demand that clamped on 100% of decisions, and an
+    oversaturated row in which all three controllers completed under 85% of
+    trips. Both were disqualified by rules this file already had.
+
+    The completion floor applies to any controller; the clamp rate only to ones
+    that report it, so a controller without `clamp_rate` is never rejected for
+    it rather than being silently treated as zero.
+    """
+    if "clamp_rate" in row and row["clamp_rate"] not in ("", None):
+        clamp = float(row["clamp_rate"])
+        if clamp > max_clamp_rate:
+            return (
+                f"clamp rate {clamp:.0%} > {max_clamp_rate:.0%} — the cycle formula "
+                f"never decided anything; this is a fixed cycle wearing Webster's name"
+            )
+
+    arrived = float(row.get("arrived_fraction", 1.0))
+    if arrived < min_arrived_fraction:
+        return (
+            f"completed {arrived:.0%} of trips < {min_arrived_fraction:.0%} — its "
+            f"mean wait excludes the vehicles that waited longest"
+        )
+    return None
+
+
 def select_best(
     rows: list[dict],
     *,
-    max_clamp_rate: float = 0.50,
-    min_arrived_fraction: float = 0.85,
+    max_clamp_rate: float = MAX_CLAMP_RATE,
+    min_arrived_fraction: float = MIN_ARRIVED_FRACTION,
 ) -> Selection:
     """Best Webster configuration — with two disqualifications that matter.
 
@@ -213,20 +256,13 @@ def select_best(
     rejected: list[tuple[dict, str]] = []
 
     for row in rows:
-        clamp = float(row.get("clamp_rate", 0.0))
-        arrived = float(row.get("arrived_fraction", 1.0))
-        if clamp > max_clamp_rate:
-            rejected.append((
-                row,
-                f"clamp rate {clamp:.0%} > {max_clamp_rate:.0%} — the cycle formula "
-                f"never decided anything; this is a fixed cycle wearing Webster's name",
-            ))
-        elif arrived < min_arrived_fraction:
-            rejected.append((
-                row,
-                f"completed {arrived:.0%} of trips < {min_arrived_fraction:.0%} — its "
-                f"mean wait excludes the vehicles that waited longest",
-            ))
+        reason = disqualification(
+            row,
+            max_clamp_rate=max_clamp_rate,
+            min_arrived_fraction=min_arrived_fraction,
+        )
+        if reason:
+            rejected.append((row, reason))
         else:
             qualified.append(row)
 

@@ -1708,8 +1708,17 @@ features do not encode queue dynamics" produce the same table.
 
 ## Result — the controller ranking is not stable across demand regimes (2026-08-18)
 
-**Status:** MEASURED · 3 controllers × 3 regimes × 30 paired seeds, all post-P15
-· `benchmark_runs.csv`, `benchmark_stats.csv`
+**Status:** MEASURED, **PARTIALLY VOIDED BY P19 — read that entry first** ·
+3 controllers × 3 regimes × 30 paired seeds, all post-P15 ·
+`benchmark_runs.csv`, `benchmark_stats.csv`
+
+> **P19 correction.** The Webster arm at `light` clamps on 100% of decisions and
+> is disqualified by ADR-012 — every comparison against it below is void. Every
+> `oversaturated` comparison is void for survivorship (all three controllers
+> completed under 85% of trips). **The `saturated` rows stand unchanged**, as
+> does `fixed vs longest_queue` at `light`. The headline finding — that the
+> ranking is regime-dependent — survives, but its light-regime half is now
+> "Webster is undefined here" rather than "longest_queue beats Webster".
 
 The post-P15 benchmark ran at `saturated` only, because that is the regime the
 voided `baselines.csv` screen had picked with one seed. Extending it to the other
@@ -1781,3 +1790,102 @@ a synthetic 4-way intersection**. Nothing here is evidence about a real junction
 and the absolute numbers are not comparable to field measurements. What the
 experiment supports is the *relative* claim: on identical demand streams, which
 controller wins depends on the regime. That is the claim being made.
+
+---
+
+## P19 — the three-regime result was reported before its own disqualification rules were applied (2026-08-18)
+
+**Status:** CLOSED · Found by asking whether `WEBSTER_SATURATION = 750.0` was
+defensible outside the regime it was selected in
+
+The three-regime result above was committed with a hardcoded Webster saturation
+flow. ADR-012 selected `s=750` **at saturated demand**, and `benchmark.py` used
+it at all three. So the obvious question was whether a different `s` wins
+elsewhere. The answer is worse than "yes".
+
+### At light demand, Webster is not Webster
+
+The sweep at `light`, 5 seeds per configuration:
+
+| s (pcu/h/m) | mean wait | clamp rate | arrived |
+|---|---|---|---|
+| 525 | 6.55 | **100%** | 96.0% |
+| 660 | 6.55 | **100%** | 96.0% |
+| 750 | 6.55 | **100%** | 96.0% |
+| 900 | 6.55 | **100%** | 96.0% |
+| 1050 | 6.55 | **100%** | 96.0% |
+| 1283 | 6.50 | **100%** | 95.7% |
+
+Six configurations, one number. That is the P15 signature — methods that are
+secretly the same program cannot differ — and the mechanism is exact:
+`optimum_cycle` returns roughly `23/(1-y)`, which is below `min_cycle_s = 32`
+for any `y < 0.28`. At light demand it clamps to the floor every decision, and
+`s` stops mattering because it only enters through `y = q/s`.
+
+**`ADR-012` already covers this**: a configuration clamping on more than half its
+decisions "is a fixed cycle wearing Webster's name". Nothing qualifies at light,
+so no Webster claim may be made there.
+
+**This voids a claim made in the entry above.** "longest_queue beats Webster at
+light demand (6.28 vs 6.59)" is not a comparison with Webster. It is a
+comparison with a 32 s minimum cycle. The correct statement is that
+`longest_queue` beats a fixed 30 s cycle at light demand by 47%, which is still
+true and still significant, and that **Webster is undefined in this regime**.
+
+### At oversaturation, no controller's mean wait is citable
+
+The sweep rejected all six configurations for completion, not clamping — 78% to
+83% of trips finished against the 85% floor. Checking the benchmark's own rows
+against the same rule:
+
+| regime | method | mean wait | arrived | verdict |
+|---|---|---|---|---|
+| oversaturated | fixed | 71.89 | 79.7% | survivorship |
+| oversaturated | longest_queue | 70.46 | 82.3% | survivorship |
+| oversaturated | webster | 66.61 | 82.6% | survivorship |
+
+**All three**, not just Webster. When a fifth of vehicles never complete, a mean
+wait is an average over a subset selected by the very thing being measured. The
+ordering happens to be directionally safe here — the controller with the lower
+wait also completed *more* trips, so the bias runs against it rather than for it
+— but the magnitudes are not reportable and the metric is the wrong one.
+Oversaturated demand needs throughput or completion rate as the headline, not
+mean wait.
+
+### The structural defect
+
+ADR-012's two disqualifications were defined, correct, and **applied only in
+`webster_sweep.py`.** The script that produces the reported comparison never
+ran them. The rule existed; the place it mattered never called it.
+
+That is the same shape as P15 (the controller that was never controlling) and
+P16 (the gate asserted nowhere): a thing relied on everywhere and checked in one
+place that is not the place it is relied on.
+
+### Consequences
+
+1. **`disqualification()` moves into `simulation/webster.py`** beside
+   `select_best`, which now calls it, and `benchmark.py` applies it per method
+   over seeds. Ten tests pin it, including both threshold boundaries.
+2. **`benchmark_stats.csv` gains `a_disqualified`, `b_disqualified`, `citable`.**
+   A reader of the committed file sees the verdict without re-deriving it, and a
+   paper table generated from the CSV can filter on it.
+3. **4 of 9 comparisons are citable**: all three at `saturated`, plus
+   `fixed vs longest_queue` at `light`. Everything else is printed and marked
+   uncitable.
+4. **`benchmark.py --restat` recomputes statistics from the committed runs CSV**
+   without re-simulating. NFR-09/10 requires paper tables to come from committed
+   CSVs by a committed script; that only holds if changing the analysis does not
+   cost 270 episodes, or the CSV and the analysis drift apart.
+5. **The original choice of `saturated` is vindicated, for a reason nobody had
+   established.** It is the only regime in which all three controllers produce
+   citable measurements. That was luck when it was picked by a single-seed
+   screen; it is now a checked property, and it is the regime PPO trains in.
+
+### What was right
+
+The rules that caught this were **pre-registered in ADR-012 and written against
+our own preferred result** — they were created because the sweep's naive best
+was a 100%-clamped fixed cycle, and adopting them cost us the headline number at
+the time. They caught two more failures here, one of them in a result committed
+forty minutes earlier. Thresholds fixed before the data are worth what they cost.
