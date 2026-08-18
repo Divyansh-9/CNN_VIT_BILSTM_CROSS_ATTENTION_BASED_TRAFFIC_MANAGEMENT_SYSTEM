@@ -91,3 +91,6 @@ data/_m2_coco_indexed/
 
 # Bellevue dev footage — rebuildable via gdown, never published (NFR-13, P10)
 data/dev_footage/
+
+# SUMO tripinfo scratch — swept per environment (see traffic_env)
+data/_tripinfo/

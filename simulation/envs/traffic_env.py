@@ -137,6 +137,27 @@ class TrafficSignalEnv(gym.Env):
         self._tripinfo = None
         self._episode = 0
 
+        # Tripinfo goes to a MANAGED directory, not the system temp.
+        #
+        # A fresh file per episode is required for correctness — reusing one
+        # path makes SUMO's rewrite unreliable and `mean_wait_s()` starts
+        # returning 0.00. But per-episode files in %TEMP% leaked 16,955 files
+        # and 1.5 GB across two sessions and eventually filled the disk, which
+        # broke SUMO startup outright. Per-reset unlinking does not fix it
+        # either: Windows holds the handle past SUMO's exit, so about half the
+        # unlinks fail silently.
+        #
+        # Keeping them in one gitignored directory that is swept when the
+        # environment is constructed bounds the disk cost without touching the
+        # correctness of the measurement.
+        self._tripinfo_dir = Path("data/_tripinfo")
+        self._tripinfo_dir.mkdir(parents=True, exist_ok=True)
+        for stale in self._tripinfo_dir.glob("*.tripinfo.xml"):
+            try:
+                stale.unlink()
+            except OSError:
+                pass
+
     # ------------------------------------------------------------ gym api --
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
@@ -144,15 +165,9 @@ class TrafficSignalEnv(gym.Env):
         self._close()
 
         ensure_sumo_home()
-        import tempfile
-
         import traci
 
-        handle = tempfile.NamedTemporaryFile(
-            suffix=".tripinfo.xml", delete=False, mode="w"
-        )
-        handle.close()
-        self._tripinfo = Path(handle.name)
+        self._tripinfo = self._tripinfo_dir / f"ep{self._episode:06d}.tripinfo.xml"
         self._traci = traci
         run_seed = self.base_seed + self._episode if seed is None else seed
         self._episode += 1
@@ -256,6 +271,7 @@ class TrafficSignalEnv(gym.Env):
 
     def close(self) -> None:
         self._close()
+        self._discard_tripinfo()
 
     # ----------------------------------------------------------- internal --
 
@@ -352,6 +368,25 @@ class TrafficSignalEnv(gym.Env):
             except Exception:
                 pass
             self._traci = None
+
+    def _discard_tripinfo(self) -> None:
+        """Delete the previous episode's tripinfo file.
+
+        One `NamedTemporaryFile(delete=False)` per `reset()` and nothing removing
+        them: a training run resets hundreds of times, and 16,955 files
+        accumulated across two sessions — 1.5 GB, and eventually a full disk that
+        broke SUMO startup outright.
+
+        This is the SECOND attempt at this fix. The first was committed as a
+        no-op edit that replaced a block with itself, so the leak continued while
+        the commit message said it had been fixed.
+        """
+        for stale in self._tripinfo_dir.glob("*.tripinfo.xml"):
+            try:
+                stale.unlink()
+            except OSError:
+                pass        # held by a still-exiting SUMO; the next sweep gets it
+        self._tripinfo = None
 
     def mean_wait_s(self) -> float:
         """Per-vehicle mean wait over COMPLETED trips, from tripinfo.

@@ -122,16 +122,24 @@ def run_episode(
     when the emergency approach is red** — see A29.
     """
     ensure_sumo_home()
-    import tempfile
+    import os
     import xml.etree.ElementTree as ET
 
     import traci
 
-    handle = tempfile.NamedTemporaryFile(
-        suffix=".tripinfo.xml", delete=False, mode="w"
-    )
-    handle.close()
-    tripinfo = Path(handle.name)
+    # A MANAGED directory rather than %TEMP%. `unlink` below usually succeeds,
+    # but on Windows SUMO can still hold the handle as it exits, and the misses
+    # accumulate — 16,955 files and 1.5 GB across two sessions, ending in a full
+    # disk that broke SUMO startup. Sweeping one gitignored directory catches
+    # whatever the unlink missed last time.
+    scratch = Path("data/_tripinfo")
+    scratch.mkdir(parents=True, exist_ok=True)
+    for stale in scratch.glob("run_*.tripinfo.xml"):
+        try:
+            stale.unlink()
+        except OSError:
+            pass
+    tripinfo = scratch / f"run_{os.getpid()}_{seed}.tripinfo.xml"
 
     command = [
         str(sumo_binary("sumo")),

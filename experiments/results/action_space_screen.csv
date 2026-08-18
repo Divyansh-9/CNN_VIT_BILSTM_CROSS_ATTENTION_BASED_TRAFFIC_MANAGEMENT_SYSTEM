@@ -1,2 +1,5 @@
 action_space,seed,timesteps,regime,episode_s,eval_episodes,mean_wait_s,per_episode_waits,seconds
 phase_duration,1,50000,saturated,900,3,32.547,31.271;32.231;34.137,1959.3
+phase_duration,2,50000,saturated,900,3,14.927,15.801;14.081;14.901,2062.7
+phase_duration,3,50000,saturated,900,3,17.325,15.846;18.312;17.818,3168.9
+phase_duration,4,50000,saturated,900,3,36.617,36.816;36.362;36.675,2209.2
