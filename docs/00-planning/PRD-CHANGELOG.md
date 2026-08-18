@@ -1575,3 +1575,81 @@ once for that camera and never change.
 4. **This raises the value of S06 sharply.** Multiple recordings from one
    junction, with polygons surveyed once, is the only corpus shape that works —
    and it is exactly what a single recording trip produces.
+
+---
+
+## P18 — requirements.txt was wrong in both directions, and the graded statistics were never checked against anything (2026-08-18)
+
+**Status:** CLOSED · Found by a baseline that silently reported `SKIPPED`
+
+`train_baselines.py` printed `xgboost_counts  SKIPPED - pip install xgboost`
+while `import xgboost` succeeded standalone. The `except ImportError` was
+catching an import that fired one level down: `XGBClassifier` is xgboost's
+scikit-learn wrapper and constructs scikit-learn at call time, so on a machine
+without sklearn the failure surfaced as "xgboost is missing".
+
+Switching to the native `xgboost.train` API removed the coupling. But the near
+miss is the point — **a baseline can disappear from the results table and print
+a plausible reason for it.** §14.3's baselines are what MFSTNet is measured
+against; one silently absent is a result that overstates the contribution.
+
+### What the audit found
+
+Walking the AST of every source file and comparing imports against
+`requirements.txt` in **both** directions:
+
+| direction | count | consequence |
+|---|---|---|
+| imported, not pinned | 6 | clean-machine reproduction fails (NFR-08) |
+| pinned, imported nowhere | 16 | the file overstates what is needed |
+
+The six unpinned — `yt-dlp`, `imageio-ffmpeg`, `gdown`, `huggingface-hub`,
+`nbformat`, `nbclient` — are all lazily imported inside data-acquisition
+scripts. Lazy imports are why the gap survived: nothing fails at startup, it
+fails on the day someone reproduces the corpus. They now have their own section,
+because a machine that trains from an existing corpus genuinely does not need
+them and the file should say which is which.
+
+Most of the sixteen unused pins are legitimate: FastAPI, MQTT, ONNX, MLflow and
+TensorBoard belong to the Weeks 17–19 prototype (ADR-004 wave 3). They are
+annotated as pinned-ahead-of-use so the next audit does not re-flag them.
+
+### The part that actually mattered
+
+`scipy` and `scikit-learn` were pinned with the comments
+"paired t-test, bootstrap CI (FR-R07, FR-R08)" and "macro F1, per-class P/R
+(FR-M11)" — and **imported nowhere.** Both were hand-rolled:
+`mfstnet/metrics.py` and `experiments/statistics.py` are pure standard library.
+
+That choice is defensible and is retained; the arithmetic stays auditable line
+by line and runs before the environment exists. What was not defensible is that
+**nothing checked it.** Macro F1, quadratic weighted kappa, the paired t-test
+and Cohen's d are graded reported numbers. `_t_sf`'s own docstring said
+"an approximation nobody verifies is worse than none" — and nobody had verified
+it. A continued-fraction expansion that loses precision in the tail is invisible
+until a p-value near α=0.05 falls the wrong side.
+
+`tests/test_metrics_reference.py` now cross-checks both modules against
+scikit-learn and SciPy: 52 assertions over randomised inputs plus the degenerate
+shapes — a class that never appears, perfect agreement, fully inverted
+agreement, and the t-distribution tails at df ∈ {1, 2, 5, 29, 100}.
+
+**Result: everything agrees.** Confusion matrix exact; macro/weighted F1,
+per-class precision/recall, accuracy and QWK to 1e-9; the paired t-test
+statistic to 1e-9 and its p-value to 1e-6; `_t_sf` to 1e-8 across the tails.
+
+No number changes. The hand-rolled implementations were correct. But they were
+correct *unverified*, which is the same position P15 and P16 occupied — relied
+on everywhere, asserted nowhere — and this one sat directly under the results
+section.
+
+### Consequences
+
+1. **`requirements.txt` reconciles with the code** and carries the audit method
+   at the top, so NFR-08 can be re-checked rather than re-asserted.
+2. **The reference cross-check runs in CI.** It skips when SciPy/scikit-learn
+   are absent, so the production path never acquires the dependency.
+3. **`xgboost>=2.1` is pinned** (P13), and the baseline uses the native API so
+   it runs wherever xgboost imports.
+4. **Catching `ImportError` around more than the import itself is a defect.**
+   It converts any nested import failure into a plausible-looking skip.
