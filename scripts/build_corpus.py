@@ -105,7 +105,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--clips", type=Path, required=True,
                         help="a video file, or a directory of them")
-    parser.add_argument("--lanes", choices=sorted(LANE_SETS), default="junction")
+    parser.add_argument("--lanes", choices=sorted(LANE_SETS), default="junction",
+                        help="a built-in layout; superseded by --polygons")
+    parser.add_argument(
+        "--polygons", type=Path,
+        help="lanes.json from scripts/survey_lanes.py. ONE file describes ONE "
+             "camera, and every clip in the build is assumed to come from that "
+             "camera — which is what P17 requires: polygons live in the image "
+             "plane, so a corpus cannot span cameras",
+    )
     parser.add_argument("--weights", type=Path,
                         default=Path("models/detector/s14_yolov8s_joint_best.pt"))
     parser.add_argument("--conf", type=float, default=0.45,
@@ -156,7 +164,22 @@ def main(argv: list[str] | None = None) -> int:
     if not clips:
         raise SystemExit(f"no usable .mp4 under {args.clips}")
 
-    lanes = LANE_SETS[args.lanes]
+    if args.polygons:
+        spec = json.loads(args.polygons.read_text(encoding="utf-8"))
+        lanes = tuple(
+            Polygon(entry["name"], tuple(tuple(v) for v in entry["points"]))
+            for entry in spec["lanes"]
+        )
+        print(f"  lanes surveyed from {spec.get('clip', args.polygons.name)} "
+              f"({len(lanes)}), disjoint={spec.get('disjoint')}")
+        if not spec.get("disjoint", True):
+            raise SystemExit(
+                "those polygons OVERLAP. Overlapping lanes double-count every "
+                "vehicle in the shared region, so the counts are wrong before "
+                "any threshold is applied. Edit the JSON and re-check."
+            )
+    else:
+        lanes = LANE_SETS[args.lanes]
     model = YOLO(str(args.weights))
     ids = vehicle_ids(model)
     names = model.names if isinstance(model.names, dict) else dict(enumerate(model.names))
