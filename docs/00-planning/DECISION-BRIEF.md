@@ -31,9 +31,18 @@ asserted by a test so it cannot be forgotten). Keep-or-switch at a fixed decisio
 interval is the standard formulation in the RL traffic-control literature and
 makes the feature meaningful.
 
-**Both are implemented behind a config flag.** We screen at 5 seeds each and
-bring you the numbers. Nothing graded is lost either way — §13.1 stays
-implemented as specified.
+**Both are implemented, and the screen is now done.** 5 seeds each, held-out
+evaluation episodes:
+
+| action space | mean wait | sd |
+|---|---|---|
+| `phase_duration` (§13.1) | 25.95 s | 9.47 |
+| **`keep_or_switch`** | **12.78 s** | **2.03** |
+
+**50.8% better and a quarter as variable.** §13.1 stays implemented behind the
+flag, so nothing graded is lost. This is a screen — 5 seeds, 50k timesteps — and
+it is not a comparison with Webster, which was measured at a different episode
+length.
 
 **Cost of reversing:** none before the 30-seed run; total after it, because
 changing the action space invalidates every trained checkpoint. That asymmetry

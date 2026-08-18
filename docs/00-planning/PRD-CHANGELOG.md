@@ -1452,3 +1452,56 @@ Also raised in the same review, and recorded so they are not lost:
 * **Run P13 and the Naive baseline early.** If last-value or XGBoost-on-counts
   already scores well on human-verified labels, that number reframes the
   contribution — and Week 3 is a far better time to learn it than Week 14.
+
+---
+
+## ADR-015 — action-space screen complete; keep-or-switch wins decisively (2026-08-18)
+
+The measurement ADR-015 committed to, and the first one that could mean anything:
+the pre-P15 screen produced byte-identical numbers for both arms because neither
+was controlling the light.
+
+`experiments/results/action_space_screen.csv`, 5 seeds each, 50k timesteps,
+900 s episodes, evaluated on 3 held-out episodes per seed:
+
+| action space | mean wait | sd | best seed |
+|---|---|---|---|
+| `phase_duration` (PRD §13.1) | 25.95 s | 9.47 | 14.93 s |
+| **`keep_or_switch`** | **12.78 s** | **2.03** | **10.60 s** |
+
+**Keep-or-switch is 50.8% better and less than a quarter as variable.**
+
+The spread matters as much as the mean. `phase_duration` ranges from 14.93 s to
+36.62 s across seeds — an agent that picks a phase *and* a duration at every
+decision has a much larger space to get wrong, and on some seeds it never finds
+a good region. Keep-or-switch, deciding one bit every 5 s, lands between 10.60 s
+and 15.17 s on all five.
+
+### This also vindicates P11's reasoning
+
+P11 observed that state index 10 `phase_remaining` is structurally zero under
+(phase, duration), because the agent only acts at phase end. The fix was not
+cosmetic: restoring that dimension came with a formulation that is both better
+and steadier.
+
+### What this does NOT establish
+
+**It is not a comparison with Webster.** Keep-or-switch's 12.78 s and Webster's
+14.05 s were measured on **different episode lengths** — 900 s here against
+1200 s in the benchmark — so putting them side by side would be comparing two
+different experiments. The honest comparison requires PPO in the 30-seed
+benchmark at 1200 s, which is the next RL step.
+
+**It is a screen, not a result.** Five seeds, 50k timesteps against the
+specified 500k, no significance test. It exists to rank two options so the
+choice is informed, and `benchmark_stats.csv` remains the reported comparison.
+
+### Consequence
+
+**DECISION-BRIEF item 1 now has evidence rather than a default.** The stated
+default was to adopt keep-or-switch on P11's reasoning alone; it is now adopted
+on a measured 50.8% margin with lower variance. The guide is being asked to
+confirm a number, not to arbitrate an argument.
+
+§13.1's action space stays implemented behind the flag, so nothing graded is
+lost and the comparison is reproducible.
