@@ -1392,3 +1392,63 @@ constant 0.5 passes every existing test while making the contribution vacuous.
 The new test does not assert the gate is healthy, because it currently is not.
 It asserts the gate's variation is **measured and recorded**, so the number
 cannot silently stay at 0.5 through to the paper.
+
+---
+
+## A32 (proposed) — the headline comparison must be on human-verified labels (2026-08-18)
+
+**Raised** 2026-08-18 · **Affects** PRD §14.3, §14.5, §8.6, ADR-002 · **Status** PROPOSED
+
+From [CRITICAL-REVIEW](CRITICAL-REVIEW.md). This is a **reporting rule**, and it
+costs nothing to adopt — but without it the project can run a correct experiment
+and draw the wrong conclusion from it.
+
+### The problem
+
+Congestion labels are derived from detector counts through §14.1's thresholds, so
+the label is a deterministic function of the count. §14.3's baselines include
+LSTM, GRU and CongestFormer **on count sequences**.
+
+Those baselines therefore observe **the exact variable the label is computed
+from**. MFSTNet observes pixels and must recover the count before it can
+extrapolate. On auto-labelled data the count models should win by construction,
+and MFSTNet can at best match them minus detector error.
+
+"Camera-only congestion prediction" is not merely disadvantaged there — it is
+**set up to lose**, and the loss would say nothing about vision.
+
+### The amendment
+
+> **§14.5.** The headline MFSTNet-versus-baselines comparison SHALL be reported
+> on the **human-verified test split** (A9). Auto-labelled results MAY be
+> reported alongside and SHALL be labelled as auto-labelled wherever they appear.
+
+A human judging congestion is not applying `count > 15`. They see queue length,
+whether traffic is stopped or moving, spatial bunching, blocked turns — properties
+that are present in pixels and **absent from a count**. That is where a vision
+model can win, and it is the only place it can.
+
+### Why a rule rather than a note
+
+A11 already observes that count-consuming baselines share error structure with
+auto-derived labels, and treats it as a bias against MFSTNet. It is stronger than
+a bias; it is a structural guarantee.
+
+Left as an observation, the predictable thing happens: the auto-labelled table is
+the biggest and cleanest one available, the count baselines top it, and the
+project concludes its own approach failed — when what failed was the label
+definition. A reporting rule is what stops that, and it has to be written before
+the numbers exist.
+
+### Related
+
+Also raised in the same review, and recorded so they are not lost:
+
+* **Frozen backbones cap the vision advantage.** The properties that separate
+  congestion from vehicle count are exactly the task-specific ones a frozen
+  generic encoder is least likely to expose. ADR-007's late LoRA experiment is
+  the only mechanism in the plan that lets the encoder learn anything
+  task-specific, and it should be **promoted from optional to planned**.
+* **Run P13 and the Naive baseline early.** If last-value or XGBoost-on-counts
+  already scores well on human-verified labels, that number reframes the
+  contribution — and Week 3 is a far better time to learn it than Week 14.
