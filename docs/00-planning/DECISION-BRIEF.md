@@ -1,9 +1,9 @@
 # Decision Brief — everything awaiting a call
 
 **To:** Faculty Guide · **From:** Project Team · **Date:** 2026-08-16
-**Deadline on items 1–3: 2026-08-18** (two days). Items 4–8 have no deadline.
+**Deadline on items 1–3: 2026-08-18** (two days). Items 4–9 have no deadline.
 
-> This page exists because six decisions had accumulated across five documents,
+> This page exists because decisions kept accumulating across five documents,
 > which is how sign-off stops happening. Everything is here with a
 > recommendation, the evidence behind it, and what we will do if there is no
 > reply. Detail is one click away in each linked record; nothing here restates it.
@@ -89,7 +89,7 @@ The override works; the number is unreachable without deleting clearance.
 
 ---
 
-## The five without one
+## The six without one
 
 ### 4. Scope Variations A and B — narrow the novelty claim, reduce prototype infrastructure
 
@@ -116,6 +116,38 @@ a reviewer was right to call that out.
 
 Engineering decisions with no graded consequence. Listed for completeness; we
 proceed unless you object.
+
+### 9. The headline model comparison must be reported on human-verified labels
+
+**Record:** [A32](PRD-CHANGELOG.md) · **Default: adopt** · costs nothing, changes
+which table is the headline
+
+This one is a **reporting rule**, not a change to any experiment, and it is here
+because without it the project can run a correct experiment and publish the
+wrong conclusion from it.
+
+Congestion labels come from detector counts through §14.1's thresholds, so the
+label is a deterministic function of the vehicle count. Three of §14.3's
+baselines — LSTM, GRU, CongestFormer — run **on count sequences**. They
+therefore observe the exact variable the label is computed from, while MFSTNet
+observes pixels and has to recover the count before it can extrapolate.
+
+On auto-labelled data those baselines should win **by construction**. That
+result would say nothing about vision, but it would be the biggest and cleanest
+table in the report, and the obvious reading of it is "the camera-only approach
+failed".
+
+The escape already exists: A9 human-verifies the test split. A human judging
+congestion is not applying `count > 15` — they see queue length, stopped versus
+moving, spatial bunching. Those are in the pixels and absent from a count.
+
+**The rule:** the headline MFSTNet-vs-baselines comparison is reported on the
+human-verified test split. Auto-labelled results may appear alongside and are
+labelled as such.
+
+**If you disagree**, the alternative is to report the auto-labelled table as
+headline and explain the circularity in the discussion. We think that is worse:
+the caveat arrives after the number has already landed.
 
 ---
 

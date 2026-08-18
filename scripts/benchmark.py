@@ -9,7 +9,9 @@ between-seed spread — and the spread here is large.
     python scripts/benchmark.py --seeds 5 --duration 300     # quick check
 
 Raw per-run rows are written to `experiments/results/benchmark_runs.csv` and the
-pairwise statistics to `benchmark_stats.csv`. **Both are committed** (NFR-09):
+pairwise statistics to `benchmark_stats.csv`. Re-running one regime replaces
+only that regime's rows, so the files accumulate regimes rather than being
+overwritten. **Both are committed** (NFR-09):
 the paper's tables are generated from the CSVs by a committed script, never
 transcribed from a printed summary.
 
@@ -74,22 +76,51 @@ def run_benchmark(
         print(f"  seed {seed + 1}/{seeds} done", flush=True)
 
     out.mkdir(parents=True, exist_ok=True)
-    runs_path = out / "benchmark_runs.csv"
-    with runs_path.open("w", newline="", encoding="utf-8") as handle:
-        fields = sorted({k for r in rows for k in r})
-        writer = csv.DictWriter(handle, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(rows)
-
     stats = analyse(rows, regime=regime)
-    stats_path = out / "benchmark_stats.csv"
-    with stats_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(stats[0]))
-        writer.writeheader()
-        writer.writerows(stats)
+    runs_path = merge_by_regime(out / "benchmark_runs.csv", rows, regime)
+    stats_path = merge_by_regime(out / "benchmark_stats.csv", stats, regime)
 
     print(f"\n  wrote {runs_path}\n  wrote {stats_path}")
     return rows, stats
+
+
+def merge_by_regime(path: Path, rows: list[dict], regime: str) -> Path:
+    """Replace this regime's rows; leave every other regime untouched.
+
+    This function exists because the original wrote a fixed filename in `"w"`
+    mode. `--regime light` would have silently destroyed the committed
+    saturated benchmark — a graded result (NFR-09) deleted by a routine second
+    run, with nothing printed to say it had happened.
+
+    Replacing rather than appending is deliberate: re-running a regime must
+    supersede it, not leave two contradictory copies of the same experiment
+    sitting in one file for a reader to pick between.
+    """
+    existing: list[dict] = []
+    if path.exists():
+        with path.open(encoding="utf-8", newline="") as handle:
+            on_disk = list(csv.DictReader(handle))
+        if any(not row.get("regime") for row in on_disk):
+            raise SystemExit(
+                f"{path} has rows with no regime. Refusing to merge — the file "
+                f"predates regime tracking, and mixing it with new rows would "
+                f"produce a table nobody can read. Move it aside first."
+            )
+        existing = [row for row in on_disk if row["regime"] != regime]
+
+    combined = existing + [dict(row) for row in rows]
+    fields = list(rows[0])
+    fields += sorted({k for row in combined for k in row} - set(fields))
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, restval="")
+        writer.writeheader()
+        writer.writerows(combined)
+
+    kept = sorted({row["regime"] for row in existing})
+    if kept:
+        print(f"  {path.name}: kept {len(existing)} row(s) from "
+              f"{', '.join(kept)}; replaced {regime}")
+    return path
 
 
 def analyse(rows: list[dict], *, regime: str, metric: str = "mean_wait_s") -> list[dict]:

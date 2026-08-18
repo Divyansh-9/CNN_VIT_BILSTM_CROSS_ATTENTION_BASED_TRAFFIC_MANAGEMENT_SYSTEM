@@ -79,6 +79,32 @@ Scheduling: Week 15, after the main results exist. LoRA and full fine-tuning bot
 feature cache and must run the uncached pipeline at batch 4 with gradient accumulation to an
 effective 32.
 
+#### A36 — this arm is planned, not optional (2026-08-18)
+
+[CRITICAL-REVIEW](../CRITICAL-REVIEW.md) Risk 2 raises the consequence of the freeze that the rest
+of this ADR takes for granted. **Frozen backbones mean the model cannot learn features for this
+task** — it can only recombine what ImageNet and DINOv2 already encode.
+
+The properties that separate congestion from vehicle count are queue length, stopped-versus-moving,
+and spatial bunching. Those are precisely the task-specific properties a frozen generic encoder is
+least likely to expose, and they are the properties the camera-only claim depends on. Per-lane ROI
+pooling (A8) recovers spatial structure and DINOv2 is a far better frozen representation than
+supervised ViT, but neither changes what the features encode.
+
+That interacts badly with A32. If the vision advantage lives in properties the frozen features do
+not expose, MFSTNet may fail to beat the count baselines **even on human-verified labels** — and the
+result would be read as "camera-only congestion prediction does not work" when what was actually
+measured is "frozen ImageNet features do not encode queue dynamics".
+
+**LoRA is the only mechanism in the entire plan that lets the encoder learn anything task-specific.**
+It is therefore reclassified from an optional extra to a **planned arm**, and `peft` moves out of
+requirements.txt's optional block. Nothing about the schedule or the design changes; what changes is
+that a null result on the frozen arms is no longer reportable on its own.
+
+**If it is cut for time, that is a legitimate call** — but it must be recorded as a cut, because the
+frozen-feature ceiling then becomes an untested confound on the headline claim rather than a
+question the project answered.
+
 ### 4. Training precision and speed
 
 | Technique | Use | Why |

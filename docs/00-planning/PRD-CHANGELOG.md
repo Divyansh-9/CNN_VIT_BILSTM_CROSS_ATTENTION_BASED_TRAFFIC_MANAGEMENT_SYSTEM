@@ -1242,16 +1242,23 @@ enough.
 2. **The synthetic pitch sweep is retired as the acceptance measure.** It
    under-reported the real effect by half. Bellevue replaces it — a proxy that
    disagrees with the thing it proxies is worse than no proxy.
-3. **A32 is proposed, not run:** retrain with augmentation an order of magnitude
+3. **A34 is proposed, not run:** retrain with augmentation an order of magnitude
    stronger (`perspective=0.001`, `degrees=20`, `shear=10`), with the criterion
    restated **on Bellevue** — detections/frame ≥ 50% of the oblique reference —
    and the same in-domain floor. That is tuning the intervention while holding
    the criterion fixed, which is legitimate; moving the threshold would not be.
-4. **A33 is worth raising against A32:** if geometric augmentation of oblique
+4. **A35 is worth raising against A34:** if geometric augmentation of oblique
    data cannot reach near-overhead performance, the honest conclusion may be
    that **near-overhead is a genuinely different domain requiring labelled data
    from it**, and no amount of warping oblique imagery substitutes. Two failed
    attempts would be evidence for that rather than for trying a third.
+
+> **Renumbered 2026-08-18 (was A32/A33).** These two were written as forward
+> proposals before A32 was allocated, and A32 then went to the human-verified
+> reporting rule below — which is now cited from five source files. Two live
+> meanings for one amendment ID is the kind of defect that surfaces in a viva,
+> so the doc-only pair moved. **Amendment IDs are allocated once and never
+> reused**, exactly as CLAUDE.md already requires of `BR-*`/`FR-*`/`NFR-*`.
 
 ---
 
@@ -1653,3 +1660,46 @@ section.
    it runs wherever xgboost imports.
 4. **Catching `ImportError` around more than the import itself is a defect.**
    It converts any nested import failure into a plausible-looking skip.
+
+---
+
+## A36 — the LoRA arm is promoted from optional to planned (2026-08-18)
+
+**Raised** 2026-08-18 · **Affects** ADR-007 §3, requirements.txt · **Status** ADOPTED
+
+From [CRITICAL-REVIEW](CRITICAL-REVIEW.md) Risk 2. This does not change the
+schedule, the design, or any hyperparameter. It changes what a null result is
+allowed to mean.
+
+ADR-005 caches frozen backbone outputs, which only works because the backbones
+are frozen. The consequence, which the ADR states but does not weigh: **the
+model cannot learn features for this task.** It recombines ImageNet and DINOv2
+features and nothing more.
+
+The properties that separate congestion from vehicle count — queue length,
+stopped-versus-moving, spatial bunching — are exactly the task-specific
+properties a frozen generic encoder is least likely to expose, and they are the
+properties the camera-only claim rests on.
+
+**This compounds A32.** A32 establishes that the comparison is only winnable on
+human-verified labels. Risk 2 adds that even there, the advantage may not
+materialise if it lives in properties the frozen features do not encode. Two
+independent reasons for the same null result, and neither would be visible in
+the number itself.
+
+LoRA is the only mechanism in the plan that lets the encoder learn anything
+task-specific. Leaving it optional means a null result on the frozen arms is
+uninterpretable: "camera-only prediction does not work" and "frozen ImageNet
+features do not encode queue dynamics" produce the same table.
+
+### Consequences
+
+1. **`peft` moves out of requirements.txt's optional block.** It is a planned
+   dependency, pinned like any other.
+2. **A frozen-only null result is not reportable on its own.** It needs the LoRA
+   arm beside it to say which of the two explanations holds.
+3. **Cutting it for time stays legitimate** — Week 15 sits behind the main
+   results, and the cache invalidation makes it the most expensive arm in the
+   study. But it must then be **recorded as a cut**, because the frozen-feature
+   ceiling becomes an untested confound on the headline claim rather than a
+   question the project answered.
