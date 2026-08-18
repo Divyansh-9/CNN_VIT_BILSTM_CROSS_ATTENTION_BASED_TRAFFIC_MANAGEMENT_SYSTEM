@@ -87,6 +87,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--frames", type=int, default=30)
     parser.add_argument("--deployment", type=Path,
                         help="self-recorded clip; omitted until S06 exists")
+    # Hardcoding these cost a four-hour Kaggle run: training finished, then the
+    # gate cell died because data/bmd45_eval exists locally and not on Kaggle.
+    # A path that is only correct on one machine is not a default, it is a bug
+    # with a delay on it.
+    parser.add_argument("--oblique-dir", type=Path,
+                        default=Path("data/bmd45_eval/images/test"),
+                        help="BMD-45 test images (Kaggle: /kaggle/working/bmd45_yolo/images/test)")
+    parser.add_argument("--dashcam-dir", type=Path,
+                        default=Path("data/idd_yolo/images/test"),
+                        help="IDD test images")
     parser.add_argument("--out", type=Path, default=RESULTS)
     args = parser.parse_args(argv)
 
@@ -101,14 +111,18 @@ def main(argv: list[str] | None = None) -> int:
 
     oblique = [
         cv2.imread(p)
-        for p in sorted(glob.glob("data/bmd45_eval/images/test/*.jpg"))[: args.frames]
+        for p in sorted(glob.glob(str(args.oblique_dir / "*.jpg")))[: args.frames]
     ]
     dashcam = [
         cv2.imread(p)
-        for p in sorted(glob.glob("data/idd_yolo/images/test/*.jpg"))[: args.frames]
+        for p in sorted(glob.glob(str(args.dashcam_dir / "*.jpg")))[: args.frames]
     ]
     if not oblique:
-        raise SystemExit("no BMD-45 eval images; run scripts/prepare_bmd45.py --eval-only")
+        raise SystemExit(
+            f"no oblique images under {args.oblique_dir}. Pass --oblique-dir; on "
+            f"Kaggle the BMD-45 split lives at /kaggle/working/bmd45_yolo/images/test, "
+            f"not at the local default."
+        )
 
     conditions = [
         ("dashcam", dashcam, 0.0),

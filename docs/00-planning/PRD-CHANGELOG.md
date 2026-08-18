@@ -1187,3 +1187,68 @@ learned controller beats a crippled baseline is worse than no paper.
 `experiments/results/VOID-PRE-P15.md` still lists the pre-fix files. `baselines.csv`
 and `webster_sweep.csv` remain to be regenerated; `benchmark_runs.csv` and
 `benchmark_stats.csv` are now post-fix and current.
+
+---
+
+## A31 — NOT MET. Reported as measured (2026-08-18)
+
+Both pre-registered criteria were checked against D2 (`perspective=0.0006`,
+`degrees=8.0`, `shear=4.0`, 60 epochs, seed 42).
+
+| criterion | target | D1 | **D2** | |
+|---|---|---|---|---|
+| pitch retention at 1.0 | ≥ 70% | 46% | **51%** | **FAILS** |
+| BMD-45 mAP50 | ≥ 0.8715 | 0.8915 | **0.8941** | MEETS |
+
+**The in-domain guard held** — mAP50 went *up* by 0.0026, and `auto_rickshaw`
+improved 0.914 → 0.919. The risk that robustness would be bought by making the
+model worse everywhere did not materialise.
+
+**The robustness target was missed by a wide margin.** A 5-point gain against a
+26-point shortfall. `perspective=0.0006` sits at the low end of Ultralytics'
+0–0.001 range, and the evidence is that it barely perturbs the geometry.
+
+Per A31's own pre-registration, the response is to **report the number and keep
+D1 as the working detector**, not to relax the threshold — which would be
+choosing the criterion to fit the result (PRD §2.5.5, BR-19).
+
+### The proxy was flattering the problem
+
+The pitch sweep is a synthetic perspective warp of oblique imagery. Bellevue is
+genuine pole-mounted near-overhead municipal CCTV — the actual condition the
+requirement is about. Four clips, 12 frames each:
+
+| model | detections/frame | out-of-domain ratio |
+|---|---|---|
+| D1 | 0.73 | 4.62 |
+| **D2** | **1.55** | **3.15** |
+| *(BMD-45 oblique reference)* | *9.88* | *1.37* |
+
+**D2 more than doubles D1 on real near-overhead footage** — a bigger relative
+gain than the synthetic sweep showed. The augmentation did more than the proxy
+credited it with.
+
+But it still finds **1.55 vehicles per frame where the oblique reference is
+9.88**, and the out-of-domain ratio stays at 3.15 against 1.37. Bellevue remains
+unusable as a corpus. The direction is right and the magnitude is nowhere near
+enough.
+
+### What this changes
+
+1. **A31 is not met and D1 remains the working detector.** D2 is retained as an
+   ablation arm; its in-domain numbers are marginally better, so the choice
+   between them is not obvious and belongs in the table rather than in a
+   decision made here.
+2. **The synthetic pitch sweep is retired as the acceptance measure.** It
+   under-reported the real effect by half. Bellevue replaces it — a proxy that
+   disagrees with the thing it proxies is worse than no proxy.
+3. **A32 is proposed, not run:** retrain with augmentation an order of magnitude
+   stronger (`perspective=0.001`, `degrees=20`, `shear=10`), with the criterion
+   restated **on Bellevue** — detections/frame ≥ 50% of the oblique reference —
+   and the same in-domain floor. That is tuning the intervention while holding
+   the criterion fixed, which is legitimate; moving the threshold would not be.
+4. **A33 is worth raising against A32:** if geometric augmentation of oblique
+   data cannot reach near-overhead performance, the honest conclusion may be
+   that **near-overhead is a genuinely different domain requiring labelled data
+   from it**, and no amount of warping oblique imagery substitutes. Two failed
+   attempts would be evidence for that rather than for trying a third.
