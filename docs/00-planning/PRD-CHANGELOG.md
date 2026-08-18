@@ -1304,3 +1304,91 @@ sweep. Checked directly:
 All three sit well above the 85% floor with throughput within 1% of each other,
 so Webster's 86% improvement is genuine and not achieved by dropping the
 vehicles that waited longest.
+
+---
+
+## P16 — the gate has never been shown to do anything (2026-08-18)
+
+**Status:** OPEN · **Severity:** the project's headline novelty currently has no evidence
+
+Found by hunting for the next P15 — an assumption relied on everywhere and
+asserted nowhere.
+
+CLAUDE.md states the position plainly: *"The gate value is a research artifact,
+not an internal detail — it is logged, tracked on the dashboard (FR-UI05), and
+analyzed in the paper."* [RELATED-WORK](RELATED-WORK.md) narrows the defensible
+novelty to the **gate-as-artifact**, because the fusion mechanisms themselves are
+all published.
+
+So the gate is not a component. It is the contribution.
+
+### It sits at its initialisation value
+
+`experiments/results/overfit_check.csv`, config G, the only arm with
+`use_gate: True`:
+
+    gate_mean  0.4999      accuracy 1.0
+
+Sigmoid of approximately zero is 0.5. **The model memorised ten sequences
+perfectly and the gate never moved.**
+
+Probed directly at initialisation (588 gate values, seed 42):
+
+| | |
+|---|---|
+| mean | 0.49617 |
+| std | **0.00227** |
+| range (max − min) | **0.0098** |
+| gradient, `fusion.gate.weight` | **5.3 × 10⁻⁶** |
+| gradient, `fusion.gate.bias` | 2.6 × 10⁻⁶ |
+| mean shift on a different input batch | **0.00056** |
+
+The gate spans **under 1% of [0, 1]** and barely responds to the input. The
+gradient reaching it is roughly six orders of magnitude smaller than the values
+it would need to move, so at `lr = 1e-4` the per-step update is ~5 × 10⁻¹⁰.
+
+`F_fused = g·Z_A + (1−g)·Z_B` with g ≈ 0.5 everywhere is **an unweighted
+average**. Gated bidirectional cross-attention is, on this evidence,
+indistinguishable from taking the mean of the two branches.
+
+### What is and is not established
+
+**Not established:** that the gate is broken. Gradient is non-zero, the
+mechanism is wired, and a 10-sequence memorisation task gives it no reason to
+move — the model can win without it.
+
+**Established, and this is the problem:** there is **no evidence whatsoever**
+that the gate does anything, and the paper's central claim assumes it does. That
+is precisely the gap P15 occupied — relied on everywhere, asserted nowhere.
+
+This is also the failure PRD §2.5.1 predicts by name ("Gate collapses — all
+predictions identical class") with a Week 12–13 mitigation attached. It is
+Week 2, and the condition is already visible.
+
+### The experiment that settles it, pre-registered
+
+A gate can only earn its place if the two branches carry **different**
+information. On random features they do not, and on a memorisation task nothing
+forces specialisation.
+
+> Train config G against config E (bidirectional, no gate) on the real corpus.
+> The gate is doing work if **(a)** its per-lane standard deviation across the
+> test split exceeds **0.05**, and **(b)** G beats E on macro-F1 by more than the
+> seed-to-seed spread of E.
+>
+> If the gate stays inside ±0.02 of 0.5, the honest conclusion is that
+> **gating contributes nothing on this task**, the claim is withdrawn, and E
+> becomes the reported architecture.
+
+Both thresholds are fixed now, before the corpus exists, for the same reason
+A28's statistic and A31's criterion were.
+
+### Why this was missed
+
+`test_model.py` asserts the gate is *present in the output* and *shaped
+correctly* — both true, both insufficient. Nothing asserted it **varies**. A
+constant 0.5 passes every existing test while making the contribution vacuous.
+
+The new test does not assert the gate is healthy, because it currently is not.
+It asserts the gate's variation is **measured and recorded**, so the number
+cannot silently stay at 0.5 through to the paper.

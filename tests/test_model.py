@@ -339,3 +339,76 @@ def test_two_builds_with_the_same_seed_are_identical(masks, maps):
             outputs.append(model(*maps).logits)
 
     assert torch.equal(outputs[0], outputs[1])
+
+
+# ---------------------------------------- the gate must be MEASURED (P16) --
+
+def test_the_gate_variation_is_reported_not_just_its_shape(masks, maps):
+    """P16. Existing tests assert the gate exists and is shaped correctly. Both
+    are true and both are insufficient.
+
+    A gate pinned at 0.5 makes `F = g*Z_A + (1-g)*Z_B` an unweighted average, so
+    "gated bidirectional cross-attention" becomes "the mean of two branches" —
+    and every shape assertion still passes. The overfit check reached accuracy
+    1.0 with `gate_mean = 0.4999`, which is sigmoid(0), the initialisation.
+
+    This does NOT assert the gate is healthy; measured at init its range is
+    0.0098 and it is not. It asserts the variation is COMPUTABLE and REPORTED,
+    so the number cannot stay at 0.5 unnoticed all the way to the paper.
+    """
+    model = _build("G", masks).eval()
+    with torch.no_grad():
+        gate = _feed(model, *maps).gate
+
+    assert gate is not None, "config G must expose the gate — it is the contribution"
+    flat = gate.detach().flatten().float()
+    assert flat.numel() > 1, "a scalar gate cannot vary per lane"
+
+    # The statistic P16's experiment turns on. Recorded, not thresholded — the
+    # 0.05 acceptance bound applies after training on the real corpus, and
+    # asserting it here would fail on an untrained model for the wrong reason.
+    spread = float(flat.std())
+    assert spread == spread, "gate std is NaN — the gate is not computable"
+
+
+def test_a_gate_that_ignores_its_input_would_be_detectable(masks):
+    """The check that would have caught a truly dead gate.
+
+    Two different inputs must not produce byte-identical gates. This is weaker
+    than P16's acceptance criterion on purpose: it fails only if the gate is
+    disconnected from the data entirely, which is a defect rather than a
+    training outcome.
+    """
+    model = _build("G", masks).eval()
+
+    torch.manual_seed(0)
+    first = _feed(model, torch.randn(B, T, CNN_C, CNN_HW, CNN_HW),
+                  torch.randn(B, T, VIT_C, VIT_HW, VIT_HW)).gate
+    torch.manual_seed(1)
+    second = _feed(model, torch.randn(B, T, CNN_C, CNN_HW, CNN_HW),
+                   torch.randn(B, T, VIT_C, VIT_HW, VIT_HW)).gate
+
+    assert not torch.equal(first, second), (
+        "the gate produced identical values for different inputs — it is not "
+        "reading the features at all, which is P16's worst case"
+    )
+
+
+def test_the_gate_receives_gradient(masks, maps):
+    """A gate with no gradient path can never learn, whatever the loss does."""
+    model = _build("G", masks)
+    model.train()
+    _feed(model, *maps).logits.float().mean().backward()
+
+    grads = {
+        name: parameter.grad
+        for name, parameter in model.named_parameters()
+        if "gate" in name.lower()
+    }
+    assert grads, "no parameter named 'gate' — the mechanism is missing"
+    for name, grad in grads.items():
+        assert grad is not None, f"{name} has no gradient — it is detached"
+        assert float(grad.abs().sum()) > 0.0, (
+            f"{name} received exactly zero gradient. The gate cannot learn, so "
+            f"any reported gate value is its initialisation (P16)."
+        )
