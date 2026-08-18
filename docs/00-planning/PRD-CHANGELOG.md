@@ -1505,3 +1505,73 @@ confirm a number, not to arbitrate an argument.
 
 §13.1's action space stays implemented behind the flag, so nothing graded is
 lost and the comparison is reproducible.
+
+---
+
+## P17 — a corpus cannot span cameras, because lane polygons are per-camera (2026-08-18)
+
+**Status:** OPEN · Found by building the first real corpus and reading its output
+
+399 sequences from 13 clips. The label distribution is unusable:
+
+| split | LOW | MEDIUM | HIGH |
+|---|---|---|---|
+| train | 193 | 84 | **0** |
+| val | 43 | 13 | 2 |
+| test | **8** | **56** | **0** |
+
+Zero HIGH in train and test, and the test split is nearly the inverse of train.
+The first reading was A30's — that §14.1's absolute thresholds do not fit this
+footage. **That reading was wrong, and the real cause is worse.**
+
+### The lane assignment is meaningless across cameras
+
+`corpus.counting` returns an unassigned rate alongside the counts, and its
+docstring says that is "not optional". It earned that:
+
+| clip | assigned to a lane |
+|---|---|
+| 4K Road traffic | **13.5%** |
+| Highway sounds | 38.8% |
+| Pov_Thursday | 39.1% |
+| Relaxing highway | 51.3% |
+| M6 Motorway | 63.6% |
+| Dhaka Science Lab | 65.4% |
+| Incredible traffic jam | 90.1% |
+| Incredible traffic Sound | **94.0%** |
+
+One `motorway` polygon set was applied to thirteen different cameras. On some it
+happens to line up; on most it does not. **A polygon is defined in the image
+plane, so it is a property of the camera, not of the road.** Counts derived
+through a mismatched polygon are not low counts — they are counts of the wrong
+region, and every label built on them is arbitrary.
+
+The class imbalance is a *symptom*. Fixing thresholds would have produced a
+balanced distribution over meaningless counts, which is worse than an obviously
+broken one.
+
+### What this means structurally
+
+**A corpus can only be assembled from clips that share a camera.** ADR-002 says
+splits are cut by clip to prevent leakage; it silently assumes those clips come
+from one installation. Thirteen YouTube clips of thirteen different roads cannot
+form one corpus at any threshold.
+
+This is not a limitation of the approach — it is the deployment reality. The
+system watches **one fixed camera** at one junction. Lane polygons are surveyed
+once for that camera and never change.
+
+### Consequences
+
+1. **The 13-clip corpus is discarded.** It is retained as the evidence for this
+   finding and must not be trained on.
+2. **`build_corpus.py` must take per-clip polygons**, and must refuse a clip
+   whose unassigned rate exceeds a threshold — a polygon that catches 13% of
+   detections is a misconfiguration, not data.
+3. **A30's measurement stays withdrawn.** Its Bellevue evidence was void because
+   the detector was out of domain; this corpus cannot restore it because the
+   polygons were wrong. The threshold question is still open and still
+   unmeasured.
+4. **This raises the value of S06 sharply.** Multiple recordings from one
+   junction, with polygons surveyed once, is the only corpus shape that works —
+   and it is exactly what a single recording trip produces.

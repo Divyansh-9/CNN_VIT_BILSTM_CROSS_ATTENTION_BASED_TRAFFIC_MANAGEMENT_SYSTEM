@@ -120,6 +120,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stride-s", type=int, default=30)
     parser.add_argument("--out", type=Path, default=Path("data/corpus"))
     parser.add_argument(
+        "--max-unassigned", type=float, default=0.35,
+        help="refuse a clip whose detections mostly fall OUTSIDE every lane "
+             "polygon. A polygon is defined in the image plane, so it belongs "
+             "to one camera; applied to another it counts the wrong region and "
+             "every label built on it is arbitrary (P17). Measured across 13 "
+             "clips with one shared polygon set: 13.5%% to 94%% assigned",
+    )
+    parser.add_argument(
         "--exclude", nargs="*", default=["Bellevue"],
         help="substrings of paths to skip. Bellevue is excluded BY DEFAULT: the "
              "detector is measurably out of domain there (0.73 detections/frame "
@@ -162,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
 
     import cv2
 
-    all_counts, all_sequences, skipped = [], [], []
+    all_counts, all_sequences, skipped, rejected = [], [], [], []
     for clip in clips:
         # Duration first. Running the detector over a clip that cannot yield a
         # single window is pure waste, and most of a mixed footage directory is
@@ -177,6 +185,19 @@ def main(argv: list[str] | None = None) -> int:
 
         rows, n = sample_counts(clip, lanes, model, ids, names,
                                 step_s=args.step_s, conf=args.conf)
+
+        # P17. Counts through a mismatched polygon are not low counts, they are
+        # counts of the wrong region — and a balanced label distribution over
+        # meaningless counts is worse than an obviously broken one.
+        assigned = sum(r[f"count_{lane.name}"] for r in rows for lane in lanes)
+        unassigned = sum(r["unassigned"] for r in rows)
+        rate = unassigned / max(assigned + unassigned, 1)
+        if rate > args.max_unassigned:
+            rejected.append((clip.stem, rate))
+            print(f"  {clip.stem[:44]:<46} REJECTED — {rate:.0%} of detections "
+                  f"fall outside every lane")
+            continue
+
         sequences = sequences_from_clip(clip.stem, n, geometry)
         if not sequences:
             skipped.append((clip.stem, n * args.step_s))
