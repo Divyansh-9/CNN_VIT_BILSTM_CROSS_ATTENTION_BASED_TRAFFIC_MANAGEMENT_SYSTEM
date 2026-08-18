@@ -27,12 +27,13 @@ If nothing qualifies, that is the finding. No "Webster's best" claim is made.
 from __future__ import annotations
 
 import argparse
-import csv
 import statistics
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from experiments.results_io import merge_by_key  # noqa: E402
 
 # ADR-012: no published value fits a mixed-traffic Indian approach, so the sweep
 # brackets the plausible range rather than asserting one.
@@ -78,11 +79,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {flow:>12}{row['mean_wait_s']:>11.2f}{row['clamp_rate']:>12.1%}"
               f"{row['arrived_fraction']:>9.1%}{row['mean_queue']:>8.1f}")
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    with args.out.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
+    # Keyed on regime, so sweeping a second demand level adds to this file
+    # rather than deleting the first (see experiments/results_io).
+    merge_by_key(args.out, rows, args.regime, key="regime")
 
     selection = select_best(rows)
     print()

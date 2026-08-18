@@ -24,12 +24,12 @@ was set before the agent was trained rather than after.
 from __future__ import annotations
 
 import argparse
-import csv
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from experiments.results_io import merge_by_key  # noqa: E402
 from experiments.statistics import compare  # noqa: E402
 from simulation.controllers import Fixed, LongestQueue  # noqa: E402
 from simulation.runner import run_episode  # noqa: E402
@@ -87,40 +87,13 @@ def run_benchmark(
 def merge_by_regime(path: Path, rows: list[dict], regime: str) -> Path:
     """Replace this regime's rows; leave every other regime untouched.
 
-    This function exists because the original wrote a fixed filename in `"w"`
-    mode. `--regime light` would have silently destroyed the committed
-    saturated benchmark — a graded result (NFR-09) deleted by a routine second
-    run, with nothing printed to say it had happened.
-
-    Replacing rather than appending is deliberate: re-running a regime must
-    supersede it, not leave two contradictory copies of the same experiment
-    sitting in one file for a reader to pick between.
+    Kept as a name because the tests and the P18 write-up refer to it, but the
+    implementation now lives in `experiments.results_io` — `webster_sweep.py`
+    and `screen_action_space.py` have the same fixed-filename shape, so the
+    hazard was never specific to this script.
     """
-    existing: list[dict] = []
-    if path.exists():
-        with path.open(encoding="utf-8", newline="") as handle:
-            on_disk = list(csv.DictReader(handle))
-        if any(not row.get("regime") for row in on_disk):
-            raise SystemExit(
-                f"{path} has rows with no regime. Refusing to merge — the file "
-                f"predates regime tracking, and mixing it with new rows would "
-                f"produce a table nobody can read. Move it aside first."
-            )
-        existing = [row for row in on_disk if row["regime"] != regime]
+    return merge_by_key(path, rows, regime, key="regime")
 
-    combined = existing + [dict(row) for row in rows]
-    fields = list(rows[0])
-    fields += sorted({k for row in combined for k in row} - set(fields))
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields, restval="")
-        writer.writeheader()
-        writer.writerows(combined)
-
-    kept = sorted({row["regime"] for row in existing})
-    if kept:
-        print(f"  {path.name}: kept {len(existing)} row(s) from "
-              f"{', '.join(kept)}; replaced {regime}")
-    return path
 
 
 def analyse(rows: list[dict], *, regime: str, metric: str = "mean_wait_s") -> list[dict]:

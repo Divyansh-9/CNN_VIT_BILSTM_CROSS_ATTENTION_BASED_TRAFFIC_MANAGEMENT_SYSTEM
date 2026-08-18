@@ -35,6 +35,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from experiments.results_io import merge_by_key  # noqa: E402
+
 ACTION_SPACES = ("phase_duration", "keep_or_switch")
 
 
@@ -83,6 +85,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.out.exists():
         with args.out.open(encoding="utf-8") as handle:
             for row in csv.DictReader(handle):
+                # Only this regime's cells. The file may hold others, and
+                # `rows` is what gets written back for this regime — loading a
+                # different regime's rows here would copy them into this one.
+                if row.get("regime") != args.regime:
+                    continue
                 row["seed"] = int(row["seed"])
                 row["timesteps"] = int(row["timesteps"])
                 row["episode_s"] = int(row["episode_s"])
@@ -125,11 +132,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {action_space:<16} seed {seed}  mean_wait {mean:>7.2f}s  "
                   f"({elapsed / 60:.1f} min)")
 
-            args.out.parent.mkdir(parents=True, exist_ok=True)
-            with args.out.open("w", newline="", encoding="utf-8") as handle:
-                writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-                writer.writeheader()
-                writer.writerows(rows)
+            # Rewritten after every seed so a crash mid-screen does not lose the
+            # seeds already paid for. Keyed on regime, so screening a second
+            # demand level adds to this file rather than deleting the first
+            # (see experiments/results_io). `quiet` because this runs in a loop.
+            merge_by_key(args.out, rows, args.regime, key="regime", quiet=True)
 
     print(f"\n  {'action space':<18}{'seeds':>7}{'mean wait':>12}{'sd':>9}{'best':>9}")
     summary = {}

@@ -1703,3 +1703,81 @@ features do not encode queue dynamics" produce the same table.
    study. But it must then be **recorded as a cut**, because the frozen-feature
    ceiling becomes an untested confound on the headline claim rather than a
    question the project answered.
+
+---
+
+## Result — the controller ranking is not stable across demand regimes (2026-08-18)
+
+**Status:** MEASURED · 3 controllers × 3 regimes × 30 paired seeds, all post-P15
+· `benchmark_runs.csv`, `benchmark_stats.csv`
+
+The post-P15 benchmark ran at `saturated` only, because that is the regime the
+voided `baselines.csv` screen had picked with one seed. Extending it to the other
+two regimes was expected to be bookkeeping. It is not.
+
+Mean wait per vehicle, seconds (lower is better, `*` = best in row):
+
+| regime | fixed | longest_queue | webster |
+|---|---|---|---|
+| light | 11.92 | **6.28*** | 6.59 |
+| saturated | 26.18 | 27.94 | **14.05*** |
+| oversaturated | 71.89 | 70.46 | **66.61*** |
+
+Paired comparisons, 30 seeds each:
+
+| regime | comparison | Δ (s) | p | Cohen's d | significant |
+|---|---|---|---|---|---|
+| light | fixed vs longest_queue | 5.64 | <0.00001 | 18.92 | yes |
+| light | longest_queue vs webster | −0.31 | <0.00001 | −1.08 | yes |
+| saturated | fixed vs longest_queue | −1.76 | 0.09682 | −0.31 | **no** |
+| saturated | fixed vs webster | 12.13 | <0.00001 | 2.94 | yes |
+| saturated | longest_queue vs webster | 13.89 | <0.00001 | 2.92 | yes |
+| oversaturated | fixed vs longest_queue | 1.43 | 0.62392 | 0.09 | **no** |
+| oversaturated | fixed vs webster | 5.28 | 0.09993 | 0.31 | **no** |
+| oversaturated | longest_queue vs webster | 3.85 | 0.01203 | 0.49 | yes |
+
+### Three things that were not visible from one regime
+
+**1. The winner changes.** `longest_queue` is the best controller under light
+demand and beats Webster there significantly. Under saturation it is the
+**worst** of the three — worse than a fixed 30 s cycle, though not significantly
+so. A queue-greedy rule works while there is slack to exploit and stops working
+when there is none.
+
+**2. Webster's advantage is a saturated-regime phenomenon.** It is 86% at
+saturation with d = 2.94. At oversaturation it cannot significantly beat a fixed
+cycle at all (p = 0.09993, d = 0.31). When every approach is over capacity there
+is little left for signal timing to allocate, and all three controllers converge
+towards the same 66–72 s.
+
+**3. Effect sizes collapse in the direction the paper cares about.** d falls
+from 2.94 to 0.31 between saturated and oversaturated. A method separation
+demonstrated at one demand level says little about the next one up.
+
+### What this changes
+
+1. **"Webster wins by 86%" is a saturated-regime claim** and must be reported
+   with the regime attached. It is not wrong; it was stated without the
+   qualifier it needs, and the qualifier is the interesting part.
+2. **ADR-012's selection of Webster `s=750` was made at `saturated`.** The
+   selection rule is unaffected — it was applied correctly to the regime it was
+   applied to — but the parameter is regime-specific and is not established for
+   light or oversaturated demand.
+3. **The bar PPO must clear is regime-dependent, and PPO trains at `saturated`
+   only** (`ppo_config.yaml`, `train_ppo.py --regime`). Beating Webster at
+   saturation is the hardest of the three (86% margin to erase); beating it at
+   oversaturation is nearly free, because nothing separates the controllers
+   there. **A PPO result must state its training and evaluation regime, and
+   generalisation across regimes is an open question, not an assumption.** The
+   checkpoint filename already encodes the regime, so the provenance exists.
+4. **`baselines.csv` is retired** as superseded rather than regenerated — see
+   `experiments/results/VOID-PRE-P15.md`. This closes the last artifact P15
+   voided.
+
+### Honest limits of this measurement
+
+The three regimes come from `build_sumo_demand.py` and are **synthetic demand on
+a synthetic 4-way intersection**. Nothing here is evidence about a real junction,
+and the absolute numbers are not comparable to field measurements. What the
+experiment supports is the *relative* claim: on identical demand streams, which
+controller wins depends on the regime. That is the claim being made.
