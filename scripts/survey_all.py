@@ -137,25 +137,51 @@ def main(argv: list[str] | None = None) -> int:
         if ok:
             height, width = frame.shape[:2]
             palette = [(80, 220, 120), (255, 170, 60), (60, 180, 255), (255, 0, 255)]
-            # Every sampled detection, coloured by the lane it WOULD be assigned
-            # to. This shows the actual decision rather than a box around it.
+
+            # BOXES for the detections in THIS frame, because object detection
+            # is read as boxes and a centroid hides both the extent and whether
+            # the box was right. P23: drawing dots for both the detections and
+            # the lane assignment made it impossible to see that the detector
+            # misses four auto-rickshaws on the Mumbai camera.
+            result = model.predict(source=frame, conf=args.conf, verbose=False)[0]
+            for box, cls in zip(result.boxes.xyxy.tolist(),
+                                result.boxes.cls.tolist()):
+                if int(cls) not in ids:
+                    continue
+                cx = (box[0] + box[2]) / 2 / width
+                cy = (box[1] + box[3]) / 2 / height
+                lane = assign_to_lane((cx, cy), lanes)
+                colour = palette[names.index(lane) % 4] if lane else (150, 150, 150)
+                cv2.rectangle(frame, (int(box[0]), int(box[1])),
+                              (int(box[2]), int(box[3])), colour, 2)
+                cv2.putText(frame, model.names[int(cls)][:12],
+                            (int(box[0]), max(14, int(box[1]) - 6)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 1)
+
+            # Faint centroids from the other sampled frames, so the shape the
+            # clustering actually saw stays visible behind the boxes.
             for point, lane in zip(points, assigned):
                 px = (int(point[0] * width), int(point[1] * height))
                 colour = palette[names.index(lane) % 4] if lane else (150, 150, 150)
-                cv2.circle(frame, px, 4, colour, -1)
+                cv2.circle(frame, px, 2, colour, -1)
+
             for index, (name, centre) in enumerate(zip(names, centres)):
                 px = (int(centre[0] * width), int(centre[1] * height))
                 colour = palette[index % 4]
-                cv2.circle(frame, px, int(args.max_radius * width), colour, 2)
-                cv2.drawMarker(frame, px, (255, 255, 255), cv2.MARKER_CROSS, 30, 4)
-                cv2.putText(frame, name, (px[0] + 14, px[1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 3)
-                cv2.putText(frame, name, (px[0] + 14, px[1] - 10),
+                cv2.drawMarker(frame, px, (255, 255, 255), cv2.MARKER_CROSS, 34, 5)
+                cv2.drawMarker(frame, px, colour, cv2.MARKER_CROSS, 34, 3)
+                cv2.putText(frame, name, (px[0] + 16, px[1] - 12),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 4)
+                cv2.putText(frame, name, (px[0] + 16, px[1] - 12),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, colour, 2)
-            cv2.putText(frame, f"unassigned {rate:.0%}", (16, 44),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.1, (255, 255, 255), 4)
-            cv2.putText(frame, f"unassigned {rate:.0%}", (16, 44),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.1, (30, 30, 30), 2)
+
+            banner = (f"{len(result.boxes)} boxes this frame  |  "
+                      f"{len(points)} centroids over {args.frames} frames  |  "
+                      f"{rate:.0%} unassigned")
+            cv2.putText(frame, banner, (16, 42), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.95, (255, 255, 255), 5)
+            cv2.putText(frame, banner, (16, 42), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.95, (25, 25, 25), 2)
             scaled = cv2.resize(frame, (960, int(frame.shape[0] * 960 / frame.shape[1])))
             cv2.imwrite(str(args.out / f"{stem}.preview.jpg"), scaled,
                         [cv2.IMWRITE_JPEG_QUALITY, 82])

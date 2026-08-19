@@ -2491,3 +2491,68 @@ on after seeing 0.6188 would not be.
 4. **Two arms run, two rejected, both informative.** S16 showed a noisy teacher
    costs more than it gives; S17 shows human annotation in the target domain
    gives a great deal and costs something specific and namable.
+
+---
+
+## P23 — the lane survey inherits the detector's blind spots (2026-08-19)
+
+**Status:** OPEN · Found by drawing detection boxes instead of centroids, after
+the reviewer asked why the preview used dots
+
+The lane review sheet drew each detection as a **coloured dot** — the centroid,
+accumulated over 60 sampled frames and coloured by lane assignment. That is what
+a lane survey needs, and it is the wrong thing to show, because it makes the
+detection underneath **impossible to judge**. Object detection is read as boxes;
+a dot hides both the box extent and whether the box was right.
+
+Drawn properly, on the mid-frame of each clip at conf 0.45:
+
+| camera | detections | quality |
+|---|---|---|
+| **M6 Motorway** | 19 | **near perfect** — every visible vehicle boxed, tight, correctly classed |
+| **Mumbai Andheri** | 16 | **poor** — 25+ vehicles visible |
+
+On the Mumbai frame, specifically:
+
+* **at least four auto-rickshaws in the lower-left are missed entirely**,
+  including a large one in the foreground;
+* `truck 0.84` is a **market stall**, not a truck;
+* several boxes are grossly oversized — the bus box overshoots, and a `car` box
+  spans a largely empty region;
+* roughly ten pedestrians are visible and **none** is detected.
+
+This is [P21](#p21) rendered as a picture rather than a number: 0.8941 on BMD-45,
+0.3500 on other Indian cameras. The measurement said it; the frame shows it.
+
+### The consequence that matters, and it was not obvious
+
+**Lane centres are computed from detection centroids.** Where the detector is
+blind, no centroid appears, so the cluster centre moves toward the region the
+detector happens to handle. On Mumbai the missed lower-left auto-rickshaws are
+exactly the traffic a lane there would count.
+
+**A biased detector produces biased lanes**, and every count drawn through them
+inherits the bias. The unassigned rate — P17's diagnostic — cannot see this: a
+vehicle that was never detected is not unassigned, it is absent.
+
+### Two corrections
+
+1. **Previews must show boxes.** The lane assignment is still the point, so the
+   preview now draws detection boxes for the displayed frame *and* the lane
+   centres, rather than substituting centroids for both.
+2. **The survey should use the best detector for the domain, not the adopted
+   one.** S17 scores **0.5734** on this kind of camera against s15's **0.3500**,
+   and was rejected only for regressing IDD dashcam accuracy — which has nothing
+   to do with surveying a lane on an Indian arterial.
+
+**Point 2 is a distinction worth stating explicitly.** A model rejected for
+*reporting* can be the right *tool*: surveying lanes is not a reported result,
+and using a weaker detector there to stay consistent with an adoption decision
+would be cargo-culting the rule rather than applying it. The adopted detector
+remains s15 for every number the project reports.
+
+### What this does not change
+
+The nearest-centre method is unaffected — it was adopted because polygons
+overlapped on 11 of 12 cameras, and that finding stands. This is about the
+*input* to the clustering, not the clustering.
