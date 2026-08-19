@@ -42,6 +42,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--conf", type=float, default=0.45)
     parser.add_argument("--weights", type=Path,
                         default=Path("models/detector/s15_yolov8s_joint_aug_best.pt"))
+    parser.add_argument("--max-radius", type=float, default=0.25,
+                        help="normalised distance beyond which a detection is "
+                             "unassigned")
+    parser.add_argument("--max-unassigned", type=float, default=0.35,
+                        help="P17's gate: above this the camera is a "
+                             "misconfiguration, not sparse data")
     parser.add_argument("--out", type=Path, default=Path("data/lanes"))
     args = parser.parse_args(argv)
 
@@ -49,9 +55,9 @@ def main(argv: list[str] | None = None) -> int:
     import numpy as np
     from ultralytics import YOLO
 
-    from mfstnet.corpus.geometry import Polygon, assert_disjoint
+    from mfstnet.corpus.lanes import LaneCentres, assign_to_lane
     from scripts.pilot_a17 import vehicle_ids
-    from scripts.survey_lanes import centroids, cluster, extent
+    from scripts.survey_lanes import centroids, cluster
 
     with args.triage.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -67,7 +73,8 @@ def main(argv: list[str] | None = None) -> int:
     ids = vehicle_ids(model)
 
     print(f"  {len(candidates)} camera(s) at >= {args.min_seconds:.0f}s\n")
-    print("  {:<44}{:>7}{:>9}{:>10}".format("camera", "dets", "disjoint", "status"))
+    print("  {:<44}{:>7}{:>11}{:>18}".format(
+        "camera", "dets", "unassigned", "status"))
     summary = []
     for row in candidates:
         clip = args.root / row["file"]
@@ -82,30 +89,38 @@ def main(argv: list[str] | None = None) -> int:
         try:
             points = centroids(clip, model, ids, frames=args.frames, conf=args.conf)
             groups = cluster(points, args.lanes)
-            polygons = [Polygon(f"lane_{i}", extent(g))
-                        for i, g in enumerate(groups) if g]
+            centres = tuple(
+                (sum(p[0] for p in g) / len(g), sum(p[1] for p in g) / len(g))
+                for g in groups if g)
         except SystemExit as error:              # too few detections to cluster
             print("  {:<44}{:>7}{:>9}{:>10}".format(stem[:42], "-", "-", "TOO FEW"))
             summary.append({"camera": stem, "status": "too few detections",
                             "detail": str(error)[:120]})
             continue
 
-        try:
-            assert_disjoint(polygons)
-            disjoint = True
-        except Exception:                        # noqa: BLE001
-            disjoint = False
+        # Order left-to-right so `lane_0` means the same thing on every camera.
+        centres = tuple(sorted(centres, key=lambda c: c[0]))
+        names = tuple(f"lane_{i}" for i in range(len(centres)))
+        lanes = LaneCentres(names=names, centres=centres,
+                            max_radius=args.max_radius)
+
+        assigned = [assign_to_lane(p, lanes) for p in points]
+        unassigned = sum(1 for a in assigned if a is None)
+        rate = unassigned / len(points) if points else 1.0
 
         target = args.out / f"{stem}.json"
         target.write_text(json.dumps({
             "clip": clip.name, "surveyed_from": str(clip),
-            "detections": len(points), "disjoint": disjoint,
+            "detections": len(points),
+            "unassigned_rate": round(rate, 4),
+            "max_radius": args.max_radius,
             "reviewed": False,
-            "lanes": [{"name": p.name, "points": [list(v) for v in p.vertices]}
-                      for p in polygons],
-            "note": ("AUTOMATIC AND UNREVIEWED. P17: these polygons belong to "
-                     "THIS camera only. Look at the .preview.jpg before use; a "
-                     "polygon over a car park is still wrong."),
+            "lanes": [{"name": n, "centre": list(c)} for n, c in zip(names, centres)],
+            "note": ("AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is "
+                     "disjoint by construction, so there is no overlap to fix "
+                     "-- but whether these centres sit on real approaches is "
+                     "still a question only the preview answers. P17: they "
+                     "belong to THIS camera only."),
         }, indent=2), encoding="utf-8")
 
         capture = cv2.VideoCapture(str(clip))
@@ -115,25 +130,39 @@ def main(argv: list[str] | None = None) -> int:
         capture.release()
         if ok:
             height, width = frame.shape[:2]
-            for index, polygon in enumerate(polygons):
-                pts = np.array([[int(x * width), int(y * height)]
-                                for x, y in polygon.vertices], np.int32)
-                colour = [(80, 220, 120), (255, 170, 60), (60, 180, 255),
-                          (255, 0, 255)][index % 4]
-                cv2.polylines(frame, [pts], True, colour, 4)
-                cv2.putText(frame, polygon.name, tuple(pts[0] + [6, 30]),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, colour, 2)
+            palette = [(80, 220, 120), (255, 170, 60), (60, 180, 255), (255, 0, 255)]
+            # Every sampled detection, coloured by the lane it WOULD be assigned
+            # to. This shows the actual decision rather than a box around it.
+            for point, lane in zip(points, assigned):
+                px = (int(point[0] * width), int(point[1] * height))
+                colour = palette[names.index(lane) % 4] if lane else (150, 150, 150)
+                cv2.circle(frame, px, 4, colour, -1)
+            for index, (name, centre) in enumerate(zip(names, centres)):
+                px = (int(centre[0] * width), int(centre[1] * height))
+                colour = palette[index % 4]
+                cv2.circle(frame, px, int(args.max_radius * width), colour, 2)
+                cv2.drawMarker(frame, px, (255, 255, 255), cv2.MARKER_CROSS, 30, 4)
+                cv2.putText(frame, name, (px[0] + 14, px[1] - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 3)
+                cv2.putText(frame, name, (px[0] + 14, px[1] - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, colour, 2)
+            cv2.putText(frame, f"unassigned {rate:.0%}", (16, 44),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.1, (255, 255, 255), 4)
+            cv2.putText(frame, f"unassigned {rate:.0%}", (16, 44),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.1, (30, 30, 30), 2)
             scaled = cv2.resize(frame, (960, int(frame.shape[0] * 960 / frame.shape[1])))
             cv2.imwrite(str(args.out / f"{stem}.preview.jpg"), scaled,
                         [cv2.IMWRITE_JPEG_QUALITY, 82])
 
-        status = "ok" if disjoint else "OVERLAP"
-        print("  {:<44}{:>7}{:>9}{:>10}".format(
-            stem[:42], len(points), str(disjoint), status))
+        # P17's gate: a camera whose detections mostly fall outside every lane
+        # is a misconfiguration, not sparse data.
+        status = "ok" if rate <= args.max_unassigned else "TOO MANY OUTSIDE"
+        print("  {:<44}{:>7}{:>11}{:>18}".format(
+            stem[:42], len(points), f"{rate:.1%}", status))
         summary.append({"camera": stem, "clip": clip.name,
                         "seconds": float(row["seconds"]),
-                        "detections": len(points), "disjoint": disjoint,
-                        "status": status})
+                        "detections": len(points),
+                        "unassigned_rate": round(rate, 4), "status": status})
 
     (args.out / "survey_summary.json").write_text(
         json.dumps(summary, indent=2), encoding="utf-8")

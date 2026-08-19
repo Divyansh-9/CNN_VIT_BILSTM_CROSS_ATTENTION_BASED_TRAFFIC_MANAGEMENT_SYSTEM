@@ -2,51 +2,24 @@
   "clip": "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.mp4",
   "surveyed_from": "D:\\traffic dataset\\South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.mp4",
   "detections": 2759,
-  "disjoint": false,
+  "unassigned_rate": 0.3686,
+  "max_radius": 0.25,
   "reviewed": false,
   "lanes": [
     {
       "name": "lane_0",
-      "points": [
-        [
-          0.41717041015625,
-          0.0
-        ],
-        [
-          1.0,
-          0.0
-        ],
-        [
-          1.0,
-          0.9971058824327257
-        ],
-        [
-          0.41717041015625,
-          0.9971058824327257
-        ]
+      "centre": [
+        0.23653337890812587,
+        0.5376308536994785
       ]
     },
     {
       "name": "lane_1",
-      "points": [
-        [
-          0.0,
-          0.00996745506922404
-        ],
-        [
-          0.48542625427246094,
-          0.00996745506922404
-        ],
-        [
-          0.48542625427246094,
-          0.9985046612774885
-        ],
-        [
-          0.0,
-          0.9985046612774885
-        ]
+      "centre": [
+        0.662475112312582,
+        0.5173929558042214
       ]
     }
   ],
-  "note": "AUTOMATIC AND UNREVIEWED. P17: these polygons belong to THIS camera only. Look at the .preview.jpg before use; a polygon over a car park is still wrong."
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
 }

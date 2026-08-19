@@ -2,51 +2,24 @@
   "clip": "Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964.mp4",
   "surveyed_from": "D:\\traffic dataset\\Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964.mp4",
   "detections": 1097,
-  "disjoint": false,
+  "unassigned_rate": 0.1176,
+  "max_radius": 0.25,
   "reviewed": false,
   "lanes": [
     {
       "name": "lane_0",
-      "points": [
-        [
-          0.010862852931022644,
-          0.13527707559091073
-        ],
-        [
-          0.6432488950093588,
-          0.13527707559091073
-        ],
-        [
-          0.6432488950093588,
-          0.7051926874231409
-        ],
-        [
-          0.010862852931022644,
-          0.7051926874231409
-        ]
+      "centre": [
+        0.37244454041933706,
+        0.3843433672286208
       ]
     },
     {
       "name": "lane_1",
-      "points": [
-        [
-          0.07167425831158955,
-          0.4154682357222945
-        ],
-        [
-          0.8791426849365235,
-          0.4154682357222945
-        ],
-        [
-          0.8791426849365235,
-          0.9759700577347367
-        ],
-        [
-          0.07167425831158955,
-          0.9759700577347367
-        ]
+      "centre": [
+        0.5277512233205934,
+        0.6453777879333881
       ]
     }
   ],
-  "note": "AUTOMATIC AND UNREVIEWED. P17: these polygons belong to THIS camera only. Look at the .preview.jpg before use; a polygon over a car park is still wrong."
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
 }

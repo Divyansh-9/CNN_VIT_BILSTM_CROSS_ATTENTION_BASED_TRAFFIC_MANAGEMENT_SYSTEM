@@ -2,51 +2,24 @@
   "clip": "M6 Motorway Traffic.mp4",
   "surveyed_from": "D:\\traffic dataset\\M6 Motorway Traffic.mp4",
   "detections": 950,
-  "disjoint": false,
+  "unassigned_rate": 0.0747,
+  "max_radius": 0.25,
   "reviewed": false,
   "lanes": [
     {
       "name": "lane_0",
-      "points": [
-        [
-          0.30693020502726237,
-          0.3411797332763672
-        ],
-        [
-          0.9912363878885905,
-          0.3411797332763672
-        ],
-        [
-          0.9912363878885905,
-          0.9637504803692853
-        ],
-        [
-          0.30693020502726237,
-          0.9637504803692853
-        ]
+      "centre": [
+        0.26749095422827934,
+        0.6798394876931027
       ]
     },
     {
       "name": "lane_1",
-      "points": [
-        [
-          0.004090561270713805,
-          0.48273300453468604
-        ],
-        [
-          0.4266731929779053,
-          0.48273300453468604
-        ],
-        [
-          0.4266731929779053,
-          0.9841732392487703
-        ],
-        [
-          0.004090561270713805,
-          0.9841732392487703
-        ]
+      "centre": [
+        0.5098315997832064,
+        0.4823329170928869
       ]
     }
   ],
-  "note": "AUTOMATIC AND UNREVIEWED. P17: these polygons belong to THIS camera only. Look at the .preview.jpg before use; a polygon over a car park is still wrong."
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
 }
