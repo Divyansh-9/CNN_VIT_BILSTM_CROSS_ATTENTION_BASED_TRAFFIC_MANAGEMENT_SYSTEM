@@ -1,0 +1,52 @@
+{
+  "clip": "4K Road traffic video for object detection and tracking - free download now!.mp4",
+  "surveyed_from": "D:\\traffic dataset\\4K Road traffic video for object detection and tracking - free download now!.mp4",
+  "detections": 795,
+  "disjoint": false,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "points": [
+        [
+          0.1654282299677531,
+          0.0
+        ],
+        [
+          0.5046628665924072,
+          0.0
+        ],
+        [
+          0.5046628665924072,
+          0.4422388373480903
+        ],
+        [
+          0.1654282299677531,
+          0.4422388373480903
+        ]
+      ]
+    },
+    {
+      "name": "lane_1",
+      "points": [
+        [
+          0.009831200838088989,
+          0.36849604571307143
+        ],
+        [
+          0.9427569580078126,
+          0.36849604571307143
+        ],
+        [
+          0.9427569580078126,
+          0.9670280117458767
+        ],
+        [
+          0.009831200838088989,
+          0.9670280117458767
+        ]
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. P17: these polygons belong to THIS camera only. Look at the .preview.jpg before use; a polygon over a car park is still wrong."
+}

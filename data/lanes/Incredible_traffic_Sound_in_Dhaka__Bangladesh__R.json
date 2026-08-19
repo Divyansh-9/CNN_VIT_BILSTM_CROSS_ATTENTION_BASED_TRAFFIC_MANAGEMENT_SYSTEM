@@ -1,0 +1,52 @@
+{
+  "clip": "Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
+  "detections": 751,
+  "disjoint": false,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "points": [
+        [
+          0.0,
+          0.5112516954210069
+        ],
+        [
+          0.459835532506307,
+          0.5112516954210069
+        ],
+        [
+          0.459835532506307,
+          0.9737295588740597
+        ],
+        [
+          0.0,
+          0.9737295588740597
+        ]
+      ]
+    },
+    {
+      "name": "lane_1",
+      "points": [
+        [
+          0.42435181617736817,
+          0.3715737575954861
+        ],
+        [
+          1.0,
+          0.3715737575954861
+        ],
+        [
+          1.0,
+          0.9676244608561199
+        ],
+        [
+          0.42435181617736817,
+          0.9676244608561199
+        ]
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. P17: these polygons belong to THIS camera only. Look at the .preview.jpg before use; a polygon over a car park is still wrong."
+}

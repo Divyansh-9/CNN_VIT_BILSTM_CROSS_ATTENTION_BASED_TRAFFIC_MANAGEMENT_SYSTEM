@@ -1,0 +1,52 @@
+{
+  "clip": "Highway sounds cars trucks passing by for sleeping relaxing.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Highway sounds cars trucks passing by for sleeping relaxing.mp4",
+  "detections": 199,
+  "disjoint": false,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "points": [
+        [
+          0.15890145778656006,
+          0.31512766802752457
+        ],
+        [
+          0.5622548929850261,
+          0.31512766802752457
+        ],
+        [
+          0.5622548929850261,
+          0.5897471618652343
+        ],
+        [
+          0.15890145778656006,
+          0.5897471618652343
+        ]
+      ]
+    },
+    {
+      "name": "lane_1",
+      "points": [
+        [
+          0.49519020398457847,
+          0.34896709865993925
+        ],
+        [
+          0.9970366350809733,
+          0.34896709865993925
+        ],
+        [
+          0.9970366350809733,
+          0.9479351128472222
+        ],
+        [
+          0.49519020398457847,
+          0.9479351128472222
+        ]
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. P17: these polygons belong to THIS camera only. Look at the .preview.jpg before use; a polygon over a car park is still wrong."
+}

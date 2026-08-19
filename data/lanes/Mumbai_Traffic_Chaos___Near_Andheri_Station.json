@@ -1,0 +1,52 @@
+{
+  "clip": "Mumbai Traffic Chaos - Near Andheri Station.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Mumbai Traffic Chaos - Near Andheri Station.mp4",
+  "detections": 1587,
+  "disjoint": false,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "points": [
+        [
+          0.0007488238811492916,
+          0.3792952134874132
+        ],
+        [
+          0.7667621485392253,
+          0.3792952134874132
+        ],
+        [
+          0.7667621485392253,
+          0.991601895932798
+        ],
+        [
+          0.0007488238811492916,
+          0.991601895932798
+        ]
+      ]
+    },
+    {
+      "name": "lane_1",
+      "points": [
+        [
+          0.28511929194132485,
+          0.12505491963139287
+        ],
+        [
+          0.7728029441833496,
+          0.12505491963139287
+        ],
+        [
+          0.7728029441833496,
+          0.6496990853768808
+        ],
+        [
+          0.28511929194132485,
+          0.6496990853768808
+        ]
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. P17: these polygons belong to THIS camera only. Look at the .preview.jpg before use; a polygon over a car park is still wrong."
+}

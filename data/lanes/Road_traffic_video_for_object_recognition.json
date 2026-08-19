@@ -1,0 +1,52 @@
+{
+  "clip": "Road traffic video for object recognition.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Road traffic video for object recognition.mp4",
+  "detections": 926,
+  "disjoint": true,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "points": [
+        [
+          0.003532758653163909,
+          0.34929372151692706
+        ],
+        [
+          0.4992605400085449,
+          0.34929372151692706
+        ],
+        [
+          0.4992605400085449,
+          0.9845876566569011
+        ],
+        [
+          0.003532758653163909,
+          0.9845876566569011
+        ]
+      ]
+    },
+    {
+      "name": "lane_1",
+      "points": [
+        [
+          0.5083868789672852,
+          0.34348932054307724
+        ],
+        [
+          0.9912074279785157,
+          0.34348932054307724
+        ],
+        [
+          0.9912074279785157,
+          0.963519761827257
+        ],
+        [
+          0.5083868789672852,
+          0.963519761827257
+        ]
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. P17: these polygons belong to THIS camera only. Look at the .preview.jpg before use; a polygon over a car park is still wrong."
+}

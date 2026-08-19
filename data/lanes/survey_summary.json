@@ -1,0 +1,98 @@
+[
+  {
+    "camera": "Highway_sounds_cars_trucks_passing_by_for_sleepi",
+    "clip": "Highway sounds cars trucks passing by for sleeping relaxing.mp4",
+    "seconds": 3601.8,
+    "detections": 199,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "4K_Road_traffic_video_for_object_detection_and_t",
+    "clip": "4K Road traffic video for object detection and tracking.mp4",
+    "seconds": 2093.1,
+    "detections": 144,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "M6_Motorway_Traffic",
+    "clip": "M6 Motorway Traffic.mp4",
+    "seconds": 2048.5,
+    "detections": 950,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "Road_traffic_video_for_object_recognition",
+    "clip": "Road traffic video for object recognition.mp4",
+    "seconds": 2048.0,
+    "detections": 926,
+    "disjoint": true,
+    "status": "ok"
+  },
+  {
+    "camera": "Incredible_traffic_Sound_in_Dhaka__Bangladesh__R",
+    "clip": "Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
+    "seconds": 1206.5,
+    "detections": 751,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "__Incredible_traffic_Sound_in_Dhaka__Bangladesh_",
+    "clip": "\ud83c\udfa7 Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura [4K ASMR] #TheSoundOfDhaka.mp4",
+    "seconds": 1169.6,
+    "detections": 1264,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "Relaxing_highway_traffic",
+    "clip": "Relaxing highway traffic.mp4",
+    "seconds": 840.5,
+    "detections": 325,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "Pov_Thursday_Traffic_From_Footover_bridge__Cloud",
+    "clip": "Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964.mp4",
+    "seconds": 496.7,
+    "detections": 1097,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "Mumbai_Traffic_Chaos___Near_Andheri_Station",
+    "clip": "Mumbai Traffic Chaos - Near Andheri Station.mp4",
+    "seconds": 349.2,
+    "detections": 1587,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "4K_Road_traffic_video_for_object_detection_and_t",
+    "clip": "4K Road traffic video for object detection and tracking - free download now!.mp4",
+    "seconds": 306.1,
+    "detections": 795,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "South_Extension_traffic_multi_coloured__pink___g",
+    "clip": "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.mp4",
+    "seconds": 264.0,
+    "detections": 2759,
+    "disjoint": false,
+    "status": "OVERLAP"
+  },
+  {
+    "camera": "video1",
+    "clip": "video1.mp4",
+    "seconds": 182.6,
+    "detections": 1651,
+    "disjoint": false,
+    "status": "OVERLAP"
+  }
+]
