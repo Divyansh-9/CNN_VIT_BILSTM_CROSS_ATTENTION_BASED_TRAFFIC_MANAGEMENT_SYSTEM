@@ -2370,3 +2370,45 @@ is an argument **for** S17 rather than against it.
    rather than a noisy teacher, and a criterion on `e_rickshaw` that can fail.
 4. **A negative result, reported.** PRD §2.5.5 requires this and it is the third
    time today the pre-registered discipline has cost us a preferred answer.
+
+### A28 addendum — measured on a real build, and it settles the split strategy
+
+`step_s = 2` was applied to the Dhaka clip end to end. It works, and it fails,
+and both halves are informative:
+
+| | `step_s = 5` | `step_s = 2` |
+|---|---|---|
+| samples from 1,206 s | 242 | **603** |
+| sequences | 86 | **103** |
+| survive leak-free buffers | **1** | **20** |
+| 3-way temporal split | refused | **still refused** |
+
+**Twenty times more usable windows, and still not a corpus.** The reason is
+arithmetic rather than luck. A three-way temporal split needs every band wider
+than one window plus a buffer either side; the narrowest band is `val` at 20% of
+the span, so `0.20 × span ≥ 3 × window`, i.e. **the recording must be at least
+fifteen windows long**.
+
+| clip | seconds | span/window @ `step_s=2` | 3-way? |
+|---|---|---|---|
+| Dhaka Rampura | 1,206 | 6.8 | no |
+| M6 Motorway | 2,048 | 11.5 | no |
+| 4K road traffic | 2,093 | 11.8 | no |
+| **Highway sounds** | **3,602** | **20.2** | **yes** |
+
+**One camera needs ~44 minutes at `step_s = 2` to support a temporal split.**
+Exactly one clip in the collection clears it, and it is a Western motorway.
+
+### So the split strategy is settled: by camera, not by time
+
+Splitting **by camera** needs no temporal buffers at all — two cameras share no
+frames, so there is nothing to leak. It also makes the test split a **held-out
+camera**, which measures the generalisation P21 showed the detector lacks
+instead of assuming it.
+
+That requires `step_s = 2` to reach eleven cameras, and per-camera lane polygons
+for each. **A28 and the multi-camera corpus are one decision, not two.**
+
+The temporal split stays implemented and tested: it is the correct mode once S06
+delivers 44+ minutes from a single junction, which is now a precisely-stated
+requirement rather than a vague preference for "more footage".

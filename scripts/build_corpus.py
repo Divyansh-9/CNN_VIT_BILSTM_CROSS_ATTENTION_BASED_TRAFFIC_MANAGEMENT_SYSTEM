@@ -40,7 +40,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from mfstnet.corpus.counting import Detection, count_frame  # noqa: E402
 from mfstnet.corpus.geometry import Polygon  # noqa: E402
 from mfstnet.corpus.labels import label_from_count, smooth_counts  # noqa: E402
-from mfstnet.corpus.splits import assert_no_clip_leakage, assign_splits  # noqa: E402
+from mfstnet.corpus.splits import (  # noqa: E402
+    assert_no_clip_leakage,
+    assign_splits,
+    assign_splits_temporal,
+)
 from mfstnet.corpus.windows import WindowGeometry, sequences_from_clip  # noqa: E402
 
 # Lane layouts. A motorway is two carriageways, not four approaches — ADR-016
