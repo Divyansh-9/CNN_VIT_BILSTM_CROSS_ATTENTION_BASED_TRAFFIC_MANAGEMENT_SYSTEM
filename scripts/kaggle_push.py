@@ -24,6 +24,22 @@ Whichever is used, **this script never reads, prints or commits a credential** â
 it only checks that one is present. `kaggle auth login` is recommended precisely
 because it leaves no secret in the repository's blast radius.
 
+**`kernels push` cannot choose the GPU, and the default is unusable.**
+`kernel-metadata.json` has `enable_gpu` but no field for the accelerator *type*,
+and `machine_shape: "Gpu"` does not select one either. A pushed kernel lands on
+a **P100**, which is `sm_60`; current PyTorch builds start at `sm_70`, so the
+card is not slow â€” it cannot run at all.
+
+Measured twice now, most recently on S16: version 1 failed after 23.9 s with
+`INCOMPATIBLE GPU sm_60`. The first cell of every training notebook checks the
+architecture against `torch.cuda.get_arch_list()` and exits immediately, which
+is the difference between losing twenty seconds and losing an hour of the
+thirty-hour weekly quota.
+
+**After pushing, the accelerator must be set to GPU T4 x2 in the notebook
+editor** (Session options -> Accelerator), and a confirmation dialog has to be
+accepted. Then Save Version -> Save & Run All. There is no API route to it.
+
 **Nothing here deletes anything on Kaggle.** Dataset and kernel pushes create a
 new *version*; previous versions stay visible in the Kaggle UI, so the run
 history is auditable rather than overwritten.
