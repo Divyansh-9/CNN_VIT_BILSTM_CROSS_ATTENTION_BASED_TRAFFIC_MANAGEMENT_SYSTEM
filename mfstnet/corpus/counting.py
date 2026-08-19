@@ -87,8 +87,25 @@ def count_frame(
             two-wheeler share, biasing every congestion label the §8.6 pipeline
             produces.
     """
-    per_lane: Counter[str] = Counter({p.name: 0 for p in lanes})
-    per_class: dict[str, Counter[str]] = {p.name: Counter() for p in lanes}
+    # `lanes` is either a sequence of Polygons (the original representation) or
+    # a LaneCentres (P23: polygons overlapped on 11 of 12 surveyed cameras, and
+    # nearest-centre assignment is disjoint by construction). Both are accepted
+    # so the change did not require rewriting every caller at once.
+    from mfstnet.corpus.lanes import LaneCentres, assign_to_lane
+
+    if isinstance(lanes, LaneCentres):
+        names = list(lanes.names)
+
+        def assign(point):
+            return assign_to_lane(point, lanes)
+    else:
+        names = [p.name for p in lanes]
+
+        def assign(point):
+            return assign_lane(point, lanes)
+
+    per_lane: Counter[str] = Counter({n: 0 for n in names})
+    per_class: dict[str, Counter[str]] = {n: Counter() for n in names}
     unassigned = 0
     total = 0
 
@@ -96,7 +113,7 @@ def count_frame(
         if det.confidence < min_confidence or det.cls in exclude_classes:
             continue
         total += 1
-        lane = assign_lane(det.centroid, lanes)
+        lane = assign(det.centroid)
         if lane is None:
             unassigned += 1
             continue
@@ -122,7 +139,11 @@ def count_clip(
         `(counts_by_lane, unassigned_rate)` — one count series per lane, in frame
         order, plus the clip's overall unassigned rate for the S6 gate.
     """
-    series: dict[str, list[int]] = {p.name: [] for p in lanes}
+    from mfstnet.corpus.lanes import LaneCentres
+
+    names = (list(lanes.names) if isinstance(lanes, LaneCentres)
+             else [p.name for p in lanes])
+    series: dict[str, list[int]] = {n: [] for n in names}
     unassigned = 0
     total = 0
 

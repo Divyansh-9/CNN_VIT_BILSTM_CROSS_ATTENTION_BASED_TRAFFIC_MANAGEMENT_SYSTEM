@@ -89,3 +89,57 @@ def test_four_approaches_partition_the_frame():
     for _ in range(2000):
         seen.add(assign_to_lane((rng.random(), rng.random()), junction))
     assert seen == {"north", "south", "east", "west"}
+
+
+def box(cls: str, cx: float, cy: float, *, confidence: float = 0.9, size: float = 0.02):
+    """A Detection centred on (cx, cy). The constructor takes corners, and a
+    centre is what a lane assignment actually consumes."""
+    from mfstnet.corpus.counting import Detection
+
+    return Detection(cls=cls, confidence=confidence,
+                     x1=cx - size, y1=cy - size, x2=cx + size, y2=cy + size)
+
+
+# ---------------------------------------------------------------------------
+# count_frame accepts both lane representations. The polygon path is the
+# original; the centres path is what P23 moved the project to.
+# ---------------------------------------------------------------------------
+
+def test_count_frame_accepts_lane_centres():
+    from mfstnet.corpus.counting import count_frame
+
+    detections = [
+        box("car", 0.20, 0.5), box("car", 0.80, 0.5),
+        box("motorcycle", 0.78, 0.5),
+        box("car", 0.50, 0.99),                       # beyond max_radius
+    ]
+    counts = count_frame(detections, TWO, min_confidence=0.25)
+    assert counts.per_lane == {"left": 1, "right": 2}
+    assert counts.unassigned == 1
+    assert counts.total == 4
+
+
+def test_count_frame_still_accepts_polygons():
+    """The original representation must keep working — the change was additive."""
+    from mfstnet.corpus.counting import count_frame
+    from mfstnet.corpus.geometry import Polygon
+
+    lanes = [Polygon("only", ((0.0, 0.0), (0.5, 0.0), (0.5, 1.0), (0.0, 1.0)))]
+    detections = [box("car", 0.25, 0.5), box("car", 0.75, 0.5)]
+    counts = count_frame(detections, lanes, min_confidence=0.25)
+    assert counts.per_lane == {"only": 1}
+    assert counts.unassigned == 1
+
+
+def test_low_confidence_and_excluded_classes_are_dropped_either_way():
+    from mfstnet.corpus.counting import count_frame
+
+    detections = [
+        box("car", 0.20, 0.5, confidence=0.10),
+        box("rider", 0.20, 0.5),
+        box("car", 0.20, 0.5),
+    ]
+    counts = count_frame(detections, TWO, min_confidence=0.25,
+                         exclude_classes=frozenset({"rider"}))
+    assert counts.per_lane["left"] == 1
+    assert counts.total == 1
