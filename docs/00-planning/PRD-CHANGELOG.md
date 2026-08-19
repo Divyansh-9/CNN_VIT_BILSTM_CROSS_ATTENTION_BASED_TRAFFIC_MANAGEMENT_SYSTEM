@@ -2617,3 +2617,57 @@ visual aid — rather than a clustering that must then be audited.
 Nearest-centre assignment is unaffected and remains right: it is disjoint by
 construction and reproduces whatever centres it is given. The defect is in how
 the centres are *chosen*, not in how they are *used*.
+
+---
+
+## Milestone — the ablation harness runs on real video (2026-08-19)
+
+**Status:** SMOKE TEST · not a result, and reported as one nowhere
+
+All eight ablation configs (A–H) ran through one code path on real cached
+frozen-backbone features, and wrote a 32-column CSV. This is the first time
+video has reached the model in this project.
+
+    clips -> detector -> per-camera counts -> labels -> windows
+          -> camera splits -> frozen-backbone cache -> MFSTNet -> CSV
+
+The harness behaves as specified:
+
+* **Every config executes.** CNN-only, ViT-only, concat, unidirectional,
+  bidirectional, +temporal attention, full gated, and the A22 linear probe.
+* **`use_gate` is honoured.** `gate_mean`, `gate_std` and `gate_range` are
+  populated for **G alone**, which is the only config with gating on. H is the
+  linear probe and correctly reports none.
+* **NFR-15 holds in practice:** the eight configs differ only by config, with no
+  code edit between them.
+
+### The P16 instrument works, and says what it said before
+
+Config G reported **`gate_mean 0.52477`, `gate_std 0.004806`** — the gate sitting
+essentially at its initialisation, which is what P16 measured on synthetic data
+(0.4999 / 0.00227).
+
+**That is not evidence about the gate.** Two epochs on sixty sequences with two
+windows in test cannot move a gate or refute anything. What it establishes is
+that the falsification test P16 pre-registered — gate std > 0.05 **and** G beats
+E — is now *runnable* rather than merely written down. It needs a real corpus.
+
+### Why the accuracy numbers are absent from this entry
+
+Macro-F1 across the eight configs was 0.0 or 0.3333, on **two test windows**.
+Reporting a comparison from that would be worse than reporting nothing, and the
+configs that scored 0.3333 (D, F, H) have no claim over those that scored 0.0.
+
+### What this milestone is
+
+Proof that the pipeline runs, not that the model works. The lanes were automatic
+centres marked reviewed to exercise the path, and the corpus is four clips.
+
+**Five integration defects were found by running it**, none of which the ~500
+unit tests caught, because all five lived between components:
+
+1. labelling iterated polygons after counting had moved to centres
+2. hash-based splits left val and test empty at four cameras
+3. lanes surveyed with one detector, counted with another (44% unassigned)
+4. ROI pooling had no region — a centre is not one
+5. lane geometry did not travel with the corpus manifest
