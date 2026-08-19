@@ -104,6 +104,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--splits", type=float, nargs=3, default=(0.70, 0.15, 0.15),
                         help="train/val/test, FR-D05 stratified 70/15/15")
+    parser.add_argument("--width", type=int, default=0,
+                        help="downscale images to this width; 0 keeps 1920. "
+                             "Labels are normalised, so a resize leaves them "
+                             "correct and they are written unchanged either way")
+    parser.add_argument("--quality", type=int, default=88)
     args = parser.parse_args(argv)
 
     index = {name: number for number, name in enumerate(CLASSES)}
@@ -213,7 +218,21 @@ def main(argv: list[str] | None = None) -> int:
                 continue
 
             stem = f"{sequence.name}_{annotation.stem}"
-            shutil.copyfile(image, args.out / "images" / split / f"{stem}.jpg")
+            target = args.out / "images" / split / f"{stem}.jpg"
+            if args.width:
+                import cv2
+                frame = cv2.imread(str(image))
+                if frame is not None and frame.shape[1] > args.width:
+                    scale = args.width / frame.shape[1]
+                    frame = cv2.resize(frame,
+                                       (args.width, int(frame.shape[0] * scale)),
+                                       interpolation=cv2.INTER_AREA)
+                    cv2.imwrite(str(target), frame,
+                                [cv2.IMWRITE_JPEG_QUALITY, args.quality])
+                else:
+                    shutil.copyfile(image, target)
+            else:
+                shutil.copyfile(image, target)
             (args.out / "labels" / split / f"{stem}.txt").write_text(
                 "\n".join(rows) + "\n", encoding="utf-8")
             frames[split] += 1

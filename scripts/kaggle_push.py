@@ -142,6 +142,33 @@ def check(here: Path = DEFAULT_KERNEL_DIR) -> int:
     return 0 if ok else 1
 
 
+# The Kaggle CLI prints some failures to stdout and still exits 0. Measured: a
+# 53-character dataset title produced "The dataset title must be between 6 and
+# 50 characters", exit code 0, and this script reported "dataset pushed".
+#
+# A push tool that cannot tell success from failure is worse than no tool, so
+# known failure markers are treated as failures regardless of exit status.
+FAILURE_MARKERS = (
+    "must be between", "is not valid", "error", "forbidden", "not found",
+    "already exists", "invalid",
+)
+
+
+def run_checked(command: list[str]) -> int:
+    """Run and fail on a marker in the output even when the exit code is 0."""
+    result = subprocess.run(command, capture_output=True, text=True)
+    output = (result.stdout or "") + (result.stderr or "")
+    print(output.rstrip())
+    lowered = output.lower()
+    hit = next((m for m in FAILURE_MARKERS if m in lowered), None)
+    if result.returncode == 0 and hit:
+        print()
+        print(f"  REFUSING to report success: output contains {hit!r}.")
+        print("  The Kaggle CLI exits 0 on some failures; this is not one.")
+        return 1
+    return result.returncode
+
+
 def run(command: list[str], cwd: Path | None = None) -> int:
     print("  $ " + " ".join(command))
     result = subprocess.run(command, cwd=cwd)
@@ -196,7 +223,8 @@ def main(argv: list[str] | None = None) -> int:
         exists = slug in (listing.stdout or "")
         verb = ["version", "-m", args.message, "-d"] if exists else ["create", "-r", "zip"]
         print(f"  {'new version of' if exists else 'creating'} {slug} from {data_dir}")
-        code = run([python, "-m", "kaggle", "datasets", *verb, "-p", str(data_dir)])
+        code = run_checked([python, "-m", "kaggle", "datasets", *verb,
+                            "-p", str(data_dir)])
         if code:
             return code
         print("  dataset pushed. A NEW VERSION — earlier ones stay on Kaggle.")
