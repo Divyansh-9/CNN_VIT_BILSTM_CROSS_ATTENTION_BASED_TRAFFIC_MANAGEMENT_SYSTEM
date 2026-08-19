@@ -427,6 +427,14 @@ def main(argv: list[str] | None = None) -> int:
         writer.writerows(labelled)
     (args.out / "manifest.json").write_text(json.dumps({
         "lanes": lane_names(lanes),
+        # A8's ROI pooling needs a region per lane at train time, so the
+        # geometry travels with the corpus rather than being re-derived from a
+        # directory that may have moved on.
+        "lane_centres": ([{"name": n, "centre": list(c)}
+                          for n, c in zip(lanes.names, lanes.centres)]
+                         if isinstance(lanes, LaneCentres) else None),
+        "max_radius": (lanes.max_radius
+                       if isinstance(lanes, LaneCentres) else None),
         "T": args.timesteps, "step_s": args.step_s,
         "horizon_s": args.horizon_s, "stride_s": args.stride_s,
         "detector": args.weights.name, "conf": args.conf,

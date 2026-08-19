@@ -1,0 +1,31 @@
+{
+  "clips": {
+    "corpus/Mumbai Traffic Chaos - Near Andheri Station": {
+      "file": "corpus__Mumbai Traffic Chaos - Near Andheri Station.pt",
+      "frames": 175
+    },
+    "corpus/Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964": {
+      "file": "corpus__Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964.pt",
+      "frames": 245
+    },
+    "corpus/South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos": {
+      "file": "corpus__South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.pt",
+      "frames": 130
+    },
+    "corpus/video1": {
+      "file": "corpus__video1.pt",
+      "frames": 90
+    }
+  },
+  "git_commit": "b99c15b",
+  "preprocessing_hash": "a4142d1ab333226b",
+  "spec": {
+    "cnn": "resnet50",
+    "dtype": "float16",
+    "format_version": 1,
+    "image_size": 224,
+    "normalization": "imagenet",
+    "resize_mode": "bilinear",
+    "vit": "vit_small_patch14_dinov2"
+  }
+}

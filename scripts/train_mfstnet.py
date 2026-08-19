@@ -181,14 +181,21 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     import torch
 
     from mfstnet.model import MFSTNet
-    from mfstnet.temporal import lane_masks
+    from mfstnet.corpus.lanes import LaneCentres
+    from mfstnet.temporal import lane_masks, lane_masks_from_centres
     from scripts.seed import set_seed
 
     t = spec["training"]
     set_seed(seed)                      # NFR-07, before the model is built
 
-    masks = lane_masks(lanes, spec.get("grid", 7))
-    config = dataclasses.replace(config, n_lanes=len(lanes))
+    masks = (lane_masks_from_centres(lanes, spec.get("grid", 7))
+             if isinstance(lanes, LaneCentres)
+             else lane_masks(lanes, spec.get("grid", 7)))
+    # P17: the lane count comes from the corpus, never from a config
+    # default. Either representation answers it.
+    n_lanes = (len(lanes.names) if isinstance(lanes, LaneCentres)
+               else len(lanes))
+    config = dataclasses.replace(config, n_lanes=n_lanes)
     model = MFSTNet(config, masks)
     optimiser = torch.optim.AdamW(
         model.parameters(), lr=t["lr"], weight_decay=t["weight_decay"]
@@ -311,15 +318,28 @@ def main(argv: list[str] | None = None) -> int:
     cache = FeatureCache(args.cache)
     cache.load_manifest()               # raises on a preprocessing-hash mismatch
 
+    # Geometry for A8's per-lane ROI pooling, in whichever representation the
+    # corpus was built with. Centres are the current one (P23); polygons remain
+    # readable so a corpus built earlier still trains.
     lanes = tuple(
         Polygon(entry["name"], tuple(tuple(v) for v in entry["points"]))
         for entry in manifest.get("polygons", [])
     ) or None
+    centres = manifest.get("lane_centres")
+    if lanes is None and centres:
+        from mfstnet.corpus.lanes import LaneCentres
+
+        lanes = LaneCentres(
+            names=tuple(e["name"] for e in centres),
+            centres=tuple(tuple(e["centre"]) for e in centres),
+            max_radius=float(manifest.get("max_radius", 0.25)),
+        )
     if lanes is None:
         raise SystemExit(
-            "the corpus manifest carries no polygons. Rebuild it with "
-            "--polygons from scripts/survey_lanes.py: lane geometry is "
-            "per-camera (P17) and the ROI pooling needs it."
+            "the corpus manifest carries no lane geometry. ROI pooling (A8) "
+            "needs a region per lane, and a corpus built without one cannot "
+            "train. Rebuild with --lanes-dir from "
+            "scripts/import_lane_centres.py."
         )
 
     split = {

@@ -26,5 +26,22 @@
   "low_max": 4,
   "med_max": 15,
   "threshold_note": "The expensive pass produces counts.csv, which is THRESHOLD-INDEPENDENT. Labels in sequences.csv are a cheap derivation on top. scripts/relabel_corpus.py regenerates them under different thresholds in seconds, without re-running the detector -- so a threshold decision is a config change, never a reason to delay building the corpus.",
-  "reporting_note": "A32: auto-labelled. Labels are a deterministic function of the count, so count-sequence baselines observe the label-generating variable directly. The HEADLINE comparison must use the human-verified test split."
+  "reporting_note": "A32: auto-labelled. Labels are a deterministic function of the count, so count-sequence baselines observe the label-generating variable directly. The HEADLINE comparison must use the human-verified test split.",
+  "lane_centres": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.439423594654113,
+        0.7857610113090939
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.48761913051914163,
+        0.31578607371930245
+      ]
+    }
+  ],
+  "max_radius": 0.25
 }

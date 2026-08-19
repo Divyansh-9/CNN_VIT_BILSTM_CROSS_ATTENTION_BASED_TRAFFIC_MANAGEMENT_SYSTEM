@@ -26,7 +26,8 @@ import torch.nn as nn
 
 from .corpus.geometry import Polygon
 
-__all__ = ["TemporalConfig", "lane_masks", "LanePool", "TemporalEncoder", "CongestionHead"]
+__all__ = ["TemporalConfig", "lane_masks", "lane_masks_from_centres", "LanePool",
+           "TemporalEncoder", "CongestionHead"]
 
 Pooling = Literal["last", "mean", "attention"]
 
@@ -69,6 +70,44 @@ def lane_masks(
                 f"lane {poly.name!r} covers {covered} of {grid * grid} grid cells. "
                 f"Raise the grid (config `fusion.grid`) or redraw the polygon — "
                 f"pooling an empty region predicts from noise."
+            )
+        masks[i] /= masks[i].sum()
+    return masks
+
+
+def lane_masks_from_centres(lanes, grid: int, *, min_cells: int = 1) -> torch.Tensor:
+    """Build `[n_lanes, grid, grid]` weights from lane CENTRES, by nearest cell.
+
+    A centre is not a region, and per-lane ROI pooling (A8) needs one. The
+    region that is consistent with how the counts were produced is the lane's
+    **Voronoi cell**: a grid cell belongs to whichever centre is nearest, and to
+    none if that centre is beyond `max_radius`.
+
+    Using anything else here would pool over a different region than the one the
+    counts came from, so the label and the features would describe different
+    parts of the frame.
+
+    Cells beyond every centre's radius are left at zero and contribute nothing,
+    which is the pooling analogue of an unassigned detection.
+    """
+    from mfstnet.corpus.lanes import assign_to_lane
+
+    masks = torch.zeros(len(lanes.names), grid, grid)
+    index = {name: i for i, name in enumerate(lanes.names)}
+    for r in range(grid):
+        for c in range(grid):
+            cx, cy = (c + 0.5) / grid, (r + 0.5) / grid
+            lane = assign_to_lane((cx, cy), lanes)
+            if lane is not None:
+                masks[index[lane], r, c] = 1.0
+
+    for name, i in index.items():
+        covered = int(masks[i].sum().item())
+        if covered < min_cells:
+            raise ValueError(
+                f"lane {name!r} covers {covered} of {grid * grid} grid cells. "
+                f"Raise the grid (config `fusion.grid`), widen `max_radius`, or "
+                f"move the centre — pooling an empty region predicts from noise."
             )
         masks[i] /= masks[i].sum()
     return masks
