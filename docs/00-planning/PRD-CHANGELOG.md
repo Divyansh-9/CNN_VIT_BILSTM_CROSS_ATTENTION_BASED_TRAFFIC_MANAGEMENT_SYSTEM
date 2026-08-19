@@ -2161,3 +2161,72 @@ corpus at all**, and its priority should be read that way.
    not enough to claim a large-scale result.
 5. **S06's recording trip becomes the highest-value input again**, for a reason
    sharper than before: hours from one junction beats minutes from many.
+
+### P22 addendum — A28 is the decision that unlocks the corpus, not ADR-017
+
+Two more measurements, and together they change which sign-off to chase first.
+
+**Independent segments, not windows, is the honest sample size.** Sliding-window
+augmentation is standard practice and legitimate *within* the training split —
+the rule it must never break is overlap between train and test. So the corpus
+can use an **asymmetric stride**: dense for train, sparse and buffered for
+val/test.
+
+That inflates the window count without adding information, and both numbers must
+be reported:
+
+| | |
+|---|---|
+| train windows at a 5 s stride | 1,053 |
+| **independent 360 s segments** | **12** |
+
+Twelve. Across all eight fixed-camera clips. A model with attention layers
+trained on twelve independent temporal segments is a pilot, not a result, and
+saying otherwise would be the kind of claim this log exists to prevent.
+
+**A28 is the lever, and it is already written and pre-registered.** `step_s = 5`
+is a bare number in §8.2 that is derived nowhere; the whole 355 s minimum rests
+on it. Recomputing the segment count across the triaged footage:
+
+| `step_s` | window span | independent segments | cameras usable |
+|---|---|---|---|
+| 5 (current) | 355 s | 19 | 8 |
+| 4 | 296 s | 25 | 9 |
+| 3 | 237 s | 32 | 10 |
+| **2** | **178 s** | **42** | **11** |
+| 1 | 119 s | 67 | 11 |
+
+**A28 at `step_s = 2` more than doubles the corpus from footage already on
+disk**, and admits three clips currently rejected on arithmetic alone — one of
+them the Andheri intersection, which A28's own entry calls the best-composed
+Indian intersection scene in the collection.
+
+### The corrected priority
+
+Earlier today this log said to take **ADR-017** to the guide first. That was
+right about ADR-017 mattering and wrong about the order:
+
+1. **A28 first.** It is what determines whether a corpus exists at all, and it
+   doubles it from data already downloaded. It is also *cheaper to accept* — the
+   PRD's own §8.2 never derived the number being changed.
+2. **ADR-017 second.** It decides which labelling is the headline, and
+   `relabel_corpus.py` makes that switchable in seconds after the fact.
+
+**A28 was written to unblock S06** — to stop rejecting good footage on
+undefended arithmetic. Its larger value was not measured until now: it is the
+single decision that most increases the corpus, and it needs no new data.
+
+### On TrafficCAM's official splits
+
+TrafficCAM ships `splits/benchmark/` — 2,263 supervised train, 209 val, 1,529
+test, plus semi-supervised subsets with **~60,000 unlabelled frames**.
+
+**These are detection splits and they help the detector, not the corpus.** Using
+them replaces our ad-hoc camera-session split with the published benchmark, which
+makes our detector numbers directly comparable to the TrafficCAM paper — a real
+gain, and it should be adopted for that reason.
+
+They do nothing for MFSTNet. A TrafficCAM sequence is 30 frames at stride 2,
+about **two seconds**, against a window span of 178–355 s. No split of a
+two-second clip produces a forecasting window. The corpus constraint is
+unchanged by anything in that folder.
