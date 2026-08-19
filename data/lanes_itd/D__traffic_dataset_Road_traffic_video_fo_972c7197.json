@@ -1,0 +1,25 @@
+{
+  "clip": "Road traffic video for object recognition.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Road traffic video for object recognition.mp4",
+  "detections": 1243,
+  "unassigned_rate": 0.0941,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.4320368411677522,
+        0.47926042008967623
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.7187315225601196,
+        0.6488044764614364
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

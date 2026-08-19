@@ -42,6 +42,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--conf", type=float, default=0.45)
     parser.add_argument("--weights", type=Path,
                         default=Path("models/detector/s15_yolov8s_joint_aug_best.pt"))
+    parser.add_argument("--imgsz", type=int, default=640,
+                        help="run the detector at the size it trained at; "
+                             "ITD-x is 992")
+    parser.add_argument("--max-box-area", type=float, default=0.05,
+                        help="drop boxes over this fraction of the frame. "
+                             "ADR-018 measured 65%% of ITD's bus boxes and "
+                             "43%% of its trucks oversized on this footage")
     parser.add_argument("--max-radius", type=float, default=0.25,
                         help="normalised distance beyond which a detection is "
                              "unassigned")
@@ -93,7 +100,9 @@ def main(argv: list[str] | None = None) -> int:
         # silently overwrote the other. Twelve cameras produced eleven previews.
         stem = stable_stem(str(clip))
         try:
-            points = centroids(clip, model, ids, frames=args.frames, conf=args.conf)
+            points = centroids(clip, model, ids, frames=args.frames,
+                               conf=args.conf, imgsz=args.imgsz,
+                               max_box_area=args.max_box_area)
             groups = cluster(points, args.lanes)
             centres = tuple(
                 (sum(p[0] for p in g) / len(g), sum(p[1] for p in g) / len(g))
@@ -143,7 +152,8 @@ def main(argv: list[str] | None = None) -> int:
             # the box was right. P23: drawing dots for both the detections and
             # the lane assignment made it impossible to see that the detector
             # misses four auto-rickshaws on the Mumbai camera.
-            result = model.predict(source=frame, conf=args.conf, verbose=False)[0]
+            result = model.predict(source=frame, conf=args.conf,
+                                   imgsz=args.imgsz, verbose=False)[0]
             for box, cls in zip(result.boxes.xyxy.tolist(),
                                 result.boxes.cls.tolist()):
                 if int(cls) not in ids:

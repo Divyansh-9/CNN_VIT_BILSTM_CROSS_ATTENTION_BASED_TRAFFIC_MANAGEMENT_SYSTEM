@@ -2556,3 +2556,64 @@ remains s15 for every number the project reports.
 The nearest-centre method is unaffected — it was adopted because polygons
 overlapped on 11 of 12 cameras, and that finding stands. This is about the
 *input* to the clustering, not the clustering.
+
+### P23 addendum — measured, and it is worse than the argument suggested
+
+P23 argued that lane centres inherit the detector's blind spots. Surveying all
+twelve cameras a second time with **ITD-x at its trained resolution** made that
+measurable.
+
+**Lane centres move by a median of 0.1639 of frame width** — roughly **315
+pixels on a 1920-wide frame** — when the detector changes.
+
+| camera | s15 dets | ITD dets | centre shift | unassigned |
+|---|---|---|---|---|
+| Dhaka Rampura (b) | 1,264 | 535 | **0.286** | 16.1% → 12.9% |
+| Relaxing highway | 325 | 621 | **0.339** | 11.1% → 7.6% |
+| M6 Motorway | 950 | 1,364 | 0.262 | 7.5% → 9.2% |
+| South Extension | 2,759 | 2,043 | 0.221 | 36.9% → **28.4%** |
+| Mumbai Andheri | 1,587 | 426 | 0.107 | 13.7% → 4.9% |
+| Highway sounds | 199 | 264 | 0.051 | 3.5% → 5.3% |
+
+**All twelve cameras now clear the 35% unassigned gate**, against ten before —
+so the better detector helps by that measure. But the centres it produces are
+somewhere else entirely.
+
+### The confound I introduced, and the clean test
+
+The re-survey changed **three variables at once** — detector, `imgsz`, and a new
+box-area filter — which is precisely the discipline this project applies to
+every other comparison and which I did not apply here.
+
+Isolating the area filter alone, s15 at `imgsz 640`, 40 frames:
+
+| camera | centres shift from the filter alone |
+|---|---|
+| Mumbai | 0.0108 |
+| Dhaka | 0.0160 |
+| M6 | 0.0036 |
+
+**An order of magnitude smaller than 0.164.** The filter is not the cause; the
+detector is. P23's mechanism is confirmed rather than merely argued.
+
+Pairing was also checked: matching centres optimally instead of by index changed
+the median not at all, and found only **one** label flip in twelve — so the
+movement is real and not an artifact of arbitrary cluster labels.
+
+### What this means for the method
+
+**A lane whose position moves 16% of the frame when the tooling changes is not a
+property of the road.** It is substantially an artifact of which vehicles the
+detector happened to see, and every count drawn through it inherits that.
+
+`survey_lanes.py` has always said its output is "a starting point to check by
+eye, not an authority". This puts a number on how far from an authority it is.
+
+**So automatic lane inference should not be used unreviewed, and the tooling
+should stop implying otherwise.** The productive shape is a human placing lane
+centres once per camera — with the detection density rendered underneath as a
+visual aid — rather than a clustering that must then be audited.
+
+Nearest-centre assignment is unaffected and remains right: it is disjoint by
+construction and reproduces whatever centres it is given. The defect is in how
+the centres are *chosen*, not in how they are *used*.

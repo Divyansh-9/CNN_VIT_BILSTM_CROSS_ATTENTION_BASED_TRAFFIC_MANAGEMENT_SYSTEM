@@ -1,0 +1,25 @@
+{
+  "clip": "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.mp4",
+  "surveyed_from": "D:\\traffic dataset\\South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.mp4",
+  "detections": 2043,
+  "unassigned_rate": 0.2839,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.4259924157132042,
+        0.6483572936816498
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.5735431498996136,
+        0.31428085967473807
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

@@ -32,8 +32,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-def centroids(clip: Path, model, ids, *, frames: int, conf: float) -> list:
-    """Normalised (x, y) of every vehicle detection across sampled frames."""
+def centroids(clip: Path, model, ids, *, frames: int, conf: float,
+              imgsz: int = 640, max_box_area: float = 1.0) -> list:
+    """Normalised (x, y) of every vehicle detection across sampled frames.
+
+    `imgsz` is a parameter because a detector must be run at the resolution it
+    was trained at — ITD-x trains at 992 and measuring it at 640 would report a
+    weaker model than it is.
+
+    `max_box_area` drops boxes covering more than that fraction of the frame.
+    ADR-018 measured ITD-x rejecting 65% of its bus detections and 43% of its
+    trucks on elevated South Asian footage as oversized; an oversized box has a
+    centroid in roughly the right place but a spurious one does not, and lane
+    centres are computed from these points (P23).
+    """
     import cv2
 
     capture = cv2.VideoCapture(str(clip))
@@ -45,10 +57,14 @@ def centroids(clip: Path, model, ids, *, frames: int, conf: float) -> list:
         ok, frame = capture.read()
         if not ok:
             break
-        result = model.predict(source=frame, conf=conf, verbose=False)[0]
+        result = model.predict(source=frame, conf=conf, imgsz=imgsz,
+                               verbose=False)[0]
         height, width = result.orig_shape
         for box, cls in zip(result.boxes.xyxy.tolist(), result.boxes.cls.tolist()):
             if int(cls) not in ids:
+                continue
+            area = ((box[2] - box[0]) / width) * ((box[3] - box[1]) / height)
+            if area > max_box_area:
                 continue
             points.append((
                 (box[0] + box[2]) / 2 / width,
