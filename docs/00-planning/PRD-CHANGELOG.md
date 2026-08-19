@@ -2412,3 +2412,82 @@ for each. **A28 and the multi-camera corpus are one decision, not two.**
 The temporal split stays implemented and tested: it is the correct mode once S06
 delivers 44+ minutes from a single junction, which is now a precisely-stated
 requirement rather than a vague preference for "more footage".
+
+---
+
+## S17 result — TrafficCAM +0.2234, `e_rickshaw` alive for the first time, and a real trade-off (2026-08-19)
+
+**Status:** MEASURED · 2.8 h on Kaggle T4 x2 · gate applied unchanged ·
+**NOT ADOPTED** under the pre-registered criteria
+
+| # | criterion | measured | verdict |
+|---|---|---|---|
+| 1 | TrafficCAM mAP50 > 0.3500 | **0.5734** (+0.2234) | **PASS** |
+| 2 | `e_rickshaw` AP50 > 0.30 | **0.4787** (was 0.000) | **PASS** |
+| 3 | BMD-45 not down > 0.02 | 0.8916 (−0.0025) | PASS |
+| 4 | IDD not down > 0.02 | **0.6188** (−0.0916) | **FAIL** |
+| 5 | `cattle` not down > 0.02 | 0.3508 (−0.0008) | PASS |
+| 6 | ≥ 10 fps | 79.4 fps, Tesla T4 | PASS |
+
+### The class that was never trained now works
+
+`e_rickshaw` went from **0.000 to 0.4787**. [P21](#p21) established that IDD
+contains zero e_rickshaw instances, so the detector shipped an output head that
+had never seen one example — decorative since S11, in a class PRD §5 lists among
+the India-specific ones that justify building our own detector at all.
+
+1,254 human-annotated training boxes fixed it. That is the single most valuable
+outcome of the day, and it came from data, not from architecture.
+
+### Cross-camera generalisation improved by 64% relative
+
+TrafficCAM **0.3500 → 0.5734**. P21 measured the detector losing two-thirds of
+its accuracy when moved to Indian cameras it had not seen; roughly half of that
+loss is now recovered, and BMD-45 held at 0.8916 while it happened.
+
+`cattle` also held at 0.3508 despite being **absent from TrafficCAM entirely** —
+the second time today that elevated-domain data has protected or improved a class
+the new data does not contain.
+
+### The cost, and it is a real trade rather than a defect
+
+IDD fell **0.7104 → 0.6188**, a drop of 0.0916 against a 0.02 tolerance — 4.6×
+over. The model has specialised toward elevated fixed cameras and away from
+dashcam.
+
+**The arm is not adopted.** Criterion 4 was fixed before the run and it failed;
+ADR-012's discipline is that the number is recorded and the criterion is not
+retuned to fit it. That rule has now cost a preferred answer four times today,
+which is the only reason it is worth anything.
+
+### What the criterion did not encode, stated as a question rather than an excuse
+
+Criterion 4 assumed dashcam accuracy matters. **The deployment is an elevated
+fixed camera** (ADR-003, PRD §7), and IDD is the only dashcam surface in the
+project. So the trade may well be one the project *wants*.
+
+That is a **scope decision for the guide, made forward**, not a retroactive
+reinterpretation of a failed criterion. The honest options:
+
+1. **Keep criterion 4.** IDD stays a reported set and the arm is rejected.
+2. **Retire IDD as an acceptance surface**, keeping it as a reported number, on
+   the grounds that no deployment sees a dashcam. Then re-run and judge against
+   criteria fixed in advance of *that* run.
+
+Option 2 must not be applied to this run's numbers. It changes what a future
+experiment is judged on, which is legitimate; changing what this one is judged
+on after seeing 0.6188 would not be.
+
+### Consequences
+
+1. **`s15_yolov8s_joint_aug` remains the detector of record**, unchanged, at
+   0.8941 BMD-45 / 0.7104 IDD / 0.3500 TrafficCAM.
+2. **The multi-camera direction is vindicated.** Elevated Indian data bought
+   +0.2234 cross-camera and revived a dead class, which is the strongest
+   available argument for the multi-camera corpus and for A28 that unlocks it.
+3. **P21's reporting rule is now mandatory in practice, not just in principle.**
+   No single mAP number describes this model: 0.8916 / 0.6188 / 0.5734 with
+   object scale stated is the only honest summary.
+4. **Two arms run, two rejected, both informative.** S16 showed a noisy teacher
+   costs more than it gives; S17 shows human annotation in the target domain
+   gives a great deal and costs something specific and namable.
