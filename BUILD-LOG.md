@@ -55,26 +55,26 @@ guesses.
 | S03d | CI test workflow + README badges | ✅ | — | Tests now run under pytest in CI, not a local driver |
 | S04 | Scope variation sign-off | ✅ | — | **Accepted 2026-08-13** by project owner. ~340 h recovered |
 | S05 | Environment | ✅ | — | **The blocker was our own pin, not Python.** torch 2.13 runs on 3.14 |
-| S06 | Week-2 pilots | ⛔ | R1 | Tooling ready and installed. **Needs ≥6 min of real traffic footage** |
+| S06 | Week-2 pilots | ✅ | R1 | **MEASURED 2026-08-18** on 20 min Dhaka elevated. Transition 31.0%, naive 69.0%. §14.1 thresholds fail |
 | S07 | Doc walkthrough — each owner presents their part | ⬜ | All | 90 min. Fixes "nobody has read it" |
 
 ### Phase 1 — Detection · Weeks 2–3
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S08 | Acquire IDD, enumerate real label set, convert to YOLO | ⬜ | R1 | S05 |
-| S09 | Class mapping + `rider` convention | ⬜ | R1 | S08 |
-| S10 | Subsample and persist with recorded seed | ⬜ | R1 | S09 |
-| S11 | Fine-tune YOLOv8s → `bootstrap_v0` | ⬜ | R1 | S10 |
-| S12 | mAP evaluation harness (FR-D08/D09) | ⬜ | R1 | S11 |
+| S08 | Acquire IDD, enumerate real label set, convert to YOLO | ✅ | R1 | `data/idd`, 15 classes enumerated, YOLO format |
+| S09 | Class mapping + `rider` convention | ✅ | R1 | 8 India classes; rider merged into motorcycle |
+| S10 | Subsample and persist with recorded seed | ✅ | R1 | seed 42, 70/15/15 stratified (FR-D05) |
+| S11 | Fine-tune YOLOv8s → `bootstrap_v0` | ✅ | R1 | `models/detector/s11_yolov8s_idd_best.pt` (2026-08-15) |
+| S12 | mAP evaluation harness (FR-D08/D09) | ✅ | R1 | `s11_detector_metrics.csv`, per-class with support |
 
 ### Phase 2 — Corpus pipeline · Week 3
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
 | S13 | Source registry + polygon validation | ✅ | — | 31 assertions. Dev-corpus guard enforced |
-| S14 | Frame store | ⬜ | R1 | S13 |
-| S15 | Counting (centroid-in-polygon, provenance) | 🔵 | R1 | Geometry half **done**; detector half needs S11 |
+| S14 | Frame store | ✅ | R1 | `scripts/build_cache.py`; cache invalidation guard tested on real video |
+| S15 | Counting (centroid-in-polygon, provenance) | ✅ | R1 | Calibrated: detected/true **0.999** at conf 0.45 |
 | S16 | Validation gates (distribution, leakage, unassigned rate) | ✅ | — | 7 gates, 24 assertions. Two gates added beyond spec |
 | S17 | End-to-end demo on synthetic data | ✅ | — | `scripts/demo_pipeline.py`. Found 2 defects on first run |
 
@@ -628,44 +628,70 @@ items, and one of those was a documentation defect.
 
 ---
 
-### S06 · Week-2 pilots — ⛔ BLOCKED on footage only
+### S06 · Week-2 pilots — ✅ MEASURED 2026-08-18
 
-**Raised** 2026-08-08 · **Status** ⛔ blocked · tooling ready
+**Raised** 2026-08-08 · **Blocked** until 2026-08-14 · **Measured** 2026-08-18
 
-**Blocked on.** Real traffic footage of ≥6 minutes. Nothing else.
+**It stopped being blocked four days before anyone noticed.** This entry said
+"needs ≥6 min of real traffic footage" and listed four sources that had failed
+(stock sites, PennDOT, the Ultralytics demo clip, UA-DETRAC). Footage arrived on
+2026-08-14 and `footage_triage.csv` scored 42 clips the same week — **eight are
+fixed-camera and long enough, six of them over 12 minutes**, against a stated
+requirement of 12. The entry was never revisited, so a step that was done kept
+reporting as the project's only blocker.
 
-**Tooling is built, installed and verified.** `mfstnet/corpus/pilot.py` (the arithmetic, tested on
-three synthetic scenarios), `scripts/pilot_counts.py` (video + YOLO), and
-`scripts/collect_camera.py` (poll a still-image camera). torch, ultralytics and OpenCV are installed
-and a YOLO forward pass runs on real pixels.
+The lesson is not "check the board". It is that **a blocker phrased as an input
+we do not have will not re-evaluate itself when the input arrives.** A blocker
+needs an owner and a re-check date, or it becomes permanent by default.
 
-**Sources tried, and why each failed — recorded so nobody repeats them:**
+**What the confusion was.** P17 concluded a corpus cannot span cameras, because
+lane polygons live in the image plane. That was read as "we need a new
+single-camera recording". It does not say that — **one 20-minute clip from one
+fixed camera is a single-camera corpus.** Each qualifying clip is its own
+camera, its own polygon set, and its own corpus, with splits cut temporally.
+That is also the deployment shape: one junction, one camera, surveyed once.
 
-| Source | Outcome |
+### The measurement
+
+`Incredible traffic Sound in Dhaka, Bangladesh · Rampura [4K ASMR]` — 1207 s,
+29.97 fps, 1920×1080, elevated and fixed (`camera_shift_px` 0.50). Counted with
+`s14_yolov8s_joint_best.pt` at conf 0.45, sampled every 5 s per PRD §8.2.
+
+| | |
 |---|---|
-| Stock video sites (Pexels, Pixabay, Videezy) | Clips are 10–30 s. One window needs 355 s |
-| PennDOT public traffic cameras | Serve JPEG without auth, but **1 distinct frame in 100 s**. Far too slow |
-| Ultralytics demo video | 2.1 s, and contains no vehicles |
-| UA-DETRAC | Registration required; not completed |
+| frames analysed | 242 |
+| prediction windows | 29 |
+| LOW / MEDIUM / HIGH | **0.0%** / 82.8% / 17.2% |
+| percentiles | p10=9 · p33=11 · p50=13 · p67=14 · p90=18 |
+| maximum count | 23 |
+| **transition rate** | **31.0%** |
+| **naive baseline** | **69.0%** |
 
-**The duplicate check earned its place immediately.** `collect_camera.py --probe` hashes frames, and
-the PennDOT camera returned the *same image* on every poll. Collecting it naively would have produced
-a transition rate of zero and "proved" the task degenerate — when the only degenerate thing was the
-sampling.
+**VERDICT 2 — PASS. The task is learnable.** 31.0% of windows change class over
+the 60 s horizon. This was the measurement that could have ended the project: if
+~90% of windows had held their class, a last-value baseline would sit at the
+ceiling and no model could be ranked against another. It does not.
 
-**Concatenating a short clip to reach 6 minutes was considered and rejected.** It would fabricate the
-temporal structure the pilot exists to measure.
+**69.0% is now the bar**, and it is a real number rather than an assumption. It
+belongs in the paper beside every model result — see `train_baselines.py`, which
+computes exactly this baseline on the corpus.
 
-**What unblocks it.** ≥12 continuous minutes of any road, fixed camera, no panning. A phone on a
-windowsill is sufficient — the footage is `kind: dev`, never published and never trained on.
+**VERDICT 1 — FAIL. §14.1's thresholds do not fit this traffic.** LOW is 0.0% of
+windows, against a 5% floor. `LOW < 5` was written for a road where five vehicles
+in view is quiet; on an elevated view of a Dhaka arterial the p10 is 9. A corpus
+built on these thresholds has no LOW class at all, and macro F1 over a class with
+zero support is undefined rather than merely unstable.
 
-**The four measurements.** Annotation velocity · count distribution · feature-cache size ·
-**persistence rate**.
+This is **A30, measured**. The tool's own recommendation is thresholds near p33
+and p67, giving `LOW < 11 · MEDIUM 11–14 · HIGH > 14` on this camera.
 
-**Why the third and fourth matter most.** If counts above 15 never occur, the HIGH class is
-degenerate and macro F1 ≥ 0.80 is unreachable. If ~90% of windows do not change class within 60
-seconds, a last-value baseline sits near the ceiling and **no model can be ranked against another**.
+**It does not follow that §14.1 should be globally rewritten to those numbers.**
+They come from one camera at one mounting height with one field of view, and a
+threshold in absolute vehicle count is a property of the view, not of the road.
+The defensible form is a **per-camera calibration recorded with the corpus**,
+which is what A30 needs to decide and what the guide needs to sign off.
 
-Either discovery costs a threshold edit now. In Week 12 it costs the ablation.
+**Still to run:** annotation velocity and feature-cache size, the other two
+pilot measurements. Neither can change the project the way these two could.
 
 ---

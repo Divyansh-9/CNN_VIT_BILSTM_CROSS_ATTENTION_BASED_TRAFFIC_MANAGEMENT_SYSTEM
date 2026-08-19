@@ -1,0 +1,447 @@
+<title>Counting Rampura</title>
+<style>
+  :root {
+    --ground:   #E9EDEE;
+    --surface:  #FFFFFF;
+    --sunk:     #DFE5E7;
+    --ink:      #10171A;
+    --muted:    #56666D;
+    --faint:    #7C8C93;
+    --rule:     #C9D3D6;
+    --accent:   #0A6B6B;
+    --accent-2: #08514F;
+    --low:      #1C7A45;
+    --med:      #9A6B06;
+    --high:     #AE3626;
+    --shadow:   0 1px 2px rgba(16,23,26,.06), 0 8px 24px -12px rgba(16,23,26,.18);
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0E1315;
+      --surface:  #161C1F;
+      --sunk:     #101618;
+      --ink:      #E4EBED;
+      --muted:    #93A3AA;
+      --faint:    #6E7F86;
+      --rule:     #273136;
+      --accent:   #3FB3AB;
+      --accent-2: #6ACFC6;
+      --low:      #47B375;
+      --med:      #D2A029;
+      --high:     #E0705C;
+      --shadow:   0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #0E1315;
+    --surface:  #161C1F;
+    --sunk:     #101618;
+    --ink:      #E4EBED;
+    --muted:    #93A3AA;
+    --faint:    #6E7F86;
+    --rule:     #273136;
+    --accent:   #3FB3AB;
+    --accent-2: #6ACFC6;
+    --low:      #47B375;
+    --med:      #D2A029;
+    --high:     #E0705C;
+    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px 96px; }
+
+  /* ---------- masthead ---------- */
+  .masthead { padding: 76px 0 40px; border-bottom: 1px solid var(--rule); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 20px;
+  }
+  h1 {
+    font-family: var(--display); font-weight: 400;
+    font-size: clamp(2.4rem, 5.6vw, 3.9rem); line-height: 1.06;
+    letter-spacing: -.015em; margin: 0 0 22px; text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.16rem; color: var(--muted); max-width: 62ch; margin: 0;
+  }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  .facts {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 1px; background: var(--rule); border: 1px solid var(--rule);
+    margin: 40px 0 0; border-radius: 3px; overflow: hidden;
+  }
+  .fact { background: var(--surface); padding: 16px 18px; }
+  .fact dt {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 6px;
+  }
+  .fact dd {
+    margin: 0; font-family: var(--display); font-size: 1.62rem;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .fact dd small { font-size: .82rem; color: var(--muted); font-family: var(--body); }
+
+  /* ---------- pipeline ---------- */
+  .stage {
+    display: grid; grid-template-columns: 56px 1fr; gap: 0 22px;
+    padding: 52px 0 0;
+  }
+  .rail { position: relative; }
+  .num {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .06em;
+    color: var(--surface); background: var(--accent);
+    width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 600;
+  }
+  .rail::after {
+    content: ""; position: absolute; left: 15px; top: 38px; bottom: -52px;
+    width: 1px; background: var(--rule);
+  }
+  .stage:last-of-type .rail::after { display: none; }
+
+  .stage h2 {
+    font-family: var(--display); font-weight: 400; font-size: 1.72rem;
+    letter-spacing: -.01em; margin: 2px 0 10px; text-wrap: balance;
+  }
+  .stage > div > p { margin: 0 0 15px; max-width: 66ch; }
+  .stage p:last-child { margin-bottom: 0; }
+
+  figure { margin: 22px 0 0; }
+  figure img {
+    display: block; width: 100%; height: auto; border-radius: 3px;
+    border: 1px solid var(--rule); box-shadow: var(--shadow);
+  }
+  figcaption {
+    font-size: .875rem; color: var(--muted); margin-top: 11px;
+    padding-left: 13px; border-left: 2px solid var(--rule); max-width: 70ch;
+  }
+
+  .key { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 16px 0 0;
+         font-family: var(--mono); font-size: 12px; }
+  .key span { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+  .sw { width: 13px; height: 13px; border-radius: 2px; flex: none; }
+
+  /* ---------- chart ---------- */
+  .chartbox {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 20px 18px 12px; margin: 22px 0 0;
+    box-shadow: var(--shadow); overflow-x: auto;
+  }
+  .chart { width: 100%; height: auto; min-width: 620px; display: block; }
+  .chart .grid { stroke: var(--rule); stroke-width: 1; }
+  .chart .tick { fill: var(--faint); font-family: var(--mono); font-size: 11px; }
+  .chart .bandlbl { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; opacity: .85; }
+  .chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; }
+  .chart .ours { stroke: var(--accent); }
+  .chart .coco { stroke: var(--faint); stroke-width: 1.5; stroke-dasharray: 3 3; }
+  .chart .oldthr { stroke: var(--high); stroke-width: 1.5; stroke-dasharray: 6 4; }
+  .chart .oldlbl { fill: var(--high); font-family: var(--mono); font-size: 11.5px; }
+
+  /* ---------- callouts ---------- */
+  .note {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent); border-radius: 3px;
+    padding: 18px 20px; margin: 24px 0 0; box-shadow: var(--shadow);
+  }
+  .note.warn { border-left-color: var(--high); }
+  .note h3 {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 9px; font-weight: 600;
+  }
+  .note.warn h3 { color: var(--high); }
+  .note p { margin: 0 0 11px; font-size: .95rem; max-width: 64ch; }
+  .note p:last-child { margin: 0; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; margin: 20px 0 0; }
+  th, td { text-align: left; padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule); }
+  th {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--faint); font-weight: 600;
+  }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; padding-right: 0; }
+  .tablebox { overflow-x: auto; }
+
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 11px;
+    letter-spacing: .06em; padding: 2px 8px; border-radius: 100px;
+    border: 1px solid currentColor;
+  }
+  .pill.ok { color: var(--low); }
+  .pill.no { color: var(--high); }
+
+  code { font-family: var(--mono); font-size: .88em;
+         background: var(--sunk); padding: 1px 5px; border-radius: 3px; }
+
+  footer {
+    margin-top: 72px; padding-top: 28px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: .9rem;
+  }
+  footer h2 {
+    font-family: var(--display); font-weight: 400; font-size: 1.3rem;
+    color: var(--ink); margin: 0 0 12px;
+  }
+  footer ul { margin: 0; padding-left: 20px; }
+  footer li { margin-bottom: 7px; max-width: 68ch; }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 18px 64px; }
+    .stage { grid-template-columns: 34px 1fr; gap: 0 14px; }
+    .rail::after { left: 14px; }
+    .num { width: 28px; height: 28px; font-size: 11px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">MFSTNet · pipeline walkthrough</p>
+    <h1>Counting Rampura</h1>
+    <p class="standfirst">
+      Twenty minutes of a Dhaka intersection, put through every step the system
+      performs — from raw video to a congestion reading. Every image and number
+      on this page came out of the pipeline on <strong>real footage</strong>;
+      nothing here is illustrative.
+    </p>
+
+    <dl class="facts">
+      <div class="fact"><dt>Footage</dt><dd>20<small> min</small></dd></div>
+      <div class="fact"><dt>Sampled</dt><dd>242<small> frames</small></dd></div>
+      <div class="fact"><dt>Vehicle classes</dt><dd>8</dd></div>
+      <div class="fact"><dt>Detector accuracy</dt><dd>0.89<small> mAP50</small></dd></div>
+      <div class="fact"><dt>Score to beat</dt><dd>69<small>%</small></dd></div>
+    </dl>
+  </header>
+
+  <section class="stage">
+    <div class="rail"><div class="num">1</div></div>
+    <div>
+      <h2>What the camera sees</h2>
+      <p>
+        A fixed camera on a footbridge over Rampura, Dhaka. This is the viewpoint
+        the system is designed for: mounted high, pointed down at the road, never
+        moving. The same camera watches the same junction all day.
+      </p>
+      <p>
+        It is an ordinary, difficult scene — a tree blocks the left third,
+        motorcycles and auto-rickshaws mix with cars, and people walk between
+        vehicles. Nothing was cleaned up for this page.
+      </p>
+      <figure>
+        <img src="data:image/jpeg;base64,__RAW__" alt="Elevated view of a busy Dhaka intersection from a footbridge">
+        <figcaption>
+          One frame, 14 minutes into the clip. A tree occludes the left of the
+          frame throughout — a real obstruction the system has to cope with
+          rather than an artefact of this still.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="rail"><div class="num">2</div></div>
+    <div>
+      <h2>Finding the vehicles</h2>
+      <p>
+        The first model draws a box around every vehicle and names what it is.
+        It was trained on Indian and Bangladeshi road imagery, so it knows
+        classes that a general-purpose model does not — <strong>auto-rickshaw</strong>,
+        e-rickshaw, and cattle among them.
+      </p>
+      <p>
+        That distinction turns out to matter more than it sounds. It is revisited
+        at step 4.
+      </p>
+      <figure>
+        <img src="data:image/jpeg;base64,__DET__" alt="The same frame with coloured boxes and labels around each detected vehicle">
+        <figcaption>
+          The same frame after detection. Each box carries a class name and a
+          confidence between 0 and 1 — how sure the model is. Most sit above
+          0.80.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="rail"><div class="num">3</div></div>
+    <div>
+      <h2>Sorting vehicles onto approaches</h2>
+      <p>
+        A junction has several arms, and a signal controls them separately. So a
+        single total is not useful — the system needs to know how many vehicles
+        are waiting <em>on each approach</em>.
+      </p>
+      <p>
+        Two regions are drawn once for this camera. Every vehicle is assigned to
+        whichever region its centre falls inside. Vehicles too far away to belong
+        to either are counted as unassigned and discarded rather than guessed at.
+      </p>
+      <figure>
+        <img src="data:image/jpeg;base64,__LANES__" alt="The frame with two shaded road regions, vehicles coloured by which region they fall in">
+        <figcaption>
+          15 vehicles on the main approach, 8 on the side approach, 3 unassigned
+          — 11.5% of the frame. The regions are drawn on the roadway only, so
+          parked vehicles and shopfronts never enter a count.
+        </figcaption>
+      </figure>
+      <div class="key">
+        <span><i class="sw" style="background:#50DC78"></i>main approach</span>
+        <span><i class="sw" style="background:#FFAA3C"></i>side approach</span>
+        <span><i class="sw" style="background:#A0A0A0"></i>unassigned — too distant to place</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="rail"><div class="num">4</div></div>
+    <div>
+      <h2>Twenty minutes of counting</h2>
+      <p>
+        Repeat steps 1–3 every five seconds for the whole clip and you get a
+        traffic history: 242 measurements of how busy the junction is.
+      </p>
+      <p>
+        The solid line is our detector. The dashed line is a standard
+        off-the-shelf model on the identical footage — it has no auto-rickshaw
+        class, so it simply does not see a large share of Dhaka traffic.
+      </p>
+      <div class="chartbox">__CHART__</div>
+      <div class="key">
+        <span><i class="sw" style="background:var(--accent)"></i>our detector — trained on South Asian roads</span>
+        <span><i class="sw" style="background:var(--faint)"></i>off-the-shelf model</span>
+      </div>
+
+      <div class="note warn">
+        <h3>The measuring instrument changed the answer</h3>
+        <p>
+          Judged with the off-the-shelf model, this junction looks almost
+          static — it would have suggested the whole forecasting problem was
+          too easy to be worth solving. Judged with the right detector, the same
+          twenty minutes has four times as much movement between states.
+        </p>
+        <p>
+          Same road, same footage, opposite conclusions. This is why the
+          detector had to be built before anything else could be trusted.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="rail"><div class="num">5</div></div>
+    <div>
+      <h2>Turning counts into a reading</h2>
+      <p>
+        A number of vehicles is not yet a congestion level. The project's
+        specification sets fixed cut-offs: under 5 vehicles is <em>low</em>,
+        5 to 15 is <em>medium</em>, above 15 is <em>high</em>.
+      </p>
+      <p>
+        Run against this camera, those cut-offs break. The quietest moment in
+        twenty minutes still had 9 vehicles in view, so the <em>low</em> band
+        never once occurred — the red line on the chart above is never reached.
+      </p>
+      <div class="tablebox">
+        <table>
+          <thead>
+            <tr><th>Reading</th><th>Specified rule</th><th class="n">Times it occurred</th><th class="n">Share</th></tr>
+          </thead>
+          <tbody>
+            <tr><td style="color:var(--low)">Low</td><td>under 5 vehicles</td><td class="n">0</td><td class="n">0.0%</td></tr>
+            <tr><td style="color:var(--med)">Medium</td><td>5 to 15</td><td class="n">24</td><td class="n">82.8%</td></tr>
+            <tr><td style="color:var(--high)">High</td><td>above 15</td><td class="n">5</td><td class="n">17.2%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <h3>Why this is a finding, not a bug</h3>
+        <p>
+          "Five vehicles" means something different through a wide elevated lens
+          than through a narrow one. A count threshold describes the
+          <em>view</em>, not the road, so a single set of numbers cannot be
+          correct for every camera.
+        </p>
+        <p>
+          The fix is to calibrate the cut-offs per camera and record them
+          alongside the footage. On this camera the measured split is roughly
+          <code>low &lt; 11 · medium 11–14 · high &gt; 14</code>. That change
+          needs sign-off before it is adopted, because it alters a graded
+          specification.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="rail"><div class="num">6</div></div>
+    <div>
+      <h2>The bar any model has to clear</h2>
+      <p>
+        The system's actual job is prediction: given the last five minutes,
+        say what the congestion level will be <strong>60 seconds from now</strong>.
+      </p>
+      <p>
+        Before building anything clever, it is worth asking how well you do by
+        guessing that nothing changes. On this footage that guess is right
+        <strong>69% of the time</strong>, because traffic is sluggish and the
+        next minute usually resembles this one.
+      </p>
+      <div class="note">
+        <h3>Two numbers that decide whether the project is worth doing</h3>
+        <p>
+          <span class="pill ok">passes</span>&nbsp; The reading changes over the
+          next minute in <strong>31%</strong> of cases. Had it been near zero,
+          nothing could ever have outperformed "assume no change", and there
+          would be no problem left to solve.
+        </p>
+        <p>
+          <span class="pill no">open</span>&nbsp; That also sets a hard floor.
+          Any model that scores below 69% is worse than assuming nothing
+          happens, and reporting it as a success would be dishonest. This
+          number goes in the paper next to every result.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <h2>What this page does and does not show</h2>
+    <ul>
+      <li>
+        <strong>Real, end to end.</strong> Detection, approach assignment,
+        counting, and both measurements above were produced by the committed
+        code on the footage shown. The images are direct output, not mock-ups.
+      </li>
+      <li>
+        <strong>The forecasting model is not in these pictures.</strong> It is
+        built and its training harness runs, but it has not yet been trained on
+        this camera — so no prediction accuracy is claimed anywhere here.
+      </li>
+      <li>
+        <strong>The signal controller runs in simulation only.</strong> Results
+        for it come from SUMO, a traffic simulator, and are reported separately.
+        No claim on this page depends on it.
+      </li>
+      <li>
+        <strong>One camera.</strong> Every number describes this junction. Other
+        cameras need their own regions drawn and their own cut-offs measured.
+      </li>
+    </ul>
+  </footer>
+
+</div>

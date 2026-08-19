@@ -45,9 +45,24 @@ class PilotResult:
     def thresholds_usable(self) -> bool:
         return all(s >= 0.05 for s in self.class_shares.values())
 
+    # The rule this gate implements, stated in BUILD-LOG S06: "if ~90% of
+    # windows do not change class within 60 seconds, a last-value baseline sits
+    # near the ceiling and no model can be ranked against another."
+    #
+    # 90% unchanged is a 10% transition rate. The gate was written at 0.05, so
+    # it passed the exact condition it was created to catch — measured: the COCO
+    # arm of the Dhaka pilot reported a **93.1% naive baseline** and printed
+    # PASS. A gate that admits the failure it names is not a gate.
+    #
+    # **This change is adverse to us and was made knowing that.** It is a
+    # tightening, not a relaxation, and it flips a result we had already
+    # recorded as passing. The reported arm (our detector, 31.0%) passes either
+    # way, so nothing here was moved to rescue a number — the opposite.
+    MIN_TRANSITION_RATE = 0.10
+
     @property
     def task_is_learnable(self) -> bool:
-        return self.transition_rate >= 0.05
+        return self.transition_rate >= self.MIN_TRANSITION_RATE
 
     def report(self) -> str:
         lines = [

@@ -5,10 +5,16 @@
 Answers the two questions that can change the project, before any corpus is
 built. Full reasoning in `mfstnet/corpus/pilot.py`.
 
-Needs a working environment (S05): torch, ultralytics, opencv. It downloads
-`yolov8n.pt` on first run — a COCO-pretrained model, which is deliberate. This
-pilot measures the *traffic*, not our detector, so a general model is the right
-instrument and no fine-tuning is needed.
+    python scripts/pilot_counts.py clip.mp4 --weights models/detector/s14_yolov8s_joint_best.pt --conf 0.45
+
+Needs a working environment (S05): torch, ultralytics, opencv. Defaults to COCO
+`yolov8n`, downloaded on first run.
+
+**Run it with our detector too, and compare.** COCO has no auto-rickshaw class,
+so on South Asian traffic it is not a neutral instrument — it undercounts the
+vehicles this project exists for, and the count distribution is what §14.1's
+thresholds are judged against. COCO is the conservative floor; the gap between
+the two is itself a measurement.
 
 **The video does not need to be perfect.** Ten to fifteen minutes from a window
 or balcony overlooking any road is enough. It is never published and never
@@ -34,8 +40,29 @@ CONF_THRESHOLD = 0.25
 VEHICLE_COCO = {"car", "motorcycle", "bus", "truck", "bicycle"}
 
 
-def extract_counts(video_path: Path, roi: tuple[float, float, float, float] | None) -> list[int]:
-    """Count vehicles every 5 seconds. Returns one count per sampled frame."""
+def extract_counts(
+    video_path: Path,
+    roi: tuple[float, float, float, float] | None,
+    *,
+    weights: str = "yolov8n.pt",
+    conf: float = CONF_THRESHOLD,
+) -> list[int]:
+    """Count vehicles every 5 seconds. Returns one count per sampled frame.
+
+    **On the choice of detector.** This script originally hardcoded COCO
+    `yolov8n`, on the reasoning that the pilot measures the traffic rather than
+    our detector, so a general model is the right instrument.
+
+    That reasoning does not survive contact with South Asian traffic. COCO has
+    **no auto-rickshaw class**, and on the elevated Dhaka footage the fine-tuned
+    detector finds auto-rickshaws in most frames. An instrument blind to a major
+    vehicle class does not measure the traffic neutrally — it undercounts
+    exactly the traffic this project exists for, and the count distribution it
+    reports is what §14.1's thresholds get judged against.
+
+    So the detector is now a parameter. Run it both ways: COCO is the
+    conservative floor, and the gap between them is itself a measurement.
+    """
     try:
         import cv2
         from ultralytics import YOLO
@@ -61,7 +88,13 @@ def extract_counts(video_path: Path, roi: tuple[float, float, float, float] | No
     print(f"  fps       {fps:.1f}, {total} frames, {total / fps / 60:.1f} min")
     print(f"  sampling  every {step} frames ({SAMPLE_EVERY_S}s)")
 
-    model = YOLO("yolov8n.pt")
+    model = YOLO(weights)
+    # COCO names differ from ours; resolve the vehicle set from the model that
+    # is actually loaded rather than assuming one vocabulary.
+    names = set(model.names.values())
+    wanted = VEHICLE_COCO if "car" in names and "auto_rickshaw" not in names else (
+        names - {"person", "rider", "traffic_light", "traffic_sign"})
+    print(f"  detector  {weights} (conf {conf}) counting {sorted(wanted)}")
     counts: list[int] = []
     idx = 0
 
@@ -70,11 +103,11 @@ def extract_counts(video_path: Path, roi: tuple[float, float, float, float] | No
         if not ok:
             break
         if idx % step == 0:
-            res = model(frame, conf=CONF_THRESHOLD, verbose=False)[0]
+            res = model(frame, conf=conf, verbose=False)[0]
             n = 0
             h, w = frame.shape[:2]
             for box in res.boxes:
-                if model.names[int(box.cls)] not in VEHICLE_COCO:
+                if model.names[int(box.cls)] not in wanted:
                     continue
                 if roi is not None:
                     x1, y1, x2, y2 = box.xyxy[0].tolist()
@@ -99,20 +132,32 @@ def main() -> int:
         print(__doc__)
         return 0 if len(sys.argv) > 1 else 2
 
-    video = Path(sys.argv[1])
+    argv = list(sys.argv[1:])
+    weights, conf = "yolov8n.pt", CONF_THRESHOLD
+    for flag, cast in (("--weights", str), ("--conf", float)):
+        if flag in argv:
+            i = argv.index(flag)
+            value = cast(argv[i + 1])
+            argv = argv[:i] + argv[i + 2:]
+            if flag == "--weights":
+                weights = value
+            else:
+                conf = value
+
+    video = Path(argv[0])
     if not video.exists():
         raise SystemExit(f"no such file: {video}")
 
     # Optional region of interest, normalised: x1 y1 x2 y2. Without it the whole
     # frame is counted, which is fine for a pilot — this measures whether the
     # thresholds fit the traffic, not per-lane accuracy.
-    roi = tuple(float(a) for a in sys.argv[2:6]) if len(sys.argv) >= 6 else None  # type: ignore[assignment]
+    roi = tuple(float(a) for a in argv[1:5]) if len(argv) >= 5 else None  # type: ignore[assignment]
 
     print("=" * 72)
     print("WEEK-2 PILOT  ·  count distribution and transition rate")
     print("=" * 72)
 
-    counts = extract_counts(video, roi)  # type: ignore[arg-type]
+    counts = extract_counts(video, roi, weights=weights, conf=conf)  # type: ignore[arg-type]
     g = WindowGeometry()
 
     print(f"\n  sampled   {len(counts)} frames")
@@ -128,13 +173,17 @@ def main() -> int:
     print(result.report())
     print("=" * 72)
 
+    # Keyed on video+detector so a second pilot adds to this file instead of
+    # deleting the first — the same hazard P19 found in the benchmark.
+    from experiments.results_io import merge_by_key
+
+    run_id = f"{video.stem[:40]}|{Path(weights).stem}"
     out = Path("experiments/results/pilot_counts.csv")
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.writer(fh)
-        w.writerow(["frame_index", "time_s", "count"])
-        for i, c in enumerate(counts):
-            w.writerow([i, i * SAMPLE_EVERY_S, c])
+    merge_by_key(out, [
+        {"run": run_id, "video": video.name, "detector": Path(weights).name,
+         "conf": conf, "frame_index": i, "time_s": i * SAMPLE_EVERY_S, "count": c}
+        for i, c in enumerate(counts)
+    ], run_id, key="run")
     print(f"\nraw counts written to {out}  — commit this (NFR-09)")
 
     if not (result.thresholds_usable and result.task_is_learnable):

@@ -1889,3 +1889,68 @@ our own preferred result** — they were created because the sweep's naive best
 was a 100%-clamped fixed cycle, and adopting them cost us the headline number at
 the time. They caught two more failures here, one of them in a result committed
 forty minutes earlier. Thresholds fixed before the data are worth what they cost.
+
+---
+
+## P20 — the pilot's learnability gate admitted the failure it was written to catch (2026-08-18)
+
+**Status:** CLOSED · Found by running the S06 pilot twice with different detectors
+
+S06 was measured on 2026-08-18, four days after it stopped being blocked. Two
+defects surfaced in the running of it.
+
+### The instrument decided the verdict
+
+The pilot hardcoded COCO `yolov8n`, justified in its own docstring: "this pilot
+measures the *traffic*, not our detector, so a general model is the right
+instrument". Run both ways on the same 20 minutes of elevated Dhaka footage:
+
+| | COCO `yolov8n` | `s14_yolov8s_joint_best` |
+|---|---|---|
+| median count | 9 | 13 |
+| maximum count | 16 | 23 |
+| HIGH share | **0.0%** | 17.2% |
+| transition rate | **6.9%** | **31.0%** |
+| naive baseline | **93.1%** | **69.0%** |
+
+COCO has no auto-rickshaw class. On South Asian traffic it is not a neutral
+instrument — it is blind to a large share of the vehicles, and the count
+distribution is exactly what §14.1's thresholds get judged against.
+
+Taken at face value, the COCO arm says the junction barely changes state and a
+last-value baseline scores 93.1%: the task is not worth modelling. That
+conclusion would have been an artifact of the measuring device. **The detector
+is now a parameter (`--weights`, `--conf`) and both arms are recorded.**
+
+### The gate passed a 93.1% naive baseline
+
+`PilotResult.task_is_learnable` was `transition_rate >= 0.05`. The rule it
+implements, stated in BUILD-LOG S06, is: "if ~90% of windows do not change class
+within 60 seconds, a last-value baseline sits near the ceiling and no model can
+be ranked against another."
+
+90% unchanged is a **10%** transition rate. The gate was written at half that,
+so it printed `VERDICT 2 PASS` for a 6.9% transition rate and a 93.1% naive
+baseline — the precise condition it exists to reject. No test pinned the
+threshold, which is how the two came apart.
+
+`MIN_TRANSITION_RATE = 0.10` now, with tests pinning it and both measured arms.
+
+**This tightening is adverse to us and was made knowing that.** It flips a
+result already recorded as passing. The reported arm passes either way (31.0%),
+so nothing moved to rescue a number.
+
+### Consequences
+
+1. **The task is learnable and that is now measured, not assumed.** 31.0% of
+   windows change class over the horizon. This was the measurement that could
+   have ended the project.
+2. **69.0% is the floor for every model**, and belongs beside every reported
+   result. A model scoring under it is worse than assuming nothing changes.
+3. **A30 has its evidence.** §14.1's `LOW < 5` never fires on this camera — the
+   p10 count is 9. Thresholds in absolute vehicle count describe the *view*, not
+   the road. The defensible form is per-camera calibration recorded with the
+   corpus; on this camera the measured split is `LOW < 11 · MEDIUM 11–14 ·
+   HIGH > 14`. **Still requires sign-off** — it changes a graded specification.
+4. **A pilot's detector must be reported with its numbers.** A count
+   distribution without the instrument that produced it is not interpretable.

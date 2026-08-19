@@ -112,3 +112,43 @@ def test_validate_covers_every_method_present():
     verdicts = validate(rows)
     assert set(verdicts) == {"fixed", "webster"}
     assert verdicts["fixed"] and not verdicts["webster"]
+
+
+# ---------------------------------------------------------------------------
+# The pilot's learnability gate. No test pinned its threshold, which is how it
+# came to contradict the rule it implements.
+# ---------------------------------------------------------------------------
+
+def test_learnability_gate_matches_its_stated_rule():
+    """BUILD-LOG S06: "if ~90% of windows do not change class ... no model can
+    be ranked against another". 90% unchanged is a 10% transition rate, so the
+    gate must sit at 0.10 — it was written at 0.05 and passed the exact
+    condition it exists to catch."""
+    from mfstnet.corpus.pilot import PilotResult
+
+    assert PilotResult.MIN_TRANSITION_RATE == 0.10
+
+
+def test_the_measured_coco_arm_now_fails():
+    """The COCO run of the Dhaka pilot: 6.9% transition, 93.1% naive baseline.
+    A near-ceiling naive baseline is unlearnable by the project's own
+    definition, and the old gate printed PASS for it."""
+    from mfstnet.corpus.pilot import PilotResult
+
+    coco = PilotResult(
+        frames=242, windows=29,
+        class_counts={"LOW": 1, "MEDIUM": 28, "HIGH": 0},
+        class_shares={"LOW": 0.034, "MEDIUM": 0.966, "HIGH": 0.0},
+        transition_rate=0.069, naive_accuracy=0.931,
+        count_percentiles={10: 5, 33: 7, 50: 9, 67: 10, 90: 12}, max_count=16,
+    )
+    assert not coco.task_is_learnable
+
+    ours = PilotResult(
+        frames=242, windows=29,
+        class_counts={"LOW": 0, "MEDIUM": 24, "HIGH": 5},
+        class_shares={"LOW": 0.0, "MEDIUM": 0.828, "HIGH": 0.172},
+        transition_rate=0.310, naive_accuracy=0.690,
+        count_percentiles={10: 9, 33: 11, 50: 13, 67: 14, 90: 18}, max_count=23,
+    )
+    assert ours.task_is_learnable, "the reported arm must pass under the tighter gate"
