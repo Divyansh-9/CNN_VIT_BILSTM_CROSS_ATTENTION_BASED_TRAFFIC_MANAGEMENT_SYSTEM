@@ -69,6 +69,11 @@ ITD_TO_OURS = {
 # reason for doing this.
 OURS_ONLY = ("e_rickshaw", "cattle")
 
+# Classes both models can see AND that occupy carriageway space. Used for the
+# disagreement score, which exists to rank frames for human verification of the
+# corpus — where only vehicles matter.
+SHARED_VEHICLES = frozenset(set(ITD_TO_OURS.values()) - {"pedestrian"})
+
 
 def iou(a, b) -> float:
     ax1, ay1, ax2, ay2 = a
@@ -159,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
     tally: dict[str, int] = {}
     added_by_us = 0
     rejected: dict[str, int] = {}
+    disagreements: list[dict] = []
     while kept < args.max_frames:
         ok, frame = capture.read()
         if not ok:
@@ -173,6 +179,7 @@ def main(argv: list[str] | None = None) -> int:
                                  imgsz=args.teacher_imgsz, verbose=False)[0]
         rows: list[str] = []
         taken: list[tuple] = []
+        taken_names: list[str] = []
         for box, cls in zip(result.boxes.xyxy.tolist(), result.boxes.cls.tolist()):
             name = ITD_TO_OURS.get(teacher.names[int(cls)])
             if name is None:
@@ -183,13 +190,21 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             rows.append(f"{ours_names[name]} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
             taken.append(tuple(box))
+            taken_names.append(name)
             tally[name] = tally.get(name, 0) + 1
 
-        # Our detector contributes only what the teacher is blind to.
-        mine = student.predict(source=frame, conf=args.ours_conf, verbose=False)[0]
-        for box, cls in zip(mine.boxes.xyxy.tolist(), mine.boxes.cls.tolist()):
+        # Run the student at the TEACHER's threshold, then filter. Predicting at
+        # `ours_conf` directly would make the disagreement score below partly a
+        # measurement of the gap between two thresholds rather than of two
+        # models conflicting — which it was, until the pilot showed a median
+        # disagreement of 0.600 that mostly evaporated once both models were
+        # read at the same confidence.
+        mine = student.predict(source=frame, conf=args.teacher_conf, verbose=False)[0]
+        for box, cls, score in zip(mine.boxes.xyxy.tolist(),
+                                   mine.boxes.cls.tolist(),
+                                   mine.boxes.conf.tolist()):
             name = student.names[int(cls)]
-            if name not in OURS_ONLY:
+            if name not in OURS_ONLY or score < args.ours_conf:
                 continue
             if any(iou(tuple(box), other) > 0.5 for other in taken):
                 continue          # the teacher already called this something
@@ -208,6 +223,36 @@ def main(argv: list[str] | None = None) -> int:
         cv2.imwrite(str(images / f"{stem}.jpg"), frame,
                     [cv2.IMWRITE_JPEG_QUALITY, 92])
         (labels / f"{stem}.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+        # Free by-product of a pass that already ran both models: where do they
+        # disagree? A9/A32 requires the test split to be human-verified, and
+        # verification time is the scarcest resource in the project — the
+        # feasibility audit put annotation at 3x the original estimate.
+        #
+        # Two independently trained detectors (different group, different data)
+        # disagreeing is a much better predictor of a hard frame than random
+        # sampling. Ranking by this sends the human where the models conflict.
+        # Running the teacher a second time to get it would cost 1.2 s/frame.
+        # Vehicles only. `pedestrian` is 38% of the teacher's boxes and a class
+        # our detector rarely fires on, so including it made the score mostly a
+        # measurement of pedestrian recall — median 0.520 — when what a corpus
+        # label depends on is the vehicle count. Pedestrians carry 0 PCU
+        # (ADR-017) and never enter a congestion label.
+        teacher_shared = sum(1 for name in taken_names if name != "pedestrian")
+        student_shared = sum(
+            1 for cls in mine.boxes.cls.tolist()
+            if student.names[int(cls)] in SHARED_VEHICLES)
+        denominator = max(teacher_shared, student_shared, 1)
+        disagreements.append({
+            "frame": stem,
+            "time_s": round(index / (capture.get(cv2.CAP_PROP_FPS) or 25.0), 1),
+            "teacher_boxes": teacher_shared,
+            "student_boxes": student_shared,
+            "count_gap": abs(teacher_shared - student_shared),
+            "disagreement": round(
+                abs(teacher_shared - student_shared) / denominator, 4),
+        })
+
         kept += 1
         if kept % 100 == 0:
             print(f"  {kept} frames labelled", flush=True)
@@ -233,6 +278,25 @@ def main(argv: list[str] | None = None) -> int:
         print("  NOTE: no e_rickshaw or cattle found. On footage containing "
               "them this merge is what protects those classes; here it was a "
               "no-op and the labels are the teacher's alone.")
+    if disagreements:
+        import csv
+
+        disagreements.sort(key=lambda row: -row["disagreement"])
+        target = args.out / "disagreement.csv"
+        with target.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(disagreements[0]))
+            writer.writeheader()
+            writer.writerows(disagreements)
+        top = disagreements[:max(1, len(disagreements) // 10)]
+        print(f"\n  disagreement ranking -> {target.name}")
+        print(f"    median {disagreements[len(disagreements)//2]['disagreement']:.3f}"
+              f"   worst {disagreements[0]['disagreement']:.3f}"
+              f"   (frame {disagreements[0]['frame'][-7:]}, "
+              f"teacher {disagreements[0]['teacher_boxes']} vs "
+              f"student {disagreements[0]['student_boxes']})")
+        print(f"    verify the top {len(top)} frames first (A32) — that is where "
+              f"two independently trained detectors conflict")
+
     print(f"  wrote {args.out}")
     return 0
 

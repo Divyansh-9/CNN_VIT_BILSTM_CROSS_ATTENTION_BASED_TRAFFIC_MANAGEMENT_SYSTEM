@@ -37,7 +37,25 @@ from mfstnet.corpus.windows import WindowGeometry  # noqa: E402
 
 SAMPLE_EVERY_S = 5          # PRD §8.2
 CONF_THRESHOLD = 0.25
-VEHICLE_COCO = {"car", "motorcycle", "bus", "truck", "bicycle"}
+# Resolved by EXCLUSION, across three vocabularies (COCO, ours, ITD), because
+# inclusion lists silently miscount when a model names things differently.
+#
+# The previous rule keyed on `"car" in names and "auto_rickshaw" not in names`
+# and fell back to a fixed COCO list. ITD satisfies that test — it has `car` and
+# spells the three-wheeler `autorickshaw` — so it would have been counted with
+# the COCO list, missing `two wheeler` and `autorickshaw` entirely. On footage
+# that is 45% two-wheelers and 21% auto-rickshaws that is not a small error; it
+# would have dropped two thirds of the traffic and reported the remainder as a
+# count distribution.
+#
+# Anything occupying carriageway space is a vehicle, cattle included. People and
+# street furniture are not.
+NON_VEHICLE = {
+    "person", "pedestrian", "pedestrain",     # ITD's spelling of the last
+    "rider",                                  # merged into motorcycle (ADR S09)
+    "traffic_light", "traffic light", "traffic_sign", "traffic sign",
+    "stop sign", "parking meter", "bench", "bird", "cat", "dog",
+}
 
 
 def extract_counts(
@@ -46,6 +64,7 @@ def extract_counts(
     *,
     weights: str = "yolov8n.pt",
     conf: float = CONF_THRESHOLD,
+    imgsz: int = 640,
 ) -> list[int]:
     """Count vehicles every 5 seconds. Returns one count per sampled frame.
 
@@ -92,9 +111,15 @@ def extract_counts(
     # COCO names differ from ours; resolve the vehicle set from the model that
     # is actually loaded rather than assuming one vocabulary.
     names = set(model.names.values())
-    wanted = VEHICLE_COCO if "car" in names and "auto_rickshaw" not in names else (
-        names - {"person", "rider", "traffic_light", "traffic_sign"})
-    print(f"  detector  {weights} (conf {conf}) counting {sorted(wanted)}")
+    wanted = names - NON_VEHICLE
+    if not wanted:
+        raise SystemExit(f"{weights} exposes no vehicle classes: {sorted(names)}")
+    print(f"  detector  {weights}")
+    print(f"  counting  {len(wanted)} classes at conf {conf}, imgsz {imgsz}: "
+          f"{', '.join(sorted(wanted))}")
+    ignored = sorted(names & NON_VEHICLE)
+    if ignored:
+        print(f"  ignoring  {', '.join(ignored)}")
     counts: list[int] = []
     idx = 0
 
@@ -103,7 +128,7 @@ def extract_counts(
         if not ok:
             break
         if idx % step == 0:
-            res = model(frame, conf=conf, verbose=False)[0]
+            res = model(frame, conf=conf, imgsz=imgsz, verbose=False)[0]
             n = 0
             h, w = frame.shape[:2]
             for box in res.boxes:
@@ -133,16 +158,18 @@ def main() -> int:
         return 0 if len(sys.argv) > 1 else 2
 
     argv = list(sys.argv[1:])
-    weights, conf = "yolov8n.pt", CONF_THRESHOLD
-    for flag, cast in (("--weights", str), ("--conf", float)):
+    weights, conf, imgsz = "yolov8n.pt", CONF_THRESHOLD, 640
+    for flag, cast in (("--weights", str), ("--conf", float), ("--imgsz", int)):
         if flag in argv:
             i = argv.index(flag)
             value = cast(argv[i + 1])
             argv = argv[:i] + argv[i + 2:]
             if flag == "--weights":
                 weights = value
-            else:
+            elif flag == "--conf":
                 conf = value
+            else:
+                imgsz = value
 
     video = Path(argv[0])
     if not video.exists():
@@ -157,7 +184,7 @@ def main() -> int:
     print("WEEK-2 PILOT  ·  count distribution and transition rate")
     print("=" * 72)
 
-    counts = extract_counts(video, roi, weights=weights, conf=conf)  # type: ignore[arg-type]
+    counts = extract_counts(video, roi, weights=weights, conf=conf, imgsz=imgsz)  # type: ignore[arg-type]
     g = WindowGeometry()
 
     print(f"\n  sampled   {len(counts)} frames")
@@ -181,7 +208,7 @@ def main() -> int:
     out = Path("experiments/results/pilot_counts.csv")
     merge_by_key(out, [
         {"run": run_id, "video": video.name, "detector": Path(weights).name,
-         "conf": conf, "frame_index": i, "time_s": i * SAMPLE_EVERY_S, "count": c}
+         "conf": conf, "imgsz": imgsz, "frame_index": i, "time_s": i * SAMPLE_EVERY_S, "count": c}
         for i, c in enumerate(counts)
     ], run_id, key="run")
     print(f"\nraw counts written to {out}  — commit this (NFR-09)")
