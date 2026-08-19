@@ -156,3 +156,65 @@ def ratio_deviation(
         name: counts[name] / total - target
         for name, target in zip(SPLIT_NAMES, ratios)
     }
+
+
+def assign_splits_temporal(
+    start_indices: Seq[int],
+    *,
+    window_frames: int,
+    ratios: Seq[float] = (0.60, 0.20, 0.20),
+) -> list[str | None]:
+    """Split ONE camera's timeline by time, with a gap. `None` means discard.
+
+    `assign_splits` divides by source clip and refuses to run on a single clip,
+    which is correct: hash-assigning one clip leaves two splits empty, and an
+    empty test split means every reported metric is computed on nothing.
+
+    But a single continuous recording is the deployment shape — one junction,
+    one fixed camera — and it can still be split honestly, by time rather than
+    by clip. The catch is that consecutive windows overlap: at T=60, step 5 s
+    and stride 30 s, neighbouring windows share 11 of their 12 half-minutes. A
+    naive time split therefore puts almost the same frames either side of the
+    boundary.
+
+    **So windows within one full window-length of a boundary are discarded**,
+    not reassigned. That costs data and buys the only thing that matters here:
+    a test window cannot share a single frame with a training window.
+
+    Returns a split name per input index, or None for a discarded buffer window.
+    """
+    if len(ratios) != 3 or abs(sum(ratios) - 1.0) > 1e-9:
+        raise ValueError(f"ratios must be 3 values summing to 1.0, got {ratios}")
+    if window_frames <= 0:
+        raise ValueError(f"window_frames must be positive, got {window_frames}")
+    if not start_indices:
+        raise ValueError("no sequences to split")
+
+    ordered = sorted(start_indices)
+    span = ordered[-1] - ordered[0] + window_frames
+    train_end = ordered[0] + span * ratios[0]
+    val_end = train_end + span * ratios[1]
+
+    out: list[str | None] = []
+    for start in start_indices:
+        end = start + window_frames
+        if end <= train_end - window_frames:
+            out.append("train")
+        elif start >= train_end + window_frames and end <= val_end - window_frames:
+            out.append("val")
+        elif start >= val_end + window_frames:
+            out.append("test")
+        else:
+            out.append(None)          # buffer: would straddle a boundary
+
+    for name in SPLIT_NAMES:
+        if not any(v == name for v in out):
+            kept = sum(1 for v in out if v is not None)
+            raise ValueError(
+                f"temporal split leaves {name!r} empty: {len(start_indices)} "
+                f"window(s), {kept} survived the buffers. One window spans "
+                f"{window_frames} frames and each boundary costs one on either "
+                f"side, so a short recording cannot yield three disjoint "
+                f"splits. Record longer, or add another camera."
+            )
+    return out

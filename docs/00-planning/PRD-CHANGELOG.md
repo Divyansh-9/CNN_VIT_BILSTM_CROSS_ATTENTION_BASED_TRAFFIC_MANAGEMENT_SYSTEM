@@ -2079,3 +2079,85 @@ stands, but this is a cost on the other side of the ledger and it was not in the
 ADR. **PCU should not be adopted on a detector that cannot tell an e-rickshaw
 from a motorcycle**, which makes fixing the class a precondition for ADR-017
 rather than an unrelated task.
+
+---
+
+## P22 — the corpus blocker is size, not thresholds, and it is off by an order of magnitude (2026-08-19)
+
+**Status:** OPEN · Found by building the corpus instead of reasoning about it
+
+The project status recorded earlier today said MFSTNet was "blocked on one
+decision rather than on compute" — the ADR-017 threshold sign-off. **That was
+wrong, and building the corpus proved it in ten minutes.**
+
+### The threshold decision never blocked anything
+
+The expensive pass — running the detector over every frame — produces
+`counts.csv`, which contains **no thresholds at all**. Labels are a cheap
+arithmetic derivation written into `sequences.csv`, and `label_from_count`
+already took `low_max`/`med_max` as parameters, with a docstring saying so:
+"a recalibration is a config change, not a code change."
+
+Only the plumbing was missing. `build_corpus.py` now exposes both thresholds and
+records them in the manifest, and `relabel_corpus.py` regenerates labels under
+any threshold set in seconds without touching the detector. **A threshold
+decision selects which labelling is the headline; it cannot gate the work.**
+
+### What actually blocks it
+
+The 20-minute Dhaka clip yields **242 samples and 29 windows**. One prediction
+window spans 360 s (A15: T=60 × 5 s + 60 s horizon), so at a 30 s stride a clip
+of duration D gives `(D − 360) / 30` windows.
+
+Worse, `assign_splits` refuses a single clip — correctly, since hash-assigning
+one clip empties two splits. The honest alternative for one continuous recording
+is a temporal split, and it must discard windows within one window-length of
+each boundary, because neighbouring windows share 11 of their 12 half-minutes.
+
+Applied to the real numbers:
+
+    29 windows -> 1 survives the buffers -> 'val' is empty -> REFUSED
+
+**One clip does not produce a corpus. It produces one window.**
+
+| source | windows @ 30 s stride |
+|---|---|
+| Dhaka (1,206 s) | 28 |
+| M6 Motorway (2,048 s) | 56 |
+| 4K road traffic (2,093 s) | 57 |
+| Highway sounds (3,602 s) | 108 |
+| **all 8 fixed-camera clips** | **351** |
+
+Shrinking the stride inflates the count without adding information — at 5 s the
+Dhaka clip reports 169 windows that overlap almost completely.
+
+### The resolution, and it makes the science better
+
+**P17 said a corpus cannot span cameras.** Re-read precisely, it said a corpus
+cannot span cameras *through one shared polygon set*, because a polygon lives in
+the image plane. With **polygons surveyed per camera** — which
+`survey_lanes.py` already does — and **thresholds calibrated per camera** —
+which is exactly what ADR-017 proposes — a multi-camera corpus is coherent.
+
+That takes the corpus from 28 windows to ~351, and it changes the experimental
+design for the better: **split by camera, so the test split is a held-out
+camera.** P21 measured the detector losing 0.8941 → 0.3500 across camera sets;
+a corpus whose test split is a different camera measures precisely the
+generalisation that matters, instead of assuming it.
+
+**So ADR-017 is not a labelling tidy-up. It is the precondition for having a
+corpus at all**, and its priority should be read that way.
+
+### Consequences
+
+1. **The status page's "blocked on one decision" was wrong** and is corrected.
+   The blocker is footage volume, and it is an order of magnitude, not a margin.
+2. **`assign_splits_temporal` exists** for the single-camera case and refuses
+   loudly rather than silently producing an unusable split.
+3. **Per-camera polygons must be surveyed for the remaining seven clips.** That
+   is human work — each needs looking at, per `survey_lanes.py`'s own warning.
+4. **351 windows is still small** for a model with attention layers. It is
+   enough to train Phase 1 honestly and report it with its size stated; it is
+   not enough to claim a large-scale result.
+5. **S06's recording trip becomes the highest-value input again**, for a reason
+   sharper than before: hours from one junction beats minutes from many.

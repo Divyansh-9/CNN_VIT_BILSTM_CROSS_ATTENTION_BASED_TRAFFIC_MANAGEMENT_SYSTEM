@@ -126,6 +126,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--horizon-s", type=int, default=60, help="PRD §8.2")
     parser.add_argument("--timesteps", type=int, default=60, help="T, PRD §8.2")
     parser.add_argument("--stride-s", type=int, default=30)
+    parser.add_argument("--low-max", type=int, default=4,
+                        help="highest count still LOW. PRD 14.1 says 4. "
+                             "A parameter because the corpus stores COUNTS, "
+                             "which are threshold-independent -- see below")
+    parser.add_argument("--med-max", type=int, default=15,
+                        help="highest count still MEDIUM. PRD 14.1 says 15")
     parser.add_argument("--out", type=Path, default=Path("data/corpus"))
     parser.add_argument(
         "--max-unassigned", type=float, default=0.35,
@@ -263,7 +269,8 @@ def main(argv: list[str] | None = None) -> int:
         }
         for lane in lanes:
             count = series[lane.name][sequence.label_index]
-            entry[f"label_{lane.name}"] = label_from_count(int(round(count))).name
+            entry[f"label_{lane.name}"] = label_from_count(
+                int(round(count)), low_max=args.low_max, med_max=args.med_max).name
         labelled.append(entry)
 
     # Verified, not assumed. Consecutive windows share most of their frames, so
@@ -289,6 +296,15 @@ def main(argv: list[str] | None = None) -> int:
         "detector": args.weights.name, "conf": args.conf,
         "clips": sorted(by_clip), "splits": splits,
         "auto_labelled": True,
+        "low_max": args.low_max, "med_max": args.med_max,
+        "threshold_note": (
+            "The expensive pass produces counts.csv, which is "
+            "THRESHOLD-INDEPENDENT. Labels in sequences.csv are a cheap "
+            "derivation on top. scripts/relabel_corpus.py regenerates them "
+            "under different thresholds in seconds, without re-running the "
+            "detector -- so a threshold decision is a config change, never a "
+            "reason to delay building the corpus."
+        ),
         "reporting_note": (
             "A32: auto-labelled. Labels are a deterministic function of the "
             "count, so count-sequence baselines observe the label-generating "
