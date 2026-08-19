@@ -140,6 +140,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--message", default="S11 detector bootstrap")
     parser.add_argument("--dir", type=Path, default=DEFAULT_KERNEL_DIR,
                         help="notebook directory (kaggle/joint_training for S14)")
+    parser.add_argument("--data-dir", type=Path, default=None,
+                        help="dataset directory to push. Defaults to data/idd_yolo. "
+                             "Must already contain its own dataset-metadata.json "
+                             "— the slug lives with the data, not in this script")
     args = parser.parse_args(argv)
 
     if not (args.dataset or args.kernel):
@@ -152,19 +156,31 @@ def main(argv: list[str] | None = None) -> int:
 
     python = sys.executable
     if args.dataset:
-        # Metadata must sit beside the files Kaggle uploads.
-        target = DATA / "dataset-metadata.json"
-        target.write_text(
-            (DEFAULT_KERNEL_DIR / "dataset-metadata.json").read_text(encoding="utf-8"),
-            encoding="utf-8",
-        )
+        data_dir = args.data_dir or DATA
+        # Metadata must sit beside the files Kaggle uploads. A directory that
+        # brought its own is pushed as-is; only the legacy IDD path inherits
+        # the template, because its slug predates this option.
+        target = data_dir / "dataset-metadata.json"
+        if not target.is_file():
+            if data_dir != DATA:
+                raise SystemExit(
+                    f"{target} is missing. A dataset directory carries its own "
+                    f"slug and title so that pushing the wrong one is not a "
+                    f"silent overwrite of somebody else's dataset."
+                )
+            target.write_text(
+                (DEFAULT_KERNEL_DIR / "dataset-metadata.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+        slug = json.loads(target.read_text(encoding="utf-8"))["id"].split("/")[-1]
         listing = subprocess.run(
             [python, "-m", "kaggle", "datasets", "list", "-m"],
             capture_output=True, text=True,
         )
-        exists = "indiatrafficnet-bootstrap-idd-yolo" in (listing.stdout or "")
+        exists = slug in (listing.stdout or "")
         verb = ["version", "-m", args.message, "-d"] if exists else ["create", "-r", "zip"]
-        code = run([python, "-m", "kaggle", "datasets", *verb, "-p", str(DATA)])
+        print(f"  {'new version of' if exists else 'creating'} {slug} from {data_dir}")
+        code = run([python, "-m", "kaggle", "datasets", *verb, "-p", str(data_dir)])
         if code:
             return code
         print("  dataset pushed. A NEW VERSION — earlier ones stay on Kaggle.")

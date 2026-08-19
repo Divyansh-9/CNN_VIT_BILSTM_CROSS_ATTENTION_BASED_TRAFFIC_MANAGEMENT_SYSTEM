@@ -1,0 +1,17 @@
+{
+  "id": "idredk/cnn-vit-bilstm-cross-attention-traffic-system-s16",
+  "title": "CNN ViT BiLSTM Cross Attention Traffic System S16",
+  "code_file": "s16_train_distill.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "idredk/indiatrafficnet-bootstrap-idd-yolo",
+    "idredk/cnn-vit-bilstm-traffic-itd-pseudo-labels"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "machine_shape": "Gpu"
+}

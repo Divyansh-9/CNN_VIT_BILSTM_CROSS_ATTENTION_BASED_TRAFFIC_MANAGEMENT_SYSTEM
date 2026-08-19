@@ -105,3 +105,4 @@ models/external/
 # Pseudo-labels are regenerable from the clip + teacher (scripts/pseudo_label.py).
 # Thousands of JPEGs, and the labels are derived data, not ground truth.
 data/pseudo/
+data/pseudo_upload/

@@ -86,23 +86,50 @@ pre-registered criteria below are met on real labelled test data.**
 
 ## Pre-registered acceptance criteria
 
-Fixed before the run. Evaluated on the **real labelled** IDD test split (1,170
-images) and the BMD-45 elevated eval set — **never on pseudo-labels**, which
-would only measure agreement with the teacher.
+Fixed before the run. Evaluated on **real labelled** data — the IDD test split
+(1,170 images) and the BMD-45 elevated eval set (498 images) — **never on
+pseudo-labels**, which would only measure agreement with the teacher.
 
-| # | Criterion | Rationale |
-|---|---|---|
-| 1 | mAP50 on BMD-45 elevated **≥ 0.8915** (current), and the change is reported either way | The deployment viewpoint. No regression is acceptable |
-| 2 | `e_rickshaw` and `cattle` AP50 drop by **≤ 0.02** absolute | The classes the teacher cannot see. This is what the merge exists to protect |
-| 3 | **≥ 10 fps** on the measurement host, stated per ADR-003 | The entire reason not to deploy ITD directly |
-| 4 | mAP50 on IDD test **does not fall by > 0.02** | Guards against overfitting to one camera's domain |
+### Corrected 2026-08-19, before any training, on inspection of the test splits
 
-**If 1 is met and 2 is not, the merge failed and the result is not adopted.**
-Trading away India-specific classes for general accuracy inverts the project's
-stated contribution.
+Two errors in the first draft of these criteria, both found by checking what the
+evaluation data actually contains rather than assuming:
+
+**The baseline was wrong.** The current best detector is `s15_yolov8s_joint_aug`
+at **mAP50 0.8941** on BMD-45 elevated, not S14's 0.8915. S15 is the A31
+geometric-augmentation rerun and it is what a new arm has to beat. Distillation
+starts from the S15 checkpoint.
+
+**`e_rickshaw` cannot be measured at all.** It has **zero test boxes in IDD and
+zero in BMD-45** — `evaluated: False` in every metrics CSV the project has
+produced. A criterion stated over it was unfalsifiable.
+
+That is a finding about the existing detector, not only about this arm: **the
+project ships an eight-class detector in which one class has never been
+evaluated.** It is recorded here because this is where it surfaced, and it needs
+test data of its own regardless of what happens to distillation.
+
+| # | Criterion | Measured on | Baseline |
+|---|---|---|---|
+| 1 | mAP50 **≥ 0.8941**, change reported either way | BMD-45 elevated test | 0.8941 (S15) |
+| 2a | `cattle` AP50 drops by **≤ 0.02** absolute | IDD test, 183 boxes | 0.3516 (S14) |
+| 2b | `e_rickshaw` **prediction rate** on held-out footage falls by **≤ 50%** | unlabelled clips | student's own current rate |
+| 3 | **≥ 10 fps** on a stated host (ADR-003) | measured, batch 1 | 12.5 fps |
+| 4 | IDD test mAP50 does not fall by **> 0.02** | IDD test | 0.7104 mean (S14) |
+
+**On 2b.** With no labelled e-rickshaws anywhere, the failure mode still has a
+signature: if the student stops predicting the class, the teacher has absorbed
+it into `auto_rickshaw`. Counting predictions on unlabelled footage detects that
+without ground truth. It cannot show the predictions are *correct* — only that
+the class has not been silently deleted, which is the specific damage the merge
+exists to prevent.
+
+**If 1 is met and 2a or 2b is not, the merge failed and the arm is not adopted.**
+Trading India-specific classes for general accuracy inverts the project's stated
+contribution.
 
 **Held fixed across arms:** architecture, `imgsz`, epochs, optimiser, seed 42,
-and the evaluation split. One variable per row — the S14 discipline.
+augmentation settings, and the evaluation splits. One variable per row.
 
 ## Consequences
 
