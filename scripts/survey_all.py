@@ -55,6 +55,9 @@ def main(argv: list[str] | None = None) -> int:
     import numpy as np
     from ultralytics import YOLO
 
+    from mfstnet.corpus.identity import (
+        group_cameras, scene_signature, stable_stem,
+    )
     from mfstnet.corpus.lanes import LaneCentres, assign_to_lane
     from scripts.pilot_a17 import vehicle_ids
     from scripts.survey_lanes import centroids, cluster
@@ -85,7 +88,10 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             clip = matches[0]
 
-        stem = "".join(c if c.isalnum() else "_" for c in clip.stem)[:48]
+        # Hash-suffixed, because truncating to a fixed length collided: two
+        # clips differing only after 48 characters wrote the same files and one
+        # silently overwrote the other. Twelve cameras produced eleven previews.
+        stem = stable_stem(str(clip))
         try:
             points = centroids(clip, model, ids, frames=args.frames, conf=args.conf)
             groups = cluster(points, args.lanes)
@@ -159,20 +165,52 @@ def main(argv: list[str] | None = None) -> int:
         status = "ok" if rate <= args.max_unassigned else "TOO MANY OUTSIDE"
         print("  {:<44}{:>7}{:>11}{:>18}".format(
             stem[:42], len(points), f"{rate:.1%}", status))
+        signature = None
+        if ok:
+            signature = scene_signature(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
         summary.append({"camera": stem, "clip": clip.name,
                         "seconds": float(row["seconds"]),
                         "detections": len(points),
-                        "unassigned_rate": round(rate, 4), "status": status})
+                        "unassigned_rate": round(rate, 4), "status": status,
+                        "signature": signature})
+
+    # A camera split is only leak-free if "camera" is identified correctly, and
+    # a filename does not identify one. Measured: M6 Motorway and "Road traffic
+    # video for object recognition" are the same motorway from the same
+    # viewpoint at 0.981 correlation, under two names.
+    signatures = {s["camera"]: s["signature"] for s in summary if s.get("signature")}
+    groups = group_cameras(signatures) if signatures else {}
+    for entry in summary:
+        entry["camera_id"] = groups.get(entry["camera"], entry["camera"])
+        entry.pop("signature", None)
+
+    distinct = len(set(groups.values())) if groups else len(summary)
+    duplicates = {}
+    for clip, camera in groups.items():
+        duplicates.setdefault(camera, []).append(clip)
+    shared = {k: v for k, v in duplicates.items() if len(v) > 1}
+    if shared:
+        print()
+        print(f"  DUPLICATE CAMERAS — {len(shared)} group(s) share a viewpoint:")
+        for camera, members in shared.items():
+            print(f"    {camera}")
+            for member in members:
+                if member != camera:
+                    print(f"      = {member}")
+        print("  These MUST share a split. Two files of one camera on opposite")
+        print("  sides of a split means testing on a camera we trained on.")
 
     (args.out / "survey_summary.json").write_text(
         json.dumps(summary, indent=2), encoding="utf-8")
-    overlapping = [s for s in summary if s.get("status") == "OVERLAP"]
-    print(f"\n  wrote {args.out} — {len(summary)} surveyed, "
-          f"{len(overlapping)} with overlapping lanes")
-    print("  EVERY set is marked reviewed:false. Look at the previews.")
-    if overlapping:
-        print("  Overlapping lanes double-count every vehicle in the shared")
-        print("  region, so those must be edited or the camera dropped.")
+    bad = [s for s in summary if s.get("status") not in ("ok", None)]
+    print()
+    print(f"  wrote {args.out}")
+    print(f"  {len(summary)} clip(s) surveyed  ->  {distinct} DISTINCT camera(s)")
+    print(f"  {len(bad)} over the {args.max_unassigned:.0%} unassigned gate")
+    print()
+    print("  Nearest-centre assignment cannot overlap, so nothing needs editing.")
+    print("  EVERY set is marked reviewed:false: the previews still have to be")
+    print("  looked at, because a centre on a car park is as wrong as a box was.")
     return 0
 
 

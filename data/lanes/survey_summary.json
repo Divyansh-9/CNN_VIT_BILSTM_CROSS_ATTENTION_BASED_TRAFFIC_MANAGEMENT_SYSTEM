@@ -1,98 +1,110 @@
 [
   {
-    "camera": "Highway_sounds_cars_trucks_passing_by_for_sleepi",
+    "camera": "D__traffic_dataset_Highway_sounds_cars_t_68a3e4c4",
     "clip": "Highway sounds cars trucks passing by for sleeping relaxing.mp4",
     "seconds": 3601.8,
     "detections": 199,
     "unassigned_rate": 0.0352,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_Highway_sounds_cars_t_68a3e4c4"
   },
   {
-    "camera": "4K_Road_traffic_video_for_object_detection_and_t",
+    "camera": "D__traffic_dataset_4K_Road_traffic_video_da369d62",
     "clip": "4K Road traffic video for object detection and tracking.mp4",
     "seconds": 2093.1,
     "detections": 144,
     "unassigned_rate": 0.0486,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_4K_Road_traffic_video_da369d62"
   },
   {
-    "camera": "M6_Motorway_Traffic",
+    "camera": "D__traffic_dataset_M6_Motorway_Traffic_m_776c6509",
     "clip": "M6 Motorway Traffic.mp4",
     "seconds": 2048.5,
     "detections": 950,
     "unassigned_rate": 0.0747,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_M6_Motorway_Traffic_m_776c6509"
   },
   {
-    "camera": "Road_traffic_video_for_object_recognition",
+    "camera": "D__traffic_dataset_Road_traffic_video_fo_972c7197",
     "clip": "Road traffic video for object recognition.mp4",
     "seconds": 2048.0,
     "detections": 926,
     "unassigned_rate": 0.1069,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_M6_Motorway_Traffic_m_776c6509"
   },
   {
-    "camera": "Incredible_traffic_Sound_in_Dhaka__Bangladesh__R",
+    "camera": "D__traffic_dataset_Incredible_traffic_So_d3e34949",
     "clip": "Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
     "seconds": 1206.5,
     "detections": 751,
     "unassigned_rate": 0.1545,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_Incredible_traffic_So_d3e34949"
   },
   {
-    "camera": "__Incredible_traffic_Sound_in_Dhaka__Bangladesh_",
+    "camera": "D__traffic_dataset___Incredible_traffic__50708eee",
     "clip": "\ud83c\udfa7 Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura [4K ASMR] #TheSoundOfDhaka.mp4",
     "seconds": 1169.6,
     "detections": 1264,
     "unassigned_rate": 0.1614,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset___Incredible_traffic__50708eee"
   },
   {
-    "camera": "Relaxing_highway_traffic",
+    "camera": "D__traffic_dataset_Relaxing_highway_traf_ba724265",
     "clip": "Relaxing highway traffic.mp4",
     "seconds": 840.5,
     "detections": 325,
     "unassigned_rate": 0.1108,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_Relaxing_highway_traf_ba724265"
   },
   {
-    "camera": "Pov_Thursday_Traffic_From_Footover_bridge__Cloud",
+    "camera": "D__traffic_dataset_Pov_Thursday_Traffic__182ecf5e",
     "clip": "Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964.mp4",
     "seconds": 496.7,
     "detections": 1097,
     "unassigned_rate": 0.1176,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_Pov_Thursday_Traffic__182ecf5e"
   },
   {
-    "camera": "Mumbai_Traffic_Chaos___Near_Andheri_Station",
+    "camera": "D__traffic_dataset_Mumbai_Traffic_Chaos__c0976fce",
     "clip": "Mumbai Traffic Chaos - Near Andheri Station.mp4",
     "seconds": 349.2,
     "detections": 1587,
     "unassigned_rate": 0.1374,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_Mumbai_Traffic_Chaos__c0976fce"
   },
   {
-    "camera": "4K_Road_traffic_video_for_object_detection_and_t",
+    "camera": "D__traffic_dataset_4K_Road_traffic_video_152b1b73",
     "clip": "4K Road traffic video for object detection and tracking - free download now!.mp4",
     "seconds": 306.1,
     "detections": 795,
     "unassigned_rate": 0.1082,
-    "status": "ok"
+    "status": "ok",
+    "camera_id": "D__traffic_dataset_4K_Road_traffic_video_152b1b73"
   },
   {
-    "camera": "South_Extension_traffic_multi_coloured__pink___g",
+    "camera": "D__traffic_dataset_South_Extension_traff_b5275a32",
     "clip": "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.mp4",
     "seconds": 264.0,
     "detections": 2759,
     "unassigned_rate": 0.3686,
-    "status": "TOO MANY OUTSIDE"
+    "status": "TOO MANY OUTSIDE",
+    "camera_id": "D__traffic_dataset_South_Extension_traff_b5275a32"
   },
   {
-    "camera": "video1",
+    "camera": "D__traffic_dataset_video1_mp4_78d40123",
     "clip": "video1.mp4",
     "seconds": 182.6,
     "detections": 1651,
     "unassigned_rate": 0.3786,
-    "status": "TOO MANY OUTSIDE"
+    "status": "TOO MANY OUTSIDE",
+    "camera_id": "D__traffic_dataset_video1_mp4_78d40123"
   }
 ]
