@@ -647,3 +647,78 @@ subsampling, class mapping applied, and which experiments used it.
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-08-07 | Initial. IDD Detection selected as primary bootstrap; viewpoint gap documented |
+
+---
+
+## ITD — Indian Traffic Dataset v1.2 (IIT Roorkee, 2024) — assessed 2026-08-19
+
+**Verdict: request the dataset. The weights are not the reason, and "training is
+already done" is not accurate.**
+
+[Repository](https://github.com/teg-iitr/ITD-Indian-traffic-dataset) ·
+CC BY-NC 4.0 · Agarwal, Thombre, Kedia & Ghosh (2024)
+
+| | |
+|---|---|
+| Scale | 9,200+ images, 280,000+ labelled objects |
+| Coverage | 25+ locations, 14 states/UTs |
+| Classes | 8, Indo-HCM: two-wheeler, auto-rickshaw, car/jeep/van, LCV, bus, truck/HCV, bicycle, pedestrian |
+| Reported | YOLOv8, mAP50 0.91, precision 0.87, recall 0.86 |
+
+### What the repository actually contains
+
+Checked directly rather than from the README. The repository is **1 markdown
+file, a licence, an index page, and two folders**. `model_weights/` holds no
+weights — two 1,469-byte HTML files that redirect through a download counter to
+a **Google Form**. Total downloads to date: 35.
+
+So **no weights are distributed**. They are available on request, to a person,
+via a form. That is a perfectly normal academic arrangement and not a criticism
+— but it means the claim that the training step is already done does not hold.
+
+The lane-splitting / overtaking / legal-illegal figures are **static PNGs in
+`static/`**, demonstrating applications in the paper. No implementation of them
+is distributed.
+
+### Why 0.91 does not beat our 0.8915
+
+Different test sets. Their 0.91 is on ITD's own held-out split; our 0.8915 is on
+elevated Indian CCTV from the BMD-45 + IDD joint arm. Reading one against the
+other is precisely the error the S14 detector-arms table was built to prevent —
+one variable per row, same evaluation set. Until ITD is evaluated on our test
+split, the two numbers are not comparable in either direction.
+
+### What is genuinely worth having
+
+1. **The Indo-HCM annotation standard**, which is the reason this entry exists.
+   It supplies the PCU equivalences behind [ADR-017](decisions/ADR-017-pcu-thresholds.md),
+   and aligning our class definitions to a published national standard is
+   stronger in a paper than aligning them to our own judgement.
+2. **Elevated multi-state imagery.** IDD is largely dashcam; our viewpoint gap
+   (A31) was closed with BMD-45. ITD spans 25+ locations including expressways
+   and arterials, which is a different distribution again.
+3. **A citable 2024 reference** for related work.
+
+### How to use it, if the request is granted
+
+As a **third arm in the existing detector table** — IDD alone, BMD-45+IDD joint,
++ITD — evaluated on our test split with hyperparameters held fixed, exactly as
+S14 did. Not as a replacement for a detector that already meets its requirement.
+
+**Licence constraint:** CC BY-NC 4.0 is non-commercial. Fine for an academic
+project and a conference submission, with attribution. It must be recorded in
+the paper and it does foreclose any commercial deployment claim.
+
+### Out of scope
+
+Overtaking, lane-splitting and violation classification are a **different task**
+— behaviour and safety analysis, not congestion forecasting. Adding them would
+widen a project the feasibility audit already scored at ~1,200 h of specified
+work against ~715 h of capacity, and no implementation is distributed to
+shortcut it. Recorded here so the decision is visible rather than forgotten.
+
+One idea from that work does transfer without any scope cost: **lane sharing and
+lane splitting are why per-lane ROI counting is noisier in South Asian traffic
+than the PRD assumes** — vehicles genuinely occupy the boundary between lanes.
+That is an argument for reporting the unassigned rate with every corpus, which
+[P17](../00-planning/PRD-CHANGELOG.md) already requires.
