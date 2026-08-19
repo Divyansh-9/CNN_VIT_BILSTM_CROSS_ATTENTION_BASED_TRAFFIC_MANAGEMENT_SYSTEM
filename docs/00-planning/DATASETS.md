@@ -699,6 +699,16 @@ split, the two numbers are not comparable in either direction.
    and arterials, which is a different distribution again.
 3. **A citable 2024 reference** for related work.
 
+> **Update 2026-08-19 — the request was granted and the model measured.** One
+> file, `best_xl_ITD_v1.2.pt`, 56.8 M parameters at `imgsz 992`. It finds
+> **11-27% more vehicles than ours at every confidence threshold**, and it runs
+> at **0.8 fps against our 12.5 fps** on the same CPU — 15x slower, missing the
+> latency requirement by more than an order of magnitude. It also has **no
+> `e_rickshaw` and no `cattle`** class. Full measurements and the resulting plan
+> in [ITD-MODEL-ASSESSMENT](research/ITD-MODEL-ASSESSMENT.md). Short version:
+> excellent offline, not deployable, and the best use is improving corpus labels
+> rather than replacing the edge detector.
+
 ### How to use it, if the request is granted
 
 As a **third arm in the existing detector table** — IDD alone, BMD-45+IDD joint,

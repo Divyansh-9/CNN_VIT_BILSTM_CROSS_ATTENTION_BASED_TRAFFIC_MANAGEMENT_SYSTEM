@@ -94,3 +94,10 @@ data/dev_footage/
 
 # SUMO tripinfo scratch — swept per environment (see traffic_env)
 data/_tripinfo/
+
+# Third-party model weights — ITD (IIT Roorkee, CC BY-NC 4.0).
+# NOT committed. The authors gate these behind a request form with a download
+# counter; re-hosting them in a public repo defeats that, even though BY-NC
+# permits redistribution. Provenance and the request route are in
+# docs/00-planning/research/ITD-MODEL-ASSESSMENT.md — obtain your own copy.
+models/external/
