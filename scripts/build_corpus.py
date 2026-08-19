@@ -126,6 +126,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--horizon-s", type=int, default=60, help="PRD §8.2")
     parser.add_argument("--timesteps", type=int, default=60, help="T, PRD §8.2")
     parser.add_argument("--stride-s", type=int, default=30)
+    parser.add_argument("--split-mode", choices=("clip", "temporal"), default="clip",
+                        help="'clip' assigns whole clips (ADR-002) and needs "
+                             "enough clips to fill three splits. 'temporal' "
+                             "splits ONE camera's timeline by time, discarding "
+                             "windows within a window-length of each boundary "
+                             "so no test window shares a frame with training")
     parser.add_argument("--low-max", type=int, default=4,
                         help="highest count still LOW. PRD 14.1 says 4. "
                              "A parameter because the corpus stores COUNTS, "
@@ -256,14 +262,34 @@ def main(argv: list[str] | None = None) -> int:
         for clip_id, rows in by_clip.items()
     }
 
-    splits = assign_splits(sorted(by_clip))
+    if args.split_mode == "temporal":
+        if len(by_clip) > 1:
+            raise SystemExit(
+                f"--split-mode temporal splits ONE camera's timeline, but "
+                f"{len(by_clip)} clips were given. Two clips from different "
+                f"cameras cannot share a timeline; use --split-mode clip."
+            )
+        window_frames = geometry.T + geometry.label_offset_frames
+        per_sequence = assign_splits_temporal(
+            [s.start_index for s in all_sequences], window_frames=window_frames)
+        kept = [(s, v) for s, v in zip(all_sequences, per_sequence) if v is not None]
+        dropped = len(all_sequences) - len(kept)
+        print(f"  temporal split: {len(kept)} window(s) kept, {dropped} discarded "
+              f"as boundary buffers ({window_frames} frames each side)")
+        all_sequences = [s for s, _ in kept]
+        splits = None
+        sequence_split = {id(s): v for s, v in kept}
+    else:
+        splits = assign_splits(sorted(by_clip))
+        sequence_split = None
 
     labelled = []
     for sequence in all_sequences:
         series = smoothed[sequence.clip_id]
         entry = {
             "clip_id": sequence.clip_id,
-            "split": splits[sequence.clip_id],
+            "split": (splits[sequence.clip_id] if splits
+                      else sequence_split[id(sequence)]),
             "start_index": sequence.start_index,
             "label_index": sequence.label_index,
         }
@@ -276,9 +302,10 @@ def main(argv: list[str] | None = None) -> int:
     # Verified, not assumed. Consecutive windows share most of their frames, so
     # a clip appearing in two splits means the model has effectively seen the
     # test set — and it presents as suspiciously good validation, not as an error.
-    assert_no_clip_leakage(
-        [e["clip_id"] for e in labelled], [e["split"] for e in labelled]
-    )
+    if args.split_mode == "clip":
+        assert_no_clip_leakage(
+            [e["clip_id"] for e in labelled], [e["split"] for e in labelled]
+        )
 
     args.out.mkdir(parents=True, exist_ok=True)
     with (args.out / "counts.csv").open("w", newline="", encoding="utf-8") as handle:
@@ -295,6 +322,7 @@ def main(argv: list[str] | None = None) -> int:
         "horizon_s": args.horizon_s, "stride_s": args.stride_s,
         "detector": args.weights.name, "conf": args.conf,
         "clips": sorted(by_clip), "splits": splits,
+        "split_mode": args.split_mode,
         "auto_labelled": True,
         "low_max": args.low_max, "med_max": args.med_max,
         "threshold_note": (

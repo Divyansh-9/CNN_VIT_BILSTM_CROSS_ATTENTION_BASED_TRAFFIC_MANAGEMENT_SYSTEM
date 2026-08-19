@@ -2302,3 +2302,71 @@ together: the window count without the segment count overstates the evidence by
 roughly ninety-fold. Hours of footage from one junction remains the only thing
 that changes that — but this change moves the project from *cannot train* to
 *can train honestly*, today, on data already downloaded.
+
+---
+
+## S16 result — ITD distillation NOT ADOPTED, and one of my criteria was vacuous (2026-08-19)
+
+**Status:** MEASURED · 4.2 h on Kaggle T4 x2 · ADR-018 gate applied unchanged
+
+| # | criterion | measured | verdict |
+|---|---|---|---|
+| 1 | BMD-45 elevated mAP50 ≥ 0.8941 | **0.8884** (−0.0057) | **FAIL** |
+| 2a | `cattle` AP50 drop ≤ 0.02 | **0.4794** (was 0.3516, **+0.1278**) | PASS |
+| 2b | `e_rickshaw` predictions fall ≤ 50% | **0 vs 0** on 200 frames | PASS |
+| 3 | ≥ 10 fps on the stated host | 84.2 fps, Tesla T4 | PASS |
+| 4 | IDD mAP50 not down > 0.02 | 0.6963 (−0.0141) | PASS |
+
+**The arm is not adopted.** Criterion 1 failed by 0.0057 — a hair, and precisely
+the kind of margin a pre-registered threshold exists to decide without
+negotiation. ADR-012's discipline applies: the number is recorded, the criterion
+is not retuned.
+
+### What the distillation actually bought and cost
+
+Training a YOLOv8s student on 1,200 frames pseudo-labelled by ITD-x produced a
+model that is **slightly worse on both established test sets** — BMD-45 −0.0057,
+IDD −0.0141 — while gaining nothing on the class the merge existed to protect.
+
+That is consistent with what the pilot measured before the run: ITD's advantage
+is concentrated in small classes, and **65% of its bus detections and 43% of its
+trucks on this footage were oversized enough to be rejected**. A teacher that
+noisy hands a student noise along with signal.
+
+### Criterion 2b passed vacuously, and that is my error
+
+`e_rickshaw` predictions were **0 before and 0 after**. The criterion asked
+whether the count fell by more than half; zero does not fall. It passed while
+proving nothing, because the class was already dead — which
+[P21](#p21) established the same day for a reason the criterion could not see:
+IDD contains **zero** e_rickshaw instances, so the head was never trained.
+
+A criterion that cannot distinguish "the class was preserved" from "the class
+was already absent" is not a criterion. It was written when no labelled
+e-rickshaws existed anywhere in the project, and it was honest about that limit
+at the time — but it should have been marked unfalsifiable rather than counted
+as a pass. **S17 replaces it with a real AP50 measurement** on TrafficCAM's 227
+labelled e-rickshaw test boxes.
+
+### The genuinely surprising result
+
+**`cattle` improved by +0.1278**, from 0.3516 to 0.4794 — a 36% relative gain on
+a class that appears **nowhere in ITD** and nowhere in the pseudo-labels. It came
+from the label merge preserving our own detections plus, most likely, the extra
+elevated-domain frames helping a class that is only ever seen from above.
+
+That is worth keeping even though the arm is rejected: it is evidence that
+elevated-domain training data helps classes the new data does not contain, which
+is an argument **for** S17 rather than against it.
+
+### Consequences
+
+1. **The S16 weights are not adopted.** `s15_yolov8s_joint_aug` remains the
+   detector of record at 0.8941.
+2. **Pseudo-labelling from ITD is not a dead end, but it is not free.** A teacher
+   whose large-vehicle boxes are majority-spurious needs stricter filtering than
+   an area threshold before it is worth a second attempt.
+3. **S17 is the better-posed experiment** and it is running: human annotations
+   rather than a noisy teacher, and a criterion on `e_rickshaw` that can fail.
+4. **A negative result, reported.** PRD §2.5.5 requires this and it is the third
+   time today the pre-registered discipline has cost us a preferred answer.
