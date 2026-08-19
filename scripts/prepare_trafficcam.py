@@ -45,6 +45,7 @@ import argparse
 import collections
 import json
 import random
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -118,18 +119,64 @@ def main(argv: list[str] | None = None) -> int:
     if not sequences:
         raise SystemExit(f"no sequences under {args.src}")
 
-    # **Split by SEQUENCE, never by frame.** Thirty frames two seconds apart from
-    # one camera are near-duplicates; splitting by frame would put the same
-    # vehicles in train and test and report a number that means nothing. This is
-    # the same rule ADR-002 applies to the MFSTNet corpus.
+    # **Split by CAMERA SESSION, not by sequence.** The first version of this
+    # split by sequence, on the reasoning that 30 frames two seconds apart are
+    # near-duplicates. That reasoning was right and the unit was still wrong.
+    #
+    # Sequence names are `<session>_<unix timestamp>`, and measured across the
+    # dataset the median gap between consecutive sequences within a session is
+    # **3 to 8 seconds**: ND_O4 is 74 sequences at a 3 s median, NT4_O2 is 91 at
+    # 4 s, BLR is 27 at 8 s. They are consecutive clips of one continuous
+    # recording, not independent scenes. Splitting by sequence puts frames three
+    # seconds apart into train and test and reports an inflated number.
+    #
+    # The honest independent unit is the session. There are only about thirteen
+    # of them, which is a real limitation of this dataset and is reported below
+    # rather than hidden by a split that makes it look like hundreds.
+    def session_of(path: Path) -> str:
+        match = re.match(r"(.+?)_\d{9,10}", path.name)
+        return match.group(1) if match else path.name
+
+    groups: dict[str, list[Path]] = collections.defaultdict(list)
+    for sequence in sequences:
+        groups[session_of(sequence)].append(sequence)
+
+    # Assigning whole sessions in shuffled order splits the *sessions* 70/15/15
+    # but not the frames, because a `Fully_annotate` session carries 30 frames
+    # per sequence and a `FirstFrame` session carries one. Measured on the first
+    # attempt: 922 train frames against 1,530 test — a test split larger than
+    # the training set.
+    #
+    # So sessions are packed greedily, largest first, each going to whichever
+    # split is furthest below its frame-count target. Grouping is still by
+    # session, so no leakage is traded away for the balance.
+    weights = {name: sum(len(list(s.glob("*.json"))) for s in members)
+               for name, members in groups.items()}
     rng = random.Random(args.seed)
-    rng.shuffle(sequences)
-    n_train = int(args.splits[0] * len(sequences))
-    n_val = int(args.splits[1] * len(sequences))
+    names = sorted(groups)
+    rng.shuffle(names)
+    names.sort(key=lambda n: -weights[n])
+
+    total_frames = sum(weights.values())
+    targets = dict(zip(("train", "val", "test"),
+                       (share * total_frames for share in args.splits)))
+    running = {"train": 0, "val": 0, "test": 0}
     assignment = {}
-    for position, sequence in enumerate(sequences):
-        assignment[sequence] = ("train" if position < n_train else
-                                "val" if position < n_train + n_val else "test")
+    split_of_session = {}
+    for session in names:
+        split = max(targets, key=lambda s: targets[s] - running[s])
+        running[split] += weights[session]
+        split_of_session[session] = split
+        for sequence in groups[session]:
+            assignment[sequence] = split
+
+    print(f"  {len(names)} camera session(s) -> "
+          f"{sum(1 for s in split_of_session.values() if s == 'train')} train / "
+          f"{sum(1 for s in split_of_session.values() if s == 'val')} val / "
+          f"{sum(1 for s in split_of_session.values() if s == 'test')} test")
+    for split in ("train", "val", "test"):
+        members = sorted(s for s, v in split_of_session.items() if v == split)
+        print(f"    {split:<6} {', '.join(members)}")
 
     for split in ("train", "val", "test"):
         (args.out / "images" / split).mkdir(parents=True, exist_ok=True)
@@ -188,6 +235,15 @@ def main(argv: list[str] | None = None) -> int:
         counts = [tally[s][name] for s in ("train", "val", "test")]
         if sum(counts):
             print(f"  {name:<16}{counts[0]:>9}{counts[1]:>8}{counts[2]:>8}")
+    for name in CLASSES:
+        if tally["train"][name] and not tally["test"][name]:
+            print()
+            print(f"  WARNING: {name} has {tally['train'][name]} train boxes but "
+                  f"NONE in test. With so few camera sessions a group split can "
+                  f"put a whole class on one side. It cannot be evaluated — "
+                  f"change --seed, or accept that this class is unmeasured, but "
+                  f"do not report an AP for it.")
+
     absent = [n for n in CLASSES if not sum(tally[s][n] for s in tally)]
     if absent:
         print(f"\n  ABSENT from TrafficCAM: {', '.join(absent)}")

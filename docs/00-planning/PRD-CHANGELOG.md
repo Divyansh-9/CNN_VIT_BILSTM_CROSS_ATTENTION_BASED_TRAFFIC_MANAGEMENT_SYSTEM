@@ -1954,3 +1954,94 @@ so nothing moved to rescue a number.
    HIGH > 14`. **Still requires sign-off** — it changes a graded specification.
 4. **A pilot's detector must be reported with its numbers.** A count
    distribution without the instrument that produced it is not interpretable.
+
+---
+
+## P21 — the detector's headline number does not generalise, and one class was never trained (2026-08-19)
+
+**Status:** OPEN · Found by evaluating our best detector on TrafficCAM before
+training on it
+
+`s15_yolov8s_joint_aug` scores **mAP50 0.8941 on BMD-45 elevated**, and that
+figure has been the project's detection headline since A31 closed. Evaluated
+unchanged on [TrafficCAM](../00-planning/research/TRAFFICCAM-ASSESSMENT.md) —
+human-annotated Indian elevated CCTV from different cities — it scores
+**0.3500**.
+
+| class | AP50 on TrafficCAM | boxes |
+|---|---|---|
+| auto_rickshaw | 0.587 | 1,234 |
+| motorcycle | 0.571 | 6,038 |
+| car | 0.463 | 5,267 |
+| bus | 0.422 | 372 |
+| truck | 0.407 | 617 |
+| **pedestrian** | **0.001** | 1,593 |
+| **e_rickshaw** | **0.000** | 365 |
+
+### `e_rickshaw` was never trained, not merely never evaluated
+
+The morning's finding was that `e_rickshaw` has zero test boxes in IDD and zero
+in BMD-45. The cause is worse than the symptom:
+
+    IDD train  e_rickshaw=0
+    IDD val    e_rickshaw=0
+    IDD test   e_rickshaw=0
+
+**Zero instances in the entire dataset.** The detector carries an `e_rickshaw`
+output head that has never seen one training example. Its 0.000 AP is not a
+generalisation failure — the class does not exist in anything we trained on.
+
+PRD §5 lists e-rickshaw among the India-specific classes that justify building
+our own detector at all. **One of the classes in the novelty claim has been
+decorative since S11.** Nothing caught it because the class was equally absent
+from the test split, so no metric ever had the chance to be zero.
+
+TrafficCAM supplies 687 train / 786 val / 227 test e_rickshaw boxes. It is the
+first data in the project that can train or measure the class.
+
+### The 0.8941 is measured on unusually easy objects
+
+Median box area as a fraction of the frame, square-rooted to a linear size:
+
+| dataset | car | motorcycle | pedestrian |
+|---|---|---|---|
+| **BMD-45 eval** | **0.1055** | **0.0741** | — |
+| IDD test | 0.0564 | 0.0453 | 0.0314 |
+| TrafficCAM test | 0.0556 | 0.0407 | 0.0569 |
+
+BMD-45's objects are **about twice the linear size** of both other sets — four
+times the pixel area. IDD and TrafficCAM agree closely with each other and
+disagree with BMD-45.
+
+So the ordering 0.894 (BMD-45) > 0.710 (IDD) > 0.350 (TrafficCAM) is not three
+measurements of one capability. It is substantially a measurement of how large
+the objects are in each set, and **the number we have been quoting comes from
+the easiest of the three.**
+
+A scale explanation does *not* cover `pedestrian`: TrafficCAM's pedestrians are
+**larger** than IDD's (0.0569 against 0.0314), and AP falls from 0.458 to 0.001.
+That remains unexplained and is recorded as open — one candidate is the S09
+`rider`-into-`motorcycle` convention colliding with TrafficCAM annotating riders
+separately.
+
+### Consequences
+
+1. **The headline must be reported per dataset, with object scale stated.** A
+   single "mAP50 0.8941" is not defensible when the same weights score 0.35 on
+   comparable footage from other Indian cameras.
+2. **TrafficCAM training moves from optional to necessary.** It is the only
+   source that can train `e_rickshaw` at all, and the only cross-camera test of
+   whether the detector generalises within India.
+3. **ADR-018's criterion 1 is not wrong but is now insufficient.** Holding
+   BMD-45 at 0.8941 says nothing about the 0.35. A TrafficCAM criterion belongs
+   beside it.
+4. **This was found before training on TrafficCAM, not after.** Had the arm been
+   trained first, 0.35 → some higher number would have looked like the new data
+   helping, when a large part of it is the old number never having been
+   trustworthy.
+
+### What was right
+
+Measuring the existing model on new data **before** training on it. That is a
+free experiment, it takes fifty seconds, and it is the only ordering that can
+tell a generalisation failure apart from a training improvement.
