@@ -45,6 +45,11 @@ from mfstnet.corpus.splits import (  # noqa: E402
     assign_splits,
     assign_splits_temporal,
 )
+from mfstnet.corpus.identity import (  # noqa: E402
+    assert_no_camera_leak,
+    group_cameras,
+    scene_signature,
+)
 from mfstnet.corpus.lanes import LaneCentres  # noqa: E402
 from mfstnet.corpus.windows import WindowGeometry, sequences_from_clip  # noqa: E402
 
@@ -265,6 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     import cv2
 
     all_counts, all_sequences, skipped, rejected = [], [], [], []
+    signatures: dict[str, list[float]] = {}
     for clip in clips:
         # Duration first. Running the detector over a clip that cannot yield a
         # single window is pure waste, and most of a mixed footage directory is
@@ -304,6 +310,19 @@ def main(argv: list[str] | None = None) -> int:
             skipped.append((clip.stem, n * args.step_s))
             print(f"  {clip.stem[:44]:<46} {n:>4} samples  0 sequences (too short)")
             continue
+        # One frame per clip, kept for camera identity below. A filename does
+        # not identify a camera: M6 Motorway and "Road traffic video for object
+        # recognition" are the same viewpoint at 0.981 correlation under two
+        # names, and split apart they put one camera on both sides.
+        capture = cv2.VideoCapture(str(clip))
+        capture.set(cv2.CAP_PROP_POS_FRAMES,
+                    int(capture.get(cv2.CAP_PROP_FRAME_COUNT)) // 2)
+        ok, mid = capture.read()
+        capture.release()
+        if ok:
+            signatures[clip.stem] = scene_signature(
+                cv2.cvtColor(mid, cv2.COLOR_BGR2GRAY))
+
         all_counts.extend(rows)
         all_sequences.extend(sequences)
         print(f"  {clip.stem[:44]:<46} {n:>4} samples  {len(sequences):>4} sequences")
@@ -346,7 +365,31 @@ def main(argv: list[str] | None = None) -> int:
         splits = None
         sequence_split = {id(s): v for s, v in kept}
     else:
-        splits = assign_splits(sorted(by_clip))
+        # Split by CAMERA, not by clip. Two files of one camera must share a
+        # split or the model is tested on a camera it trained on.
+        cameras = (group_cameras({k: v for k, v in signatures.items()
+                                  if k in by_clip})
+                   if signatures else {c: c for c in by_clip})
+        for clip_id in by_clip:
+            cameras.setdefault(clip_id, clip_id)
+        distinct = sorted(set(cameras.values()))
+        shared = {c: [k for k, v in cameras.items() if v == c] for c in distinct}
+        merged = {c: m for c, m in shared.items() if len(m) > 1}
+        if merged:
+            print()
+            print(f"  {len(merged)} camera(s) appear under more than one "
+                  f"filename and are kept together:")
+            for camera, members in merged.items():
+                print(f"    {camera[:44]}")
+                for member in members:
+                    if member != camera:
+                        print(f"      = {member[:44]}")
+        if len(distinct) < len(by_clip):
+            print(f"  {len(by_clip)} clip(s) -> {len(distinct)} distinct camera(s)")
+
+        by_camera = assign_splits(distinct)
+        splits = {clip_id: by_camera[cameras[clip_id]] for clip_id in by_clip}
+        assert_no_camera_leak(cameras, splits)
         sequence_split = None
 
     labelled = []

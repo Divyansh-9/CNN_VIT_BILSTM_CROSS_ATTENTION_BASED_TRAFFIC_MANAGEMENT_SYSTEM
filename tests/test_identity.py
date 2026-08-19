@@ -100,3 +100,28 @@ def test_one_camera_wholly_inside_one_split_is_fine():
 def test_mismatched_signature_lengths_raise():
     with pytest.raises(ValueError, match="lengths differ"):
         similarity(sig(1.0, 2.0), sig(1.0))
+
+
+def test_build_corpus_splits_by_camera_not_by_clip():
+    """The M6 case, at the level build_corpus works on. Two clip ids, one
+    camera, so both must land in the same split however assign_splits hashes
+    them individually."""
+    from mfstnet.corpus.splits import assign_splits
+
+    cameras = {"m6": "m6", "road_recognition": "m6",
+               "dhaka": "dhaka", "mumbai": "mumbai", "andheri": "andheri"}
+    distinct = sorted(set(cameras.values()))
+    by_camera = assign_splits(distinct)
+    splits = {clip: by_camera[cam] for clip, cam in cameras.items()}
+
+    assert splits["m6"] == splits["road_recognition"]
+    assert_no_camera_leak(cameras, splits)
+
+
+def test_the_leak_is_caught_when_clips_are_split_individually():
+    """What happens without the grouping: assign_splits sees five clip ids and
+    can put the two M6 files on opposite sides."""
+    cameras = {"m6": "m6", "road_recognition": "m6"}
+    naive = {"m6": "train", "road_recognition": "test"}
+    with pytest.raises(ValueError, match="appears in both"):
+        assert_no_camera_leak(cameras, naive)
