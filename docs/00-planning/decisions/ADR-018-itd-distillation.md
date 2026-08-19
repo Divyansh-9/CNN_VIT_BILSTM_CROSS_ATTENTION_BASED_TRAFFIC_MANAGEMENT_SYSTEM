@@ -113,16 +113,20 @@ test data of its own regardless of what happens to distillation.
 |---|---|---|---|
 | 1 | mAP50 **≥ 0.8941**, change reported either way | BMD-45 elevated test | 0.8941 (S15) |
 | 2a | `cattle` AP50 drops by **≤ 0.02** absolute | IDD test, 183 boxes | 0.3516 (S14) |
-| 2b | `e_rickshaw` **prediction rate** on held-out footage falls by **≤ 50%** | unlabelled clips | student's own current rate |
+| 2b | `e_rickshaw` **AP50** drops by **≤ 0.02** absolute | TrafficCAM test, 370 boxes | to be measured |
 | 3 | **≥ 10 fps** on a stated host (ADR-003) | measured, batch 1 | 12.5 fps |
 | 4 | IDD test mAP50 does not fall by **> 0.02** | IDD test | 0.7104 mean (S14) |
 
-**On 2b.** With no labelled e-rickshaws anywhere, the failure mode still has a
-signature: if the student stops predicting the class, the teacher has absorbed
-it into `auto_rickshaw`. Counting predictions on unlabelled footage detects that
-without ground truth. It cannot show the predictions are *correct* — only that
-the class has not been silently deleted, which is the specific damage the merge
-exists to prevent.
+**On 2b — upgraded 2026-08-19, still before any result was seen.** This was a
+prediction-rate proxy, because `e_rickshaw` had no labelled test data anywhere
+in the project. [TrafficCAM](../research/TRAFFICCAM-ASSESSMENT.md) supplies
+**370 labelled e-rickshaw test boxes**, so the criterion becomes a real AP50
+measurement instead of a heuristic.
+
+The proxy was honest about its own limits — it could show the class had not been
+deleted, not that predictions were correct. It is superseded because better
+evidence became available, not because the earlier number was inconvenient; no
+result had been observed when this changed.
 
 **If 1 is met and 2a or 2b is not, the merge failed and the arm is not adopted.**
 Trading India-specific classes for general accuracy inverts the project's stated

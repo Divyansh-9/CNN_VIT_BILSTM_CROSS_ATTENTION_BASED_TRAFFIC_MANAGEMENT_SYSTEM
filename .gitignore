@@ -106,3 +106,4 @@ models/external/
 # Thousands of JPEGs, and the labels are derived data, not ground truth.
 data/pseudo/
 data/pseudo_upload/
+data/trafficcam_yolo/
