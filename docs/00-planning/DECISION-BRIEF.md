@@ -102,11 +102,31 @@ the working prototype are all protected.
 
 ### 5. `step_s` is pilot-determined, not fixed at 5 s
 
-**Record:** A28 · pre-registered as `ceil(P75/59)`
+**Record:** A28 · pre-registered as `ceil(P75/59)` · **MEASURED 2026-08-19**
 
-The statistic was chosen **before** the footage exists, and deliberately biased
+The statistic was chosen **before** the footage existed, and deliberately biased
 against our preferred answer, because an earlier version chose it afterwards and
 a reviewer was right to call that out.
+
+> **This is no longer a request to approve a preference. The statistic has been
+> computed and it answers the question.**
+>
+> Measured on the S06 pilot across three independently trained detectors and two
+> threshold sets, `ceil(P75/59)` returns **1 or 2 in every one of six
+> combinations. Never 5.** The congestion class changes on a 20–70 s timescale;
+> A28 said `step_s = 5` would be vindicated by a 300 s timescale.
+>
+> The pilot sampled at 5 s, so the measured dwell is an **upper bound** — finer
+> sampling could only push `step_s` lower. The finding is robust in our disfavour.
+>
+> **Recommended: `step_s = 2`** — the conservative end of the measured range.
+> It takes the corpus from 8 usable cameras and 19 independent segments to
+> **11 cameras and 42 segments, with no new footage**, and admits the Andheri
+> intersection clip.
+>
+> **This has become the highest-priority item in this brief.** It determines
+> whether a training corpus exists at all: at `step_s = 5` the only surveyed
+> camera yields 29 windows, of which **1** survives leak-free splitting (P22).
 
 ### 6–8. Artifact hosting · dashboard/metrics separation · prototype descoping
 

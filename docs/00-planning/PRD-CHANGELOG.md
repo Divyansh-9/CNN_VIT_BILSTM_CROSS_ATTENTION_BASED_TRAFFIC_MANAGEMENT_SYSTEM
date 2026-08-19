@@ -2230,3 +2230,75 @@ They do nothing for MFSTNet. A TrafficCAM sequence is 30 frames at stride 2,
 about **two seconds**, against a window span of 178–355 s. No split of a
 two-second clip produces a forecasting window. The corpus constraint is
 unchanged by anything in that folder.
+
+---
+
+## A28 — resolved by measurement. `step_s = 2`, and §14.1's 5 s is contradicted (2026-08-19)
+
+**Status:** MEASURED · the pre-registered statistic now has data · **still needs
+sign-off, but the question it asked is answered**
+
+A28 asked for `step_s` to become "an output of the Week-2 pilot rather than an
+input to it", and pre-registered the rule **`step_s = ceil(P75 / 59)`**, where
+P75 is the 75th percentile of the dwell time — how long a congestion class
+persists before it changes. It also said plainly what would vindicate the status
+quo:
+
+> If the pilot shows the class changes on a 300 s timescale, `step_s = 5` is
+> vindicated and the clips are correctly rejected.
+
+**It does not.** Measured on the S06 pilot, 242 samples of elevated Dhaka
+footage, across three independently trained detectors and two threshold sets:
+
+| detector | thresholds | runs | P75 dwell | `ceil(P75/59)` |
+|---|---|---|---|---|
+| ours `s14_joint` | §14.1 | 28 | 45 s | **1** |
+| ours `s14_joint` | calibrated | 60 | 30 s | **1** |
+| COCO `yolov8n` | §14.1 | 15 | 60 s | **2** |
+| COCO `yolov8n` | calibrated | 69 | 20 s | **1** |
+| ITD v1.2 | §14.1 | 15 | 70 s | **2** |
+| ITD v1.2 | calibrated | 62 | 25 s | **1** |
+
+**Every combination gives 1 or 2. None gives 5.** The congestion class changes
+on a 20–70 s timescale, not a 300 s one, and the result does not depend on which
+detector produced the counts or which thresholds labelled them.
+
+### The measurement is conservative in our disfavour
+
+The pilot sampled every 5 s, so dwell times are quantised to 5 s multiples and
+the measured P75 is an **upper bound** on the true dwell. A finer sampling could
+only shorten it, which would push `step_s` down rather than up. The conclusion
+is therefore robust to the one methodological weakness it has.
+
+### Recommendation: `step_s = 2`
+
+The conservative end of the measured range — it satisfies the rule for every
+row in the table, keeps 118 s of history rather than 59 s, and is the value
+A28 already nominated as its working default.
+
+| | `step_s = 5` (today) | `step_s = 2` |
+|---|---|---|
+| window span | 355 s | **178 s** |
+| cameras usable | 8 | **11** |
+| independent segments | 19 | **42** |
+
+**This is the decision that determines whether a corpus exists**, and it needs no
+new footage. Three currently-rejected clips become usable, one of them the
+Andheri intersection that A28's own entry calls the best-composed Indian
+intersection scene in the collection.
+
+### What is NOT being asked for
+
+T=60, the 60 s horizon, clip-level splitting, the stationary-camera requirement
+and the human-verified test split are all untouched — as A28 originally stated.
+The only change is that a number which was never derived is now derived, from
+the statistic that was fixed in advance for exactly this purpose.
+
+### Honest limit
+
+42 independent segments is a **pilot-scale corpus**. Sliding-window augmentation
+can produce ~1,000 training windows from it, and both numbers must be reported
+together: the window count without the segment count overstates the evidence by
+roughly ninety-fold. Hours of footage from one junction remains the only thing
+that changes that — but this change moves the project from *cannot train* to
+*can train honestly*, today, on data already downloaded.
