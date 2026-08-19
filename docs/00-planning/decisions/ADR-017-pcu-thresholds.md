@@ -57,6 +57,44 @@ A threshold you cannot land on is a threshold you cannot calibrate. That is the
 defensible reason to prefer PCU here, and it is independent of the road-space
 argument that did not survive contact with the data.
 
+## Three detectors, one conclusion (added 2026-08-19)
+
+The same clip counted by three independently trained detectors, each under
+§14.1 and under its own calibrated p33/p67:
+
+| detector | thresholds | LOW | MED | HIGH | transition | naive |
+|---|---|---|---|---|---|---|
+| COCO `yolov8n` | §14.1 | 3% | **97%** | 0% | 6.9% | 93.1% |
+| COCO `yolov8n` | calibrated | 14% | 52% | 34% | 62.1% | 37.9% |
+| ours `s14_joint` | §14.1 | 0% | **83%** | 17% | 31.0% | 69.0% |
+| ours `s14_joint` | calibrated | 24% | 52% | 24% | 51.7% | 48.3% |
+| ITD v1.2 xl | §14.1 | 0% | 14% | **86%** | 24.1% | 75.9% |
+| ITD v1.2 xl | calibrated | 21% | 45% | 34% | 55.2% | 44.8% |
+
+**Every detector produces a degenerate corpus under §14.1**, and every one
+becomes usable under calibration. COCO and ours collapse into MEDIUM; ITD, which
+counts ~62% more vehicles (p50 21 against 13), collapses into **HIGH** — its p10
+is 16, above §14.1's HIGH boundary, so nine windows in ten are HIGH before the
+clip even starts.
+
+That §14.1 fails in *both directions* depending only on how good the detector is
+is the strongest available evidence for this ADR. The thresholds are not
+mis-tuned; they are the wrong kind of quantity.
+
+### And a claim of ours that this deflates
+
+A better detector was expected to improve the corpus labels materially. **On this
+evidence it does not.** Once thresholds are calibrated, all three detectors give
+a similar structure — transition 51.7-62.1%, naive 37.9-48.3%. Changing the
+threshold rule moves the naive baseline by roughly **30 points**; changing the
+detector moves it by about **10**.
+
+The detector is not irrelevant — more accurate counts make the labels *truer*
+even where the distribution looks similar, and nothing here measures truth
+without ground truth. But "use the better detector to get a better corpus" is a
+much weaker argument than the calibration one, and it should not be presented as
+the reason to adopt either.
+
 ## The finding that matters more than the units
 
 **The naive baseline is not a property of the traffic.** On identical footage it
