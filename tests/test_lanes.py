@@ -143,3 +143,39 @@ def test_low_confidence_and_excluded_classes_are_dropped_either_way():
                          exclude_classes=frozenset({"rider"}))
     assert counts.per_lane["left"] == 1
     assert counts.total == 1
+
+
+# ---------------------------------------------------------------------------
+# build_corpus's per-camera lane loading. P17: a clip counted through another
+# camera's lanes produces counts of the wrong region.
+# ---------------------------------------------------------------------------
+
+def write_lane_file(directory, clip, centres, *, reviewed=True):
+    import json
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"{clip}.json").write_text(json.dumps({
+        "clip": clip, "reviewed": reviewed, "max_radius": 0.25,
+        "lanes": [{"name": f"lane_{i}", "centre": list(c)}
+                  for i, c in enumerate(centres)],
+    }), encoding="utf-8")
+
+
+def test_unreviewed_lane_files_are_refused(tmp_path):
+    """P23 measured automatic centres moving 0.164 of frame width when the
+    detector changed. Unreviewed centres must never reach a corpus."""
+    from scripts.build_corpus import main
+
+    write_lane_file(tmp_path / "lanes", "a.mp4", [(0.25, 0.5), (0.75, 0.5)],
+                    reviewed=False)
+    with pytest.raises(SystemExit, match="not reviewed"):
+        main(["--clips", str(tmp_path), "--lanes-dir", str(tmp_path / "lanes"),
+              "--out", str(tmp_path / "out")])
+
+
+def test_lane_names_handles_both_representations():
+    from mfstnet.corpus.geometry import Polygon
+    from scripts.build_corpus import lane_names
+
+    assert lane_names(TWO) == ["left", "right"]
+    square = ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
+    assert lane_names([Polygon("only", square)]) == ["only"]

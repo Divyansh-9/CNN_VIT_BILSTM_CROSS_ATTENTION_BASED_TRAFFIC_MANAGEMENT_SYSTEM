@@ -45,7 +45,50 @@ from mfstnet.corpus.splits import (  # noqa: E402
     assign_splits,
     assign_splits_temporal,
 )
+from mfstnet.corpus.lanes import LaneCentres  # noqa: E402
 from mfstnet.corpus.windows import WindowGeometry, sequences_from_clip  # noqa: E402
+
+
+def lane_names(lanes) -> list[str]:
+    """Lane names from either representation.
+
+    Polygons carry `.name` each; a LaneCentres carries `.names` once. Both stay
+    live: P23 moved lane definition to nearest-centre, and the polygon path
+    remains for the built-in LANE_SETS.
+    """
+    if isinstance(lanes, LaneCentres):
+        return list(lanes.names)
+    return [p.name for p in lanes]
+
+
+def load_reviewed_lanes(directory: Path) -> dict[str, LaneCentres]:
+    """Per-camera lane centres, keyed by clip filename.
+
+    P17: lanes live in one camera's image plane, so a multi-camera corpus needs
+    one set per camera and a clip without one must be refused rather than
+    counted through somebody else's.
+    """
+    out: dict[str, LaneCentres] = {}
+    for path in sorted(directory.glob("*.json")):
+        if path.name == "survey_summary.json":
+            continue
+        spec = json.loads(path.read_text(encoding="utf-8"))
+        if not spec.get("reviewed"):
+            raise SystemExit(
+                f"{path} is not reviewed. Automatic lane centres move 0.164 of "
+                f"frame width when the detector changes (P23), so they are "
+                f"never used unreviewed. Place them with "
+                f"docs/demo/place_lanes.html and import the result."
+            )
+        entries = spec["lanes"]
+        out[spec["clip"]] = LaneCentres(
+            names=tuple(e["name"] for e in entries),
+            centres=tuple(tuple(e["centre"]) for e in entries),
+            max_radius=float(spec.get("max_radius", 0.25)),
+        )
+    if not out:
+        raise SystemExit(f"no reviewed lane files under {directory}")
+    return out
 
 # Lane layouts. A motorway is two carriageways, not four approaches — ADR-016
 # Phase 1 validates the ARCHITECTURE, and the number of lanes is a config, not
@@ -97,8 +140,8 @@ def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
         counts = count_frame(detections, lanes, min_confidence=conf)
         row = {"clip_id": clip.stem, "sample": len(rows),
                "t_s": round(len(rows) * step_s, 2)}
-        for lane in lanes:
-            row[f"count_{lane.name}"] = counts.per_lane.get(lane.name, 0)
+        for name in lane_names(lanes):
+            row[f"count_{name}"] = counts.per_lane.get(name, 0)
         row["unassigned"] = counts.unassigned
         rows.append(row)
     capture.release()
@@ -130,6 +173,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--horizon-s", type=int, default=60, help="PRD §8.2")
     parser.add_argument("--timesteps", type=int, default=60, help="T, PRD §8.2")
     parser.add_argument("--stride-s", type=int, default=30)
+    parser.add_argument(
+        "--lanes-dir", type=Path,
+        help="directory of REVIEWED per-camera lane files from "
+             "scripts/import_lane_centres.py — what a multi-camera corpus needs",
+    )
     parser.add_argument("--split-mode", choices=("clip", "temporal"), default="clip",
                         help="'clip' assigns whole clips (ADR-002) and needs "
                              "enough clips to fill three splits. 'temporal' "
@@ -160,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    per_clip_lanes = load_reviewed_lanes(args.lanes_dir) if args.lanes_dir else {}
+
     from ultralytics import YOLO
 
     from scripts.pilot_a17 import vehicle_ids
@@ -180,7 +230,10 @@ def main(argv: list[str] | None = None) -> int:
     if not clips:
         raise SystemExit(f"no usable .mp4 under {args.clips}")
 
-    if args.polygons:
+    if per_clip_lanes:
+        lanes = next(iter(per_clip_lanes.values()))
+        print(f"  per-camera lanes for {len(per_clip_lanes)} camera(s), reviewed")
+    elif args.polygons:
         spec = json.loads(args.polygons.read_text(encoding="utf-8"))
         lanes = tuple(
             Polygon(entry["name"], tuple(tuple(v) for v in entry["points"]))
@@ -203,7 +256,9 @@ def main(argv: list[str] | None = None) -> int:
     geometry = WindowGeometry(T=args.timesteps, step_s=args.step_s,
                               horizon_s=args.horizon_s, stride_s=args.stride_s)
     minimum = (args.timesteps - 1) * args.step_s + args.horizon_s
-    print(f"  lanes {args.lanes} ({len(lanes)}), T={args.timesteps}, "
+    layout = ("per-camera" if per_clip_lanes
+              else "surveyed" if args.polygons else args.lanes)
+    print(f"  lanes {layout} ({len(lane_names(lanes))}), T={args.timesteps}, "
           f"step {args.step_s}s, horizon {args.horizon_s}s")
     print(f"  a clip needs >= {minimum:.0f}s to yield ANY sequence (A15)\n")
 
@@ -222,13 +277,20 @@ def main(argv: list[str] | None = None) -> int:
             skipped.append((clip.stem, seconds))
             continue
 
-        rows, n = sample_counts(clip, lanes, model, ids, names,
+        if per_clip_lanes and clip.name not in per_clip_lanes:
+            raise SystemExit(
+                f"no reviewed lanes for {clip.name}. A clip counted through "
+                f"another camera's lanes counts the wrong region, and every "
+                f"label built on it is arbitrary (P17)."
+            )
+        clip_lanes = per_clip_lanes.get(clip.name, lanes)
+        rows, n = sample_counts(clip, clip_lanes, model, ids, names,
                                 step_s=args.step_s, conf=args.conf)
 
         # P17. Counts through a mismatched polygon are not low counts, they are
         # counts of the wrong region — and a balanced label distribution over
         # meaningless counts is worse than an obviously broken one.
-        assigned = sum(r[f"count_{lane.name}"] for r in rows for lane in lanes)
+        assigned = sum(r[f"count_{name}"] for r in rows for name in lane_names(lanes))
         unassigned = sum(r["unassigned"] for r in rows)
         rate = unassigned / max(assigned + unassigned, 1)
         if rate > args.max_unassigned:
