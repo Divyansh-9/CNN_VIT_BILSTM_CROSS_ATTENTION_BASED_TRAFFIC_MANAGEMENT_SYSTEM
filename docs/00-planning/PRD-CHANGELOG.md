@@ -2045,3 +2045,37 @@ separately.
 Measuring the existing model on new data **before** training on it. That is a
 free experiment, it takes fifty seconds, and it is the only ordering that can
 tell a generalisation failure apart from a training improvement.
+
+### P21 addendum — e-rickshaws are found and mislabelled, not missed
+
+Matching our detector's predictions against 168 ground-truth e-rickshaws by
+IoU ≥ 0.4:
+
+| our detector calls it | share |
+|---|---|
+| **motorcycle** | **47.6%** |
+| auto_rickshaw | 25.6% |
+| missed entirely | 23.8% |
+| car | 3.0% |
+
+**76% are localised correctly and given the wrong label.** With no `e_rickshaw`
+concept the head assigns the nearest class it was trained on, and for a small
+three-wheeler that is usually `motorcycle`. `auto_rickshaw` is over-predicted
+**1.77×** against its own ground truth, which is the same effect seen from the
+other side.
+
+This is better news than a 0.000 AP suggests: the features and localisation are
+already there, so the class needs examples rather than a new capability.
+
+**It interacts with [ADR-017](decisions/ADR-017-pcu-thresholds.md), and against
+us.** A raw vehicle *count* barely notices this error — 76% of e-rickshaws are
+still counted as some vehicle. PCU weighting does notice: an e-rickshaw scored
+as a motorcycle carries **0.30 PCU instead of 1.20**, a four-fold under-weight,
+and as a car 1.00 instead of 1.20.
+
+So PCU-weighted occupancy is *more* sensitive to class confusion than raw
+counting is. ADR-017 argued for PCU on resolution grounds and that argument
+stands, but this is a cost on the other side of the ledger and it was not in the
+ADR. **PCU should not be adopted on a detector that cannot tell an e-rickshaw
+from a motorcycle**, which makes fixing the class a precondition for ADR-017
+rather than an unrelated task.
