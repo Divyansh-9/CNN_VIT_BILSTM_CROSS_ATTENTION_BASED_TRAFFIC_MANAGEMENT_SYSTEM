@@ -1,0 +1,30 @@
+{
+  "lanes": [
+    "lane_0",
+    "lane_1"
+  ],
+  "T": 60,
+  "step_s": 2,
+  "horizon_s": 60,
+  "stride_s": 10,
+  "detector": "s15_yolov8s_joint_aug_best.pt",
+  "conf": 0.45,
+  "clips": [
+    "Mumbai Traffic Chaos - Near Andheri Station",
+    "Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964",
+    "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",
+    "video1"
+  ],
+  "splits": {
+    "Mumbai Traffic Chaos - Near Andheri Station": "train",
+    "Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964": "val",
+    "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos": "train",
+    "video1": "test"
+  },
+  "split_mode": "clip",
+  "auto_labelled": true,
+  "low_max": 4,
+  "med_max": 15,
+  "threshold_note": "The expensive pass produces counts.csv, which is THRESHOLD-INDEPENDENT. Labels in sequences.csv are a cheap derivation on top. scripts/relabel_corpus.py regenerates them under different thresholds in seconds, without re-running the detector -- so a threshold decision is a config change, never a reason to delay building the corpus.",
+  "reporting_note": "A32: auto-labelled. Labels are a deterministic function of the count, so count-sequence baselines observe the label-generating variable directly. The HEADLINE comparison must use the human-verified test split."
+}

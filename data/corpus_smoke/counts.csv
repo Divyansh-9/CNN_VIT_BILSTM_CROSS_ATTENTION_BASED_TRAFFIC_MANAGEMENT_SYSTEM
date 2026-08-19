@@ -1,0 +1,650 @@
+clip_id,sample,t_s,count_lane_0,count_lane_1,unassigned
+Mumbai Traffic Chaos - Near Andheri Station,0,0,8,17,4
+Mumbai Traffic Chaos - Near Andheri Station,1,2,8,14,4
+Mumbai Traffic Chaos - Near Andheri Station,2,4,6,17,4
+Mumbai Traffic Chaos - Near Andheri Station,3,6,4,18,7
+Mumbai Traffic Chaos - Near Andheri Station,4,8,5,17,6
+Mumbai Traffic Chaos - Near Andheri Station,5,10,5,24,5
+Mumbai Traffic Chaos - Near Andheri Station,6,12,5,18,5
+Mumbai Traffic Chaos - Near Andheri Station,7,14,4,20,3
+Mumbai Traffic Chaos - Near Andheri Station,8,16,4,18,4
+Mumbai Traffic Chaos - Near Andheri Station,9,18,4,18,3
+Mumbai Traffic Chaos - Near Andheri Station,10,20,7,19,6
+Mumbai Traffic Chaos - Near Andheri Station,11,22,7,21,3
+Mumbai Traffic Chaos - Near Andheri Station,12,24,7,17,8
+Mumbai Traffic Chaos - Near Andheri Station,13,26,7,19,6
+Mumbai Traffic Chaos - Near Andheri Station,14,28,5,17,5
+Mumbai Traffic Chaos - Near Andheri Station,15,30,5,17,3
+Mumbai Traffic Chaos - Near Andheri Station,16,32,3,18,3
+Mumbai Traffic Chaos - Near Andheri Station,17,34,4,17,7
+Mumbai Traffic Chaos - Near Andheri Station,18,36,3,20,6
+Mumbai Traffic Chaos - Near Andheri Station,19,38,4,11,5
+Mumbai Traffic Chaos - Near Andheri Station,20,40,4,18,4
+Mumbai Traffic Chaos - Near Andheri Station,21,42,4,17,6
+Mumbai Traffic Chaos - Near Andheri Station,22,44,5,18,4
+Mumbai Traffic Chaos - Near Andheri Station,23,46,3,20,6
+Mumbai Traffic Chaos - Near Andheri Station,24,48,4,17,3
+Mumbai Traffic Chaos - Near Andheri Station,25,50,4,18,4
+Mumbai Traffic Chaos - Near Andheri Station,26,52,4,18,5
+Mumbai Traffic Chaos - Near Andheri Station,27,54,3,21,7
+Mumbai Traffic Chaos - Near Andheri Station,28,56,7,22,7
+Mumbai Traffic Chaos - Near Andheri Station,29,58,9,17,6
+Mumbai Traffic Chaos - Near Andheri Station,30,60,7,18,8
+Mumbai Traffic Chaos - Near Andheri Station,31,62,7,20,7
+Mumbai Traffic Chaos - Near Andheri Station,32,64,8,18,5
+Mumbai Traffic Chaos - Near Andheri Station,33,66,7,19,7
+Mumbai Traffic Chaos - Near Andheri Station,34,68,5,18,9
+Mumbai Traffic Chaos - Near Andheri Station,35,70,5,16,7
+Mumbai Traffic Chaos - Near Andheri Station,36,72,6,18,5
+Mumbai Traffic Chaos - Near Andheri Station,37,74,7,15,7
+Mumbai Traffic Chaos - Near Andheri Station,38,76,8,17,7
+Mumbai Traffic Chaos - Near Andheri Station,39,78,5,16,7
+Mumbai Traffic Chaos - Near Andheri Station,40,80,7,22,4
+Mumbai Traffic Chaos - Near Andheri Station,41,82,7,21,4
+Mumbai Traffic Chaos - Near Andheri Station,42,84,4,25,4
+Mumbai Traffic Chaos - Near Andheri Station,43,86,6,19,6
+Mumbai Traffic Chaos - Near Andheri Station,44,88,4,21,8
+Mumbai Traffic Chaos - Near Andheri Station,45,90,5,19,8
+Mumbai Traffic Chaos - Near Andheri Station,46,92,7,19,6
+Mumbai Traffic Chaos - Near Andheri Station,47,94,8,21,7
+Mumbai Traffic Chaos - Near Andheri Station,48,96,8,16,6
+Mumbai Traffic Chaos - Near Andheri Station,49,98,11,17,8
+Mumbai Traffic Chaos - Near Andheri Station,50,100,9,17,7
+Mumbai Traffic Chaos - Near Andheri Station,51,102,9,14,5
+Mumbai Traffic Chaos - Near Andheri Station,52,104,7,18,6
+Mumbai Traffic Chaos - Near Andheri Station,53,106,5,19,3
+Mumbai Traffic Chaos - Near Andheri Station,54,108,4,14,3
+Mumbai Traffic Chaos - Near Andheri Station,55,110,5,18,3
+Mumbai Traffic Chaos - Near Andheri Station,56,112,4,25,4
+Mumbai Traffic Chaos - Near Andheri Station,57,114,4,22,3
+Mumbai Traffic Chaos - Near Andheri Station,58,116,4,19,6
+Mumbai Traffic Chaos - Near Andheri Station,59,118,4,20,4
+Mumbai Traffic Chaos - Near Andheri Station,60,120,4,18,2
+Mumbai Traffic Chaos - Near Andheri Station,61,122,4,20,5
+Mumbai Traffic Chaos - Near Andheri Station,62,124,5,16,2
+Mumbai Traffic Chaos - Near Andheri Station,63,126,6,13,4
+Mumbai Traffic Chaos - Near Andheri Station,64,128,6,19,5
+Mumbai Traffic Chaos - Near Andheri Station,65,130,5,18,5
+Mumbai Traffic Chaos - Near Andheri Station,66,132,4,18,2
+Mumbai Traffic Chaos - Near Andheri Station,67,134,3,16,5
+Mumbai Traffic Chaos - Near Andheri Station,68,136,2,18,3
+Mumbai Traffic Chaos - Near Andheri Station,69,138,4,17,2
+Mumbai Traffic Chaos - Near Andheri Station,70,140,2,16,2
+Mumbai Traffic Chaos - Near Andheri Station,71,142,2,15,2
+Mumbai Traffic Chaos - Near Andheri Station,72,144,3,13,4
+Mumbai Traffic Chaos - Near Andheri Station,73,146,3,16,6
+Mumbai Traffic Chaos - Near Andheri Station,74,148,2,14,5
+Mumbai Traffic Chaos - Near Andheri Station,75,150,2,14,3
+Mumbai Traffic Chaos - Near Andheri Station,76,152,4,15,3
+Mumbai Traffic Chaos - Near Andheri Station,77,154,4,14,3
+Mumbai Traffic Chaos - Near Andheri Station,78,156,3,11,4
+Mumbai Traffic Chaos - Near Andheri Station,79,158,4,11,5
+Mumbai Traffic Chaos - Near Andheri Station,80,160,2,10,7
+Mumbai Traffic Chaos - Near Andheri Station,81,162,3,11,4
+Mumbai Traffic Chaos - Near Andheri Station,82,164,4,12,3
+Mumbai Traffic Chaos - Near Andheri Station,83,166,6,8,3
+Mumbai Traffic Chaos - Near Andheri Station,84,168,7,7,3
+Mumbai Traffic Chaos - Near Andheri Station,85,170,8,6,3
+Mumbai Traffic Chaos - Near Andheri Station,86,172,6,5,5
+Mumbai Traffic Chaos - Near Andheri Station,87,174,5,8,2
+Mumbai Traffic Chaos - Near Andheri Station,88,176,5,7,4
+Mumbai Traffic Chaos - Near Andheri Station,89,178,5,6,5
+Mumbai Traffic Chaos - Near Andheri Station,90,180,3,9,2
+Mumbai Traffic Chaos - Near Andheri Station,91,182,5,9,3
+Mumbai Traffic Chaos - Near Andheri Station,92,184,2,13,3
+Mumbai Traffic Chaos - Near Andheri Station,93,186,6,12,3
+Mumbai Traffic Chaos - Near Andheri Station,94,188,9,10,5
+Mumbai Traffic Chaos - Near Andheri Station,95,190,8,14,5
+Mumbai Traffic Chaos - Near Andheri Station,96,192,8,14,4
+Mumbai Traffic Chaos - Near Andheri Station,97,194,6,11,2
+Mumbai Traffic Chaos - Near Andheri Station,98,196,7,12,3
+Mumbai Traffic Chaos - Near Andheri Station,99,198,8,13,3
+Mumbai Traffic Chaos - Near Andheri Station,100,200,3,13,4
+Mumbai Traffic Chaos - Near Andheri Station,101,202,7,14,4
+Mumbai Traffic Chaos - Near Andheri Station,102,204,8,14,5
+Mumbai Traffic Chaos - Near Andheri Station,103,206,7,11,4
+Mumbai Traffic Chaos - Near Andheri Station,104,208,8,12,4
+Mumbai Traffic Chaos - Near Andheri Station,105,210,7,9,3
+Mumbai Traffic Chaos - Near Andheri Station,106,212,9,8,3
+Mumbai Traffic Chaos - Near Andheri Station,107,214,8,9,6
+Mumbai Traffic Chaos - Near Andheri Station,108,216,6,12,2
+Mumbai Traffic Chaos - Near Andheri Station,109,218,7,10,2
+Mumbai Traffic Chaos - Near Andheri Station,110,220,4,9,2
+Mumbai Traffic Chaos - Near Andheri Station,111,222,6,11,2
+Mumbai Traffic Chaos - Near Andheri Station,112,224,6,14,5
+Mumbai Traffic Chaos - Near Andheri Station,113,226,7,8,3
+Mumbai Traffic Chaos - Near Andheri Station,114,228,6,13,1
+Mumbai Traffic Chaos - Near Andheri Station,115,230,7,10,5
+Mumbai Traffic Chaos - Near Andheri Station,116,232,7,14,1
+Mumbai Traffic Chaos - Near Andheri Station,117,234,6,12,3
+Mumbai Traffic Chaos - Near Andheri Station,118,236,9,12,5
+Mumbai Traffic Chaos - Near Andheri Station,119,238,10,15,6
+Mumbai Traffic Chaos - Near Andheri Station,120,240,11,15,7
+Mumbai Traffic Chaos - Near Andheri Station,121,242,10,11,5
+Mumbai Traffic Chaos - Near Andheri Station,122,244,8,16,6
+Mumbai Traffic Chaos - Near Andheri Station,123,246,7,21,7
+Mumbai Traffic Chaos - Near Andheri Station,124,248,8,13,8
+Mumbai Traffic Chaos - Near Andheri Station,125,250,9,20,6
+Mumbai Traffic Chaos - Near Andheri Station,126,252,10,18,6
+Mumbai Traffic Chaos - Near Andheri Station,127,254,10,15,5
+Mumbai Traffic Chaos - Near Andheri Station,128,256,9,17,4
+Mumbai Traffic Chaos - Near Andheri Station,129,258,9,16,7
+Mumbai Traffic Chaos - Near Andheri Station,130,260,5,12,5
+Mumbai Traffic Chaos - Near Andheri Station,131,262,8,13,4
+Mumbai Traffic Chaos - Near Andheri Station,132,264,9,15,4
+Mumbai Traffic Chaos - Near Andheri Station,133,266,9,9,4
+Mumbai Traffic Chaos - Near Andheri Station,134,268,9,13,4
+Mumbai Traffic Chaos - Near Andheri Station,135,270,10,6,7
+Mumbai Traffic Chaos - Near Andheri Station,136,272,10,7,4
+Mumbai Traffic Chaos - Near Andheri Station,137,274,12,13,8
+Mumbai Traffic Chaos - Near Andheri Station,138,276,8,12,5
+Mumbai Traffic Chaos - Near Andheri Station,139,278,11,11,3
+Mumbai Traffic Chaos - Near Andheri Station,140,280,10,19,4
+Mumbai Traffic Chaos - Near Andheri Station,141,282,9,16,3
+Mumbai Traffic Chaos - Near Andheri Station,142,284,10,14,3
+Mumbai Traffic Chaos - Near Andheri Station,143,286,12,13,3
+Mumbai Traffic Chaos - Near Andheri Station,144,288,13,14,3
+Mumbai Traffic Chaos - Near Andheri Station,145,290,12,15,6
+Mumbai Traffic Chaos - Near Andheri Station,146,292,6,12,5
+Mumbai Traffic Chaos - Near Andheri Station,147,294,7,11,4
+Mumbai Traffic Chaos - Near Andheri Station,148,296,9,11,3
+Mumbai Traffic Chaos - Near Andheri Station,149,298,7,16,2
+Mumbai Traffic Chaos - Near Andheri Station,150,300,9,18,2
+Mumbai Traffic Chaos - Near Andheri Station,151,302,9,17,2
+Mumbai Traffic Chaos - Near Andheri Station,152,304,8,18,0
+Mumbai Traffic Chaos - Near Andheri Station,153,306,9,14,2
+Mumbai Traffic Chaos - Near Andheri Station,154,308,9,13,3
+Mumbai Traffic Chaos - Near Andheri Station,155,310,10,15,3
+Mumbai Traffic Chaos - Near Andheri Station,156,312,7,14,3
+Mumbai Traffic Chaos - Near Andheri Station,157,314,4,13,6
+Mumbai Traffic Chaos - Near Andheri Station,158,316,6,10,4
+Mumbai Traffic Chaos - Near Andheri Station,159,318,6,13,3
+Mumbai Traffic Chaos - Near Andheri Station,160,320,6,8,5
+Mumbai Traffic Chaos - Near Andheri Station,161,322,6,11,3
+Mumbai Traffic Chaos - Near Andheri Station,162,324,9,10,5
+Mumbai Traffic Chaos - Near Andheri Station,163,326,8,11,6
+Mumbai Traffic Chaos - Near Andheri Station,164,328,9,17,6
+Mumbai Traffic Chaos - Near Andheri Station,165,330,10,16,6
+Mumbai Traffic Chaos - Near Andheri Station,166,332,7,15,6
+Mumbai Traffic Chaos - Near Andheri Station,167,334,8,17,7
+Mumbai Traffic Chaos - Near Andheri Station,168,336,10,12,7
+Mumbai Traffic Chaos - Near Andheri Station,169,338,8,14,5
+Mumbai Traffic Chaos - Near Andheri Station,170,340,7,16,6
+Mumbai Traffic Chaos - Near Andheri Station,171,342,6,22,7
+Mumbai Traffic Chaos - Near Andheri Station,172,344,5,16,4
+Mumbai Traffic Chaos - Near Andheri Station,173,346,3,21,4
+Mumbai Traffic Chaos - Near Andheri Station,174,348,2,21,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,0,0,13,3,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,1,2,17,3,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,2,4,15,3,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,3,6,13,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,4,8,12,3,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,5,10,14,2,7
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,6,12,16,3,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,7,14,13,4,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,8,16,13,4,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,9,18,15,4,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,10,20,8,5,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,11,22,13,5,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,12,24,13,6,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,13,26,17,3,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,14,28,18,4,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,15,30,14,3,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,16,32,13,7,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,17,34,14,4,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,18,36,18,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,19,38,16,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,20,40,10,3,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,21,42,10,3,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,22,44,12,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,23,46,8,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,24,48,7,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,25,50,10,1,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,26,52,11,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,27,54,13,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,28,56,9,3,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,29,58,9,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,30,60,12,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,31,62,9,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,32,64,10,4,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,33,66,9,7,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,34,68,8,10,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,35,70,8,6,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,36,72,8,3,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,37,74,11,8,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,38,76,6,11,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,39,78,7,8,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,40,80,7,3,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,41,82,8,4,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,42,84,6,6,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,43,86,9,4,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,44,88,6,10,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,45,90,7,6,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,46,92,7,5,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,47,94,8,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,48,96,9,4,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,49,98,6,10,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,50,100,6,7,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,51,102,8,5,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,52,104,9,5,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,53,106,9,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,54,108,13,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,55,110,11,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,56,112,11,3,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,57,114,6,4,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,58,116,5,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,59,118,8,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,60,120,5,3,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,61,122,8,6,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,62,124,7,4,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,63,126,9,3,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,64,128,7,5,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,65,130,7,4,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,66,132,8,5,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,67,134,7,7,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,68,136,9,6,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,69,138,8,9,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,70,140,6,12,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,71,142,9,7,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,72,144,6,5,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,73,146,6,6,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,74,148,2,10,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,75,150,5,13,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,76,152,2,10,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,77,154,3,13,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,78,156,1,11,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,79,158,1,14,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,80,160,0,13,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,81,162,0,17,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,82,164,0,17,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,83,166,0,13,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,84,168,0,12,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,85,170,0,11,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,86,172,0,14,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,87,174,0,17,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,88,176,0,16,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,89,178,0,14,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,90,180,0,13,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,91,182,0,14,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,92,184,0,12,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,93,186,0,15,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,94,188,0,15,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,95,190,0,14,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,96,192,0,16,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,97,194,0,16,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,98,196,0,16,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,99,198,0,14,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,100,200,0,18,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,101,202,0,17,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,102,204,0,15,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,103,206,0,8,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,104,208,0,15,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,105,210,0,18,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,106,212,0,14,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,107,214,0,12,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,108,216,0,11,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,109,218,0,10,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,110,220,0,11,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,111,222,0,15,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,112,224,0,18,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,113,226,0,16,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,114,228,0,13,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,115,230,0,12,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,116,232,0,12,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,117,234,0,13,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,118,236,0,17,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,119,238,0,16,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,120,240,0,13,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,121,242,0,16,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,122,244,0,17,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,123,246,0,17,7
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,124,248,0,18,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,125,250,0,22,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,126,252,0,20,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,127,254,0,18,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,128,256,0,18,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,129,258,0,17,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,130,260,16,3,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,131,262,20,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,132,264,18,5,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,133,266,11,5,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,134,268,13,4,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,135,270,16,4,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,136,272,12,5,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,137,274,6,8,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,138,276,6,9,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,139,278,6,10,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,140,280,13,4,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,141,282,13,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,142,284,19,0,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,143,286,20,4,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,144,288,13,8,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,145,290,14,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,146,292,17,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,147,294,20,2,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,148,296,19,3,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,149,298,19,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,150,300,5,0,8
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,151,302,0,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,152,304,16,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,153,306,14,0,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,154,308,14,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,155,310,10,0,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,156,312,12,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,157,314,13,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,158,316,15,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,159,318,14,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,160,320,15,1,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,161,322,16,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,162,324,15,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,163,326,15,3,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,164,328,14,3,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,165,330,11,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,166,332,11,3,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,167,334,10,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,168,336,10,0,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,169,338,16,3,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,170,340,12,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,171,342,15,1,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,172,344,13,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,173,346,13,3,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,174,348,10,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,175,350,14,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,176,352,12,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,177,354,9,4,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,178,356,12,3,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,179,358,10,5,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,180,360,10,6,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,181,362,15,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,182,364,14,5,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,183,366,17,5,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,184,368,14,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,185,370,17,1,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,186,372,13,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,187,374,13,1,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,188,376,18,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,189,378,14,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,190,380,15,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,191,382,12,5,5
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,192,384,13,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,193,386,14,1,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,194,388,15,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,195,390,9,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,196,392,7,0,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,197,394,13,1,6
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,198,396,20,0,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,199,398,16,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,200,400,15,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,201,402,11,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,202,404,12,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,203,406,12,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,204,408,12,1,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,205,410,12,3,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,206,412,11,0,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,207,414,15,3,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,208,416,13,3,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,209,418,17,3,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,210,420,18,3,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,211,422,19,1,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,212,424,13,1,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,213,426,8,5,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,214,428,10,3,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,215,430,8,5,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,216,432,7,2,4
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,217,434,7,4,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,218,436,10,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,219,438,5,6,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,220,440,6,7,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,221,442,8,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,222,444,7,1,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,223,446,9,5,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,224,448,8,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,225,450,10,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,226,452,9,4,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,227,454,9,5,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,228,456,9,5,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,229,458,7,1,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,230,460,9,1,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,231,462,11,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,232,464,15,2,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,233,466,16,4,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,234,468,15,2,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,235,470,15,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,236,472,10,3,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,237,474,11,4,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,238,476,14,4,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,239,478,12,0,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,240,480,12,1,0
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,241,482,14,0,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,242,484,11,0,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,243,486,11,0,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,244,488,11,2,3
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,245,490,15,1,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,246,492,14,2,1
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,247,494,10,2,2
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,248,496,14,1,1
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",0,0,17,15,17
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",1,2,15,15,12
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",2,4,12,12,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",3,6,10,11,17
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",4,8,11,13,13
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",5,10,13,10,17
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",6,12,17,16,17
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",7,14,18,16,10
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",8,16,18,19,7
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",9,18,14,19,13
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",10,20,16,21,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",11,22,16,21,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",12,24,16,19,12
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",13,26,14,20,12
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",14,28,11,20,32
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",15,30,10,26,31
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",16,32,11,19,37
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",17,34,11,26,32
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",18,36,11,21,34
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",19,38,7,26,35
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",20,40,8,26,36
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",21,42,8,24,39
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",22,44,11,22,37
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",23,46,8,23,31
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",24,48,6,23,39
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",25,50,7,27,37
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",26,52,7,23,32
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",27,54,7,24,31
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",28,56,14,15,22
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",29,58,15,16,22
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",30,60,17,19,24
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",31,62,18,16,30
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",32,64,18,20,27
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",33,66,15,14,28
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",34,68,16,13,32
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",35,70,13,11,33
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",36,72,15,16,27
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",37,74,15,13,31
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",38,76,18,12,33
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",39,78,25,0,13
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",40,80,22,0,12
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",41,82,24,0,13
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",42,84,23,0,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",43,86,25,0,10
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",44,88,19,1,12
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",45,90,22,0,13
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",46,92,23,0,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",47,94,21,0,13
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",48,96,17,0,10
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",49,98,19,0,10
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",50,100,23,0,7
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",51,102,18,0,9
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",52,104,18,0,9
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",53,106,4,13,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",54,108,4,14,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",55,110,2,18,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",56,112,3,20,7
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",57,114,3,21,6
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",58,116,1,22,6
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",59,118,2,19,7
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",60,120,5,20,8
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",61,122,2,18,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",62,124,3,23,4
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",63,126,4,23,7
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",64,128,4,27,9
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",65,130,3,15,13
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",66,132,3,12,14
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",67,134,5,18,9
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",68,136,5,19,14
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",69,138,1,12,21
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",70,140,1,10,24
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",71,142,1,10,21
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",72,144,2,12,21
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",73,146,1,10,23
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",74,148,1,14,20
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",75,150,2,11,21
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",76,152,1,13,20
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",77,154,11,0,14
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",78,156,11,1,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",79,158,14,0,14
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",80,160,16,0,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",81,162,17,0,11
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",82,164,14,0,8
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",83,166,8,0,7
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",84,168,11,0,7
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",85,170,17,0,5
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",86,172,15,0,8
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",87,174,21,0,6
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",88,176,16,0,9
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",89,178,17,0,8
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",90,180,22,0,9
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",91,182,24,0,5
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",92,184,20,0,7
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",93,186,20,0,10
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",94,188,34,7,12
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",95,190,28,5,14
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",96,192,23,9,10
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",97,194,19,8,10
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",98,196,21,3,9
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",99,198,22,5,9
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",100,200,3,14,45
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",101,202,2,15,46
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",102,204,4,11,48
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",103,206,5,12,47
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",104,208,6,13,49
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",105,210,1,12,45
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",106,212,6,15,39
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",107,214,4,14,37
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",108,216,7,26,43
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",109,218,10,24,49
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",110,220,11,26,46
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",111,222,10,27,51
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",112,224,6,24,39
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",113,226,9,27,38
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",114,228,6,24,48
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",115,230,7,28,44
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",116,232,15,23,22
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",117,234,21,22,19
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",118,236,22,21,23
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",119,238,24,21,17
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",120,240,23,22,22
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",121,242,20,15,25
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",122,244,18,17,20
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",123,246,18,13,25
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",124,248,23,14,23
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",125,250,20,21,19
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",126,252,19,14,18
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",127,254,15,13,16
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",128,256,14,18,18
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",129,258,14,15,20
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",130,260,0,0,0
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",131,262,0,0,0
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",132,264,0,0,0
+video1,0,0,7,9,12
+video1,1,2,6,9,14
+video1,2,4,5,7,16
+video1,3,6,7,6,12
+video1,4,8,6,6,15
+video1,5,10,7,6,14
+video1,6,12,5,7,16
+video1,7,14,4,8,13
+video1,8,16,5,8,18
+video1,9,18,5,10,17
+video1,10,20,5,7,12
+video1,11,22,6,7,10
+video1,12,24,6,8,12
+video1,13,26,4,7,12
+video1,14,28,9,10,7
+video1,15,30,7,9,11
+video1,16,32,6,9,10
+video1,17,34,4,10,16
+video1,18,36,7,12,12
+video1,19,38,11,12,11
+video1,20,40,9,12,15
+video1,21,42,9,8,18
+video1,22,44,6,10,16
+video1,23,46,3,8,22
+video1,24,48,5,11,21
+video1,25,50,9,9,20
+video1,26,52,9,11,15
+video1,27,54,5,12,12
+video1,28,56,6,12,15
+video1,29,58,7,9,19
+video1,30,60,6,8,16
+video1,31,62,9,7,16
+video1,32,64,6,7,11
+video1,33,66,8,9,14
+video1,34,68,5,8,11
+video1,35,70,6,7,15
+video1,36,72,4,6,13
+video1,37,74,8,7,10
+video1,38,76,9,8,9
+video1,39,78,8,9,10
+video1,40,80,9,8,9
+video1,41,82,8,6,13
+video1,42,84,8,12,8
+video1,43,86,8,8,16
+video1,44,88,6,4,13
+video1,45,90,5,10,12
+video1,46,92,8,7,9
+video1,47,94,2,11,9
+video1,48,96,2,6,11
+video1,49,98,7,10,6
+video1,50,100,6,6,9
+video1,51,102,5,7,8
+video1,52,104,6,11,8
+video1,53,106,7,11,9
+video1,54,108,4,6,11
+video1,55,110,8,10,6
+video1,56,112,3,11,12
+video1,57,114,4,11,11
+video1,58,116,6,12,7
+video1,59,118,6,9,9
+video1,60,120,5,9,10
+video1,61,122,4,11,9
+video1,62,124,3,10,10
+video1,63,126,4,9,10
+video1,64,128,3,9,10
+video1,65,130,4,8,8
+video1,66,132,4,8,8
+video1,67,134,5,8,7
+video1,68,136,6,12,10
+video1,69,138,4,11,11
+video1,70,140,4,10,12
+video1,71,142,6,9,14
+video1,72,144,6,10,14
+video1,73,146,3,7,13
+video1,74,148,6,7,10
+video1,75,150,5,14,12
+video1,76,152,7,14,11
+video1,77,154,7,13,9
+video1,78,156,6,10,9
+video1,79,158,8,8,9
+video1,80,160,9,7,11
+video1,81,162,8,11,11
+video1,82,164,10,9,10
+video1,83,166,11,9,12
+video1,84,168,6,10,13
+video1,85,170,9,9,9
+video1,86,172,5,11,13
+video1,87,174,13,8,10
+video1,88,176,9,13,8
+video1,89,178,5,15,10
+video1,90,180,5,11,6
+video1,91,182,5,14,9

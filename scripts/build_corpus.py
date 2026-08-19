@@ -341,8 +341,8 @@ def main(argv: list[str] | None = None) -> int:
         by_clip.setdefault(row["clip_id"], []).append(row)
     smoothed = {
         clip_id: {
-            lane.name: smooth_counts([r[f"count_{lane.name}"] for r in rows])
-            for lane in lanes
+            name: smooth_counts([r[f"count_{name}"] for r in rows])
+            for name in lane_names(lanes)
         }
         for clip_id, rows in by_clip.items()
     }
@@ -402,9 +402,9 @@ def main(argv: list[str] | None = None) -> int:
             "start_index": sequence.start_index,
             "label_index": sequence.label_index,
         }
-        for lane in lanes:
-            count = series[lane.name][sequence.label_index]
-            entry[f"label_{lane.name}"] = label_from_count(
+        for name in lane_names(lanes):
+            count = series[name][sequence.label_index]
+            entry[f"label_{name}"] = label_from_count(
                 int(round(count)), low_max=args.low_max, med_max=args.med_max).name
         labelled.append(entry)
 
@@ -426,7 +426,7 @@ def main(argv: list[str] | None = None) -> int:
         writer.writeheader()
         writer.writerows(labelled)
     (args.out / "manifest.json").write_text(json.dumps({
-        "lanes": [lane.name for lane in lanes],
+        "lanes": lane_names(lanes),
         "T": args.timesteps, "step_s": args.step_s,
         "horizon_s": args.horizon_s, "stride_s": args.stride_s,
         "detector": args.weights.name, "conf": args.conf,
@@ -453,12 +453,12 @@ def main(argv: list[str] | None = None) -> int:
     import collections
     print(f"\n  {len(labelled)} sequences over {len(by_clip)} clip(s)")
     print(f"  splits: {collections.Counter(splits.values())}")
-    for lane in lanes:
-        dist = collections.Counter(e[f"label_{lane.name}"] for e in labelled)
+    for name in lane_names(lanes):
+        dist = collections.Counter(e[f"label_{name}"] for e in labelled)
         total = sum(dist.values())
         parts = "  ".join(f"{k} {dist.get(k,0)/total:5.1%}"
                           for k in ("LOW", "MEDIUM", "HIGH"))
-        print(f"    {lane.name:<20}{parts}")
+        print(f"    {name:<20}{parts}")
     if skipped:
         print(f"\n  {len(skipped)} clip(s) too short: "
               + ", ".join(f"{n} ({d:.0f}s)" for n, d in skipped[:4]))

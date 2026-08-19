@@ -85,11 +85,31 @@ def assign_splits(
 
     empty = [s for s in SPLIT_NAMES if not any(v == s for v in assignment.values())]
     if empty:
-        raise ValueError(
-            f"split(s) {empty} are empty with {len(unique)} clip(s). Hash-based "
-            f"assignment needs enough clips to populate every split; collect more "
-            f"clips or change the ratios. Do not proceed with an empty test split."
-        )
+        if len(unique) < len(SPLIT_NAMES):
+            raise ValueError(
+                f"split(s) {empty} are empty with {len(unique)} clip(s). Three "
+                f"splits need at least three, and an empty test split means "
+                f"every reported metric is computed on nothing."
+            )
+        # Hashing gives a property worth having: a clip keeps its split as other
+        # clips are added, so a corpus can grow without reshuffling. It cannot
+        # guarantee coverage — measured with 4 cameras, all four hashed into
+        # train and both val and test came out empty.
+        #
+        # So fall back to hash ORDER plus a quota. Still deterministic, still
+        # seeded, non-empty by construction, and it gives up only the stability
+        # under additions — which is the lesser loss against a corpus that
+        # cannot be built at all.
+        ordered = sorted(unique, key=lambda c: _clip_fraction(c, seed))
+        n_train = max(1, int(ratios[0] * len(ordered)))
+        n_val = max(1, int(ratios[1] * len(ordered)))
+        n_train = min(n_train, len(ordered) - 2)
+        n_val = min(n_val, len(ordered) - n_train - 1)
+        assignment = {}
+        for position, clip_id in enumerate(ordered):
+            assignment[clip_id] = ("train" if position < n_train else
+                                   "val" if position < n_train + n_val else "test")
+
     return assignment
 
 

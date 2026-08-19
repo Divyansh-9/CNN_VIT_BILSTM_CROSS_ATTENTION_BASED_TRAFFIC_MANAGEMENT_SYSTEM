@@ -1,0 +1,61 @@
+clip_id,split,start_index,label_index,label_lane_0,label_lane_1
+Mumbai Traffic Chaos - Near Andheri Station,train,0,89,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,5,94,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,10,99,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,15,104,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,20,109,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,25,114,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,30,119,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,35,124,MEDIUM,HIGH
+Mumbai Traffic Chaos - Near Andheri Station,train,40,129,MEDIUM,HIGH
+Mumbai Traffic Chaos - Near Andheri Station,train,45,134,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,50,139,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,55,144,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,60,149,MEDIUM,HIGH
+Mumbai Traffic Chaos - Near Andheri Station,train,65,154,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,70,159,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,75,164,MEDIUM,HIGH
+Mumbai Traffic Chaos - Near Andheri Station,train,80,169,MEDIUM,MEDIUM
+Mumbai Traffic Chaos - Near Andheri Station,train,85,174,LOW,HIGH
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,0,89,LOW,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,5,94,LOW,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,10,99,LOW,HIGH
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,15,104,LOW,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,20,109,LOW,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,25,114,LOW,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,30,119,LOW,HIGH
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,35,124,LOW,HIGH
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,40,129,LOW,HIGH
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,45,134,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,50,139,MEDIUM,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,55,144,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,60,149,HIGH,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,65,154,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,70,159,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,75,164,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,80,169,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,85,174,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,90,179,MEDIUM,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,95,184,HIGH,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,100,189,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,105,194,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,110,199,HIGH,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,115,204,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,120,209,HIGH,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,125,214,MEDIUM,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,130,219,MEDIUM,MEDIUM
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,135,224,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,140,229,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,145,234,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,150,239,MEDIUM,LOW
+Pov_Thursday Traffic From Footover bridge। Cloudy Seen।,val,155,244,MEDIUM,LOW
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,0,89,HIGH,LOW
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,5,94,HIGH,MEDIUM
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,10,99,HIGH,MEDIUM
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,15,104,MEDIUM,MEDIUM
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,20,109,MEDIUM,HIGH
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,25,114,MEDIUM,HIGH
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,30,119,HIGH,HIGH
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,35,124,HIGH,MEDIUM
+"South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos",train,40,129,MEDIUM,MEDIUM
+video1,test,0,89,MEDIUM,MEDIUM
