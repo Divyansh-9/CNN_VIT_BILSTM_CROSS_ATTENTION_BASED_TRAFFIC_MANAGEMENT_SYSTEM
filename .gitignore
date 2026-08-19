@@ -101,3 +101,7 @@ data/_tripinfo/
 # permits redistribution. Provenance and the request route are in
 # docs/00-planning/research/ITD-MODEL-ASSESSMENT.md — obtain your own copy.
 models/external/
+
+# Pseudo-labels are regenerable from the clip + teacher (scripts/pseudo_label.py).
+# Thousands of JPEGs, and the labels are derived data, not ground truth.
+data/pseudo/
