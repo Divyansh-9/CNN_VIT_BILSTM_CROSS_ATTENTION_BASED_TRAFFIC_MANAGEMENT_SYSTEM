@@ -292,6 +292,12 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
         "qwk": round(report.qwk, 4),
         "n": report.n,
         "seconds": round(time.perf_counter() - started, 1),
+        # Beside the number it qualifies. A zero-support class costs a third of
+        # macro F1 and nothing else in the row says so, which is how a column
+        # of identical scores reads as a comparison instead of an artifact of
+        # the split (P31). This row duplicates `EvaluationReport.as_row` rather
+        # than calling it, so the field has to be added in both places.
+        "warnings": " | ".join(report.warnings),
     }
     for label, metrics in zip(CLASSES, report.per_class):
         row[f"precision_{label.lower()}"] = round(metrics.precision, 4)
@@ -454,6 +460,8 @@ def main(argv: list[str] | None = None) -> int:
         rows.append(row)
         print(f"    macro-F1 {row['macro_f1']}  QWK {row['qwk']}  "
               f"gate std {row['gate_std'] or '—'}")
+        for warning in report.warnings:
+            print(f"    WARNING  {warning}")
         print(format_confusion_matrix(report.confusion, CLASSES))
 
         args.out.parent.mkdir(parents=True, exist_ok=True)

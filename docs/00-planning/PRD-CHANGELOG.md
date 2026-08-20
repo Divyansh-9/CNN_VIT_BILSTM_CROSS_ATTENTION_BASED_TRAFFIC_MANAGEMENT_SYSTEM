@@ -3216,3 +3216,59 @@ viable, and it is doing exactly what it was adopted for.
 
 A CUDA reinstall would cut that further and is a ~2.5 GB download that replaces
 a working environment mid-project. Recorded as an option, not taken unilaterally.
+
+## P31 — the ablation table read as a comparison when it was an artifact of the split (2026-08-20)
+
+**Status:** CLOSED · Found by running the full A–G ablation on real footage
+
+The first ablation over real multi-camera data returned this:
+
+| config | macro-F1 | QWK |
+|---|---|---|
+| A (CNN-only) | 0.4889 | 0.5 |
+| B (ViT-only) | 0.0 | 0.0 |
+| C … G | **0.2222** | 0.0 |
+
+Five configs identical to four decimal places. That is not five models
+agreeing — the test split held **no LOW labels at all**, so LOW scores 0 by
+convention and drags macro F1 down by a third whatever the model does. 0.2222
+is 2/9: one class recovered out of three.
+
+### The warning already existed and was thrown away
+
+`mfstnet/metrics.py` had produced exactly the right message all along:
+
+> LOW has NO samples — its precision/recall/F1 are 0 by convention, and macro
+> F1 is being dragged down by a class that does not occur. Check the corpus
+> distribution gate (PRD A17).
+
+`train_mfstnet.py` never read `report.warnings`. It printed the number and
+wrote the CSV without it, so **the caveat existed and the number travelled
+alone** — into `experiments/results/ablation.csv`, a graded deliverable
+(NFR-09/10) that a reader would take at face value.
+
+Warnings are now printed per config and carried in a `warnings` column. The
+column is present and empty on a healthy split, because a CSV whose columns
+change between runs cannot be concatenated across the ablation.
+
+> **Note on duplication.** `train_mfstnet` builds its result row by hand rather
+> than calling `EvaluationReport.as_row`, which already existed and is used by
+> `overfit_check.py`. The two had silently diverged, and that is how the field
+> went missing in the first place. Both now carry it; the duplication itself is
+> left in place because changing the column set of a graded CSV is not a
+> refactor to make casually.
+
+### Macro F1 averages over every declared class, deliberately
+
+Averaging over only the classes *present* would have reported 0.3333 here.
+sklearn's default does that; `labels=[0,1,2]` does not, and neither do we — now
+pinned by a test against sklearn so the stricter convention cannot drift.
+
+### The distribution behind it
+
+The five-camera pilot corpus labels **83.5% LOW, 12.9% MEDIUM, 3.5% HIGH** at
+the default thresholds. Projected onto the full corpus that is roughly 1,199 /
+186 / 51 labels. HIGH is thin, and the thresholds are the lever — which is
+[ADR-017](decisions/ADR-017-pcu-thresholds.md), still awaiting guide sign-off.
+`relabel_corpus.py` retunes them in seconds, so this is a decision to take with
+evidence rather than a cost to pay up front.

@@ -109,6 +109,12 @@ class Report:
         for t, label in enumerate(self.labels):
             for p, pred_label in enumerate(self.labels):
                 row[f"cm_{label.lower()}_as_{pred_label.lower()}"] = self.confusion[t][p]
+        # A zero-support class drags macro F1 down by a third and nothing in the
+        # numbers says so, which is how a table of identical scores reads as a
+        # comparison rather than as an artifact (P31). The warning belongs
+        # BESIDE the number it qualifies, in the graded CSV, not only on a
+        # console nobody keeps.
+        row["warnings"] = " | ".join(self.warnings)
         return row
 
 
