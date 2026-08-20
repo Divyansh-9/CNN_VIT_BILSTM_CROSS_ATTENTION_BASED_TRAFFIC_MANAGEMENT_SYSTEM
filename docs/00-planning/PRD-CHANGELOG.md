@@ -3848,3 +3848,45 @@ committed so the auditor cannot decay into something that always passes:
 
 The audit is now a step in the documented pipeline, between `build_corpus` and
 `build_cache`, and exits 1 so it can gate a run.
+
+## P41 — three reported detector figures have no committed CSV behind them (2026-08-20)
+
+**Status:** OPEN · Found while checking every number destined for the review deck
+
+NFR-09 requires raw results as committed CSVs rather than summary tables. Three
+figures the project quotes freely do not have one:
+
+| figure | where it appears | actual source |
+|---|---|---|
+| IDD `0.7104` — the detector of record | [S17](#s17-result), DECISION-BRIEF, the review deck | changelog prose |
+| TrafficCAM `0.5734` after distillation | S17 | changelog prose |
+| `e_rickshaw` `0.4787` | S17, and quoted as a headline outcome | changelog prose |
+
+The S17 run happened on Kaggle T4×2 and its per-class metrics were written into
+the changelog by hand instead of into `experiments/results/`. The numbers are
+almost certainly right — they were read off a real run — but "almost certainly
+right" is the state NFR-09 exists to rule out, and it is the same standard this
+log has applied to everything else.
+
+### Two things this immediately broke
+
+The HTML review deck closed with *"Every figure in this deck comes from a
+committed CSV."* That was **false for three of its figures**, which is worse
+than not making the claim. The claim is now accurate and those figures carry a
+dagger naming the run log.
+
+Separately, the deck's generalisation slide put BMD-45 and TrafficCAM — both
+from the s15 detector — in one comparison row beside an IDD figure, and the only
+CSV-backed IDD number belongs to **s14, a different detector**. A row that mixes
+two models is exactly the failure the slide is about. The PowerPoint version
+shows the two same-model numbers and moves IDD into the speaker notes with its
+detector named.
+
+### What closing it costs
+
+Re-running the S17 evaluation to emit per-class CSVs is roughly three hours of
+GPU time. That is worth doing before the paper quotes any of these numbers, and
+it is not worth doing to finish a deck. Logged rather than done.
+
+**Until then:** any of the three may be stated with its source named, and none
+of them may be described as measured-and-committed.

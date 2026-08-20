@@ -5,7 +5,11 @@
 Twenty slides covering what has been built, the stack it runs on, every
 validation metric, the decisions taken and the defects found on the way.
 
-**Every figure comes from a committed CSV in `experiments/results/`.** The
+**Almost every figure comes from a committed CSV in `experiments/results/`.**
+The exceptions are the three S17 numbers on the generalisation slide, which
+come from a Kaggle run log because that run's per-class CSV was never
+committed (P41). They are marked as such on the slide rather than passed off
+as measured here. The
 images are rendered from real footage by the real detector rather than picked
 for looking good, and the deck is regenerated rather than edited, so a number
 that changes upstream changes here too.
@@ -352,15 +356,17 @@ add("Honesty · generalisation", """
   <h2>The detector loses two thirds of its accuracy on unseen cameras</h2>
   <div class="grid g3">
     <div class="card"><div class="k">BMD-45 · trained domain</div><div class="v ok">0.8941</div><div class="n">Bengaluru Safe City CCTV</div></div>
-    <div class="card"><div class="k">IDD · dashcam</div><div class="v warn">0.7104</div><div class="n">a different viewpoint entirely</div></div>
+    <div class="card"><div class="k">IDD · dashcam</div><div class="v warn">0.7104<sup style="font-size:.5em;color:var(--warn)">&#8224;</sup></div><div class="n">a different viewpoint entirely</div></div>
     <div class="card"><div class="k">TrafficCAM · unseen cameras</div><div class="v bad">0.3500</div><div class="n">the number that governs deployment</div></div>
   </div>
   <div class="callout warn" style="margin-top:20px">
     <p><strong>0.3500 is the honest deployment number</strong>, not 0.8941. A
     model deployed on a junction it has never seen is in the third column.</p>
     <p>Adding 1,254 human-annotated TrafficCAM boxes moved that to
-    <strong>0.5734</strong> and brought <code>e_rickshaw</code> from
-    <strong>0.000 to 0.4787</strong> — the detector had been shipping an output
+    <strong>0.5734</strong><sup style="font-size:.6em;color:var(--warn)">&#8224;</sup>
+    and brought <code>e_rickshaw</code> from
+    <strong>0.000 to 0.4787</strong><sup style="font-size:.6em;color:var(--warn)">&#8224;</sup>
+    — the detector had been shipping an output
     head that had never seen a single example of a class the project exists to
     handle.</p>
   </div>
@@ -717,8 +723,11 @@ add("Next", """
     run the eight-config ablation. That last step now takes an evening rather
     than a weekend.</p>
   </div>
-  <p class="tiny">Every figure in this deck comes from a committed CSV in
-  <code>experiments/results/</code>. Nothing here is an estimate.</p>
+  <p class="tiny">Figures marked <span style="color:var(--warn)">&#8224;</span> come
+  from the S17 run log (Kaggle, 19 Aug 2026); that run's per-class CSV was never
+  committed, which is logged as a defect rather than smoothed over. Every other
+  figure in this deck is read from a committed CSV in
+  <code>experiments/results/</code> at build time.</p>
 """)
 
 total = len(SLIDES)

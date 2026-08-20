@@ -365,3 +365,42 @@ Reported because it affects what the decisions above cost, not for approval.
 
 Nothing else is blocked. The pipeline, the tooling and the training path are
 all in place and measured; these three decide what the numbers are *of*.
+
+## 11. TrafficCAM's licence is unresolved, and it gates publication
+
+**Record:** [TrafficCAM assessment](research/TRAFFICCAM-ASSESSMENT.md) ·
+**Default: treat it as unlicensed until checked — nothing derived from it is
+released or published**
+
+Surfaced while assembling the dataset provenance for the review deck, and it is
+the one item here that can stop a submission rather than shape it.
+
+Our own assessment of TrafficCAM opens with *"the best data this project has"*.
+It is a detector **training** source, a **test** source, and the **only** supply
+of `e_rickshaw` examples anywhere in the project — the class that went from
+0.000 to 0.4787 once it was used. Under **Licence** the same document says, in
+full:
+
+> Not yet established. The repository must be checked before any distribution or
+> publication claim, and before weights trained on it are released.
+
+That was written as a to-do and has not been actioned. Until it is:
+
+- **weights trained on it cannot be released**, which affects the reproducibility
+  package NFR-08 asks for;
+- **results computed on it cannot be published**, which includes the
+  cross-camera generalisation number the honest framing of this project rests on;
+- an IEEE ITSC or CVIP submission that includes either would be making a claim
+  we cannot support.
+
+**What we propose to do:** check the repository for a licence file, and write to
+the authors if there is none. Meanwhile results from TrafficCAM stay clearly
+separated in the record so nothing has to be untangled later.
+
+**Cost of the default:** none today. It only becomes expensive if we discover the
+answer at submission rather than now.
+
+**For contrast, the rest of the data is clean.** BMD-45 is CC BY 4.0 and ungated;
+IDD needs a citation (Varma et al., WACV 2019); ITD is CC BY-NC 4.0, so anything
+derived from it is non-commercial. Those are all manageable. This one is not,
+until somebody checks.

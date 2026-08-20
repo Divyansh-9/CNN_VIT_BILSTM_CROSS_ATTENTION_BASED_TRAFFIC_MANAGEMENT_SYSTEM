@@ -42,6 +42,7 @@ DISTRIBUTION_TO_MODULE = {
     "paho-mqtt": "paho",
     "pytest-cov": "pytest_cov",
     "stable-baselines3": "stable_baselines3",
+    "python-pptx": "pptx",
     "yt-dlp": "yt_dlp",
     "imageio-ffmpeg": "imageio_ffmpeg",
     "huggingface-hub": "huggingface_hub",

@@ -91,6 +91,10 @@ pyyaml==6.0.3
 tqdm==4.70.0
 python-dotenv==1.2.2
 pytest==9.1.1
+# scripts/build_review_pptx.py generates the project review deck from the
+# committed result CSVs. Imports as `pptx`, not `python_pptx`, so it also needs
+# an entry in DISTRIBUTION_TO_MODULE in tests/test_requirements_complete.py.
+python-pptx==1.0.2
 
 # ---- NOT INSTALLED: subsystems that do not exist yet ----
 #
