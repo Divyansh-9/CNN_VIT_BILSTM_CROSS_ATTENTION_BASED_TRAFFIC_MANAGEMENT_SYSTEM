@@ -91,6 +91,20 @@ def train(
         ent_coef=ppo["ent_coef"],
         seed=seed,
         verbose=0,
+        # CPU deliberately, and pinned rather than left to Stable-Baselines3's
+        # auto-selection (P38).
+        #
+        # SB3 picks CUDA when torch can see a GPU, and for an MlpPolicy that is
+        # slower than CPU — it warns as much itself. Nothing here is a
+        # convolution: the observation is a 16-dim vector (PRD §13.1) and the
+        # net is two small dense layers, so per-step kernel launch and host
+        # transfer cost more than the arithmetic saves.
+        #
+        # This only started mattering when torch became a CUDA build, so a
+        # benchmark taken before that and one taken after would not have been
+        # comparable. Pinning it keeps every PPO number on one device, which is
+        # what NFR-07 and the 30-seed benchmark need.
+        device="cpu",
     )
     model.learn(total_timesteps=timesteps, progress_bar=False)
 

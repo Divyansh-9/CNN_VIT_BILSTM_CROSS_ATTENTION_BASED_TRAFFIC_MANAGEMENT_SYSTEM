@@ -3681,3 +3681,56 @@ inferred.
 A test pins this deliberately — `test_per_camera_calibration_cannot_invent_a_class_that_never_occurs`
 asserts that a quiet lane yields **zero** HIGH, so a future change that
 "fixes" the imbalance by manufacturing congestion fails loudly.
+
+## P38 — installing CUDA made PPO twice as slow (2026-08-20)
+
+**Status:** CLOSED · A regression introduced by [P32](#p32), caught by running
+the simulation half after changing the training half
+
+[P32](#p32) replaced the CPU-only torch wheel with a CUDA build, which was
+right for MFSTNet. It also changed something nobody asked it to.
+
+Stable-Baselines3 selects CUDA whenever torch can see a GPU. `train_ppo.py`
+never named a device, so the day the wheel changed, PPO moved to the GPU — and
+SB3 warns, in its own words, that this is the wrong call:
+
+> You are trying to run PPO on the GPU, but it is primarily intended to run on
+> the CPU when not using a CNN policy … the GPU utilization will be poor and
+> the training might take longer than on CPU.
+
+Measured on this machine over 8,192 timesteps with the real state shape
+(16-dim, 12 discrete actions):
+
+| device | time |
+|---|---|
+| **cpu** | **8.0 s** |
+| cuda | 16.2 s |
+
+**Twice as slow.** Nothing in the policy is convolutional: the observation is a
+16-dim vector (PRD §13.1) and the network is two small dense layers, so
+per-step kernel launch and host transfer cost more than the arithmetic saves.
+At 500K timesteps across three arms that is roughly 25 minutes given away per
+sweep.
+
+### The part that matters more than the minutes
+
+CLAUDE.md already said "PPO trains on laptop CPU" — and it did, **by accident**,
+because the installed wheel could not do otherwise. The moment that accident
+ended, the statement quietly became false and no result said so.
+
+A benchmark run before the wheel change and one run after would have been
+measured on different devices, and neither CSV recorded which. That is the same
+class of defect as [P33](#p33)'s cache and [P32](#p32)'s training metrics: a
+number whose meaning depends on a fact the number does not carry.
+
+`device="cpu"` is now explicit, with the reason written beside it, and a test
+asserts both — a bare pin invites a later reader to "fix" it. A companion test
+asserts `train_mfstnet` still defaults to `auto`, since MFSTNet is the opposite
+case and a hardcoded `cpu` there would silently give back the 12.6×.
+
+### The simulation half still runs
+
+Checked end to end after this session's changes, on SUMO 1.27.1 rather than the
+1.19.0 the pins claimed before [P30](#p30): network build, demand generation at
+all three regimes, PPO smoke training, and `benchmark.py --restat` re-deriving
+the statistics from the committed CSV.
