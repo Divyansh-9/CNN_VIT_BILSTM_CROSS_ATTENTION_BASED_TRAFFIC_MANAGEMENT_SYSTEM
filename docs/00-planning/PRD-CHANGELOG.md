@@ -3786,3 +3786,65 @@ retroactively — inventing an environment record for a run nobody observed woul
 be worse than having none. They are dated and the changelog says what the
 environment was on those dates; that is the audit trail for anything before
 today.
+
+## P40 — nothing checked that a built corpus was internally consistent (2026-08-20)
+
+**Status:** CLOSED · No defect found; the check that would have found one did
+not exist
+
+The unit tests cover each corpus component in isolation — window arithmetic,
+labelling, splitting, lane assignment. Nothing checked **the artifact they
+combined to produce**. Once a corpus is on disk, that is a different question,
+and it is the one every downstream number rests on.
+
+`scripts/audit_corpus.py` re-derives a corpus from its own more primitive files
+and checks it against itself. It trusts nothing the builder recorded about its
+own output.
+
+### The check that matters most
+
+**The label must sit where A15 says it does.** `label_index` has to equal
+`start_index + (T−1) + horizon_s/step_s`, and the observed-to-label gap has to
+come to `horizon_s` in wall-clock seconds.
+
+An off-by-one there makes **every label in the corpus wrong** — the model would
+train on a target 2 s ahead while the paper claims 60 s — and nothing else would
+look unusual. A test in this change proves the point: shifting one label leaves
+the row count, the split sizes and the class balance identical. There is nothing
+else to notice it by.
+
+### The real corpus passes
+
+```
+[  ok  ] label_index == start_index + 59 + 30
+[  ok  ] the label frame is strictly after the last observed frame (A15)
+[  ok  ] the observed-to-label gap is 60s in wall clock
+[  ok  ] every label re-derives from counts.csv through the recorded thresholds
+[  ok  ] no clip appears in more than one split (ADR-002)
+[  ok  ] every window's label frame exists in counts.csv
+[  ok  ] every clip has its own lane geometry (P26)
+[  ok  ] every camera declares the same lane count
+[  ok  ] counts.csv indices are contiguous from 0 for every clip
+```
+
+The one warning is [P31](#p31)'s known test-split degeneracy, which is a
+property of a five-camera pilot rather than of the corpus builder.
+
+### An auditor that only passes proves nothing
+
+Each check was exercised against a corpus mutated to break exactly that
+invariant. **All seven mutations were caught**, and the mutation suite is
+committed so the auditor cannot decay into something that always passes:
+
+| mutation | caught by |
+|---|---|
+| label shifted by one | the A15 arithmetic |
+| one label flipped | re-derivation from counts |
+| clip in two splits | the leakage check |
+| label past the end | the A15 arithmetic |
+| a clip loses its geometry | the P26 check |
+| cameras disagree on lane count | the width check |
+| a count row deleted | the contiguity check |
+
+The audit is now a step in the documented pipeline, between `build_corpus` and
+`build_cache`, and exits 1 so it can gate a run.

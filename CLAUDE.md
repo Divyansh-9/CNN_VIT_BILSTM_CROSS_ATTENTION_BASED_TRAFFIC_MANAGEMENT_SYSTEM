@@ -142,6 +142,7 @@ python scripts/import_lane_centres.py --json lane_centres.json --out data/lanes_
 python scripts/corpus_yield.py                         # segments per step_s, the A28 evidence
 python scripts/build_corpus.py --clips "D:/traffic dataset"     --lanes-dir data/lanes_reviewed --step-s 2 --imgsz 992 --out data/corpus
 python scripts/relabel_corpus.py --corpus data/corpus --low-max 8 --med-max 20
+python scripts/audit_corpus.py --corpus data/corpus            # exits 1 if anything is wrong
 python scripts/build_cache.py --corpus data/corpus --cache data/cache
 ```
 
