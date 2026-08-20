@@ -101,8 +101,11 @@ class Windows:
         import torch
 
         row = self.rows[index]
+        # fp16 out of the cache and fp16 through the collate. The widening to
+        # fp32 happens on the device, after the transfer — see `move` (P35).
         cnn, vit = self.cache.read_window(
-            self.source_id, row["clip_id"], int(row["start_index"]), self.T
+            self.source_id, row["clip_id"], int(row["start_index"]), self.T,
+            dtype=torch.float16,
         )
         # read_window returns [1, T, C, h, w]; the model wants [T, C, h, w] per
         # item so the batch collate produces [B, T, C, h, w]. Squeezing here
@@ -198,7 +201,7 @@ def evaluate_split(model, dataset, size: int, lanes, device: str = "cpu"):
     true, pred, last = [], [], None
     with torch.no_grad():
         for cnn, vit, y, masks in batches(dataset, size, shuffle=False):
-            cnn, vit, masks = move((cnn, vit, masks), device)
+            cnn, vit, masks = move((cnn, vit, masks), device, cast=torch.float32)
             out = feed(model, cnn, vit, masks)
             last = out
             true.extend(y.reshape(-1).tolist())      # labels stay on the CPU
@@ -256,7 +259,8 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
         total = 0.0
         for cnn, vit, y, masks in batches(train_set, t["batch_size"], shuffle=True,
                                           generator=generator):
-            cnn, vit, masks, y = move((cnn, vit, masks, y), device)
+            cnn, vit, masks, y = move((cnn, vit, masks, y), device,
+                                      cast=torch.float32)
             out = feed(model, cnn, vit, masks)
             loss = criterion(out.logits.reshape(-1, len(CLASSES)), y.reshape(-1))
             optimiser.zero_grad()

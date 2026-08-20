@@ -29,11 +29,24 @@ def resolve_device(requested: str = "auto") -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def move(batch, device: str):
+def move(batch, device: str, cast=None):
     """Batch tensors onto `device`, tolerating a disabled branch (`None`).
 
     Ablation configs A and B run one branch only and the other arrives as
     `None`; `None.to(device)` would end the run on the first config.
+
+    `cast` widens AFTER the transfer. The cache stores fp16 and the model wants
+    fp32, and doing that widening on the CPU means stacking and shipping twice
+    the bytes — measured at half an epoch on this corpus. Widening fp16 to
+    fp32 is exact, so where it happens cannot change a result (P35).
     """
-    return tuple(None if x is None else x.to(device, non_blocking=True)
-                 for x in batch)
+    out = []
+    for x in batch:
+        if x is None:
+            out.append(None)
+            continue
+        x = x.to(device, non_blocking=True)
+        if cast is not None and x.is_floating_point() and x.dtype != cast:
+            x = x.to(cast)
+        out.append(x)
+    return tuple(out)

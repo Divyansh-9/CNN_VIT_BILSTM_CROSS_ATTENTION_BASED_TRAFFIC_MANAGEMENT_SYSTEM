@@ -97,16 +97,18 @@ Config lives in YAML (`mfstnet/configs/mfstnet_config.yaml`, `simulation/configs
 
 Training runs **locally on the RTX 4050** (ADR-005), not Colab. Measured
 2026-08-20 on a five-camera pilot and extrapolated to 359 sequences at 100
-epochs: the full A-H ablation is **~3.8 h on CUDA against ~12.3 h on CPU**, so
+epochs: the full A-H ablation is **~1.5 h on CUDA against ~12.3 h on CPU**, so
 the 60-90h Colab figure in PRD §21 describes an *uncached* run and no longer
 applies. `--device` defaults to `auto`. PPO trains on laptop CPU.
 
-Two things that bite here: torch must be the **cu126** build (`cu121` and
+Two things that bite here. Torch must be the **cu126** build — `cu121` and
 `cu124` no longer carry torch at any version, so the old documented command
-silently installed the CPU wheel), and with the GPU in play the ablation
-becomes **I/O bound** — configs A and B gain almost nothing because reading
-cached features dominates. Assume notebook-and-script hybrid workflows, and
-that model weights are too large for plain git.
+silently installed the CPU wheel. And **features stay fp16 all the way to the
+device**, widening to fp32 only after the transfer: doing it earlier doubles
+what `torch.stack` copies and what crosses the bus, which was half of every
+epoch (P35). The widening is exact, so this is a free 2.5× and not a
+precision trade. Assume notebook-and-script hybrid workflows, and that model
+weights are too large for plain git.
 
 ## Stack
 

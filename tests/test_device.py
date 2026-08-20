@@ -108,3 +108,47 @@ def test_per_sample_masks_work_on_the_gpu():
     with torch.no_grad():
         out = model(cnn, vit, lane_masks=per_sample)
     assert out.logits.shape == (2, 2, cfg.n_classes)
+
+
+# ------------------------------------------------- the fp16 data path (P35) --
+
+def test_cast_widens_after_the_move():
+    """The cache stores fp16 and the model wants fp32. Widening on the CPU
+    means `torch.stack` allocates and the PCIe transfer ships twice the bytes —
+    measured at half an epoch on the pilot corpus.
+    """
+    half = torch.randn(4, 3, dtype=torch.float16)
+    (moved,) = move((half,), "cpu", cast=torch.float32)
+    assert moved.dtype == torch.float32
+
+
+def test_widening_fp16_to_fp32_is_exact():
+    """Why the optimisation is free rather than a trade. Every fp16 value is
+    representable in fp32, so it cannot matter where the widening happens —
+    and the measured run confirmed it: same macro-F1, same gate_mean.
+    """
+    half = (torch.randn(1000, dtype=torch.float32)).to(torch.float16)
+    on_cpu = half.to(torch.float32)
+    (on_device,) = move((half,), "cpu", cast=torch.float32)
+    assert torch.equal(on_cpu, on_device)
+
+
+def test_cast_leaves_integer_tensors_alone():
+    """Labels travel in the same batch and must stay long — casting them to
+    float would break CrossEntropyLoss with an unhelpful message."""
+    labels = torch.zeros(4, dtype=torch.long)
+    (moved,) = move((labels,), "cpu", cast=torch.float32)
+    assert moved.dtype == torch.long
+
+
+def test_cast_is_optional():
+    half = torch.randn(4, dtype=torch.float16)
+    (moved,) = move((half,), "cpu")
+    assert moved.dtype == torch.float16
+
+
+def test_cast_still_tolerates_a_disabled_branch():
+    cnn, vit = move((torch.randn(2, 2, dtype=torch.float16), None), "cpu",
+                    cast=torch.float32)
+    assert vit is None
+    assert cnn.dtype == torch.float32

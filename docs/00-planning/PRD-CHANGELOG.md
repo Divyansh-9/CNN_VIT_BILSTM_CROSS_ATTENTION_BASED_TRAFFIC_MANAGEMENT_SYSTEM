@@ -3487,3 +3487,63 @@ check: `build_corpus` → `relane_corpus` → `relabel_corpus` → `build_cache`
 `overfit_check` → `train_mfstnet --config` → `train_mfstnet --ablation` →
 `train_baselines`. All four count-sequence baselines train, xgboost included,
 so [P18](#p18)'s native-API fix holds on real data.
+
+## P35 — half of every epoch was spent widening fp16 to fp32 on the wrong side of the bus (2026-08-20)
+
+**Status:** CLOSED · Found by profiling an epoch after [P32](#p32) made the GPU
+the compute device
+
+[P32](#p32) noted that once the GPU was doing the arithmetic, the aggregate
+ablation speedup was only ~3.3× while config G alone gained 8.2×: configs A and
+B barely moved, because reading cached features had become the limit. Profiling
+one epoch of 73 windows said where it actually went:
+
+| stage | time |
+|---|---|
+| cache read, per item | 0.69 s |
+| read **+ collate** | 3.91 s |
+| host → device transfer | 2.12 s |
+| forward + backward | 6.01 s |
+
+**The data path was 50% of the epoch, and the read was not the expensive part
+of it.** `torch.stack` was, at 3.2 s.
+
+### Why
+
+`FeatureCache.read_window` widened fp16 storage to fp32 before returning, so
+everything downstream carried twice the bytes it needed to: `torch.stack`
+allocated and copied 770 MB per batch instead of 385 MB, and the PCIe transfer
+shipped 1.5 GB instead of 0.77 GB.
+
+Nothing needed fp32 until the model did the arithmetic, on the far side of the
+bus.
+
+### The fix, and why it is free rather than a trade
+
+The dataset now reads fp16, the collate stacks fp16, the transfer ships fp16,
+and `move(..., cast=torch.float32)` widens on the device.
+
+**Widening fp16 to fp32 is exact** — every fp16 value is representable in fp32
+— so where it happens cannot change a number. Verified rather than asserted:
+all eight ablation configs agree on **every one of 32 recorded fields**, gate
+statistics included.
+
+### Measured, on the pilot corpus
+
+| config | CPU | GPU fp32 path | GPU fp16 path | total |
+|---|---|---|---|---|
+| A (CNN only) | 33.2 s | 20.5 s | **12.7 s** | 2.6× |
+| B (ViT only) | 20.1 s | 19.8 s | **9.4 s** | 2.1× |
+| G (full) | 208.4 s | 40.0 s | **16.6 s** | **12.6×** |
+| **A–H total** | — | 256 s | **103 s** | **2.48×** on top of the GPU |
+
+Extrapolated to 359 sequences at 100 epochs, the **full A–H ablation is ~1.5 h**,
+against 3.8 h on the fp32 GPU path and 12.3 h on CPU.
+
+The configs that gained least from the GPU gained most from this, which is the
+expected shape: A and B were never compute-bound.
+
+> **Where the remaining time goes.** The transfer is still pageable rather than
+> pinned, and the collate is still single-threaded. Both are worth revisiting
+> only if the ablation stops fitting comfortably in an evening — at 1.5 h it
+> does.
