@@ -3363,3 +3363,71 @@ that does.
 * PRD §21's "ablation 60–90 h on Colab T4" describes an **uncached** run.
   Cached and local it is under four hours, which is ADR-005 doing exactly what
   it was adopted for.
+
+## P33 — the feature cache was not device-independent, and nothing said so (2026-08-20)
+
+**Status:** CLOSED · Found immediately after [P32](#p32) put the GPU to work
+
+ADR-005 invalidates a cache on any change to "backbone, resize, or
+normalization", and `read_clip` raises on a `preprocessing_hash` mismatch
+rather than warning. **The hash does not include the device**, so a CPU-built
+and a GPU-built cache carry the same hash and can be mixed clip by clip.
+
+That is only safe if the two agree. By default they do not.
+
+### `cudnn.allow_tf32` defaults to True
+
+TF32 gives convolutions a 10-bit significand. Measured on real frames from the
+pilot footage, against a CPU fp32 reference:
+
+| | worst difference | as a fraction of tensor scale |
+|---|---|---|
+| cuDNN TF32 **on** (default) | 1.07e-1 | **3.6e-3** |
+| cuDNN TF32 **off** | 9.3e-5 | **3.1e-6** |
+| *fp16 storage resolution* | | *4.9e-4* |
+
+With TF32 on, the error is **seven times coarser than the fp16 the cache is
+stored in — so it survives storage.** With it off it is 158× finer and
+disappears into rounding.
+
+Since splits are cut by clip ([ADR-002](decisions/ADR-002-mfstnet-training-corpus.md)),
+a mixed cache means a device artifact that varies clip by clip, and therefore
+one that can correlate with the split. That is the shape of defect ADR-005's
+hash check exists to prevent, arriving through the one door it does not cover.
+
+### The fix
+
+`build_cache.py` sets `cudnn.allow_tf32 = False` and `matmul.allow_tf32 = False`
+on CUDA. The cache becomes device-independent as ADR-005 already assumed, so no
+hash change and no forced rebuild. It costs **4% on a one-time build** — 163 ms
+to 170 ms per 32-frame batch.
+
+Training is left free to use TF32: the cache is written once and read many
+times, and this is only the writing half.
+
+### Getting the measurement right took three attempts
+
+Worth recording, because each wrong metric looked convincing:
+
+* **Absolute difference** (`1.6e-2`) reads as a failure until you notice the
+  activations reach 60.
+* **Per-element relative error** peaks at 1.0 and 1.99 — but those are
+  near-zero values crossing a ReLU boundary or a sign, where the absolute
+  difference is negligible.
+* **Distance in fp16 representable steps** shows a worst gap of 32,888, which
+  again is denormals far apart in bit space and adjacent in value.
+
+The metric that means something is **worst absolute difference as a fraction of
+the tensor's own scale**, compared against fp16's 4.9e-4 resolution. The two
+built caches sit at 2.6e-4 of scale — inside storage precision, consistent with
+fp16 rounding boundaries and not with TF32.
+
+### Also in this change
+
+`--device` now defaults to `auto` in `build_cache.py` and `overfit_check.py`
+too. `build_cache` defaulted to `cpu`, so the backbones ran on the CPU unless
+somebody remembered the flag; `overfit_check` had a `device` parameter with no
+way to set it at all. `resolve_device` and `move` live in `scripts/device.py`
+so all three scripts decide the same way.
+
+Rebuilding the pilot cache on the GPU takes **3m48s**.

@@ -63,7 +63,7 @@ def run_overfit(
     lr: float = PRD_LR,
     seed: int = 42,
     grid: int = 7,
-    device: str = "cpu",
+    device: str = "auto",
     verbose: bool = True,
 ) -> dict:
     """Fit `n_sequences` random samples and report whether the loss collapsed.
@@ -76,6 +76,9 @@ def run_overfit(
 
     cfg = ablation_config(config_name)
     masks = lane_masks(DEMO_LANES, grid)
+    from scripts.device import resolve_device
+
+    device = resolve_device(device)
     model = MFSTNet(cfg, masks).to(device)
 
     # Raw frozen-backbone shapes, matching what the ADR-005 cache holds. The
@@ -159,6 +162,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--steps", type=int, default=400)
     parser.add_argument("--lr", type=float, default=PRD_LR, help="PRD §8.2 value")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--device", default="auto",
+                        help="auto|cpu|cuda. The plumbing check should exercise "
+                             "the device the real run will use")
     parser.add_argument(
         "--loss-threshold", type=float, default=0.05,
         help="pass if the final loss falls below this (default 0.05)",
@@ -182,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
             steps=args.steps,
             lr=args.lr,
             seed=args.seed,
+            device=args.device,
         )
         rows.append(row)
 

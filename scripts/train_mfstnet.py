@@ -50,6 +50,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 RESULTS = Path("experiments/results/ablation.csv")
+from scripts.device import move, resolve_device  # noqa: E402
+
 CLASSES = ("LOW", "MEDIUM", "HIGH")
 
 
@@ -170,28 +172,6 @@ def guard_results(out: Path, epochs: int, *, force: bool) -> None:
             f"somewhere else with --out, or pass --force if replacing it is "
             f"what you mean."
         )
-
-
-def resolve_device(requested: str) -> str:
-    """`auto` means use the GPU when there is one.
-
-    The default used to be no device handling at all: the model and every batch
-    stayed on the CPU whatever was installed, so a CUDA build of torch changed
-    nothing (P32). `build_cache.py` had a `--device` flag and this did not,
-    which is how a machine with an idle RTX 4050 trained on its CPU without
-    anything looking wrong.
-    """
-    import torch
-
-    if requested != "auto":
-        return requested
-    return "cuda" if torch.cuda.is_available() else "cpu"
-
-
-def move(batch, device):
-    """Batch tensors onto the device, tolerating a disabled branch (None)."""
-    return tuple(None if x is None else x.to(device, non_blocking=True)
-                 for x in batch)
 
 
 def feed(model, cnn, vit, masks=None):
