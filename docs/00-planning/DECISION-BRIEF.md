@@ -257,3 +257,111 @@ things at once**, and it is the only item on the critical path.
 | 6–8 | ADR-013 / 014 / 008 | — | proceed |
 
 **Signature / reply:** ______________________  **Date:** ____________
+
+---
+
+# Addendum — 2026-08-20
+
+Four days on from the brief above. Items 1–3 have passed their deadline and
+their defaults have fired, as designed. This addendum adds **one decision that
+was missing from the brief entirely**, revises one that has since been measured
+again, and reports what changed underneath both.
+
+Same protocol: a line per item is enough, and silence takes the stated default.
+
+## 10. Congestion thresholds — PCU units, per-camera calibration, pre-registration
+
+**Record:** [ADR-017](decisions/ADR-017-pcu-thresholds.md), with a proposed
+amendment dated today · **Default: adopt ADR-017 as amended**
+
+This should have been item 10 of the original brief and was not. It is the
+decision that determines what "congested" means in every table the project
+reports, so it cannot go by default without being seen at least once.
+
+**The core proposal is unchanged:** congestion is defined on PCU-weighted
+occupancy using Indo-HCM values, thresholds are calibrated per camera and
+pre-registered before any model trains, and the naive baseline is always
+reported with the thresholds that produced it.
+
+**Two defects were found by running it on a real multi-camera corpus**, and both
+are folded into the same sign-off:
+
+| | what happened | fix |
+|---|---|---|
+| **P34** | `low_max = p33 − 1` gives **−1** on per-lane counts, because 41.2% of them are zero. Nothing satisfies `count ≤ −1`, so calibration produced **0% LOW** — the degeneracy it exists to remove. | `low_max = max(0, p33 − 1)`. LOW means "an empty lane". |
+| **P37** | The code pooled every camera into one threshold pair. Decision 2 already forbids this. | Calibrate per camera, record `thresholds_by_clip` in the manifest. |
+
+Measured on the five-camera pilot:
+
+| labelling | train LOW/MED/HIGH | test |
+|---|---|---|
+| §14.1 defaults | 83.5 / 12.9 / 3.5 | degenerate |
+| pooled calibration | 57.2 / 19.2 / 23.6 | degenerate |
+| **per camera, clamped** | **59.2 / 26.0 / 14.7** | **25 / 50 / 25** |
+
+Per-camera calibration is the first labelling with **all three classes present
+in every split**.
+
+**The trade you are being asked to accept.** Per-camera thresholds make HIGH
+relative to a camera's own range. A lane that never holds more than one vehicle
+has no congested state and calibration must not invent one — so a quiet camera
+contributes **no HIGH examples at all**. HIGH is then carried by a subset of
+viewpoints and its cross-camera generalisation is tested on fewer cameras than
+LOW's. We will report that beside the per-class results.
+
+Pooled thresholds are the alternative: every camera gets all three classes, and
+the classes mean different things on each. We think that is worse, and it is
+what decision 2 already rejected in principle before there was data to show it.
+
+**Reversal cost: minutes.** `relabel_corpus.py` re-derives every label from the
+committed counts without re-running the detector, so this choice can be changed
+after the fact and the corpus rebuilt in seconds.
+
+## 5 (revised). `step_s = 2` — the segment figures are corrected
+
+The original item 5 quoted 19 independent segments rising to 42. **Those figures
+no longer reproduce** and are withdrawn: the footage set has changed, a
+duplicate camera was found, and the detector has been corrected twice. Measured
+today and committed as `experiments/results/corpus_yield.csv`:
+
+| `step_s` | independent segments | cameras contributing |
+|---|---|---|
+| 5 (PRD §8.2) | 29 | 7 of 11 |
+| **2 (proposed)** | **64** | **11 of 11** |
+
+**The stronger argument is the second column, not the first.** `step_s = 5`
+requires 355 s of continuous footage per clip and so **deletes four cameras
+outright**, including the Andheri intersection. Sequences from one camera are
+correlated; cameras are the unit the model must generalise over, and no
+augmentation manufactures a viewpoint.
+
+Recommendation unchanged: **adopt `step_s = 2`**.
+
+## What changed underneath, since 2026-08-16
+
+Reported because it affects what the decisions above cost, not for approval.
+
+- **The corpus pipeline runs end to end on real footage.** Every documented
+  step now has a real run behind it — corpus, cache, overfit check, all eight
+  ablation configs, and the count-sequence baselines.
+- **Lane geometry is per camera and revisable.** Placing lanes by hand was the
+  remaining manual step; re-placing one now costs **0.66 s** rather than a
+  detector pass over every clip, so a placement no longer has to be right first
+  time.
+- **Training moved to the GPU.** The full A–H ablation is **~1.5 h**, against
+  the 60–90 h PRD §21 budgets for an uncached run on a Colab T4. Two causes had
+  to be fixed: the documented install command pointed at a CUDA index that no
+  longer carries PyTorch, and the training script had no device handling at all.
+- **The gate has been shown to work.** Given a task that requires it, the gate
+  separates by 0.17–0.27 and routes toward whichever branch carries the signal.
+  On the pilot corpus it stays flat — which is now a statement about five
+  cameras rather than an open question about the architecture.
+
+## What we still need
+
+1. **A28** — `step_s = 2`. Determines whether a corpus exists at 11 cameras or 7.
+2. **ADR-017 as amended** — item 10 above. Determines what every table means.
+3. **IDD scope** — unchanged from the original brief.
+
+Nothing else is blocked. The pipeline, the tooling and the training path are
+all in place and measured; these three decide what the numbers are *of*.
