@@ -3431,3 +3431,59 @@ way to set it at all. `resolve_device` and `move` live in `scripts/device.py`
 so all three scripts decide the same way.
 
 Rebuilding the pilot cache on the GPU takes **3m48s**.
+
+## P34 — ADR-017's calibration rule made LOW unreachable on real footage (2026-08-20)
+
+**Status:** CLOSED · Found by running `relabel_corpus --calibrate` on the pilot
+corpus · **Bears directly on the pending ADR-017 sign-off**
+
+[ADR-017](decisions/ADR-017-pcu-thresholds.md) sets the class boundaries at the
+p33 and p67 of the observed count distribution, implemented as:
+
+```python
+low_max = percentile(observed, 33) - 1
+```
+
+The `- 1` is deliberate: it puts p33 itself in MEDIUM. It also assumes p33 is
+greater than zero, and on real footage it is not.
+
+**41.2% of per-lane counts in the pilot corpus are zero.** With four lanes on a
+camera, most lanes are empty at any given instant. So p33 = 0, `low_max` = −1,
+and **no count satisfies `count <= -1`** — the calibrated corpus came out 0%
+LOW in every split, which is precisely the degeneracy calibration exists to
+prevent.
+
+| labelling | train LOW / MEDIUM / HIGH |
+|---|---|
+| §14.1 defaults (4 / 15) | 83.5 / 12.9 / 3.5 |
+| CLAUDE.md's example (8 / 20) | 94.5 / 4.5 / 1.0 |
+| `--calibrate`, as written | **0.0** / 76.4 / 23.6 |
+| `--calibrate`, clamped | **57.2 / 19.2 / 23.6** |
+
+### The fix, and what it means for the ADR
+
+`low_max = max(0, p33 - 1)`. When p33 is zero, **LOW means "an empty lane"** —
+which is what the class should mean anyway, and which the unclamped rule
+expressed as an impossibility instead. A second guard widens MEDIUM by one if
+p33 and p67 collide, so a concentrated distribution cannot leave the middle
+class empty either.
+
+**ADR-017 should be amended before sign-off**, not worked around: its rule as
+written is correct only for a distribution with no mass at zero, and a
+per-lane vehicle count is exactly the kind that has a lot. The guide is being
+asked to approve a rule; it should be the one that works.
+
+### Reading the result honestly
+
+57.2 / 19.2 / 23.6 on train is usable. The **test split is still degenerate**,
+but for an unrelated reason: the pilot corpus has one test clip yielding one
+sequence, so four labels in total. That is a property of a five-camera pilot,
+not of the thresholds, and the eleven-camera corpus will not have it.
+
+### The rest of the pipeline, verified on real footage
+
+Every documented step now has a real run behind it rather than a `--help`
+check: `build_corpus` → `relane_corpus` → `relabel_corpus` → `build_cache` →
+`overfit_check` → `train_mfstnet --config` → `train_mfstnet --ablation` →
+`train_baselines`. All four count-sequence baselines train, xgboost included,
+so [P18](#p18)'s native-API fix holds on real data.

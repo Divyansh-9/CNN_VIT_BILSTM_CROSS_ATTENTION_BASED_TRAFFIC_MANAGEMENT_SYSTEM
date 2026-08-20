@@ -90,10 +90,30 @@ def main(argv: list[str] | None = None) -> int:
                     observed.append(int(round(values[index])))
         if not observed:
             raise SystemExit("no label-frame counts found; corpus is malformed")
-        low_max = percentile(observed, 33) - 1
+        p33, p67 = percentile(observed, 33), percentile(observed, 67)
+
+        # ADR-017's rule is `low_max = p33 - 1`, so that p33 itself lands in
+        # MEDIUM. That assumes p33 > 0, and on real footage it is not: an empty
+        # lane counts zero, and with four lanes per camera **41.2% of per-lane
+        # counts are zero**, which puts p33 at 0 and low_max at -1. No count
+        # can be <= -1, so LOW became unreachable and the calibrated corpus was
+        # 0% LOW — the exact degeneracy calibration exists to avoid (P34).
+        #
+        # Clamped at 0, LOW means "an empty lane", which is what the class
+        # should mean anyway.
+        low_max = max(0, p33 - 1)
         med_max = percentile(observed, 67)
+        if med_max <= low_max:
+            # A distribution concentrated enough that p33 and p67 collide
+            # leaves MEDIUM empty. Widening by one keeps three usable classes
+            # and is reported, never silent.
+            med_max = low_max + 1
+        zero_share = sum(1 for v in observed if v == 0) / len(observed)
         print(f"  calibrated on {len(observed)} label-frame counts: "
-              f"p33={low_max + 1} p67={med_max}")
+              f"p33={p33} p67={p67}  ({zero_share:.1%} of them zero)")
+        if p33 == 0:
+            print("  p33 is 0, so LOW is clamped to mean an empty lane "
+                  "(ADR-017's rule would give -1, which nothing satisfies)")
     else:
         if args.low_max is None or args.med_max is None:
             raise SystemExit("give --low-max and --med-max, or --calibrate")
