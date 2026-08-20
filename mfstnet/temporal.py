@@ -197,11 +197,33 @@ class TemporalEncoder(nn.Module):
                 raise ValueError(
                     f"bidirectional hidden 2x{self.cfg.hidden} must equal d_model {d}"
                 )
-            self.rnn = nn.LSTM(
-                d, self.cfg.hidden, self.cfg.layers,
-                batch_first=True, bidirectional=True,
-                dropout=self.cfg.dropout if self.cfg.layers > 1 else 0.0,
-            )
+            # One single-layer LSTM per layer, with dropout applied between them
+            # explicitly, rather than one multi-layer nn.LSTM with its built-in
+            # `dropout=`. The semantics are identical — PyTorch applies built-in
+            # dropout to the output of every layer except the last, which is
+            # what the loop in `forward` does — and the reason for the change is
+            # a platform defect, not a modelling one (P42).
+            #
+            # `nn.LSTM(..., dropout>0)` on CUDA in TRAINING mode aborts the
+            # process at teardown on this stack (torch 2.13.0+cu126, Python
+            # 3.14, Windows, sm_89) with STATUS_STACK_BUFFER_OVERRUN. cuDNN
+            # allocates a dropout-state descriptor that is not torn down
+            # cleanly. `dropout=0.0` is clean, `.eval()` is clean, and even a
+            # single layer aborts although torch ignores dropout there — so it
+            # is the descriptor, not the dropout.
+            #
+            # The alternatives were worse: disabling cuDNN for the RNN costs 11x
+            # (66.1 ms/step against 5.9), and setting dropout to zero only on
+            # CUDA would make the model's regularisation depend on the device,
+            # which is the exact defect class P39 exists to prevent. This costs
+            # about 12% of the LSTM step and nothing else.
+            self.rnn_layers = nn.ModuleList([
+                nn.LSTM(d, self.cfg.hidden, 1, batch_first=True,
+                        bidirectional=True)
+                for _ in range(self.cfg.layers)
+            ])
+            self.rnn_dropout = nn.Dropout(
+                self.cfg.dropout if self.cfg.layers > 1 else 0.0)
 
         if self.cfg.use_temporal_attn:
             self.pe = _SinusoidalPE(d)
@@ -218,7 +240,17 @@ class TemporalEncoder(nn.Module):
         cfg = self.cfg
         h_n: torch.Tensor | None = None
         if cfg.use_bilstm:
-            x, (h_n, _) = self.rnn(x)
+            # Dropout between layers, never after the last — PyTorch's own rule
+            # for a multi-layer nn.LSTM, reproduced explicitly (P42). `h_n` is
+            # concatenated so it keeps the [layers * 2, N, hidden] shape that
+            # `_last` reads.
+            states = []
+            for index, layer in enumerate(self.rnn_layers):
+                x, (h, _) = layer(x)
+                states.append(h)
+                if index < len(self.rnn_layers) - 1:
+                    x = self.rnn_dropout(x)
+            h_n = torch.cat(states, dim=0)
         if cfg.use_temporal_attn:
             x = self.attn(self.pe(x))
             h_n = None            # the sequence has been rewritten; h_n is stale

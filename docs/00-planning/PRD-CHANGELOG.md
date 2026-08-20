@@ -3890,3 +3890,82 @@ it is not worth doing to finish a deck. Logged rather than done.
 
 **Until then:** any of the three may be stated with its source named, and none
 of them may be described as measured-and-committed.
+
+## P42 — every GPU run was aborting after it finished, and I called it a shell artifact (2026-08-20)
+
+**Status:** CLOSED · Root cause found, fixed, and pinned by tests
+
+`nn.LSTM(..., dropout=0.2)` on CUDA in **training mode** aborts the process at
+teardown on this stack — torch 2.13.0+cu126, Python 3.14, Windows, sm_89 — with
+`STATUS_STACK_BUFFER_OVERRUN` (`0xC0000409`). cuDNN allocates a dropout-state
+descriptor that is not torn down cleanly.
+
+`TemporalConfig` sets `dropout=0.2` with the BiLSTM on, so **every ablation
+config except H** hit it, and so did every real training run:
+
+```
+train_mfstnet --device cuda   exit 127
+train_mfstnet --device cpu    exit 0
+```
+
+### The part worth recording is how it was missed
+
+**Everything succeeds first.** Training completes, the results CSV is written
+and correct, the summary prints — then the process dies. What is left is a
+non-zero exit code on a run whose output is perfectly good.
+
+The first time it appeared in this session I wrote, in as many words, *"exit 127
+is odd — probably a shell artifact after the run"*, and moved on. It was not an
+artifact. Every GPU training run reported here as successful had been returning
+failure, and the only reason the numbers are trustworthy is that the abort
+happens after the write, which is luck rather than design.
+
+It surfaced properly only because the **test suite** started returning non-zero
+while printing nothing but passes — the same signature, in a place where a
+non-zero exit is harder to shrug off.
+
+### Narrowing it
+
+| probe | result |
+|---|---|
+| bare CUDA tensor | clean |
+| ResNet-50 on CUDA | clean |
+| MFSTNet **construction** on CUDA | clean |
+| MFSTNet **forward** on CUDA | abort |
+| configs A–G | abort |
+| **config H** (no BiLSTM) | clean |
+| `TemporalEncoder` with BiLSTM | abort |
+| `nn.LSTM(dropout=0.0)` | clean |
+| `nn.LSTM(dropout=0.2)` | **abort** |
+| same, `.eval()` | clean |
+
+A single-layer LSTM aborts too, even though PyTorch ignores dropout there — so
+it is the descriptor being allocated, not dropout being applied.
+
+### The fix, and the two that were rejected
+
+`TemporalEncoder` now stacks **single-layer LSTMs with an explicit `nn.Dropout`
+between them**. That is precisely what PyTorch's built-in dropout does — output
+of every layer except the last — so it is a workaround for a platform defect
+rather than a modelling change, and a test holds it to that: given the same
+weights with dropout inactive, the two forms agree **bitwise**, with an
+identical parameter count.
+
+| option | cost | verdict |
+|---|---|---|
+| disable cuDNN for the RNN | 66.1 ms/step against 5.9 — **11×** | rejected |
+| set `dropout=0` on CUDA only | regularisation depends on the device | rejected outright — that is the [P39](#p39) defect class |
+| **stacked LSTMs + explicit dropout** | 6.7 ms/step — **12%** of the LSTM step | adopted |
+
+### Consequences
+
+- `train_mfstnet --device cuda` exits 0. The full test suite exits 0.
+- Parameter *names* changed (`rnn.weight_ih_l0` → `rnn_layers.0.weight_ih_l0`),
+  so any MFSTNet checkpoint predating this will not load. None exists.
+- Initialisation order changed, so seeded numbers move. `gate_capacity.csv` and
+  `overfit_check.csv` were regenerated rather than left stale: the gate result
+  holds across all three seeds — separation 0.243 / 0.235 / 0.188, same
+  direction — and every ablation config still memorises the pilot sample with
+  identical parameter counts.
+- `gate_capacity.py` now runs all three seeds into one CSV, because the deck
+  claimed a three-seed result while the committed file held one.

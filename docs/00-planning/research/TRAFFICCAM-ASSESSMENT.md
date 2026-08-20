@@ -100,5 +100,24 @@ in train and test. Same rule ADR-002 applies to the corpus.
 
 ## Licence
 
-Not yet established. The repository must be checked before any distribution or
-publication claim, and before weights trained on it are released.
+**Checked 2026-08-20: there is none.** Not "unclear" — absent, in all three
+places it could have been:
+
+| where | result |
+|---|---|
+| GitHub API, `Math-ML-X/TrafficCAM` | `"license": null` |
+| project site, `math-ml-x.github.io/TrafficCAM` | no terms of any kind |
+| `TrafficCAM-download.md` | download instructions only |
+
+No licence is the **restrictive** case, not the permissive one: nothing is
+granted, so default copyright applies. Research use is ordinary academic
+practice and continues. **Redistributing the data, or releasing weights trained
+on it, is not covered** — which touches the reproducibility package NFR-08 asks
+for.
+
+The paper is [arXiv:2211.09620](https://arxiv.org/abs/2211.09620), *TrafficCAM:
+A Versatile Dataset for Traffic Flow Segmentation*, by Deng, Cheng, Liu, Wang,
+Ke, Schönlieb and Aviles-Rivero (University of Cambridge, University of
+Bristol). Cite it regardless of what the licence turns out to be, and write to
+the authors for written permission before anything is released — see
+[DECISION-BRIEF item 11](../DECISION-BRIEF.md).

@@ -144,7 +144,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timesteps", type=int, default=8)
     parser.add_argument("--steps", type=int, default=400)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--seeds", default="1,7,42",
+        help="run each seed and record them all. One seed cannot distinguish a "
+             "gate that learned from a gate that happened to initialise wide")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--out", type=Path, default=RESULTS)
     args = parser.parse_args(argv)
@@ -155,19 +158,22 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  device {device}, {args.sequences} sequences, {args.steps} steps")
     print("  task: half the samples carry the label in CNN, half in ViT\n")
 
+    seeds = [int(s) for s in str(args.seeds).replace(" ", "").split(",") if s]
     rows = []
-    for name in ("F", "G"):
-        row = run(name, n=args.sequences, timesteps=args.timesteps,
-                  steps=args.steps, lr=args.lr, seed=args.seed, device=device)
-        rows.append(row)
-        gate = (f"gate {row['gate_mean']} +/- {row['gate_std']}"
-                if row["gate_std"] != "" else "no gate")
-        print(f"  {name}: accuracy {row['accuracy']:.3f}  "
-              f"loss {row['final_loss']:.4f}  {gate}")
-        if row["gate_separation"] != "":
-            print(f"     gate when CNN carries {row['gate_when_cnn_carries']}, "
-                  f"when ViT carries {row['gate_when_vit_carries']}  "
-                  f"(separation {row['gate_separation']})")
+    for seed in seeds:
+        for name in ("F", "G"):
+            row = run(name, n=args.sequences, timesteps=args.timesteps,
+                      steps=args.steps, lr=args.lr, seed=seed, device=device)
+            rows.append(row)
+            gate = (f"gate {row['gate_mean']} +/- {row['gate_std']}"
+                    if row["gate_std"] != "" else "no gate")
+            print(f"  seed {seed:<3} {name}: accuracy {row['accuracy']:.3f}  "
+                  f"loss {row['final_loss']:.4f}  {gate}")
+            if row["gate_separation"] != "":
+                print(f"           gate when CNN carries "
+                      f"{row['gate_when_cnn_carries']}, when ViT carries "
+                      f"{row['gate_when_vit_carries']}  "
+                      f"(separation {row['gate_separation']})")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="", encoding="utf-8") as handle:

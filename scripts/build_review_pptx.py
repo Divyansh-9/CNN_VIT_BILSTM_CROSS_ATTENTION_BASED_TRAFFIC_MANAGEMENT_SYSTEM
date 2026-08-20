@@ -212,7 +212,7 @@ class Deck:
         return self.rect(slide, left, top, width, weight, fill=colour)
 
     # -- slide furniture ---------------------------------------------------
-    def content(self, number, section, headline, *, lead=None, total=18):
+    def content(self, number, section, headline, *, lead=None, total=19):
         slide = self._blank(PAPER)
         self.slides.append(slide)
 
@@ -395,8 +395,9 @@ def slide_title(deck: Deck, fig: dict) -> None:
 
     deck.text(slide, MARGIN, Inches(6.62), Inches(11.9), Inches(0.3),
               size=9.5, font=MONO, colour=RGBColor(0x7A, 0x74, 0xB8))[3].text = (
-        "Every figure in this deck is read from a committed results CSV at build time. "
-        "Nothing on these slides is transcribed by hand.")
+        "Every validation figure is read from a committed results CSV at build time. "
+        "The two exceptions — S17's detector numbers and the timing comparison — say so "
+        "where they appear.")
 
     deck.notes(slide, """
 Open with the one-sentence version: this forecasts congestion per lane, sixty
@@ -579,7 +580,7 @@ DATASETS = [
      "Week-2 bootstrap; the project's only dashcam surface"),
     ("TrafficCAM", "github.com/Math-ML-X/TrafficCAM",
      "https://github.com/Math-ML-X/TrafficCAM",
-     "NOT ESTABLISHED", BAD,
+     "NONE DECLARED", BAD,
      "2,676 frames · ~72,000 boxes · 5 cities",
      "Cross-camera test — and the only source of e_rickshaw"),
     ("ITD v1.2", "github.com/teg-iitr/ITD-Indian-traffic-dataset",
@@ -638,16 +639,16 @@ def slide_data(deck: Deck) -> None:
 
     deck.panel(slide, Inches(9.35), BODY_Y - Inches(0.2), Inches(3.25), Inches(4.3),
                "Before anything is published", [
-                   ("TrafficCAM blocks release", "licence not established"),
+                   ("TrafficCAM: none declared", "checked — repo, site, download page"),
                    ("IDD requires a citation", "Varma et al., WACV 2019"),
                    ("ITD is non-commercial", "CC BY-NC 4.0 propagates"),
                    ("BMD-45 is the clean one", "CC BY 4.0, attribution only"),
                ],
-               footnote="TrafficCAM is described in our own assessment as the best data "
-                        "this project has, and it is a training and test source. Until "
-                        "the licence is settled, weights trained on it cannot be released "
-                        "and results from it cannot be published — which makes it a "
-                        "submission blocker, not an admin task.")
+               footnote="No licence is not the same as permissive: with none declared, "
+                        "default copyright applies. Research use is normal practice; "
+                        "redistributing the data or releasing weights trained on it is "
+                        "not granted. The authors are named and reachable, so we ask "
+                        "them — and cite the paper either way.")
     deck.notes(slide, """
 This slide exists because a panel or a reviewer will ask where the data came
 from, and because we found something while assembling it.
@@ -655,14 +656,22 @@ from, and because we found something while assembling it.
 Go across the licence column. BMD-45 is clean, CC BY 4.0. IDD needs a citation,
 which is easy. ITD is non-commercial, which constrains anything derived from it.
 
-Then stop on TrafficCAM. Our own assessment calls it the best data the project
-has, it trains the detector and it is the ONLY source of e-rickshaw examples --
-and its licence is, in the document's words, "not yet established". Nothing
-trained on it can be released until that is checked. Raise it here rather than
-discover it at submission.
+Then stop on TrafficCAM. It trains the detector, it is the ONLY source of
+e-rickshaw examples, and it declares no licence at all -- we checked the GitHub
+repository, the project website and the download page, and there is none in any
+of them.
 
-If asked what we will do: check the repository and contact the authors, and in
-the meantime keep results from it clearly separated.
+Be precise about what that means, because it is easy to get backwards. No
+licence is not permissive; it is restrictive. Default copyright applies, so
+nothing is granted. Using it for research is ordinary academic practice and we
+are comfortable with it. Redistributing the data, or releasing weights trained
+on it, is not.
+
+So the plan is: keep using it, cite the paper properly -- Deng et al.,
+arXiv:2211.09620, Cambridge and Bristol -- and email the authors for written
+permission before anything is released. If asked "is this a problem", the honest
+answer is: not for the project, potentially for the release, and one email fixes
+it.
 """)
 
 
@@ -1260,6 +1269,11 @@ def slide_engineering(deck: Deck) -> None:
                   size=9.5, colour=MUTED, spacing=1.2)[3].text = detail
         y += Inches(0.66)
 
+    deck.text(slide, MARGIN, Inches(4.02), Inches(7.0), Inches(0.22),
+              size=8.5, font=MONO, colour=FAINT)[3].text = (
+        "measured on the five-camera pilot during the optimisation work; "
+        "not a committed CSV")
+
     deck.panel(slide, Inches(8.3), BODY_Y - Inches(0.1), Inches(4.3), Inches(4.2),
                "Reproducibility machinery", [
                    ("Pre-registered thresholds", "fixed before the run that tests them"),
@@ -1340,6 +1354,75 @@ of them cost minutes to reverse.
 Finish with the honest limit rather than a flourish. Twenty of sixty-four
 segments come from one clip; more footage from one junction is the only thing
 that fixes it.
+""")
+
+
+REFERENCES = [
+    ("IDD",
+     "Varma, G., Subramanian, A., Namboodiri, A., Chandraker, M., & Jawahar, C. V. "
+     "(2019). IDD: A Dataset for Exploring Problems of Autonomous Navigation in "
+     "Unconstrained Environments. WACV 2019.",
+     "Citation required by the terms of use.", WARN),
+    ("TrafficCAM",
+     "Deng, Z., Cheng, Y., Liu, L., Wang, S., Ke, R., Schönlieb, C.-B., & "
+     "Aviles-Rivero, A. I. TrafficCAM: A Versatile Dataset for Traffic Flow "
+     "Segmentation. arXiv:2211.09620. University of Cambridge & University of Bristol.",
+     "No licence declared — cite, and seek written permission before release.", BAD),
+    ("ITD v1.2",
+     "Agarwal, Thombre, Kedia & Ghosh (2024). Indian Traffic Dataset. "
+     "Transportation Engineering Group, IIT Roorkee. CC BY-NC 4.0.",
+     "Non-commercial: the restriction propagates to anything derived.", WARN),
+    ("BMD-45",
+     "IISc AIM. BMD-45 (Hugging Face: iisc-aim/BMD-45). CVPR 2026. "
+     "arXiv:2604.24419. CC BY 4.0.",
+     "Author list to be completed from the paper before submission.", MUTED),
+    ("Bellevue Traffic Video Dataset",
+     "City of Bellevue, Washington. TrafficVideoDataset. "
+     "github.com/City-of-Bellevue/TrafficVideoDataset.",
+     "Released by a public body for research use.", GOOD),
+    ("Tooling",
+     "Jocher et al., Ultralytics YOLOv8 · Oquab et al. (2024), DINOv2 · "
+     "Raffin et al. (2021), Stable-Baselines3, JMLR 22(268) · "
+     "Lopez et al. (2018), Microscopic Traffic Simulation using SUMO, ITSC.",
+     "Cited in the paper's implementation section.", MUTED),
+]
+
+
+def slide_references(deck: Deck) -> None:
+    slide = deck.content(19, "References", ["Sources, ",
+                                            "and what each one obliges us to do"],
+                         lead="Written down now rather than reconstructed in Week 20. "
+                              "Two of these carry conditions that shape what can be "
+                              "released.", total=19)
+    y = BODY_Y - Inches(0.1)
+    for name, citation, obligation, colour in REFERENCES:
+        deck.text(slide, MARGIN, y, Inches(2.5), Inches(0.22),
+                  size=11, colour=INK, bold=True)[3].text = name
+        deck.text(slide, MARGIN + Inches(2.6), y, Inches(6.4), Inches(0.52),
+                  size=9, colour=MUTED, spacing=1.2)[3].text = citation
+        deck.rect(slide, MARGIN + Inches(9.2), y + Inches(0.02),
+                  Inches(0.045), Inches(0.045), fill=colour, shape=MSO_SHAPE.OVAL)
+        deck.text(slide, MARGIN + Inches(9.34), y - Inches(0.01), Inches(3.1),
+                  Inches(0.5), size=8.5, colour=colour, spacing=1.2)[3].text = obligation
+        y += Inches(0.72)
+        deck.rule(slide, MARGIN, y - Inches(0.16), CONTENT_W)
+
+    deck.text(slide, MARGIN, Inches(6.72), Inches(11.9), Inches(0.3),
+              size=9.5, font=MONO, colour=FAINT)[3].text = (
+        "Full entries in docs/00-planning/DATASETS.md  ·  "
+        "one marked item is deliberately incomplete rather than guessed")
+    deck.notes(slide, """
+Do not read this slide out. It is here so the panel can see the sources are
+tracked, and so the citations exist before the paper needs them.
+
+If you say anything, say the two obligations. IDD requires a citation as a
+condition of use, which we have. ITD is non-commercial, so anything derived from
+it inherits that -- worth knowing if this project is ever taken further.
+
+The BMD-45 line is deliberately marked incomplete. We have the venue, the arXiv
+number and the licence, but not the author list, so it says so rather than
+guessing. An examiner spotting a fabricated citation is far worse than one
+spotting a gap you have already flagged.
 """)
 
 
@@ -1492,12 +1575,15 @@ def main(argv: list[str] | None = None) -> int:
     slide_control(deck, figures)
     slide_engineering(deck)
     slide_next(deck)
+    slide_references(deck)
 
     deck.save(args.out)
     size = args.out.stat().st_size / 1024 / 1024
     print(f"\n  wrote {args.out}  ({len(deck.slides)} slides, {size:.2f} MB)")
     print(f"  images embedded: {len(images)} of 3")
-    print("  every figure read from experiments/results at build time")
+    print("  validation figures read from experiments/results at build time; "
+          "the S17\n  detector numbers and the timing table are marked on their "
+          "slides as not\n  coming from a committed CSV")
     return 0
 
 

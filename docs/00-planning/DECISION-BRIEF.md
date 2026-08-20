@@ -378,13 +378,26 @@ the one item here that can stop a submission rather than shape it.
 Our own assessment of TrafficCAM opens with *"the best data this project has"*.
 It is a detector **training** source, a **test** source, and the **only** supply
 of `e_rickshaw` examples anywhere in the project — the class that went from
-0.000 to 0.4787 once it was used. Under **Licence** the same document says, in
-full:
+0.000 to 0.4787 once it was used. Under **Licence** the same document said only
+that it was "not yet established" and had to be checked.
 
-> Not yet established. The repository must be checked before any distribution or
-> publication claim, and before weights trained on it are released.
+**It has now been checked, in all three places it could be:**
 
-That was written as a to-do and has not been actioned. Until it is:
+| where | result |
+|---|---|
+| GitHub API, `Math-ML-X/TrafficCAM` | `"license": null` |
+| project site, `math-ml-x.github.io/TrafficCAM` | no terms of any kind |
+| `TrafficCAM-download.md` | download instructions only, no terms |
+
+**There is no licence.** That is a more definite answer than "not established",
+and it is the restrictive one, not the permissive one: with nothing granted,
+default copyright applies.
+
+The practical reading, which is not alarming:
+
+- **Using it for research is ordinary academic practice.** Nothing about the
+  project's current work is unusual, and we are comfortable continuing.
+- **Redistribution and weight release are not granted.** Until:
 
 - **weights trained on it cannot be released**, which affects the reproducibility
   package NFR-08 asks for;
@@ -393,12 +406,15 @@ That was written as a to-do and has not been actioned. Until it is:
 - an IEEE ITSC or CVIP submission that includes either would be making a claim
   we cannot support.
 
-**What we propose to do:** check the repository for a licence file, and write to
-the authors if there is none. Meanwhile results from TrafficCAM stay clearly
-separated in the record so nothing has to be untangled later.
+**What we propose to do — one email.** The authors are named and reachable:
+Deng, Cheng, Liu, Wang, Ke, Schönlieb and Aviles-Rivero, at the University of
+Cambridge and the University of Bristol (arXiv:2211.09620). We ask for written
+permission covering research use and the release of weights trained on the data,
+and we cite the paper either way. Meanwhile results from TrafficCAM stay clearly
+identified in the record so nothing has to be untangled later.
 
 **Cost of the default:** none today. It only becomes expensive if we discover the
-answer at submission rather than now.
+answer at submission rather than now — and it is now answered.
 
 **For contrast, the rest of the data is clean.** BMD-45 is CC BY 4.0 and ungated;
 IDD needs a citation (Varma et al., WACV 2019); ITD is CC BY-NC 4.0, so anything
