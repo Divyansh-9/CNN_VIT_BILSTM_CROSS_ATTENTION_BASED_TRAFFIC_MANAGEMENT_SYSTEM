@@ -120,9 +120,24 @@ a reviewer was right to call that out.
 > sampling could only push `step_s` lower. The finding is robust in our disfavour.
 >
 > **Recommended: `step_s = 2`** — the conservative end of the measured range.
-> It takes the corpus from 8 usable cameras and 19 independent segments to
-> **11 cameras and 42 segments, with no new footage**, and admits the Andheri
-> intersection clip.
+>
+> **What it buys, measured** (`experiments/results/corpus_yield.csv`, P27):
+>
+> | `step_s` | independent segments | cameras contributing |
+> |---|---|---|
+> | 5 (today) | 29 | 7 of 11 |
+> | **2** | **62** | **9 of 11** |
+>
+> The segment count is the lesser half of this. `step_s = 5` needs 355 s of
+> footage per clip and so **deletes four cameras outright** — including the
+> Andheri intersection, the best-composed Indian scene in the collection.
+> Sequences from one camera are correlated; cameras are the unit the model must
+> generalise over, and no augmentation manufactures a viewpoint.
+>
+> *An earlier version of this brief quoted 19 → 42 segments over 8 → 11
+> cameras. Those figures predate the duplicate-camera finding (P22) and two
+> detector fixes (P20, P24) and no longer reproduce; they are withdrawn in
+> favour of the committed CSV.*
 >
 > **This has become the highest-priority item in this brief.** It determines
 > whether a training corpus exists at all: at `step_s = 5` the only surveyed

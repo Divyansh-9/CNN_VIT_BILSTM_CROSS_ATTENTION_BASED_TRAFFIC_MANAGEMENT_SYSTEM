@@ -2282,6 +2282,11 @@ A28 already nominated as its working default.
 | cameras usable | 8 | **11** |
 | independent segments | 19 | **42** |
 
+> **Superseded by [P27](#p27).** The segment counts here no longer reproduce —
+> they predate the duplicate-camera finding and two detector fixes. Measured
+> today: 29 segments over 7 cameras at `step_s = 5`, 62 over 9 at `step_s = 2`.
+> The window spans are arithmetic and stand.
+
 **This is the decision that determines whether a corpus exists**, and it needs no
 new footage. Three currently-rejected clips become usable, one of them the
 Andheri intersection that A28's own entry calls the best-composed Indian
@@ -2302,6 +2307,13 @@ together: the window count without the segment count overstates the evidence by
 roughly ninety-fold. Hours of footage from one junction remains the only thing
 that changes that — but this change moves the project from *cannot train* to
 *can train honestly*, today, on data already downloaded.
+
+> **Superseded by [P27](#p27).** The `~1,000 windows` and `ninety-fold` figures
+> were estimates, and both are wrong once measured. At the committed geometry —
+> `stride_s = 30`, not one window per frame — the corpus is **355 windows over
+> 62 independent segments, an inflation of 5.7×**. The direction of the warning
+> was right and its magnitude was invented; the paired-reporting rule it
+> introduced stands and is now stated with measured numbers.
 
 ---
 
@@ -2912,3 +2924,51 @@ at four, 11.2% and 3.3%.
 > than an architectural constant. The two only meet at live integration, which
 > is Phase 3 and optional. The constraint is narrower than "four by contract":
 > **one corpus, one count.**
+
+## P27 — the A28 segment counts are superseded, and the argument for them was the weaker one (2026-08-20)
+
+**Status:** CLOSED · Found while computing corpus yield before the real build
+
+The P22 addendum and [DECISION-BRIEF](DECISION-BRIEF.md) §5 both quote **19
+independent segments at `step_s = 5` rising to 42 at `step_s = 2`**, across 8
+cameras rising to 11. Recomputing over today's footage reproduces neither
+number, from either the triage list or the survey.
+
+`scripts/corpus_yield.py` now computes it, and `experiments/results/corpus_yield.csv`
+is the source. Over 12 clips collapsing to 11 distinct cameras, counting only
+those clearing P17's 35% unassigned gate:
+
+| `step_s` | window span | sequences | independent segments | inflation | cameras |
+|---|---|---|---|---|---|
+| 1 | 119 s | 373 | 98 | 3.8× | 9 of 11 |
+| **2** | **178 s** | **355** | **62** | **5.7×** | **9 of 11** |
+| 5 | 355 s | 302 | 29 | 10.4× | 7 of 11 |
+
+The old figures were computed on a footage set from an earlier date and are
+withdrawn rather than reconciled — the footage has changed, the duplicate
+camera has since been found (P22), and the detector has been fixed twice
+(P20, P24). Quoting a number that no longer reproduces is worse than quoting a
+smaller one that does.
+
+### The argument was the weaker one either way
+
+Both documents lead with the corpus roughly doubling. **Sequence count is a
+poor argument and doubling it is a poorer one**: consecutive windows overlap
+heavily — at `step_s = 2` a window spans 178 s against a 30 s stride — so the
+count rises with the stride while the information does not. The measured
+inflation is 5.7× at `step_s = 2` and 10.4× at 5.
+
+The argument that survives is different and stronger. **`step_s = 5` requires
+355 s per clip and so deletes four cameras outright.** Sequences drawn from one
+camera are correlated; cameras are the unit the model has to generalise over,
+and no amount of sliding-window augmentation manufactures a viewpoint. Going
+from 7 contributing cameras to 9 — 11 once P25's lane counts are placed — is
+the change that matters.
+
+### The honest limit is unchanged and slightly worse
+
+62 independent segments is a pilot-scale corpus, and 20 of them come from a
+single motorway clip. Both numbers travel together in the paper: **355 windows
+over 62 independent segments over 9 cameras.** The window count alone overstates
+the evidence by 5.7×, and the segment count alone hides that a third of it is
+one camera.
