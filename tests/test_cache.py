@@ -232,3 +232,73 @@ def test_a_cached_window_feeds_the_model_directly(tmp_path):
 
     assert out.logits.shape == (1, 4, 3)
     assert out.gate is not None
+
+
+# ------------------------------------------- reading a window, not a clip --
+
+def test_a_window_does_not_read_the_whole_clip(cache, features, monkeypatch):
+    """P29. `read_window` used to call `read_clip`, which loads every frame and
+    widens fp16 to fp32 before the slice is taken — so a batch of 32 windows
+    from one clip read that clip 32 times. On a 1,035-frame clip that is 26 GB
+    of churn for 1.5 GB of data; it exhausted 8.4 GB of free memory on the
+    first batch and segfaulted on the second.
+
+    Pinned as a call, not as a memory measurement, because the memory number
+    depends on the machine and the design decision does not.
+    """
+    cnn, vit = features
+    cache.write_clip("src", "clip", list(range(N)), cnn=cnn, vit=vit)
+
+    def fail(*args, **kwargs):
+        raise AssertionError("read_window must not load the whole clip")
+
+    monkeypatch.setattr(FeatureCache, "read_clip", fail)
+    window_cnn, window_vit = cache.read_window("src", "clip", 2, 3)
+    assert window_cnn.shape == (1, 3, CNN_C, 7, 7)
+    assert window_vit.shape == (1, 3, VIT_C, 16, 16)
+
+
+def test_a_window_matches_the_same_slice_of_the_clip(cache, features):
+    """The optimisation must not change a single value."""
+    cnn, vit = features
+    cache.write_clip("src", "clip", list(range(N)), cnn=cnn, vit=vit)
+
+    _, whole_cnn, whole_vit = cache.read_clip("src", "clip")
+    window_cnn, window_vit = cache.read_window("src", "clip", 2, 3)
+
+    assert torch.equal(window_cnn[0], whole_cnn[2:5])
+    assert torch.equal(window_vit[0], whole_vit[2:5])
+
+
+def test_a_window_is_widened_to_the_requested_dtype(cache, features):
+    """Storage is fp16; the model wants fp32. The widening moved after the
+    slice, so it must still happen."""
+    cnn, vit = features
+    cache.write_clip("src", "clip", list(range(N)), cnn=cnn, vit=vit)
+
+    default_cnn, _ = cache.read_window("src", "clip", 0, 2)
+    half_cnn, _ = cache.read_window("src", "clip", 0, 2, dtype=torch.float16)
+
+    assert default_cnn.dtype == torch.float32
+    assert half_cnn.dtype == torch.float16
+
+
+def test_a_missing_clip_still_raises_before_any_read(cache):
+    with pytest.raises(FileNotFoundError, match="no cached features"):
+        cache.read_window("src", "absent", 0, 2)
+
+
+def test_a_window_still_verifies_the_preprocessing_hash(cache, features, tmp_path):
+    """The hash check protects against a stale file in a valid cache. Moving
+    the read off `read_clip` must not have moved past that check."""
+    import json
+
+    cnn, vit = features
+    path = cache.write_clip("src", "clip", list(range(N)), cnn=cnn, vit=vit)
+
+    payload = torch.load(path, map_location="cpu", weights_only=True)
+    payload["preprocessing_hash"] = "a-different-configuration"
+    torch.save(payload, path)
+
+    with pytest.raises(CacheMismatchError, match="stale file"):
+        cache.read_window("src", "clip", 0, 2)

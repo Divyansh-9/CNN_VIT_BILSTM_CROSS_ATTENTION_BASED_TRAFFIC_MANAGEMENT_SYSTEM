@@ -3073,3 +3073,68 @@ lanes.
 > they mark the approaches a signal controller would act on. That distinction
 > is the whole reason for the review step (P23), and 10.5% versus 0.2% does not
 > excuse it.
+
+## P29 — training segfaulted on the second batch, because a window read its whole clip (2026-08-20)
+
+**Status:** CLOSED · Found by running the corpus pipeline end to end on real
+multi-camera footage for the first time
+
+The [P26](#p26) fixes were unit-tested but the assembled path had never run on
+video. Five cameras, four lanes each, `--step-s 2`, `--imgsz 992`: the corpus
+built (85 sequences), the cache built (0.66 GB), and training **segfaulted**,
+exit 139, with no Python traceback.
+
+### What it was
+
+`FeatureCache.read_window` called `read_clip`, which loads **every frame of the
+clip** and widens fp16 storage to fp32 — then sliced 60 frames out and threw
+the rest away. Per window.
+
+A batch of 32 windows from one clip therefore read that clip 32 times. On the
+1,035-frame camera that is **26 GB of allocation churn to produce 1.5 GB of
+batch**. Measured: collating one batch took free memory from 8.4 GB to 0.0 GB,
+and the second batch died.
+
+It had never shown up because every previous run used `corpus_smoke` — four
+short clips, tens of frames each, where reading the whole clip costs nothing.
+
+### The fix
+
+`read_window` now memory-maps the file and **slices before widening**, so only
+the frames it needs are ever materialised. Measured on the 411 MB clip: **0.01
+GB against 0.43 GB, and 29× faster.** The preprocessing-hash check still runs
+first; a stale file is still refused.
+
+`read_clip` keeps its eager behaviour for callers that genuinely want a whole
+clip.
+
+> **Why the segfault had no traceback.** It was not a Python-level
+> `MemoryError` — the allocator failed inside a native `torch.load`, so the
+> process died before anything could be raised. A silent exit 139 after a clean
+> start is the shape this defect takes, and it is worth recognising: nothing in
+> the log said "memory".
+
+### What the end-to-end run also confirmed
+
+- `build_corpus --lanes-dir` produces per-camera geometry for five distinct
+  cameras, and training reports `per-camera ROI geometry for 5 camera(s)`.
+- `detections.csv` holds 30,292 rows and `relane_corpus.py` re-derives the
+  whole corpus from it in **0.66 s**, against roughly 56 minutes for the
+  detector pass that produced it.
+- `build_cache` caches exactly up to each clip's last needed label frame rather
+  than the whole clip, which is why its frame counts sit below the corpus
+  sample counts.
+
+### Also fixed: empty frames were dropped on re-derivation
+
+A frame the detector found nothing in writes no rows to `detections.csv`, so
+`relane_corpus.py` skipped it — and an empty frame is not missing data, it is
+**zero traffic, a LOW label**. Worse, compacting the series breaks the index
+arithmetic: window position *i* stops meaning sample *i*, so every label is
+read from the wrong moment.
+
+Measured on the real corpus: **119 of 1,046 samples** on one camera, 3 on
+another. `build_corpus` now records `samples_per_clip` and `relane_corpus`
+rebuilds the full range, counting a missing sample as zero. Corpora built
+before this fall back to the highest index seen and say so — interior gaps are
+recovered, trailing ones cannot be.

@@ -249,7 +249,28 @@ class FeatureCache:
         if not path.exists():
             raise FileNotFoundError(f"no cached features for {source_id}/{clip_id}")
 
-        payload = torch.load(path, map_location="cpu", weights_only=True)
+        payload = self._load_payload(path)
+        return (
+            payload["frame_indices"],
+            None if payload["cnn"] is None else payload["cnn"].to(dtype),
+            None if payload["vit"] is None else payload["vit"].to(dtype),
+        )
+
+    def _load_payload(self, path: Path, *, mmap: bool = False) -> dict:
+        """Load one clip file and verify its preprocessing hash.
+
+        `mmap` keeps the tensors lazy so a caller can slice a window without
+        materialising the whole clip. Falls back to a plain load if the file
+        predates zipfile serialisation, because a slower read is better than a
+        failed one.
+        """
+        try:
+            payload = torch.load(path, map_location="cpu", weights_only=True,
+                                 mmap=mmap)
+        except (RuntimeError, ValueError):
+            if not mmap:
+                raise
+            payload = torch.load(path, map_location="cpu", weights_only=True)
         stored = payload.get("preprocessing_hash")
         if stored != self.spec.hash:
             raise CacheMismatchError(
@@ -258,11 +279,7 @@ class FeatureCache:
                 f"stale file in an otherwise valid cache is exactly the case "
                 f"that trains without complaint and reports wrong numbers."
             )
-        return (
-            payload["frame_indices"],
-            None if payload["cnn"] is None else payload["cnn"].to(dtype),
-            None if payload["vit"] is None else payload["vit"].to(dtype),
-        )
+        return payload
 
     def read_window(
         self,
@@ -279,8 +296,21 @@ class FeatureCache:
         which is the second reason to cache per clip rather than per sequence.
         Storing sequences would write those shared frames ten times over, and it
         is also how clip-level splits get violated by accident.
+
+        **Read the window, not the clip.** This used to call `read_clip`, which
+        loads every frame and widens fp16 to fp32 before the slice is taken —
+        so a batch of 32 windows from one clip read that clip 32 times over. On
+        a 1,035-frame clip that is 26 GB of churn for 1.5 GB of data, and it
+        exhausted 8.4 GB of free memory on the first batch and segfaulted on the
+        second. Memory-mapping keeps the load lazy: measured 29x faster and
+        0.01 GB against 0.43 GB for one window.
         """
-        indices, cnn, vit = self.read_clip(source_id, clip_id, dtype=dtype)
+        path = self.clip_path(source_id, clip_id)
+        if not path.exists():
+            raise FileNotFoundError(f"no cached features for {source_id}/{clip_id}")
+        payload = self._load_payload(path, mmap=True)
+        indices = payload["frame_indices"]
+        cnn, vit = payload["cnn"], payload["vit"]
         available = len(indices)
         if start < 0 or start + length > available:
             raise IndexError(
@@ -288,10 +318,13 @@ class FeatureCache:
                 f"{clip_id!r}, which has {available} cached frames. Never pad or "
                 f"truncate a window — drop the sequence (HLD §8)."
             )
+        # Slice first, widen second. Converting before the slice materialises
+        # the whole clip at twice its stored size, which is the cost this
+        # method exists to avoid.
         window = slice(start, start + length)
         return (
-            None if cnn is None else cnn[window].unsqueeze(0),
-            None if vit is None else vit[window].unsqueeze(0),
+            None if cnn is None else cnn[window].to(dtype).unsqueeze(0),
+            None if vit is None else vit[window].to(dtype).unsqueeze(0),
         )
 
     def estimate_bytes(self, n_frames: int) -> int:

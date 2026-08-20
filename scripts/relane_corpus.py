@@ -86,6 +86,10 @@ def main(argv: list[str] | None = None) -> int:
     manifest = json.loads((args.corpus / "manifest.json").read_text(encoding="utf-8"))
     per_clip_lanes = load_reviewed_lanes(args.lanes_dir)
     detections = read_detections(detections_csv)
+    # A plain dict from here on: `samples.get(index, [])` on a defaultdict
+    # would insert the missing key and quietly grow the mapping while it is
+    # being read.
+    detections = {clip: dict(samples) for clip, samples in detections.items()}
 
     conf = float(manifest["conf"])
     step_s = manifest["step_s"]
@@ -114,13 +118,27 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print("  {:<44}{:>9}{:>13}".format("clip", "samples", "unassigned"))
 
+    # A frame the detector found nothing in writes no rows, so iterating the
+    # keys of detections.csv would skip it -- and an empty frame is zero
+    # traffic, a LOW label, not missing data. Worse, compacting the series
+    # breaks the index arithmetic: window position i would stop meaning sample
+    # i, and every label would be read from the wrong moment.
+    per_clip_samples = manifest.get("samples_per_clip") or {}
+    if not per_clip_samples:
+        per_clip_samples = {c: max(s) + 1 for c, s in detections.items()}
+        print("  NOTE: this corpus predates samples_per_clip. Trailing frames")
+        print("  with no detections cannot be recovered and the series may be")
+        print("  short; rebuild once with build_corpus.py to fix.")
+        print()
+
     all_counts, all_sequences, lanes_by_clip = [], [], {}
     for clip_id in sorted(detections):
         clip_lanes = lanes_by_stem[clip_id]
         samples = detections[clip_id]
         rows = []
-        for index in sorted(samples):
-            counts = count_frame(samples[index], clip_lanes, min_confidence=conf)
+        for index in range(per_clip_samples[clip_id]):
+            counts = count_frame(samples.get(index, []), clip_lanes,
+                                 min_confidence=conf)
             row = {"clip_id": clip_id, "sample": index,
                    "t_s": round(index * step_s, 2)}
             for name in lane_names(clip_lanes):

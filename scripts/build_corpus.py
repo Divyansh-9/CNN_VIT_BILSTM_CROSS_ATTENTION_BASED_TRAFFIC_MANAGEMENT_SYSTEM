@@ -516,6 +516,12 @@ def main(argv: list[str] | None = None) -> int:
         "clips": sorted(by_clip), "splits": splits,
         "split_mode": args.split_mode,
         "auto_labelled": True,
+        # A frame where the detector saw nothing writes no rows to
+        # detections.csv, so the sample count cannot be recovered from it --
+        # and an empty frame is not missing data, it is zero traffic, which is
+        # a LOW label. Recording the true count lets relane_corpus rebuild the
+        # full series instead of silently compacting it (P28).
+        "samples_per_clip": {c: len(rows) for c, rows in sorted(by_clip.items())},
         "relane_note": (
             "detections.csv holds every detection in normalised coordinates "
             "and is LANE-INDEPENDENT. scripts/relane_corpus.py re-derives "
