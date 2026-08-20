@@ -131,8 +131,16 @@ LANE_SETS = {
 
 
 def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
-                  conf: float, imgsz: int = 640) -> tuple[list[dict], int]:
-    """Per-lane occupancy every `step_s` seconds. Returns (rows, n_samples)."""
+                  conf: float, imgsz: int = 640) -> tuple[list[dict], int, list[dict]]:
+    """Per-lane occupancy every `step_s` seconds.
+
+    Returns `(rows, n_samples, detections)`. The third is every detection in
+    normalised coordinates, and it is the expensive thing this function
+    produces: **it does not depend on the lanes**. Writing it out is what makes
+    moving a lane centre a seconds-long re-derivation instead of another pass
+    of the detector over every clip (P28) — the same argument the manifest
+    already makes for thresholds.
+    """
     import cv2
 
     capture = cv2.VideoCapture(str(clip))
@@ -140,7 +148,7 @@ def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
     total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
     stride = max(1, int(round(fps * step_s)))
 
-    rows = []
+    rows, detected = [], []
     for index in range(0, total, stride):
         capture.set(cv2.CAP_PROP_POS_FRAMES, index)
         ok, frame = capture.read()
@@ -162,6 +170,13 @@ def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
             if int(c) in ids
         ]
         counts = count_frame(detections, lanes, min_confidence=conf)
+        for d in detections:
+            detected.append({
+                "clip_id": clip.stem, "sample": len(rows),
+                "cls": d.cls, "confidence": round(d.confidence, 4),
+                "x1": round(d.x1, 5), "y1": round(d.y1, 5),
+                "x2": round(d.x2, 5), "y2": round(d.y2, 5),
+            })
         row = {"clip_id": clip.stem, "sample": len(rows),
                "t_s": round(len(rows) * step_s, 2)}
         for name in lane_names(lanes):
@@ -169,7 +184,7 @@ def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
         row["unassigned"] = counts.unassigned
         rows.append(row)
     capture.release()
-    return rows, len(rows)
+    return rows, len(rows), detected
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -296,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     all_counts, all_sequences, skipped, rejected = [], [], [], []
     signatures: dict[str, list[float]] = {}
     lanes_by_clip: dict[str, object] = {}
+    all_detections: list[dict] = []
     for clip in clips:
         # Duration first. Running the detector over a clip that cannot yield a
         # single window is pure waste, and most of a mixed footage directory is
@@ -315,9 +331,9 @@ def main(argv: list[str] | None = None) -> int:
                 f"label built on it is arbitrary (P17)."
             )
         clip_lanes = per_clip_lanes.get(clip.name, lanes)
-        rows, n = sample_counts(clip, clip_lanes, model, ids, names,
-                                imgsz=args.imgsz,
-                                step_s=args.step_s, conf=args.conf)
+        rows, n, detected = sample_counts(clip, clip_lanes, model, ids, names,
+                                          imgsz=args.imgsz,
+                                          step_s=args.step_s, conf=args.conf)
 
         # P17. Counts through a mismatched polygon are not low counts, they are
         # counts of the wrong region — and a balanced label distribution over
@@ -354,6 +370,7 @@ def main(argv: list[str] | None = None) -> int:
                 cv2.cvtColor(mid, cv2.COLOR_BGR2GRAY))
 
         lanes_by_clip[clip.stem] = clip_lanes
+        all_detections.extend(detected)
         all_counts.extend(rows)
         all_sequences.extend(sequences)
         print(f"  {clip.stem[:44]:<46} {n:>4} samples  {len(sequences):>4} sequences")
@@ -452,6 +469,17 @@ def main(argv: list[str] | None = None) -> int:
         writer = csv.DictWriter(handle, fieldnames=list(all_counts[0]))
         writer.writeheader()
         writer.writerows(all_counts)
+    # The lane-independent half of the expensive pass. counts.csv is derived
+    # from this under one particular set of lane centres; keeping the source
+    # means moving a centre costs a re-derivation rather than another run of
+    # the detector over every clip (P28). NFR-13 is unaffected: these are
+    # normalised boxes and classes, never pixels.
+    if all_detections:
+        with (args.out / "detections.csv").open("w", newline="",
+                                                encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(all_detections[0]))
+            writer.writeheader()
+            writer.writerows(all_detections)
     with (args.out / "sequences.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(labelled[0]))
         writer.writeheader()
@@ -488,6 +516,13 @@ def main(argv: list[str] | None = None) -> int:
         "clips": sorted(by_clip), "splits": splits,
         "split_mode": args.split_mode,
         "auto_labelled": True,
+        "relane_note": (
+            "detections.csv holds every detection in normalised coordinates "
+            "and is LANE-INDEPENDENT. scripts/relane_corpus.py re-derives "
+            "counts and labels under different lane centres from it, without "
+            "re-running the detector -- so a lane placement is revisable in "
+            "seconds and does not have to be right first time."
+        ),
         "low_max": args.low_max, "med_max": args.med_max,
         "threshold_note": (
             "The expensive pass produces counts.csv, which is "

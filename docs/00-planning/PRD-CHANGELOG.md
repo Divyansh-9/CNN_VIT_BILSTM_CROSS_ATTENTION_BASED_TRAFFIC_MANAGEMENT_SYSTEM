@@ -2972,3 +2972,55 @@ single motorway clip. Both numbers travel together in the paper: **355 windows
 over 62 independent segments over 9 cameras.** The window count alone overstates
 the evidence by 5.7×, and the segment count alone hides that a third of it is
 one camera.
+
+## P28 — moving a lane centre cost a full detector pass, so it would not have been moved (2026-08-20)
+
+**Status:** CLOSED · Found while checking what the [P26](#p26) manifest change
+implied for the cache
+
+The corpus manifest already carries a `threshold_note` making a point it is
+proud of: `counts.csv` is threshold-independent, so `relabel_corpus.py`
+re-derives labels in seconds and **a threshold decision is a config change,
+never a reason to delay building the corpus.**
+
+The same principle was only half applied. `counts.csv` holds *per-lane* counts,
+so it is lane-*dependent*: changing a lane centre meant running the detector
+over every clip again. Eleven cameras at ITD-XL and `imgsz=992` is hours.
+
+### Why that is worse than it sounds
+
+Lane centres are placed by hand over a detection heatmap, by eye, on twelve
+cameras at four centres each. **That is not going to be right first time**, and
+the honest test of a placement is not how it looks but the unassigned rate it
+produces — which is only visible after counting.
+
+A feedback loop costing hours per iteration is a feedback loop that gets used
+once. The placement would have been judged on appearance and kept.
+
+### The fix
+
+`build_corpus.py` now also writes **`detections.csv`** — every detection in
+normalised coordinates, with class and confidence. It is the expensive output
+of the pass and **it does not depend on the lanes at all**.
+`scripts/relane_corpus.py` rebuilds counts, labels and the manifest from it.
+
+Measured on a two-camera corpus: **0.36 seconds.** The two placements it was
+given differ exactly as they should — 2.0% of detections unassigned under
+sensible centres, 87.8% under deliberately bad ones.
+
+| changing | costs |
+|---|---|
+| label thresholds | `relabel_corpus.py` — seconds |
+| **lane centres** | **`relane_corpus.py` — seconds** |
+| detector, confidence, `step_s`, `imgsz` | `build_corpus.py` — hours |
+
+Splits are carried over verbatim rather than recomputed, so a lane change is
+the *only* difference between two corpora and they stay comparable. The feature
+cache is untouched: ROI pooling applies geometry at train time (P26), so
+`build_cache.py` never needs re-running for a lane change.
+
+NFR-13 is unaffected — normalised boxes and class names, never pixels.
+
+> **Note for the paper.** This makes lane placement a *revisable* parameter,
+> which means the placement finally used has to be recorded and justified like
+> any other. `relaned_from` in the manifest keeps the chain.
