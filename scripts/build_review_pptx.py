@@ -92,6 +92,48 @@ def mean_map50(name: str) -> float:
     return statistics.mean(values)
 
 
+def project_counts() -> dict:
+    """Counts that would otherwise be typed once and drift.
+
+    A slide claiming 620 tests while the suite has 628 is a small thing that
+    quietly tells a reader the deck was assembled by hand. Collection is used
+    rather than execution because it costs a second and the number is the same.
+    """
+    import functools
+    import subprocess
+
+    @functools.lru_cache(maxsize=1)
+    def compute() -> dict:
+        counts = {"tests": "?", "commits": "?",
+                  "adrs": len(list((ROOT / "docs" / "00-planning" / "decisions")
+                                   .glob("ADR-*.md")))}
+        try:
+            out = subprocess.run(
+                [sys.executable, "-m", "pytest", "--collect-only", "-q",
+                 str(ROOT / "tests")],
+                capture_output=True, text=True, timeout=300, cwd=str(ROOT)).stdout
+            # `pytest --collect-only -q` prints one "path: N" line per file
+            # and no total, so the total is the sum.
+            total = 0
+            for line in out.splitlines():
+                _, _, tail = line.rpartition(":")
+                if tail.strip().isdigit():
+                    total += int(tail.strip())
+            if total:
+                counts["tests"] = total
+        except (OSError, subprocess.SubprocessError, ValueError):
+            pass
+        try:
+            counts["commits"] = int(subprocess.run(
+                ["git", "rev-list", "--count", "HEAD"], capture_output=True,
+                text=True, timeout=30, cwd=str(ROOT)).stdout.strip())
+        except (OSError, subprocess.SubprocessError, ValueError):
+            pass
+        return counts
+
+    return compute()
+
+
 def load_figures() -> dict:
     """Every number the deck states, read from the CSV that produced it."""
     counting = {r["conf"]: r for r in read_results("s14_counting_threshold_sweep.csv")}
@@ -383,8 +425,11 @@ def slide_title(deck: Deck, fig: dict) -> None:
     deck.text(slide, MARGIN, Inches(5.86), Inches(6), Inches(0.25),
               size=10.5, font=MONO, colour=DIM_CREAM)[3].text = GUIDE
 
-    stats = [("0.8941", "mAP50, elevated CCTV"), ("620", "tests passing"),
-             ("18", "decisions recorded"), ("1.5 h", "full ablation")]
+    counts = project_counts()
+    stats = [(f"{fig['bmd45_mean']:.4f}", "mAP50, elevated CCTV"),
+             (str(counts["tests"]), "committed tests"),
+             (str(counts["adrs"]), "decisions recorded"),
+             ("1.5 h", "full ablation")]
     for index, (value, label) in enumerate(stats):
         x = Inches(6.9) + index * Inches(1.62)
         deck.text(slide, x, Inches(5.3), Inches(1.5), Inches(0.4),
@@ -897,9 +942,10 @@ def slide_generalisation(deck: Deck, fig: dict) -> None:
     run.text = ("Adding 1,254 human-annotated TrafficCAM boxes moved cross-camera "
                 "accuracy to 0.5734 and brought e_rickshaw from 0.000 to 0.4787 — a class "
                 "the detector had been shipping an output head for without ever seeing an "
-                "example. That arm still failed a sixth pre-registered criterion, so it is "
-                "not adopted. The criterion was fixed before the run and is not being "
-                "retuned to fit the number it rejected.")
+                "example. That arm was recorded as failing a sixth criterion on IDD. "
+                "Re-measuring the baseline it was judged against does not reproduce it, so "
+                "the verdict is suspended rather than reversed: both sides have to be "
+                "measured the same way before it means anything.")
 
     deck.panel(slide, Inches(9.35), BODY_Y - Inches(0.1), Inches(3.25), Inches(3.5),
                "The comparison that shows it", [
@@ -915,10 +961,13 @@ number that governs deployment is 0.3500. A junction the model has not seen is
 the third column.
 
 The amber box is the one to dwell on if there is time. We found something that
-fixed a real gap -- e-rickshaw went from literally zero to 0.48 -- and we still
-did not adopt it, because it failed a criterion we had fixed in advance. That
-discipline has cost us a preferred answer four times, which is the only reason
-it means anything.
+fixed a real gap -- e-rickshaw went from literally zero to 0.48 -- and did not
+adopt it, because it was recorded as failing a criterion fixed in advance.
+
+Then be honest about what happened next: re-measuring that criterion's baseline
+did not reproduce the number it was judged against. So the verdict is suspended,
+not reversed. Reversing it on one re-measured half would repeat the mistake that
+caused it. If asked what we will do: measure both sides the same way.
 
 If asked what happens next: the open question is whether dashcam accuracy should
 still be an acceptance criterion at all, given the deployment is a fixed camera.
@@ -1021,7 +1070,7 @@ unassigned on some cameras. Four fixed it.
 
 
 def slide_sampling(deck: Deck, fig: dict) -> None:
-    slide = deck.content(13, "Decision · A28", ["Sampling every 2 seconds instead of 5 ",
+    slide = deck.content(13, "Decision · A28", ["Every 2 seconds, not 5, ",
                                                 "keeps four cameras alive"],
                          lead="The PRD fixes a 5-second interval as a bare number derived "
                               "nowhere. We pre-registered a statistic to replace it before "
@@ -1259,7 +1308,7 @@ def slide_engineering(deck: Deck) -> None:
          "doubled what was copied and shipped — and the widening is exact, so moving it "
          "changed no result."),
     ]
-    y = Inches(4.3)
+    y = Inches(4.62)
     for lead, detail in findings:
         deck.rect(slide, MARGIN, y + Inches(0.07), Inches(0.05), Inches(0.05),
                   fill=ACCENT, shape=MSO_SHAPE.OVAL)
@@ -1269,7 +1318,7 @@ def slide_engineering(deck: Deck) -> None:
                   size=9.5, colour=MUTED, spacing=1.2)[3].text = detail
         y += Inches(0.66)
 
-    deck.text(slide, MARGIN, Inches(4.02), Inches(7.0), Inches(0.22),
+    deck.text(slide, MARGIN, Inches(4.26), Inches(7.0), Inches(0.22),
               size=8.5, font=MONO, colour=FAINT)[3].text = (
         "measured on the five-camera pilot during the optimisation work; "
         "not a committed CSV")
@@ -1281,8 +1330,10 @@ def slide_engineering(deck: Deck) -> None:
                    ("The corpus audits itself", "9 checks; 7 of 7 mutations caught"),
                    ("Results carry their environment", "torch build, device, TF32, commit"),
                ],
-               footnote="620 tests · 175 commits · 18 decision records · seeds fixed at 42 "
-                        "across Python, NumPy, PyTorch and SB3.")
+               footnote=f"{project_counts()['tests']} tests · "
+                        f"{project_counts()['commits']} commits · "
+                        f"{project_counts()['adrs']} decision records · seeds fixed at "
+                        f"42 across Python, NumPy, PyTorch and SB3.")
     deck.notes(slide, """
 Two stories here and both are short.
 

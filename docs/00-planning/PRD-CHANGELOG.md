@@ -3969,3 +3969,66 @@ identical parameter count.
   identical parameter counts.
 - `gate_capacity.py` now runs all three seeds into one CSV, because the deck
   claimed a three-seed result while the committed file held one.
+
+## P43 — the IDD baseline S17 was judged against does not reproduce (2026-08-20)
+
+**Status:** OPEN · Found by trying to close [P41](#p41) rather than accept it ·
+**Bears on a pending decision**
+
+[P41](#p41) logged that three detector figures existed only as changelog prose.
+One of them — IDD `0.7104` for `s15_yolov8s_joint_aug`, the detector of record —
+could be re-measured here, because those weights are on disk. So it was.
+
+| measure | value |
+|---|---|
+| mean over all 7 evaluated classes | **0.6130** |
+| mean over the 5 vehicle classes | 0.6984 |
+| Ultralytics' own `all` row | 0.6130 |
+| **claimed in the changelog** | **0.7104** |
+
+**It does not reproduce under any of them.** `experiments/results/s15_metrics_idd.csv`
+is now committed: 1,170 images, 11,536 instances, per class.
+
+For context, the previous detector `s14` scores **0.6174** on the same split —
+so on this measurement s15 is very slightly *worse* on IDD than its predecessor,
+not 0.09 better.
+
+### Why this matters more than a wrong number
+
+[S17](#s17-result) rejected the TrafficCAM-augmented detector on **criterion 4**:
+
+> IDD fell **0.7104 → 0.6188**, a drop of 0.0916 against a 0.02 tolerance — 4.6×
+> over.
+
+The baseline in that sentence is the figure that does not reproduce. Against
+the measured 0.6130, an S17 value of 0.6188 would be a **rise of 0.0058**, and
+criterion 4 would have **passed** rather than failed by 4.6×.
+
+That would flip the verdict on an arm that also took `e_rickshaw` from 0.000 to
+0.4787 — the class the project exists to detect.
+
+### What is and is not established
+
+- **Established:** s15 scores 0.6130 on IDD test, committed, reproducible.
+- **Established:** the 0.7104 baseline in the S17 entry is wrong or was measured
+  some other way, and the entry does not say which.
+- **Not established:** S17's own IDD figure of 0.6188. It is prose too, and its
+  weights were never downloaded from Kaggle, so it cannot be re-measured here.
+- **Therefore not established:** whether criterion 4 passed or failed.
+
+### What follows
+
+The S17 verdict is **suspended, not reversed**. Reversing it on one re-measured
+half of a comparison would repeat the mistake that created this — deciding from
+a number nobody can reproduce. Both sides have to be measured the same way,
+which needs the S17 weights fetched from Kaggle or the arm re-run.
+
+Until then the decision brief's IDD-scope item carries this, and no table
+anywhere states the −0.0916 delta without saying it is unverified.
+
+> **The habit that found it.** P41 was logged as "worth doing before the paper,
+> not worth doing to finish a deck", and that was nearly the end of it. Closing
+> a third of it took eleven minutes of evaluation on weights that were already
+> on disk, and it turned up a result that changes a pending decision. Deferring
+> a check is a decision too, and it should be re-examined whenever the cost
+> estimate was a guess.

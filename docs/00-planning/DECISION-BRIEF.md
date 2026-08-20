@@ -420,3 +420,42 @@ answer at submission rather than now — and it is now answered.
 IDD needs a citation (Varma et al., WACV 2019); ITD is CC BY-NC 4.0, so anything
 derived from it is non-commercial. Those are all manageable. This one is not,
 until somebody checks.
+
+## 12. The S17 verdict rests on a baseline that does not reproduce
+
+**Record:** [P43](PRD-CHANGELOG.md#p43) · **Default: the verdict stays suspended
+— neither adopt nor confirm — until both sides are measured the same way**
+
+This changes item 3 of this addendum, and it was found by trying to close a
+logged gap rather than living with it.
+
+S17 rejected the TrafficCAM-augmented detector because IDD fell **0.7104 →
+0.6188**, 4.6× over the tolerance. The weights for `s15`, the baseline in that
+sentence, are on disk, so the figure was re-measured today:
+
+| | mAP50 on IDD test |
+|---|---|
+| claimed in the S17 entry | 0.7104 |
+| **measured, committed** | **0.6130** |
+| previous detector `s14` | 0.6174 |
+
+It does not reproduce under any measure — 0.6130 over all seven evaluated
+classes, 0.6984 over the five vehicle classes.
+
+**Against 0.6130, an S17 value of 0.6188 is a rise of 0.0058, and criterion 4
+would have passed.** That would flip the verdict on the arm that took
+`e_rickshaw` from 0.000 to 0.4787.
+
+**We are not asking you to reverse it.** S17's own 0.6188 is prose too, and its
+weights were never downloaded from Kaggle, so it cannot be re-measured here.
+Reversing a verdict on one re-measured half of a comparison would repeat exactly
+the mistake that produced this. What we propose:
+
+1. Fetch the S17 weights from Kaggle, or re-run the arm.
+2. Measure both detectors on the same split with the same script — the one that
+   produced the committed CSV today.
+3. Judge criterion 4 on those two numbers, and record both.
+
+**Until that is done**, no table states the −0.0916 delta without saying it is
+unverified, and `s15_yolov8s_joint_aug` remains the detector of record by
+default rather than by demonstration.
