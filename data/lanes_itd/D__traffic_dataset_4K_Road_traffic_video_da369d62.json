@@ -1,23 +1,23 @@
 {
   "clip": "4K Road traffic video for object detection and tracking.mp4",
   "surveyed_from": "D:\\traffic dataset\\4K Road traffic video for object detection and tracking.mp4",
-  "detections": 124,
-  "unassigned_rate": 0.0081,
+  "detections": 169,
+  "unassigned_rate": 0.0296,
   "max_radius": 0.25,
   "reviewed": false,
   "lanes": [
     {
       "name": "lane_0",
       "centre": [
-        0.5432295805142249,
-        0.4192134370529112
+        0.5988597521910796,
+        0.4295737095661946
       ]
     },
     {
       "name": "lane_1",
       "centre": [
-        0.5836152710865453,
-        0.0811691740123607
+        0.6018348238684915,
+        0.08047278004043341
       ]
     }
   ],

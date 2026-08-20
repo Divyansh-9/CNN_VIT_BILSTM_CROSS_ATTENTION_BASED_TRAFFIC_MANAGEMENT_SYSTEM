@@ -139,7 +139,10 @@ def main(argv: list[str] | None = None) -> int:
     import cv2
     from ultralytics import YOLO
 
-    from scripts.pilot_a17 import vehicle_ids  # noqa: F401  (parity of imports)
+    # No vehicle_ids here on purpose: this script maps ITD's taxonomy to ours
+    # explicitly through ITD_TO_OURS, which is why P24's inclusion-list defect
+    # never reached the pseudo-labels. An unused import kept "for parity" made
+    # that audit harder than it should have been, so it is gone.
 
     teacher = YOLO(str(args.teacher))
     student = YOLO(str(args.student))

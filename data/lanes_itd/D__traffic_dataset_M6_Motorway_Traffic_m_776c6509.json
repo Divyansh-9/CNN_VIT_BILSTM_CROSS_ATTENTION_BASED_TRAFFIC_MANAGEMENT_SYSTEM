@@ -1,23 +1,23 @@
 {
   "clip": "M6 Motorway Traffic.mp4",
   "surveyed_from": "D:\\traffic dataset\\M6 Motorway Traffic.mp4",
-  "detections": 1364,
-  "unassigned_rate": 0.0924,
+  "detections": 1402,
+  "unassigned_rate": 0.0656,
   "max_radius": 0.25,
   "reviewed": false,
   "lanes": [
     {
       "name": "lane_0",
       "centre": [
-        0.4383182515635335,
-        0.4690926755929003
+        0.2893741884425319,
+        0.6876001179245547
       ]
     },
     {
       "name": "lane_1",
       "centre": [
-        0.7185613987937807,
-        0.6487248532285697
+        0.49977718175811814,
+        0.442355135434716
       ]
     }
   ],

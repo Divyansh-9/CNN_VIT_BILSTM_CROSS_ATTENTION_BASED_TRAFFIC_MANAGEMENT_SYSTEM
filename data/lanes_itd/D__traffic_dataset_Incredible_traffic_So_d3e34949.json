@@ -1,23 +1,23 @@
 {
   "clip": "Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
   "surveyed_from": "D:\\traffic dataset\\Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
-  "detections": 312,
-  "unassigned_rate": 0.2019,
+  "detections": 1165,
+  "unassigned_rate": 0.2386,
   "max_radius": 0.25,
   "reviewed": false,
   "lanes": [
     {
       "name": "lane_0",
       "centre": [
-        0.4792766048651344,
-        0.5729850555137351
+        0.23965714137933616,
+        0.7210941301641218
       ]
     },
     {
       "name": "lane_1",
       "centre": [
-        0.865735855922904,
-        0.6673329065065372
+        0.7270637383317172,
+        0.5794645099241607
       ]
     }
   ],

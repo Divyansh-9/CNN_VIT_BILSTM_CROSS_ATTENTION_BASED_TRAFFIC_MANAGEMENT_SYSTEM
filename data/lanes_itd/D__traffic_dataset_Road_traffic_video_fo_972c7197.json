@@ -1,23 +1,23 @@
 {
   "clip": "Road traffic video for object recognition.mp4",
   "surveyed_from": "D:\\traffic dataset\\Road traffic video for object recognition.mp4",
-  "detections": 1243,
-  "unassigned_rate": 0.0941,
+  "detections": 1272,
+  "unassigned_rate": 0.0676,
   "max_radius": 0.25,
   "reviewed": false,
   "lanes": [
     {
       "name": "lane_0",
       "centre": [
-        0.4320368411677522,
-        0.47926042008967623
+        0.2849437634843588,
+        0.6918172919430495
       ]
     },
     {
       "name": "lane_1",
       "centre": [
-        0.7187315225601196,
-        0.6488044764614364
+        0.4985746807089218,
+        0.451296400830277
       ]
     }
   ],

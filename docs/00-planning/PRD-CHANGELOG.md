@@ -2742,3 +2742,47 @@ geometry. That argument was never the unassigned rate.
    `data/lanes_itd` were clustered from car/bus/truck centroids only. They must
    be re-surveyed before use — which matters, because the placement heatmaps
    were rendered from them.
+
+### P24 addendum — blast radius, audited rather than assumed
+
+A defect that silently drops two thirds of the traffic deserves its reach
+established, not estimated. Every consumer of `vehicle_ids`, checked:
+
+| script | model it runs | affected? |
+|---|---|---|
+| `survey_all.py` | ITD-x | **YES** — `data/lanes_itd` re-surveyed |
+| `build_corpus.py` | ITD-x | **YES** — `corpus_smoke_itd` deleted |
+| `build_demo.py`, `check_recording.py`, `survey_lanes.py` | ours | no |
+| `evaluate_detector_arms.py`, `measure_viewpoint_robustness.py`, `verify_counting.py` | ours | no |
+| `pseudo_label.py` | ITD-x | **no** — see below |
+
+Against our own taxonomy the inclusion list happened to match all six vehicle
+classes exactly, so every our-detector number in the project is unaffected.
+
+**`pseudo_label.py` imported `vehicle_ids` and never used it**, behind a
+`# noqa: F401 (parity of imports)`. Filtering went through `ITD_TO_OURS`
+explicitly, which is why S16's pseudo-labels carried 12,930 motorcycles and
+11,050 auto-rickshaws rather than none. **S16 and S17 are unaffected.**
+
+That dead import made this audit harder than it needed to be — grep reported a
+consumer that was not one. It is removed, with a comment saying why the absence
+is deliberate.
+
+### A28 is unaffected, checked two ways
+
+A28 is the decision heading to the guide, so its independence from P24 was
+verified rather than assumed:
+
+1. **`pilot_counts.py` does not call `vehicle_ids`.** It carries its own
+   exclusion set, added when this same defect was found there earlier the same
+   day.
+2. **The numbers themselves rule it out.** ITD's pilot reported p50 **21**
+   against s15's **13**. A three-class ITD would have reported *fewer* vehicles,
+   not more.
+
+### The regression is now pinned
+
+`tests/test_vehicle_ids.py` resolves our taxonomy, ITD's, and COCO's — including
+a taxonomy no rule was ever written for — and asserts that pedestrians, cattle
+and riders are never counted under either spelling of "pedestrian". The third
+occurrence of this defect will be a red test rather than a wrong number.

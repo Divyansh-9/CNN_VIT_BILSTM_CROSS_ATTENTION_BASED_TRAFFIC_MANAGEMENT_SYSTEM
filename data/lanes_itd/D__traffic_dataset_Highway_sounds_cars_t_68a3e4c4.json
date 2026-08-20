@@ -1,23 +1,23 @@
 {
   "clip": "Highway sounds cars trucks passing by for sleeping relaxing.mp4",
   "surveyed_from": "D:\\traffic dataset\\Highway sounds cars trucks passing by for sleeping relaxing.mp4",
-  "detections": 264,
-  "unassigned_rate": 0.053,
+  "detections": 426,
+  "unassigned_rate": 0.0352,
   "max_radius": 0.25,
   "reviewed": false,
   "lanes": [
     {
       "name": "lane_0",
       "centre": [
-        0.26566820981654715,
-        0.3753243665041371
+        0.263593346827714,
+        0.3734182816964609
       ]
     },
     {
       "name": "lane_1",
       "centre": [
-        0.6981657145316141,
-        0.5615708819606848
+        0.6996618034393807,
+        0.5699379003467921
       ]
     }
   ],
