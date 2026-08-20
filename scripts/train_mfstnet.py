@@ -172,6 +172,28 @@ def guard_results(out: Path, epochs: int, *, force: bool) -> None:
         )
 
 
+def resolve_device(requested: str) -> str:
+    """`auto` means use the GPU when there is one.
+
+    The default used to be no device handling at all: the model and every batch
+    stayed on the CPU whatever was installed, so a CUDA build of torch changed
+    nothing (P32). `build_cache.py` had a `--device` flag and this did not,
+    which is how a machine with an idle RTX 4050 trained on its CPU without
+    anything looking wrong.
+    """
+    import torch
+
+    if requested != "auto":
+        return requested
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def move(batch, device):
+    """Batch tensors onto the device, tolerating a disabled branch (None)."""
+    return tuple(None if x is None else x.to(device, non_blocking=True)
+                 for x in batch)
+
+
 def feed(model, cnn, vit, masks=None):
     """Pass only the branches this config enables.
 
@@ -186,7 +208,7 @@ def feed(model, cnn, vit, masks=None):
     )
 
 
-def evaluate_split(model, dataset, size: int, lanes):
+def evaluate_split(model, dataset, size: int, lanes, device: str = "cpu"):
     """Predictions flattened across lanes — every lane is a labelled example."""
     import torch
 
@@ -196,15 +218,16 @@ def evaluate_split(model, dataset, size: int, lanes):
     true, pred, last = [], [], None
     with torch.no_grad():
         for cnn, vit, y, masks in batches(dataset, size, shuffle=False):
+            cnn, vit, masks = move((cnn, vit, masks), device)
             out = feed(model, cnn, vit, masks)
             last = out
-            true.extend(y.reshape(-1).tolist())
+            true.extend(y.reshape(-1).tolist())      # labels stay on the CPU
             pred.extend(out.logits.reshape(-1, len(CLASSES)).argmax(-1).tolist())
     return evaluate(true, pred, CLASSES), last
 
 
 def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
-              epochs: int, seed: int):
+              epochs: int, seed: int, device: str = "cpu"):
     """`config.n_lanes` comes from the CORPUS, not from the ablation default.
 
     A junction has four approaches and a motorway two; the lane count is a
@@ -231,7 +254,9 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     n_lanes = (len(lanes.names) if isinstance(lanes, LaneCentres)
                else len(lanes))
     config = dataclasses.replace(config, n_lanes=n_lanes)
-    model = MFSTNet(config, masks)
+    # The construction-time masks are a registered buffer, so `.to()` carries
+    # them. Per-sample masks arrive with the batch and are moved there.
+    model = MFSTNet(config, masks).to(device)
     optimiser = torch.optim.AdamW(
         model.parameters(), lr=t["lr"], weight_decay=t["weight_decay"]
     )
@@ -240,7 +265,7 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     labels = [y for _, _, ys, _ in (train_set[i] for i in range(len(train_set)))
               for y in ys.tolist()]
     weights, counts = class_weights(labels, len(CLASSES))
-    criterion = torch.nn.CrossEntropyLoss(weight=weights)
+    criterion = torch.nn.CrossEntropyLoss(weight=weights.to(device))
 
     generator = torch.Generator().manual_seed(seed)
     best, best_state, stale = float("inf"), None, 0
@@ -251,6 +276,7 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
         total = 0.0
         for cnn, vit, y, masks in batches(train_set, t["batch_size"], shuffle=True,
                                           generator=generator):
+            cnn, vit, masks, y = move((cnn, vit, masks, y), device)
             out = feed(model, cnn, vit, masks)
             loss = criterion(out.logits.reshape(-1, len(CLASSES)), y.reshape(-1))
             optimiser.zero_grad()
@@ -259,7 +285,8 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
             total += float(loss)
         scheduler.step()
 
-        val_report, _ = evaluate_split(model, val_set, t["batch_size"], lanes)
+        val_report, _ = evaluate_split(model, val_set, t["batch_size"], lanes,
+                                       device)
         # Early stopping on val LOSS proxy: 1 - macro F1. Accuracy would let a
         # model that predicts the majority class look like it is improving on an
         # imbalanced corpus, which this one is.
@@ -276,7 +303,8 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    report, last = evaluate_split(model, test_set, t["batch_size"], lanes)
+    report, last = evaluate_split(model, test_set, t["batch_size"], lanes,
+                                  device)
 
     row = {
         "config": name,
@@ -292,6 +320,12 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
         "qwk": round(report.qwk, 4),
         "n": report.n,
         "seconds": round(time.perf_counter() - started, 1),
+        # ADR-003 requires every latency figure to state its measurement host.
+        # The same applies to a trained metric: seeded runs are reproducible on
+        # one device and NOT bitwise equal across devices — the same config and
+        # seed gave gate_mean 0.53895 on CPU and 0.54268 on CUDA. A results row
+        # that does not say which produced it cannot be compared with another.
+        "device": device,
         # Beside the number it qualifies. A zero-support class costs a third of
         # macro F1 and nothing else in the row says so, which is how a column
         # of identical scores reads as a comparison instead of an artifact of
@@ -318,6 +352,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="every config through one code path (§14.4)")
     parser.add_argument("--cache", type=Path, default=Path("data/cache"))
     parser.add_argument("--source-id", default="corpus")
+    parser.add_argument(
+        "--device", default="auto",
+        help="auto|cpu|cuda. 'auto' uses the GPU when torch can see one; a "
+             "CUDA build of torch is necessary but not sufficient, because "
+             "nothing moved the model or the batches before P32")
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", type=Path, default=RESULTS)
@@ -343,6 +382,8 @@ def main(argv: list[str] | None = None) -> int:
     # disk came from a longer run than this one.
     guard_results(args.out, epochs, force=args.force)
 
+    device = resolve_device(args.device)
+
     rows_in, manifest = load_corpus(args.corpus)
     auto = manifest.get("auto_labelled", True)
     lane_names = manifest["lanes"]
@@ -350,6 +391,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"  corpus {args.corpus}: {len(rows_in)} sequences, "
           f"{len(lane_names)} lane(s), T={T}")
+    print(f"  device {device}" + ("" if device != "cpu" else
+          "  (torch sees no GPU; check scripts/check_env.py)"))
     print(f"  labels: {'AUTO-LABELLED' if auto else 'HUMAN-VERIFIED'}"
           + ("  (A32 — NOT the headline split)" if auto else ""))
     print(f"  §8.4: lr={training['lr']} wd={training['weight_decay']} "
@@ -451,7 +494,8 @@ def main(argv: list[str] | None = None) -> int:
     for name, config in configs:
         print(f"\n  === config {name} ===")
         row, report = train_one(
-            name, config, train_set=split["train"], val_set=split["val"],
+            name, config, device=device,
+            train_set=split["train"], val_set=split["val"],
             test_set=split["test"], lanes=lanes, spec=spec,
             epochs=epochs, seed=args.seed,
         )

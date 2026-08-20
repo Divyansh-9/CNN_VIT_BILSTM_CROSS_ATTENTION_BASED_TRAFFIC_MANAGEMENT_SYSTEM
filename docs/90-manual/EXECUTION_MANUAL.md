@@ -105,7 +105,7 @@ py -3.11 -m venv .venv
 python -m pip install --upgrade pip
 
 # PyTorch FIRST, from the CUDA index — otherwise pip installs the CPU-only wheel
-pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.13.0+cu126 torchvision==0.28.0+cu126 --index-url https://download.pytorch.org/whl/cu126
 pip install -r requirements.txt
 
 python scripts/check_env.py            # should now report no blockers
@@ -454,7 +454,7 @@ is the team laptop (i5-13500HX, RTX 4050 6 GB), not Colab. Colab is overflow.
 
 ```powershell
 # CUDA build of PyTorch — the default pip wheel is CPU-only
-pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.13.0+cu126 torchvision==0.28.0+cu126 --index-url https://download.pytorch.org/whl/cu126
 python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 

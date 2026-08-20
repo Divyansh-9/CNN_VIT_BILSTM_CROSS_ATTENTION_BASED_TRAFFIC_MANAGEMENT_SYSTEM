@@ -19,8 +19,8 @@
 
 # ---- PyTorch: install FIRST, from the CUDA index ----
 #
-#   pip install torch==2.13.0 torchvision==0.28.0 \
-#       --index-url https://download.pytorch.org/whl/cu121
+#   pip install torch==2.13.0+cu126 torchvision==0.28.0+cu126 \
+#       --index-url https://download.pytorch.org/whl/cu126
 #   pip install -r requirements.txt
 #
 # Verify:  python -c "import torch; print(torch.cuda.is_available())"
@@ -28,12 +28,27 @@
 # NOT pinned here: pinning a platform-index wheel in this file reintroduces the
 # defect the separate install exists to avoid.
 #
-# WARNING — this machine currently runs torch 2.13.0+cpu, the CPU-only wheel,
-# while an RTX 4050 (6 GB, driver 610.62) sits idle. ADR-005 makes local GPU
-# training the plan. Training still works: the feature cache (ADR-005) puts the
-# full 8-config ablation at ~23.6 h on CPU, measured, against the 60–90 h the
-# PRD budgets for an uncached run on a Colab T4. `scripts/check_env.py` reports
-# this; it is a known, accepted state, not an oversight.
+# **cu126, not cu121.** This instruction said cu121 until 2026-08-20, and that
+# index no longer carries torch at ANY version — `pip index versions torch
+# --index-url .../cu121` answers "No matching distribution found". Following the
+# documented command therefore resolved to the CPU wheel without saying so,
+# which is exactly how this machine ended up on torch 2.13.0+cpu with an idle
+# RTX 4050.
+#
+# cu126 carries 2.13.0; cu128 stops at 2.11.0, so it would mean a downgrade.
+# The GPU is compute capability 8.9 (Ada) on driver 610.62, which CUDA 12.6
+# covers. Same version, same API, different compute backend — no code changes.
+#
+# On a machine with no NVIDIA GPU, use .../whl/cpu deliberately rather than by
+# accident. Training works either way, but not equally: measured on a
+# five-camera pilot and extrapolated to 359 sequences at 100 epochs, the full
+# A-H ablation is ~3.8 h on this GPU against ~12.3 h on this CPU.
+#
+# The wheel alone was not enough. `train_mfstnet.py` had no device handling at
+# all until P32 — no `.to()`, nothing — so a CUDA build changed precisely
+# nothing and training stayed on the CPU while the GPU idled. If you are
+# reading this because training feels slow, check BOTH: the build here, and
+# that `--device` reports cuda when the run starts.
 
 # ---- core ----
 timm==1.0.28                # DINOv2 ViT-S/14 and ConvNeXt (ADR-007)

@@ -63,7 +63,7 @@ PRD §2.4 sets a strict priority order and it exists to prevent a known failure 
 
 If asked to add gating or temporal attention while Phase 1 is not yet training cleanly, say so and point at §2.4.
 
-The ablation study (configs A-G, §14.4) is what makes this publishable. Design every module so a config flag can disable it — CNN-only, ViT-only, concat fusion, 1-dir cross-attn, bidir-no-gate, +TempAttn, full. Ablation-ability is an architectural constraint, not an afterthought.
+The ablation study (configs **A-H**, §14.4) is what makes this publishable. Design every module so a config flag can disable it — CNN-only, ViT-only, concat fusion, 1-dir cross-attn, bidir-no-gate, +TempAttn, full, and **H, the linear probe (A22)**: no fusion, no recurrence, no attention, just a mean over time and a classifier. H is the floor every frozen-backbone paper is expected to report, and it is easy to forget because §14.4 predates it. Ablation-ability is an architectural constraint, not an afterthought.
 
 ## Reproducibility requirements (NFR-07 to NFR-10, "Critical")
 
@@ -95,7 +95,18 @@ simulation/  server/  dashboard/  edge/  experiments/results/  models/ (Git LFS)
 
 Config lives in YAML (`mfstnet/configs/mfstnet_config.yaml`, `simulation/configs/ppo_config.yaml`) — hyperparameters belong there, not hardcoded in training scripts, because the ablation harness drives configs.
 
-Training runs on Google Colab T4 (MFSTNet ~10-16h; ablation 60-90h, parallelized); PPO trains on laptop CPU. Assume notebook-and-script hybrid workflows, and that model weights are too large for plain git.
+Training runs **locally on the RTX 4050** (ADR-005), not Colab. Measured
+2026-08-20 on a five-camera pilot and extrapolated to 359 sequences at 100
+epochs: the full A-H ablation is **~3.8 h on CUDA against ~12.3 h on CPU**, so
+the 60-90h Colab figure in PRD §21 describes an *uncached* run and no longer
+applies. `--device` defaults to `auto`. PPO trains on laptop CPU.
+
+Two things that bite here: torch must be the **cu126** build (`cu121` and
+`cu124` no longer carry torch at any version, so the old documented command
+silently installed the CPU wheel), and with the GPU in play the ablation
+becomes **I/O bound** — configs A and B gain almost nothing because reading
+cached features dominates. Assume notebook-and-script hybrid workflows, and
+that model weights are too large for plain git.
 
 ## Stack
 
@@ -142,6 +153,7 @@ change, never a reason to delay building the corpus.
 python scripts/overfit_check.py --all                  # plumbing: must reach ~0 loss
 python scripts/train_mfstnet.py --corpus data/corpus --cache data/cache --config G
 python scripts/train_mfstnet.py --corpus data/corpus --cache data/cache --ablation
+# --device auto|cpu|cuda (default auto). Results record which one ran.
 python scripts/train_baselines.py --corpus data/corpus
 ```
 

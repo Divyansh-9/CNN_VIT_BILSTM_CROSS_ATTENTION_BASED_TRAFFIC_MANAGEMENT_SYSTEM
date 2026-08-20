@@ -69,7 +69,12 @@ def check_torch() -> None:
         report(WARN, "PyTorch", "not installed yet (expected before setup)")
         return
 
-    report(OK, "PyTorch", torch.__version__)
+    # The BUILD matters as much as the version. `2.13.0+cpu` reads as a healthy
+    # PyTorch and cannot use a GPU that is sitting right there, and reporting it
+    # OK is how it went unnoticed for weeks (P32).
+    build = "+" + torch.__version__.split("+")[1] if "+" in torch.__version__ else ""
+    report(OK if build != "+cpu" else WARN, "PyTorch",
+           torch.__version__ + ("  -- CPU-only build" if build == "+cpu" else ""))
     if torch.cuda.is_available():
         name = torch.cuda.get_device_name(0)
         vram = torch.cuda.get_device_properties(0).total_memory / 1024**3
@@ -88,8 +93,13 @@ def check_torch() -> None:
         report(
             WARN,
             "CUDA",
-            "unavailable -- CPU-only torch wheel? Reinstall from "
-            "--index-url https://download.pytorch.org/whl/cu121",
+            "unavailable -- CPU-only torch wheel? Reinstall the SAME version "
+            "from the CUDA index: pip install --no-cache-dir "
+            f"torch=={torch.__version__.split('+')[0]}+cu126 "
+            "--index-url https://download.pytorch.org/whl/cu126 "
+            "(cu121 and cu124 no longer carry torch at any version, so the "
+            "old instruction resolved to the CPU wheel silently; cu128 stops "
+            "at 2.11.0)",
         )
 
 

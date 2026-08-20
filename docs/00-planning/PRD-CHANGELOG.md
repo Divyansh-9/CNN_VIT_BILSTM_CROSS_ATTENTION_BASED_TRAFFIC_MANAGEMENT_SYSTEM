@@ -3272,3 +3272,94 @@ the default thresholds. Projected onto the full corpus that is roughly 1,199 /
 [ADR-017](decisions/ADR-017-pcu-thresholds.md), still awaiting guide sign-off.
 `relabel_corpus.py` retunes them in seconds, so this is a decision to take with
 evidence rather than a cost to pay up front.
+
+## P32 — the GPU was idle for two reasons, and the wheel was the smaller one (2026-08-20)
+
+**Status:** CLOSED · Raised by the project owner, who was right to push back on
+"a known, accepted state"
+
+[P30](#p30) recorded `torch 2.13.0+cpu` on a machine with an RTX 4050 as
+accepted, on the grounds that CPU training was fast enough. That understated
+the problem twice over.
+
+### The documented install command could not have worked
+
+`requirements.txt`, `check_env.py` and the Execution Manual all said:
+
+```
+--index-url https://download.pytorch.org/whl/cu121
+```
+
+**That index no longer carries torch at any version.** `pip index versions
+torch --index-url .../cu121` answers "No matching distribution found", and so
+does cu124. Following the documented instruction resolved to the CPU wheel
+without reporting anything wrong — which is exactly how the environment ended
+up where it did.
+
+What exists today:
+
+| index | newest torch | verdict |
+|---|---|---|
+| cu121, cu124 | *none* | dead |
+| **cu126** | **2.13.0** | matches the installed version exactly |
+| cu128 | 2.11.0 | would be a downgrade |
+
+`torch==2.13.0+cu126` and `torchvision==0.28.0+cu126` are the same versions
+already installed, so the upgrade changes the compute backend and nothing else.
+The GPU is compute capability 8.9 (Ada) on driver 610.62; CUDA 12.6 covers it.
+
+### The wheel alone would have changed nothing
+
+**`train_mfstnet.py` had no device handling whatsoever** — no `.to()`, no
+`.cuda()`, no autocast. `build_cache.py` had had a `--device` flag all along;
+the trainer never did. Installing a CUDA build would have left the model and
+every batch on the CPU, with the GPU still idle and nothing looking wrong.
+
+This is the failure mode worth remembering: **it does not error, and the
+numbers are correct.** It is only slow, on a machine that appears healthy.
+
+`--device auto|cpu|cuda` now defaults to `auto`, the model and every batch move
+together, and the run prints which device it chose.
+
+### Measured, on the five-camera pilot
+
+| | CPU | CUDA |
+|---|---|---|
+| config G, 8 epochs | 200.9 s | **24.5 s** (8.2×) |
+| full A–H, 8 epochs | 734 s (A–G) | **256 s** |
+| peak VRAM at batch 32 × T=60 | — | **4.17 GB of 6.4 GB (65%)** |
+
+Extrapolated to 359 sequences at 100 epochs, the **full A–H ablation is ~3.8 h
+on CUDA against ~12.3 h on CPU.**
+
+Two caveats on those numbers, because the headline flatters:
+
+* **8.2× is config G alone**, the heaviest. Across all eight the aggregate is
+  ~3.3×, because with GPU compute fast the **cache read becomes the
+  bottleneck** — configs A and B gain almost nothing (1.0× and 1.6×). Further
+  speedup is now an I/O problem, not a compute one.
+* Batch 32 fits with 2.27 GB spare, so ADR-007's bf16 AMP is not needed to make
+  it run. It remains available.
+
+### Reproducibility
+
+Two seeded CUDA runs of config G agree on all 31 recorded fields, so NFR-07
+holds on the new device. They do **not** agree with CPU — the same config and
+seed gives `gate_mean` 0.53895 on CPU and 0.54268 on CUDA, which is ordinary
+kernel difference and not fixable by seeding.
+
+ADR-003 already requires every latency figure to state its measurement host.
+The same now applies to trained metrics: **the results CSV records `device`**,
+because a row that does not say which produced it cannot be compared with one
+that does.
+
+### Corrections this forced
+
+* **The ablation is A–H, eight configs, not seven.** An earlier message in this
+  session "corrected" 8 to 7; the original was right. **H is the linear probe**
+  added by A22 — no fusion, no recurrence, no attention — and it is the floor a
+  frozen-backbone paper is expected to report. CLAUDE.md said "configs A-G",
+  which A22 made stale.
+* PRD §21's "ablation 60–90 h on Colab T4" describes an **uncached** run.
+  Cached and local it is under four hours, which is ADR-005 doing exactly what
+  it was adopted for.
