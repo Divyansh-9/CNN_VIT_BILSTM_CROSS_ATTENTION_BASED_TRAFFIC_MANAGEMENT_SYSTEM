@@ -124,11 +124,45 @@ class LanePool(nn.Module):
     def n_lanes(self) -> int:
         return int(self.masks.shape[0])
 
-    def forward(self, maps: torch.Tensor) -> torch.Tensor:
-        """`[B, T, D, G, G]` -> `[B, T, L, D]`."""
+    def forward(self, maps: torch.Tensor,
+                masks: torch.Tensor | None = None) -> torch.Tensor:
+        """`[B, T, D, G, G]` -> `[B, T, L, D]`.
+
+        `masks` is optional per-sample geometry, `[B, L, G, G]`. A lane lives in
+        one camera's image plane (P17), so a corpus spanning cameras must pool
+        each item through its OWN lanes — the registered buffer is right only
+        when every item comes from the same camera. Passing them per sample is
+        what lets one model span cameras at all: the geometry becomes an input
+        describing where this camera's lanes are, rather than a constant baked
+        in at construction (P26).
+        """
         if maps.dim() != 5:
             raise ValueError(f"expected [B, T, D, G, G], got {tuple(maps.shape)}")
-        return torch.einsum("btdhw,lhw->btld", maps, self.masks)
+        if masks is None:
+            return torch.einsum("btdhw,lhw->btld", maps, self.masks)
+
+        if masks.dim() != 4:
+            raise ValueError(
+                f"per-sample lane masks must be [B, L, G, G], got {tuple(masks.shape)}"
+            )
+        if masks.shape[0] != maps.shape[0]:
+            raise ValueError(
+                f"lane masks carry a batch of {masks.shape[0]} but the features "
+                f"carry {maps.shape[0]}. Each item must be pooled through its "
+                f"own camera's lanes, so the two batches cannot differ."
+            )
+        if masks.shape[1] != self.n_lanes:
+            raise ValueError(
+                f"lane masks declare {masks.shape[1]} lanes but this pool was "
+                f"built for {self.n_lanes}. The head is a fixed width, so every "
+                f"camera in one corpus needs the same lane count."
+            )
+        if tuple(masks.shape[2:]) != tuple(self.masks.shape[1:]):
+            raise ValueError(
+                f"lane masks are {tuple(masks.shape[2:])} but the encoder grid "
+                f"is {tuple(self.masks.shape[1:])}"
+            )
+        return torch.einsum("btdhw,blhw->btld", maps, masks.to(maps.dtype))
 
 
 class _SinusoidalPE(nn.Module):

@@ -2786,3 +2786,129 @@ verified rather than assumed:
 a taxonomy no rule was ever written for — and asserts that pedestrians, cattle
 and riders are never counted under either spelling of "pedestrian". The third
 occurrence of this defect will be a red test rather than a wrong number.
+
+## P25 — the unassigned gate was rejecting cameras for having the wrong lane count (2026-08-19)
+
+**Status:** CLOSED · Found by re-surveying after the [P24](#p24) fix
+
+With all seven of ITD's vehicle classes counted rather than three, detections
+roughly tripled — Mumbai 426 to 1,781, Dhaka 312 to 1,165 — and **unassigned
+rates rose** on most cameras. Two then failed P17's 35% gate:
+
+| camera | before P24 fix | after |
+|---|---|---|
+| South Extension | 28.4% | **35.1%** |
+| video1 | 13.1% | **44.4%** |
+
+The earlier low rates were the artifact: cars, buses and trucks cluster on the
+carriageway, while two-wheelers spread across it and its edges. Counting only
+the former made every lane look tighter than it was.
+
+### They were not bad cameras
+
+Every camera had been surveyed with a flat `--lanes 2`. Varying it:
+
+| camera | k=2 r0.25 | k=3 r0.25 | k=4 r0.25 | k=2 r0.40 |
+|---|---|---|---|---|
+| South Extension | **36.5%** | 19.3% | **11.2%** | 9.1% |
+| video1 | **44.2%** | 15.4% | **3.3%** | 4.6% |
+| Dhaka Rampura | 21.6% | 9.6% | 8.0% | 3.7% |
+
+Both "failures" clear the gate comfortably at k=4. **The gate was conflating an
+unusable camera with a wrong lane count**, and a flat k across twelve different
+scenes was never defensible — a junction with four approaches is not a motorway
+with two.
+
+### Which lever, and why it matters
+
+Raising `max_radius` fixes the number too (South Extension 36.5% to 9.1%), and it
+is the wrong fix. The radius is a tuning knob that widens acceptance until the
+complaint stops; **`k` corresponds to something real — how many approaches the
+scene has.** Choosing k is a statement about the road; choosing radius is a
+statement about wanting the gate to pass.
+
+### This vindicates placing lanes by hand
+
+`docs/demo/place_lanes.html` already lets a person place as many centres as the
+scene has approaches. P25 shows that is not a convenience — **the lane count is
+per-camera information a clustering cannot supply**, because k is an input to
+k-means rather than an output of it.
+
+So the automatic survey's role narrows further: it renders where the traffic is,
+and every judgement — how many approaches, and where their centres sit — is the
+reviewer's. The seeded crosses are a starting point at the survey's k, and
+adding or removing them is expected rather than exceptional.
+
+## P26 — a corpus spanning cameras pooled every camera through one camera's lanes (2026-08-20)
+
+**Status:** CLOSED · Found while checking whether [P25](#p25)'s variable lane
+counts could reach the model
+
+P25 established that different cameras need different lane counts. Checking
+whether `build_corpus.py` could carry that turned up something worse in the
+path that already existed.
+
+### What was wrong
+
+`docs/demo/place_lanes.html` produces one set of lane centres **per camera** —
+P17 requires it, because a lane lives in one camera's image plane. Three places
+then collapsed that back to one set:
+
+1. **`build_corpus.py` counted the rejection rate and wrote labels using the
+   seed camera's lane NAMES** (`lane_names(lanes)`, where `lanes` was
+   `next(iter(per_clip_lanes.values()))`). With matching counts the names
+   coincide and it works by luck; with differing counts it is a `KeyError` or a
+   silent undercount that inflates the unassigned rate and rejects a good
+   camera.
+
+2. **The manifest recorded ONE camera's `lane_centres` for the whole corpus.**
+
+3. **`train_mfstnet.py` built one `[L, G, G]` mask tensor from that entry and
+   passed it to `MFSTNet` at construction**, so `LanePool` pooled every window
+   from every camera through the same masks.
+
+Defect 3 is the one that matters. Nothing raises: the shapes agree, the loss
+falls, the confusion matrix fills in. **Every camera but one was pooled through
+somebody else's lanes**, and the run looks entirely ordinary.
+
+### Nothing published is invalidated
+
+The only run on a multi-camera corpus was the overfit check
+(`experiments/results/overfit_check.csv`) — 10 sequences, accuracy 1.0, final
+loss 0.0003. That is a memorisation sanity test of the plumbing, and it is not
+a result. No ablation table, no reported metric, and no claim rests on the
+broken path. The defect was found **before** the real corpus was built, which
+is the only reason this entry is short.
+
+### The fix: geometry is an input, not a constructor constant
+
+`LanePool.forward` and `MFSTNet.forward` now accept optional per-sample masks
+`[B, L, G, G]`; the einsum becomes `btdhw,blhw->btld`. The dataset carries each
+window's own masks and the collate stacks them. Omitting them keeps the old
+single-camera behaviour exactly, which is what lets a corpus built before this
+still train.
+
+This is the right formulation independently of the bug. **A model meant to
+generalise across cameras cannot hold one camera's geometry as a parameter** —
+the masks say *where this camera's lanes are*, which is per-input information
+by definition.
+
+### The lane count, unlike the positions, must agree
+
+The congestion head is built once with one output per lane, so a corpus cannot
+mix a two-lane camera with a four-lane one. Three layers now say so, earliest
+first: the placement page marks a camera done only at exactly four and flags
+disagreeing counts; `import_lane_centres.py` reports the split by count;
+`load_reviewed_lanes` refuses, naming the cameras.
+
+**Four is the count**, from P25's measurements rather than from the PRD: at two
+centres South Extension leaves 36.5% of vehicles unassigned and video1 44.2%;
+at four, 11.2% and 3.3%.
+
+> **Correction to an earlier reading in this session.** The four lanes at PPO
+> state indices 11–14 (§13.1) do *not* fix MFSTNet's lane count. ADR-009 has
+> PPO training against a surrogate inside SUMO, whose N/S/E/W approaches are
+> SUMO's, and ADR-016 states plainly that the lane count is a config rather
+> than an architectural constant. The two only meet at live integration, which
+> is Phase 3 and optional. The constraint is narrower than "four by contract":
+> **one corpus, one count.**

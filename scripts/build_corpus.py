@@ -93,6 +93,24 @@ def load_reviewed_lanes(directory: Path) -> dict[str, LaneCentres]:
         )
     if not out:
         raise SystemExit(f"no reviewed lane files under {directory}")
+
+    # The congestion head is a fixed width, so one corpus cannot mix cameras
+    # with different lane counts — the mismatch would otherwise surface deep in
+    # training as a shape error with no trace back to the camera that caused it
+    # (P26). The COUNT must agree; the positions are per-camera by design.
+    counts = {clip: len(lanes.names) for clip, lanes in out.items()}
+    if len(set(counts.values())) > 1:
+        spread = ", ".join(
+            f"{clip[:40]} ({n})"
+            for clip, n in sorted(counts.items(), key=lambda kv: -kv[1])
+        )
+        raise SystemExit(
+            f"cameras disagree on lane count: {spread}. "
+            f"The per-lane head has one output per lane and is built once, so "
+            f"every camera in a corpus needs the same number of lanes. Place "
+            f"the same count on each in docs/demo/place_lanes.html, or build "
+            f"separate corpora."
+        )
     return out
 
 # Lane layouts. A motorway is two carriageways, not four approaches — ADR-016
@@ -277,6 +295,7 @@ def main(argv: list[str] | None = None) -> int:
 
     all_counts, all_sequences, skipped, rejected = [], [], [], []
     signatures: dict[str, list[float]] = {}
+    lanes_by_clip: dict[str, object] = {}
     for clip in clips:
         # Duration first. Running the detector over a clip that cannot yield a
         # single window is pure waste, and most of a mixed footage directory is
@@ -303,7 +322,11 @@ def main(argv: list[str] | None = None) -> int:
         # P17. Counts through a mismatched polygon are not low counts, they are
         # counts of the wrong region — and a balanced label distribution over
         # meaningless counts is worse than an obviously broken one.
-        assigned = sum(r[f"count_{name}"] for r in rows for name in lane_names(lanes))
+        # The clip's own lanes, never the seed camera's: a name that camera does
+        # not have is a KeyError, and a name it happens to share is a count of
+        # the wrong region (P26).
+        assigned = sum(r[f"count_{name}"]
+                       for r in rows for name in lane_names(clip_lanes))
         unassigned = sum(r["unassigned"] for r in rows)
         rate = unassigned / max(assigned + unassigned, 1)
         if rate > args.max_unassigned:
@@ -330,6 +353,7 @@ def main(argv: list[str] | None = None) -> int:
             signatures[clip.stem] = scene_signature(
                 cv2.cvtColor(mid, cv2.COLOR_BGR2GRAY))
 
+        lanes_by_clip[clip.stem] = clip_lanes
         all_counts.extend(rows)
         all_sequences.extend(sequences)
         print(f"  {clip.stem[:44]:<46} {n:>4} samples  {len(sequences):>4} sequences")
@@ -349,7 +373,7 @@ def main(argv: list[str] | None = None) -> int:
     smoothed = {
         clip_id: {
             name: smooth_counts([r[f"count_{name}"] for r in rows])
-            for name in lane_names(lanes)
+            for name in lane_names(lanes_by_clip.get(clip_id, lanes))
         }
         for clip_id, rows in by_clip.items()
     }
@@ -409,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
             "start_index": sequence.start_index,
             "label_index": sequence.label_index,
         }
-        for name in lane_names(lanes):
+        for name in lane_names(lanes_by_clip.get(sequence.clip_id, lanes)):
             count = series[name][sequence.label_index]
             entry[f"label_{name}"] = label_from_count(
                 int(round(count)), low_max=args.low_max, med_max=args.med_max).name
@@ -437,9 +461,24 @@ def main(argv: list[str] | None = None) -> int:
         # A8's ROI pooling needs a region per lane at train time, so the
         # geometry travels with the corpus rather than being re-derived from a
         # directory that may have moved on.
+        #
+        # P26: ONE set of centres describes one camera. A corpus spanning
+        # cameras must carry one set PER camera, or training pools every
+        # camera through whichever one happened to be first — silently, since
+        # the shapes agree and the loss still falls. `lane_centres` stays for
+        # the single-camera case and for corpora built before this existed.
         "lane_centres": ([{"name": n, "centre": list(c)}
                           for n, c in zip(lanes.names, lanes.centres)]
                          if isinstance(lanes, LaneCentres) else None),
+        "lane_centres_by_clip": {
+            clip_id: {
+                "lanes": [{"name": n, "centre": list(c)}
+                          for n, c in zip(cl.names, cl.centres)],
+                "max_radius": cl.max_radius,
+            }
+            for clip_id, cl in sorted(lanes_by_clip.items())
+            if isinstance(cl, LaneCentres)
+        } or None,
         "max_radius": (lanes.max_radius
                        if isinstance(lanes, LaneCentres) else None),
         "T": args.timesteps, "step_s": args.step_s,
@@ -470,7 +509,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\n  {len(labelled)} sequences over {len(by_clip)} clip(s)")
     print(f"  splits: {collections.Counter(splits.values())}")
     for name in lane_names(lanes):
-        dist = collections.Counter(e[f"label_{name}"] for e in labelled)
+        dist = collections.Counter(e[f"label_{name}"] for e in labelled
+                                   if f"label_{name}" in e)
         total = sum(dist.values())
         parts = "  ".join(f"{k} {dist.get(k,0)/total:5.1%}"
                           for k in ("LOW", "MEDIUM", "HIGH"))

@@ -19,6 +19,10 @@ below are the ones that matter:
   arbitrarily; the assignment would be disjoint and meaningless.
 * **Every camera accounted for.** A camera silently missing from the JSON is a
   camera silently dropped from the corpus.
+* **The same lane count on every camera.** The per-lane head is built once at a
+  fixed width, so one corpus cannot mix a two-lane camera with a four-lane one
+  (P26). Reported here, where the fix is a few clicks, rather than at the end
+  of a corpus build.
 """
 
 from __future__ import annotations
@@ -60,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     written, problems = 0, []
+    counts: dict[str, int] = {}
     print(f"  {len(placed)} camera(s) in {args.json.name}\n")
     print("  {:<48}{:>7}{:>12}".format("clip", "lanes", "separation"))
 
@@ -105,7 +110,26 @@ def main(argv: list[str] | None = None) -> int:
                      "P17: these belong to THIS camera only."),
         }, indent=2), encoding="utf-8")
         written += 1
+        counts[clip] = len(centres)
         print("  {:<48}{:>7}{:>12.3f}".format(clip[:46], len(centres), closest))
+
+    # P26. Positions are per camera by design; the COUNT cannot be, because the
+    # head is one fixed width. Warn rather than refuse: a partial import is
+    # still useful, and build_corpus is the gate that actually blocks.
+    if counts and len(set(counts.values())) > 1:
+        tally: dict[int, list[str]] = {}
+        for clip, n in counts.items():
+            tally.setdefault(n, []).append(clip)
+        print()
+        print("  LANE COUNTS DISAGREE — a corpus cannot mix them:")
+        for n in sorted(tally, reverse=True):
+            print(f"    {n} lanes: {len(tally[n])} camera(s)")
+            for clip in sorted(tally[n])[:3]:
+                print(f"      {clip[:64]}")
+            if len(tally[n]) > 3:
+                print(f"      ... and {len(tally[n]) - 3} more")
+        print("  build_corpus.py will refuse this. Place the same number on "
+              "each camera.")
 
     missing = sorted(set(surveyed) - {e.get("clip") for e in placed})
     if missing:

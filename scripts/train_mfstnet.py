@@ -83,9 +83,14 @@ def class_weights(labels, n_classes: int):
 class Windows:
     """Sequences -> (cnn, vit, labels), reading windows from the feature cache."""
 
-    def __init__(self, rows, cache, lanes, source_id: str, T: int):
+    def __init__(self, rows, cache, lanes, source_id: str, T: int,
+                 masks_by_clip=None):
         self.rows, self.cache, self.lanes = rows, cache, lanes
         self.source_id, self.T = source_id, T
+        # P26: a lane lives in one camera's image plane, so each window must be
+        # pooled through its OWN camera's masks. None means a single-camera
+        # corpus, where the model's construction-time masks are already right.
+        self.masks_by_clip = masks_by_clip
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -108,7 +113,9 @@ class Windows:
             [CLASSES.index(row[f"label_{lane}"]) for lane in self.lanes],
             dtype=torch.long,
         )
-        return cnn, vit, labels
+        masks = (None if self.masks_by_clip is None
+                 else self.masks_by_clip[row["clip_id"]])
+        return cnn, vit, labels, masks
 
 
 def batches(dataset, size: int, *, shuffle: bool, generator=None):
@@ -120,9 +127,11 @@ def batches(dataset, size: int, *, shuffle: bool, generator=None):
     )
     for start in range(0, len(order), size):
         chunk = [dataset[i] for i in order[start:start + size]]
-        cnn = torch.stack([c for c, _, _ in chunk]) if chunk[0][0] is not None else None
-        vit = torch.stack([v for _, v, _ in chunk]) if chunk[0][1] is not None else None
-        yield cnn, vit, torch.stack([y for _, _, y in chunk])
+        cnn = torch.stack([c for c, _, _, _ in chunk]) if chunk[0][0] is not None else None
+        vit = torch.stack([v for _, v, _, _ in chunk]) if chunk[0][1] is not None else None
+        masks = (torch.stack([m for _, _, _, m in chunk])
+                 if chunk[0][3] is not None else None)
+        yield cnn, vit, torch.stack([y for _, _, y, _ in chunk]), masks
 
 
 def gate_stats(output) -> dict:
@@ -138,7 +147,32 @@ def gate_stats(output) -> dict:
     }
 
 
-def feed(model, cnn, vit):
+def guard_results(out: Path, epochs: int, *, force: bool) -> None:
+    """Refuse to overwrite results from a longer run than the one about to start.
+
+    The check is `epochs_run`, not a timestamp, because the failure it prevents
+    is specifically a short verification run aimed at the default path. A
+    longer or equal run is a legitimate replacement and passes.
+    """
+    if force or not out.is_file():
+        return
+    try:
+        with out.open(newline="", encoding="utf-8") as handle:
+            recorded = [int(r["epochs_run"]) for r in csv.DictReader(handle)
+                        if r.get("epochs_run", "").strip().isdigit()]
+    except (OSError, ValueError, KeyError):
+        return                                  # unreadable is not this guard's job
+    if recorded and max(recorded) > epochs:
+        raise SystemExit(
+            f"{out} holds a run of {max(recorded)} epochs and this one is "
+            f"{epochs}. Raw result CSVs are graded deliverables (NFR-09/10), "
+            f"so a short check will not overwrite a longer run. Send it "
+            f"somewhere else with --out, or pass --force if replacing it is "
+            f"what you mean."
+        )
+
+
+def feed(model, cnn, vit, masks=None):
     """Pass only the branches this config enables.
 
     `MFSTNet._check_inputs` REFUSES features for a disabled branch rather than
@@ -148,6 +182,7 @@ def feed(model, cnn, vit):
     return model(
         cnn if model.cfg.fusion.use_cnn else None,
         vit if model.cfg.fusion.use_vit else None,
+        lane_masks=masks,
     )
 
 
@@ -160,8 +195,8 @@ def evaluate_split(model, dataset, size: int, lanes):
     model.eval()
     true, pred, last = [], [], None
     with torch.no_grad():
-        for cnn, vit, y in batches(dataset, size, shuffle=False):
-            out = feed(model, cnn, vit)
+        for cnn, vit, y, masks in batches(dataset, size, shuffle=False):
+            out = feed(model, cnn, vit, masks)
             last = out
             true.extend(y.reshape(-1).tolist())
             pred.extend(out.logits.reshape(-1, len(CLASSES)).argmax(-1).tolist())
@@ -202,7 +237,7 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, T_max=epochs)
 
-    labels = [y for _, _, ys in (train_set[i] for i in range(len(train_set)))
+    labels = [y for _, _, ys, _ in (train_set[i] for i in range(len(train_set)))
               for y in ys.tolist()]
     weights, counts = class_weights(labels, len(CLASSES))
     criterion = torch.nn.CrossEntropyLoss(weight=weights)
@@ -214,9 +249,9 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     for epoch in range(epochs):
         model.train()
         total = 0.0
-        for cnn, vit, y in batches(train_set, t["batch_size"], shuffle=True,
-                                   generator=generator):
-            out = feed(model, cnn, vit)
+        for cnn, vit, y, masks in batches(train_set, t["batch_size"], shuffle=True,
+                                          generator=generator):
+            out = feed(model, cnn, vit, masks)
             loss = criterion(out.logits.reshape(-1, len(CLASSES)), y.reshape(-1))
             optimiser.zero_grad()
             loss.backward()
@@ -280,6 +315,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", type=Path, default=RESULTS)
+    parser.add_argument(
+        "--force", action="store_true",
+        help="overwrite results recorded from a longer run than this one")
     args = parser.parse_args(argv)
 
     import yaml
@@ -292,6 +330,12 @@ def main(argv: list[str] | None = None) -> int:
     spec = yaml.safe_load(Path("mfstnet/configs/spec.yaml").read_text(encoding="utf-8"))
     training = spec["training"]
     epochs = args.epochs or training["epochs"]
+
+    # NFR-09/10 make the raw result CSVs graded deliverables, and `--out`
+    # defaults to the real one — so a two-epoch plumbing check aimed at the
+    # default silently destroys a finished ablation. Refuse when the file on
+    # disk came from a longer run than this one.
+    guard_results(args.out, epochs, force=args.force)
 
     rows_in, manifest = load_corpus(args.corpus)
     auto = manifest.get("auto_labelled", True)
@@ -342,9 +386,48 @@ def main(argv: list[str] | None = None) -> int:
             "scripts/import_lane_centres.py."
         )
 
+    # P26. One set of centres describes ONE camera, so a corpus spanning
+    # cameras needs a mask set per camera. Pooling every camera through the
+    # first one's lanes does not fail loudly — the shapes agree and the loss
+    # still falls — it just measures the wrong region for every camera but one.
+    per_clip = manifest.get("lane_centres_by_clip") or {}
+    masks_by_clip = None
+    if per_clip:
+        from mfstnet.corpus.lanes import LaneCentres
+        from mfstnet.temporal import lane_masks_from_centres
+
+        grid = spec.get("grid", 7)
+        masks_by_clip = {
+            clip_id: lane_masks_from_centres(
+                LaneCentres(
+                    names=tuple(e["name"] for e in entry["lanes"]),
+                    centres=tuple(tuple(e["centre"]) for e in entry["lanes"]),
+                    max_radius=float(entry.get("max_radius", 0.25)),
+                ),
+                grid,
+            )
+            for clip_id, entry in per_clip.items()
+        }
+        widths = {int(m.shape[0]) for m in masks_by_clip.values()}
+        if len(widths) > 1:
+            raise SystemExit(
+                f"the corpus mixes cameras with {sorted(widths)} lanes. The "
+                f"per-lane head is one fixed width, so a corpus cannot span "
+                f"lane counts — rebuild with the same count on every camera."
+            )
+        missing = {r["clip_id"] for r in rows_in} - set(masks_by_clip)
+        if missing:
+            raise SystemExit(
+                f"{len(missing)} clip(s) have sequences but no lane geometry, "
+                f"e.g. {sorted(missing)[0][:50]}. Every window must be pooled "
+                f"through its own camera's lanes (P26)."
+            )
+        print(f"  per-camera ROI geometry for {len(masks_by_clip)} camera(s)")
+
     split = {
         name: Windows([r for r in rows_in if r["split"] == name],
-                      cache, lane_names, args.source_id, T)
+                      cache, lane_names, args.source_id, T,
+                      masks_by_clip=masks_by_clip)
         for name in ("train", "val", "test")
     }
     for name, dataset in split.items():
