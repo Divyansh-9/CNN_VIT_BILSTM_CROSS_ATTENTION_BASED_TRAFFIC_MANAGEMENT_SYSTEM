@@ -380,7 +380,7 @@ TEAM = [("Divyansh Uniyal", "Project Lead"), ("KM Shivani", "Team Member"),
         ("Abhishek Negi", "Team Member"), ("Bhavya Gogia", "Team Member")]
 UNIVERSITY = "Graphic Era Hill University"
 CAMPUS = "Dehradun, Uttarakhand"
-GUIDE = "[ Faculty Guide — name to be filled in ]"
+GUIDE_NAME = "Ms Neha Pokhriyal"
 
 
 def slide_title(deck: Deck, fig: dict) -> None:
@@ -422,8 +422,12 @@ def slide_title(deck: Deck, fig: dict) -> None:
     run.text = UNIVERSITY
     deck.text(slide, MARGIN, Inches(5.54), Inches(6), Inches(0.25),
               size=10.5, colour=DIM_CREAM)[3].text = CAMPUS
-    deck.text(slide, MARGIN, Inches(5.86), Inches(6), Inches(0.25),
-              size=10.5, font=MONO, colour=DIM_CREAM)[3].text = GUIDE
+    _, _, guide_para, guide_run = deck.text(
+        slide, MARGIN, Inches(5.84), Inches(6), Inches(0.25),
+        size=10.5, colour=DIM_CREAM)
+    guide_run.text = "Faculty Guide   "
+    deck.rich(guide_para, [(GUIDE_NAME, {"colour": CREAM, "bold": True,
+                                         "size": 10.5})], size=10.5)
 
     counts = project_counts()
     stats = [(f"{fig['bmd45_mean']:.4f}", "mAP50, elevated CCTV"),
@@ -1593,10 +1597,49 @@ def render_images(outdir: Path) -> dict:
 #  build
 # ==========================================================================
 
+def export_pdf(pptx_path: Path) -> Path | None:
+    """Export a PDF beside the deck, driving PowerPoint itself.
+
+    PowerPoint renders its own format correctly, which no third-party converter
+    can be relied on to do — and a deck that looks right as a .pptx and wrong as
+    a PDF is worse than no PDF at all. So this drives the real application, and
+    returns None wherever that is unavailable rather than producing something
+    that only approximately matches.
+    """
+    import subprocess
+
+    if sys.platform != "win32":
+        print("  --pdf needs Windows with PowerPoint installed; skipping")
+        return None
+
+    pdf_path = pptx_path.with_suffix(".pdf")
+    script = (
+        "$ErrorActionPreference='Stop';"
+        "$app = New-Object -ComObject PowerPoint.Application;"
+        f"$p = $app.Presentations.Open('{pptx_path}', $true, $false, $false);"
+        f"$p.SaveAs('{pdf_path}', 32);"          # 32 = ppSaveAsPDF
+        "$p.Close(); $app.Quit();"
+        "[System.Runtime.InteropServices.Marshal]::ReleaseComObject($app)|Out-Null"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True, text=True, timeout=600)
+    if result.returncode != 0 or not pdf_path.is_file():
+        print("  PDF export failed; the .pptx is unaffected")
+        for line in (result.stderr or "").strip().splitlines()[:3]:
+            print(f"    {line}")
+        return None
+    return pdf_path
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--out", type=Path,
                         default=ROOT / "docs" / "demo" / "MFSTNet-Project-Review.pptx")
+    parser.add_argument(
+        "--pdf", action="store_true",
+        help="also export a PDF through PowerPoint. Windows only and it needs "
+             "PowerPoint installed; the deck still builds without it")
     parser.add_argument("--assets", type=Path,
                         default=Path(tempfile.gettempdir()) / "mfstnet-deck-assets",
                         help="where rendered frames are cached between builds; they "
@@ -1635,6 +1678,11 @@ def main(argv: list[str] | None = None) -> int:
     print("  validation figures read from experiments/results at build time; "
           "the S17\n  detector numbers and the timing table are marked on their "
           "slides as not\n  coming from a committed CSV")
+    if args.pdf:
+        pdf = export_pdf(args.out)
+        if pdf is not None:
+            print(f"  wrote {pdf}  "
+                  f"({pdf.stat().st_size / 1024 / 1024:.2f} MB)")
     return 0
 
 

@@ -127,7 +127,7 @@ python scripts/check_env.py          # BEFORE pip install -r requirements.txt
 python -m pytest                     # whole suite (config in pyproject.toml)
 python -m pytest tests/test_lanes.py::test_far_points_are_unassigned_not_snapped
 python scripts/check_docs.py         # link/claim integrity, stdlib only, runs in CI
-python scripts/build_review_pptx.py  # the project review deck, from the committed CSVs
+python scripts/build_review_pptx.py --pdf   # review deck + PDF, from the committed CSVs
 ```
 
 ### The corpus pipeline, in order
