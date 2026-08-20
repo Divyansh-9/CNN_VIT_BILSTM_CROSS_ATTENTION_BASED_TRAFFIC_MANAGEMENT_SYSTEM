@@ -88,9 +88,9 @@ border-top:2px solid var(--ink);padding:16px 0;margin-top:34px}
       saw traffic, and on dense Indian scenes the detector misses a lot.
       <strong>Place the cross where the approach is, not where the heat is.</strong></li>
     <li>Order does not matter — lanes are renamed left-to-right on import.</li>
-    <li>When you are done, <strong>Save</strong> writes
-      <code>lane_centres.json</code>, or <strong>Copy</strong> puts it on the
-      clipboard to paste back.</li>
+    <li>When you are done, <strong>Copy JSON</strong> puts the whole thing on
+      the clipboard — paste it back into the chat. The box below always holds
+      the current state, so selecting it by hand works too.</li>
   </ol>
 </div>
 
@@ -290,7 +290,6 @@ border-top:2px solid var(--ink);padding:16px 0;margin-top:34px}
 
 <div class="sticky">
   <div class="row">
-    <button id="save" type="button">Save lane_centres.json</button>
     <button id="copy" type="button">Copy JSON</button>
     <span class="count" id="progress">0 of 12 cameras have 4 centres</span>
   </div>
@@ -369,11 +368,6 @@ function init(){
     try{ await navigator.clipboard.writeText(t.value); }catch(e){ document.execCommand('copy'); }
     const b=document.getElementById('copy'); const o=b.textContent;
     b.textContent='copied'; setTimeout(()=>b.textContent=o,1400);
-  });
-  document.getElementById('save').addEventListener('click',()=>{
-    const blob=new Blob([document.getElementById('out').value],{type:'application/json'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download='lane_centres.json'; a.click();
   });
 }
 document.addEventListener('DOMContentLoaded', init);
