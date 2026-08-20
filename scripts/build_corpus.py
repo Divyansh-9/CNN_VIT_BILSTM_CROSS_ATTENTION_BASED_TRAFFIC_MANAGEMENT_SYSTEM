@@ -113,7 +113,7 @@ LANE_SETS = {
 
 
 def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
-                  conf: float) -> tuple[list[dict], int]:
+                  conf: float, imgsz: int = 640) -> tuple[list[dict], int]:
     """Per-lane occupancy every `step_s` seconds. Returns (rows, n_samples)."""
     import cv2
 
@@ -128,7 +128,8 @@ def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
         ok, frame = capture.read()
         if not ok:
             break
-        result = model.predict(source=frame, conf=conf, verbose=False)[0]
+        result = model.predict(source=frame, conf=conf, imgsz=imgsz,
+                               verbose=False)[0]
         height, width = result.orig_shape
         detections = [
             Detection(
@@ -170,6 +171,11 @@ def main(argv: list[str] | None = None) -> int:
                         default=Path("models/detector/s14_yolov8s_joint_best.pt"))
     parser.add_argument("--conf", type=float, default=0.45,
                         help="the pinned counting operating point (S14b)")
+    parser.add_argument("--imgsz", type=int, default=640,
+                        help="run the detector at the size it was TRAINED at. "
+                             "s15 is 640, ITD-x is 992. Counting a model out of "
+                             "its trained resolution reports a weaker model "
+                             "than it is, and every label inherits that")
     # Integers, because WindowGeometry derives FRAME strides from these and a
     # float stride is not a valid range() step. The spec values are integral
     # anyway (A15, PRD §8.2); accepting floats here only invites a crash deep in
@@ -291,6 +297,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         clip_lanes = per_clip_lanes.get(clip.name, lanes)
         rows, n = sample_counts(clip, clip_lanes, model, ids, names,
+                                imgsz=args.imgsz,
                                 step_s=args.step_s, conf=args.conf)
 
         # P17. Counts through a mismatched polygon are not low counts, they are
@@ -438,6 +445,7 @@ def main(argv: list[str] | None = None) -> int:
         "T": args.timesteps, "step_s": args.step_s,
         "horizon_s": args.horizon_s, "stride_s": args.stride_s,
         "detector": args.weights.name, "conf": args.conf,
+        "imgsz": args.imgsz,
         "clips": sorted(by_clip), "splits": splits,
         "split_mode": args.split_mode,
         "auto_labelled": True,

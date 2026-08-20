@@ -2671,3 +2671,74 @@ unit tests caught, because all five lived between components:
 3. lanes surveyed with one detector, counted with another (44% unassigned)
 4. ROI pooling had no region — a centre is not one
 5. lane geometry did not travel with the corpus manifest
+
+---
+
+## P24 — `vehicle_ids` counted three of ITD's seven vehicle classes, and it voided a conclusion I had just published (2026-08-19)
+
+**Status:** CLOSED · Found by a contradiction between two of my own measurements
+
+Comparing detectors on one Mumbai clip, s15 reported **842** vehicles and ITD-x
+**286**. [P21](#p21) had measured ITD finding **11–27% more** than s15 on
+comparable footage. Both could not be right.
+
+### The cause
+
+`scripts/pilot_a17.vehicle_ids` resolved vehicle classes from a fixed
+**inclusion** list:
+
+    VEHICLE_NAMES = {"car", "motorcycle", "bus", "truck",
+                     "auto_rickshaw", "e_rickshaw"}
+
+An inclusion list only recognises the taxonomy it was written against. Against
+ITD's names it matched **`bus`, `car`, `truck`** and silently ignored
+**`two wheeler`, `autorickshaw`, `LCV`** — on Indian footage, most of the
+traffic. Every ITD count in the corpus builder and the lane survey was over a
+crippled detection set.
+
+**The same defect was found and fixed in `pilot_counts.py` earlier the same
+day**, with a comment explaining exactly this failure — and it was not fixed in
+`pilot_a17.py`, which is what `build_corpus.py` and `survey_all.py` import. One
+fix, one file, and the identical bug three imports away.
+
+Resolution is now by **exclusion**: everything is a vehicle except people,
+cattle, riders and street furniture. That is taxonomy-agnostic by construction.
+
+### What it voids, including a recommendation made minutes earlier
+
+I had reported that counting with the same detector the lanes were surveyed with
+cuts the unassigned rate, citing 30.1% → 21.2% across four clips and
+18.3% → 9.5% on Mumbai. **Both numbers were the bug.** ITD looked cleaner
+because it was counting a third of the vehicles.
+
+Re-measured on identical frames and lanes after the fix:
+
+| detector | assigned | unassigned | rate |
+|---|---|---|---|
+| s15 @640 | 842 | 189 | **18.3%** |
+| ITD @992 | **1,038** | 243 | **19.0%** |
+
+ITD finds **23% more vehicles**, which restores agreement with P21. But the
+unassigned rate is **the same**, not lower.
+
+**So the operational claim is withdrawn: matching the survey detector to the
+counting detector does not reduce the unassigned rate on this evidence.**
+
+The underlying principle survives on different grounds — P23 measured lane
+centres moving 0.164 of frame width between detectors, so lanes and counts
+should still share one detector because they otherwise describe different
+geometry. That argument was never the unassigned rate.
+
+### Consequences
+
+1. **`data/corpus_smoke_itd` is void** and its label distribution (LOW 46.7%
+   against the s15 build's 16.7%) was an artifact of missing two-wheelers and
+   auto-rickshaws, not a threshold effect.
+2. **`--imgsz` was still worth adding.** ITD at 992 against 640 is a real
+   difference and the corpus manifest now records the resolution alongside the
+   detector, because a count from a model run outside its trained size is a
+   different measurement.
+3. **The lane survey used the same broken resolution.** The ITD centres in
+   `data/lanes_itd` were clustered from car/bus/truck centroids only. They must
+   be re-surveyed before use — which matters, because the placement heatmaps
+   were rendered from them.

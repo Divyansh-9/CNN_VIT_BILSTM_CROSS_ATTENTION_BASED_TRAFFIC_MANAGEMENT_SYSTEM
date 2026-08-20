@@ -56,21 +56,34 @@ PERCENTILE = 75             # A28: pre-registered, biases toward a LARGER step_s
 # Stock COCO and our fine-tuned detector share almost no numbering — `2` is `car`
 # in COCO and `auto_rickshaw` in ours — so ids are resolved from `model.names`
 # at run time and a model missing all of them raises.
-VEHICLE_NAMES = {
-    "car", "motorcycle", "bus", "truck",          # both taxonomies
-    "auto_rickshaw", "e_rickshaw",                # ours only
-}
+# Resolved by EXCLUSION, not inclusion. An inclusion list only recognises the
+# taxonomy it was written against: measured, it matched just `bus`, `car` and
+# `truck` on ITD-x and silently ignored `two wheeler`, `autorickshaw` and `LCV`
+# — on Mumbai footage that is most of the traffic, and every count built on it
+# was over a crippled detection set.
+#
+# The same defect was found and fixed in `pilot_counts.py` earlier the same day
+# and NOT fixed here, which is why it survived into the corpus builder.
+#
 # §14.1 counts VEHICLES. `person`/`pedestrian` and `cattle` are excluded: a
 # crowded footpath is not congestion, and a cow is an obstacle, not traffic.
+NON_VEHICLE_NAMES = {
+    "person", "pedestrian", "pedestrain",          # ITD spells it the second way
+    "cattle", "animal",
+    "rider",                                       # merged into motorcycle (S09)
+    "traffic_light", "traffic light", "traffic_sign", "traffic sign",
+    "stop sign", "parking meter", "bench",
+}
 
 
 def vehicle_ids(model) -> set[int]:
     """Resolve class ids from the model's own names."""
     names = model.names if isinstance(model.names, dict) else dict(enumerate(model.names))
-    ids = {i for i, n in names.items() if str(n).lower() in VEHICLE_NAMES}
+    ids = {i for i, n in names.items()
+           if str(n).lower() not in NON_VEHICLE_NAMES}
     if not ids:
         raise SystemExit(
-            f"none of {sorted(VEHICLE_NAMES)} appear in this model's classes "
+            f"every class of this model is a non-vehicle "
             f"({sorted(names.values())}). Counting nothing would report every "
             f"frame as LOW."
         )
