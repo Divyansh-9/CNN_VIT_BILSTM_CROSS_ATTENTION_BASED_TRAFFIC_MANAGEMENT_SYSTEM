@@ -62,6 +62,27 @@ def read_detections(path: Path) -> dict[str, dict[int, list[Detection]]]:
     return by_clip
 
 
+def samples_from_counts(path: Path) -> dict[str, int]:
+    """Series length per clip, from counts.csv.
+
+    Only the `clip_id` and `sample` columns are read, and those are
+    **lane-independent** even though the counts beside them are not: every
+    sampled frame gets a row whether or not the detector saw anything in it.
+    That is what makes this a complete answer where the detections alone are
+    not — a run of empty frames at the end of a clip leaves no detection rows
+    at all, so the highest detection index understates the series.
+    """
+    if not path.is_file():
+        return {}
+    highest: dict[str, int] = {}
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            clip, sample = row["clip_id"], int(row["sample"])
+            if sample >= highest.get(clip, -1):
+                highest[clip] = sample
+    return {clip: n + 1 for clip, n in highest.items()}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--corpus", type=Path, required=True)
@@ -123,13 +144,22 @@ def main(argv: list[str] | None = None) -> int:
     # traffic, a LOW label, not missing data. Worse, compacting the series
     # breaks the index arithmetic: window position i would stop meaning sample
     # i, and every label would be read from the wrong moment.
-    per_clip_samples = manifest.get("samples_per_clip") or {}
+    per_clip_samples = manifest.get("samples_per_clip") or samples_from_counts(
+        args.corpus / "counts.csv")
     if not per_clip_samples:
         per_clip_samples = {c: max(s) + 1 for c, s in detections.items()}
-        print("  NOTE: this corpus predates samples_per_clip. Trailing frames")
-        print("  with no detections cannot be recovered and the series may be")
-        print("  short; rebuild once with build_corpus.py to fix.")
+        print("  NOTE: neither samples_per_clip nor counts.csv is available, so")
+        print("  the series length comes from the highest detection index.")
+        print("  Trailing frames with no detections cannot be recovered.")
         print()
+    short = {c: (per_clip_samples[c], max(s) + 1) for c, s in detections.items()
+             if per_clip_samples.get(c, 0) < max(s) + 1}
+    if short:
+        raise SystemExit(
+            f"the recorded sample count is shorter than the detections for "
+            f"{len(short)} clip(s), e.g. {sorted(short)[0][:40]} "
+            f"{short[sorted(short)[0]]}. That would silently drop windows."
+        )
 
     all_counts, all_sequences, lanes_by_clip = [], [], {}
     for clip_id in sorted(detections):

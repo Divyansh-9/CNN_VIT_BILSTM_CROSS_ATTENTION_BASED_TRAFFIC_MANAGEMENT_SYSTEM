@@ -239,6 +239,64 @@ def test_frames_with_no_detections_are_not_dropped(tmp_path):
         assert float(row["t_s"]) == sample * 2
 
 
+def test_the_series_length_comes_from_counts_not_detections(tmp_path):
+    """counts.csv has a row per sampled frame whether or not the detector saw
+    anything, so its index column recovers a run of empty frames at the END of
+    a clip -- which the detections alone cannot, because they leave no rows at
+    all. Measured on the real corpus: 3 trailing empty samples on one camera.
+    """
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    # Detections stop at sample 6; the clip really ran to sample 9.
+    write_detections(corpus / "detections.csv",
+                     [detection("cam_a", s, 0.25, 0.5) for s in range(7)])
+    with (corpus / "counts.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["clip_id", "sample", "t_s",
+                                                    "count_lane_0", "count_lane_1",
+                                                    "unassigned"])
+        writer.writeheader()
+        for sample in range(10):
+            writer.writerow({"clip_id": "cam_a", "sample": sample,
+                             "t_s": sample * 2, "count_lane_0": 0,
+                             "count_lane_1": 0, "unassigned": 0})
+    (corpus / "manifest.json").write_text(json.dumps({
+        "lanes": ["lane_0", "lane_1"], "T": 3, "step_s": 2, "horizon_s": 2,
+        "stride_s": 2, "conf": 0.45, "imgsz": 992, "detector": "synthetic",
+        "low_max": 3, "med_max": 6, "splits": {"cam_a": "train"},
+        "clips": ["cam_a"], "split_mode": "clip", "auto_labelled": True,
+    }, indent=2), encoding="utf-8")
+    lanes = write_lanes(tmp_path / "lanes", (0.25, 0.5), (0.75, 0.5),
+                        clips=("cam_a",))
+
+    main(["--corpus", str(corpus), "--lanes-dir", str(lanes),
+          "--out", str(tmp_path / "out")])
+
+    counts = list(csv.DictReader((tmp_path / "out" / "counts.csv").open(encoding="utf-8")))
+    assert [int(r["sample"]) for r in counts] == list(range(10))
+
+
+def test_a_series_shorter_than_its_detections_is_refused(tmp_path):
+    """A recorded length below the highest detection index would drop windows
+    without saying so. Better to stop."""
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    write_detections(corpus / "detections.csv",
+                     [detection("cam_a", s, 0.25, 0.5) for s in range(10)])
+    (corpus / "manifest.json").write_text(json.dumps({
+        "lanes": ["lane_0", "lane_1"], "T": 3, "step_s": 2, "horizon_s": 2,
+        "stride_s": 2, "conf": 0.45, "imgsz": 992, "detector": "synthetic",
+        "low_max": 3, "med_max": 6, "splits": {"cam_a": "train"},
+        "clips": ["cam_a"], "split_mode": "clip", "auto_labelled": True,
+        "samples_per_clip": {"cam_a": 4},          # wrong: detections reach 9
+    }, indent=2), encoding="utf-8")
+    lanes = write_lanes(tmp_path / "lanes", (0.25, 0.5), (0.75, 0.5),
+                        clips=("cam_a",))
+
+    with pytest.raises(SystemExit, match="shorter than the detections"):
+        main(["--corpus", str(corpus), "--lanes-dir", str(lanes),
+              "--out", str(tmp_path / "out")])
+
+
 def test_a_corpus_without_samples_per_clip_still_works(tmp_path):
     """Corpora built between P28 and this fix. Interior gaps are recoverable
     from the highest index; trailing ones are not, and it says so."""

@@ -3138,3 +3138,81 @@ another. `build_corpus` now records `samples_per_clip` and `relane_corpus`
 rebuilds the full range, counting a missing sample as zero. Corpora built
 before this fall back to the highest index seen and say so — interior gaps are
 recovered, trailing ones cannot be.
+
+## P30 — requirements.txt contradicted its own first paragraph, and matched nothing installed (2026-08-20)
+
+**Status:** CLOSED · Found while investigating why training ran on CPU
+
+`requirements.txt` opens with:
+
+> Versions are PINNED, not ranged. A range that resolves differently in
+> November than it did in August breaks reproducibility silently.
+
+Below that paragraph, **21 of its 35 requirement lines were ranges.** `xgboost`
+was listed twice, identically, on consecutive lines.
+
+### The worse half
+
+The 14 lines that *were* pinned did not match the environment. Every single one
+that is installed here disagreed with its pin:
+
+| package | declared | installed |
+|---|---|---|
+| stable-baselines3 | `==2.3.2` | 2.9.0 |
+| gymnasium | `==0.29.1` | 1.3.0 |
+| eclipse-sumo / traci / sumolib | `==1.19.0` | 1.27.1 |
+| tqdm | `==4.66.4` | 4.70.0 |
+| python-dotenv | `==1.0.1` | 1.2.2 |
+
+**Seven of seven wrong.** `pip install -r requirements.txt` on a clean machine
+would have built a materially different stack from the one every measurement in
+this project was taken on — a different SUMO minor version, a different SB3
+major. NFR-08 is graded *Critical* and was fiction.
+
+### Why the existing test passed throughout
+
+[P18](#p18) added `test_every_imported_package_is_pinned`, which walks the AST
+and checks **imports ⊆ requirements**. That is one direction. Nothing checked
+**requirements against reality**, and its own docstring explains the reasoning:
+
+> It reads the source rather than the installed environment on purpose. A test
+> that checked `pip list` would pass on the developer's machine — the one place
+> the answer is already known — and say nothing about a clean checkout.
+
+That argument is right about a *missing* dependency and wrong about a *lying*
+one. A pin nobody has ever run is a guess, and the only machine that can catch
+it is the one with the package installed.
+
+### The fix
+
+Every active line is now `==` at the version this environment actually runs,
+read from the installed distributions rather than chosen. Three tests enforce
+it: no ranges, no duplicates, and **pins match installed versions** where the
+package is present (skipping what is absent, so CI and partial checkouts still
+mean something). All three fail against the old file.
+
+`pyarrow` and `shapely` are dropped — neither is imported anywhere. Counts are
+written as CSV rather than Parquet, and lane assignment has been nearest-centre
+arithmetic since [P23](#p23) rather than polygon containment. `kaggle` is added:
+`scripts/kaggle_push.py` imports it behind a guard, so it never failed loudly.
+
+Dependencies for subsystems that do not exist — server, dashboard, edge, ONNX
+export, MLflow — move to a clearly-marked block that is deliberately **not
+pinned and not installed**, since pinning a version nobody has run is the
+defect being corrected. ADR-008 may delete them outright.
+
+### The CPU finding that started this
+
+`torch 2.13.0+cpu` is installed while an RTX 4050 (6 GB, driver 610.62) sits
+idle. `scripts/check_env.py` reports it correctly and has all along —
+`[ WARN ] CUDA -- unavailable -- CPU-only torch wheel?` — with the exact
+reinstall command. It was simply never acted on.
+
+**It is not blocking.** Measured on this machine, one config over 73 real
+sequences runs at 25.1 s/epoch, which puts the full 8-config ablation at
+**~23.6 h on CPU** for the real corpus — against the 60–90 h the PRD budgets
+for an *uncached* run on a Colab T4. ADR-005's feature cache is what makes CPU
+viable, and it is doing exactly what it was adopted for.
+
+A CUDA reinstall would cut that further and is a ~2.5 GB download that replaces
+a working environment mid-project. Recorded as an option, not taken unilaterally.

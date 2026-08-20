@@ -164,3 +164,77 @@ def test_torch_is_documented_as_installed_separately():
     text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
     assert "download.pytorch.org" in text
     assert "torch==" in text, "the exact install command must be in the file"
+
+
+# ------------------------------------------- the file against reality (P30) --
+
+def requirement_lines() -> list[tuple[str, str, str]]:
+    """`(distribution, operator, version)` for every active requirement."""
+    out = []
+    for raw in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines():
+        line = raw.split("#")[0].strip()
+        if not line:
+            continue
+        match = re.match(r"^([A-Za-z0-9_.\-]+)(\[[^\]]*\])?\s*([=<>!~]+)\s*(\S+)", line)
+        assert match, f"unparseable requirement line: {raw!r}"
+        out.append((match.group(1), match.group(3), match.group(4)))
+    return out
+
+
+def test_every_requirement_is_pinned_not_ranged():
+    """The file's own first paragraph: "Versions are PINNED, not ranged. A range
+    that resolves differently in November than it did in August breaks
+    reproducibility silently."
+
+    On 2026-08-20 that paragraph sat above 21 ranged lines out of 35. A stated
+    rule nobody checks is a comment, and NFR-08 is graded.
+    """
+    ranged = [f"{name}{op}{version}"
+              for name, op, version in requirement_lines() if op != "=="]
+    assert not ranged, (
+        f"{len(ranged)} requirement(s) use a range rather than a pin: "
+        f"{', '.join(ranged)}. The header of requirements.txt forbids this."
+    )
+
+
+def test_no_package_is_listed_twice():
+    """xgboost was listed twice, identically, on consecutive lines."""
+    names = [name.lower() for name, _, _ in requirement_lines()]
+    duplicated = sorted({n for n in names if names.count(n) > 1})
+    assert not duplicated, f"listed more than once: {', '.join(duplicated)}"
+
+
+def test_pins_match_what_is_installed():
+    """The direction the original audit missed.
+
+    P18 checked imports against requirements and called NFR-08 met. It never
+    checked requirements against the environment — and every one of the seven
+    pinned-and-installed packages disagreed with its pin: stable-baselines3
+    declared ==2.3.2 against 2.9.0 installed, SUMO ==1.19.0 against 1.27.1.
+    A clean machine would have built a different stack from this one, which is
+    precisely what the requirement forbids.
+
+    Skips anything not installed here, so the test still means something in CI
+    and on a partial checkout. `test_every_imported_package_is_pinned` is what
+    catches a missing dependency; this catches a lying one.
+    """
+    from importlib.metadata import PackageNotFoundError, version as installed_version
+
+    wrong = []
+    for name, op, declared in requirement_lines():
+        if op != "==":
+            continue                      # the ranged test above owns this
+        try:
+            actual = installed_version(name)
+        except PackageNotFoundError:
+            continue                      # not installed here; nothing to compare
+        # A local build carries a platform suffix the pin will not have.
+        if actual.split("+")[0] != declared.split("+")[0]:
+            wrong.append(f"{name}: pinned {declared}, installed {actual}")
+
+    assert not wrong, (
+        f"{len(wrong)} pin(s) do not match the installed environment:\n  "
+        + "\n  ".join(wrong)
+        + "\nA pin nobody has run is a guess. Update the pin, or install the "
+          "version the pin names."
+    )
