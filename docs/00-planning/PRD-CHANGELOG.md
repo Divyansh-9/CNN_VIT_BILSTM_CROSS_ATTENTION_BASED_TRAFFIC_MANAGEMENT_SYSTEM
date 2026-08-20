@@ -3547,3 +3547,76 @@ expected shape: A and B were never compute-bound.
 > pinned, and the collate is still single-threaded. Both are worth revisiting
 > only if the ablation stops fitting comfortably in an evening — at 1.5 h it
 > does.
+
+## P36 — the gate has the capacity to gate; the flat gate is a fact about the data (2026-08-20)
+
+**Status:** CLOSED · P16 asked whether a constant gate could pass unnoticed.
+It cannot, and now it has been explained rather than only detected.
+
+Every run on the pilot corpus reported the gate at `mean ~0.54, std ~0.005` —
+one value for every spatial location and every timestep, which is a learned
+scalar blend rather than a gate. FR-M04 makes the gate a research artifact, so
+"why" is a question the paper has to answer.
+
+### The mechanism, measured
+
+`g = sigmoid(Linear([z_a; z_b]))`. Instrumenting the gate's input at
+initialisation:
+
+| quantity | value |
+|---|---|
+| `z_a` std | 0.035 |
+| `z_b` std | 0.035 |
+| cosine(`z_a`, `z_b`) | −0.004 |
+| gate pre-activation std | 0.023 |
+| sigmoid slope at 0 | 0.25 |
+| **predicted gate std** | **0.006** |
+| observed gate std | 0.006 |
+
+The two directions are nearly orthogonal, so they genuinely carry different
+information. They are simply **small**: a 512-input Linear over inputs of std
+0.035 produces a pre-activation that keeps the sigmoid in its linear region
+around 0.5. Reaching saturation needs the Linear's weights to grow by about two
+orders of magnitude, and `weight_decay=1e-4` pulls the other way.
+
+### It is a bound on ease, not on capacity
+
+`experiments/gate_capacity.py` builds a task the gate should want to solve:
+half the samples carry the label in the CNN branch and half in the ViT branch,
+so no single fixed blend serves both. Across three seeds:
+
+| seed | gate std | g when CNN carries | g when ViT carries | separation |
+|---|---|---|---|---|
+| 1 | 0.320 | 0.404 | 0.670 | 0.266 |
+| 7 | 0.263 | 0.451 | 0.672 | 0.221 |
+| 42 | 0.444 | 0.481 | 0.654 | 0.172 |
+
+**The gate moves, by 50–90× its pilot spread, and it moves in a consistent and
+interpretable direction.** `g` weights `z_a`, which is CNN-queries-ViT, and it
+rises when the *ViT* branch holds the signal — the gate routes attention toward
+whichever branch is worth reading. That is exactly the behaviour the mechanism
+was chosen for, and it is the paper's story if it reproduces on real data.
+
+So a flat gate on the pilot corpus is **a finding about the corpus**, not a
+defect: five cameras, 85 sequences, and a label the CNN branch can serve on its
+own. It should be re-measured on the eleven-camera corpus and reported either
+way — a gate that stays flat there is a result, not an embarrassment.
+
+### The caveat that limits the claim
+
+**Config F reaches accuracy 1.000 on the same task**, so gating was not
+*necessary* to solve it. The reason is in the fusion's return:
+
+```python
+return self.norm(fused + 0.5 * (f_cnn + f_vit)), gate
+```
+
+The residual adds **both branches back, ungated**. Whatever `g` does, neither
+branch can be suppressed, so the gate arbitrates only the cross-attention half
+of the representation. That bounds how much of the ablation's F→G difference
+gating can ever account for, and it is worth stating plainly in the paper
+rather than discovering in review.
+
+Recording it, not changing it: the residual is PRD §8.1's architecture, and
+altering what the gate can do would change what the ablation measures. That is
+a decision for the guide, with this evidence attached.
