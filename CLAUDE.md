@@ -105,7 +105,75 @@ Privacy constraint (NFR-13): raw video frames are never transmitted over the net
 
 ## Commands
 
-None exist yet. As tooling lands, replace this section with the real invocations (training, ablation, ONNX export, SUMO benchmark, backend, dashboard, and how to run a single test). [Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--setup) has the environment setup and the pinned `requirements.txt` to start from.
+Everything runs through `./.venv/Scripts/python.exe` on this machine, and every
+script takes `--help`. [Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--setup)
+has environment setup and the pinned `requirements.txt`.
+
+```bash
+python scripts/check_env.py          # BEFORE pip install -r requirements.txt
+python -m pytest                     # whole suite (config in pyproject.toml)
+python -m pytest tests/test_lanes.py::test_far_points_are_unassigned_not_snapped
+python scripts/check_docs.py         # link/claim integrity, stdlib only, runs in CI
+```
+
+### The corpus pipeline, in order
+
+Lane geometry is per camera and hand-placed — automatic centres move 0.164 of
+frame width when the detector changes (P23), so they are never used unreviewed.
+
+```bash
+python scripts/triage_footage.py                       # which clips qualify at all
+python scripts/survey_all.py --lanes 4 --imgsz 992     --weights models/external/best_xl_ITD_v1.2.pt --out data/lanes_k4
+# then place centres by hand: docs/demo/place_lanes.html -> JSON
+python scripts/import_lane_centres.py --json lane_centres.json --out data/lanes_reviewed
+python scripts/corpus_yield.py                         # segments per step_s, the A28 evidence
+python scripts/build_corpus.py --clips "D:/traffic dataset"     --lanes-dir data/lanes_reviewed --step-s 2 --imgsz 992 --out data/corpus
+python scripts/relabel_corpus.py --corpus data/corpus --low-max 8 --med-max 20
+python scripts/build_cache.py --corpus data/corpus --cache data/cache
+```
+
+`counts.csv` is threshold-independent, so `relabel_corpus.py` re-derives labels
+in seconds without re-running the detector. A threshold decision is a config
+change, never a reason to delay building the corpus.
+
+### Training and the ablation
+
+```bash
+python scripts/overfit_check.py --all                  # plumbing: must reach ~0 loss
+python scripts/train_mfstnet.py --corpus data/corpus --cache data/cache --config G
+python scripts/train_mfstnet.py --corpus data/corpus --cache data/cache --ablation
+python scripts/train_baselines.py --corpus data/corpus
+```
+
+`--out` defaults to `experiments/results/ablation.csv`, a graded deliverable
+(NFR-09/10). A short run will refuse to overwrite results recorded from a
+longer one — send verification runs elsewhere with `--out`, or pass `--force`
+if replacing is what you mean.
+
+### Simulation and benchmark
+
+```bash
+python scripts/build_sumo_network.py
+python scripts/build_sumo_demand.py --regime saturated          # light|saturated|oversaturated
+python scripts/train_ppo.py --arm surrogate --regime saturated  # arms: no-forecast|surrogate|mfstnet
+python scripts/benchmark.py --seeds 30                          # --restat re-derives stats from CSV
+python scripts/webster_sweep.py                                 # ADR-012 saturation flow
+```
+
+### Detector work
+
+```bash
+python scripts/prepare_idd.py && python scripts/prepare_bmd45.py
+python scripts/build_joint_dataset.py
+python scripts/verify_detector_metrics.py --weights <pt>        # maps metrics to the RIGHT classes
+python scripts/verify_counting.py                               # counting != detection accuracy
+python scripts/evaluate_detector_arms.py --weights <pt>         # A31 viewpoint arms
+```
+
+Not yet built: ONNX export, the FastAPI server, the dashboard, and the edge
+node. ADR-008 (prototype descoping) is still proposed and blocked on guide
+sign-off, so do not build against it or against the superseded plan without
+flagging the conflict.
 
 ## Working conventions
 
