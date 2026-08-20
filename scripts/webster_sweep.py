@@ -95,6 +95,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("\n  NOTHING QUALIFIES. Report the sweep and make no "
               "'Webster's best' claim (ADR-012).")
+    from experiments.provenance import write_sidecar
+
+    write_sidecar(args.out)
     print(f"  wrote {args.out}")
     return 0
 

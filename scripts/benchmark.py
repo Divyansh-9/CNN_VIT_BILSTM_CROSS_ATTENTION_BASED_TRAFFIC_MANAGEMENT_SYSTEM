@@ -97,6 +97,12 @@ def run_benchmark(
     runs_path = merge_by_regime(out / "benchmark_runs.csv", rows, regime)
     stats_path = merge_by_regime(out / "benchmark_stats.csv", stats, regime)
 
+    # P39. PPO's device moved when the torch wheel changed and no CSV said so,
+    # which is what makes two benchmark runs quietly incomparable.
+    from experiments.provenance import write_sidecar
+
+    write_sidecar(runs_path, regime=regime, seeds=seeds)
+    write_sidecar(stats_path, regime=regime, seeds=seeds)
     print(f"\n  wrote {runs_path}\n  wrote {stats_path}")
     return rows, stats
 

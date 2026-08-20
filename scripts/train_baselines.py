@@ -189,6 +189,9 @@ def main(argv: list[str] | None = None) -> int:
         writer = csv.DictWriter(handle, fieldnames=list(out_rows[0]))
         writer.writeheader()
         writer.writerows(out_rows)
+    from experiments.provenance import write_sidecar
+
+    write_sidecar(args.out, corpus=str(args.corpus))
     print("\n  wrote " + str(args.out))
     if auto:
         print("  A32: these models observe the variable the label is computed")

@@ -498,6 +498,13 @@ def main(argv: list[str] | None = None) -> int:
             writer.writeheader()
             writer.writerows(rows)
 
+    # P39: the numbers above depend on the device, the torch build and the
+    # TF32 setting, and none of those is a column. The sidecar is what makes
+    # two result files comparable — or shows that they are not.
+    from experiments.provenance import write_sidecar
+
+    write_sidecar(args.out, device=device, corpus=str(args.corpus),
+                  cache=str(args.cache), auto_labelled=auto)
     print(f"\n  wrote {args.out}")
     if auto:
         print("  AUTO-LABELLED (A32): count-sequence baselines observe the "

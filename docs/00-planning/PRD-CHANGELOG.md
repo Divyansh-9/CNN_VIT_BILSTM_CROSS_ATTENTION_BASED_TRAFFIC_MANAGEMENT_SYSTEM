@@ -3734,3 +3734,55 @@ Checked end to end after this session's changes, on SUMO 1.27.1 rather than the
 1.19.0 the pins claimed before [P30](#p30): network build, demand generation at
 all three regimes, PPO smoke training, and `benchmark.py --restat` re-deriving
 the statistics from the committed CSV.
+
+## P39 — three defects, one shape: a number that does not carry what it depends on (2026-08-20)
+
+**Status:** CLOSED · A pattern, closed once, after fixing three instances of it
+
+Three defects found today looked unrelated and were not:
+
+| | the number | the fact it depended on and did not record |
+|---|---|---|
+| [P32](#p32) | `gate_mean` 0.53895 vs 0.54268, same config and seed | which device ran it |
+| [P33](#p33) | cached features, same `preprocessing_hash` | whether TF32 was on |
+| [P38](#p38) | benchmark mean wait | which device PPO trained on |
+
+Each was fixed where it happened. None of those fixes stops the fourth
+instance, and the fourth is the one nobody catches — the environment moved, the
+result changed, and the result file cannot say so.
+
+### What changed
+
+`experiments/provenance.py` writes a sidecar beside a result file naming the
+environment that produced it: git commit, Python, torch **version and build**
+(`2.13.0+cpu` and `2.13.0+cu126` are the same version and cannot give the same
+numbers), CUDA availability and device, **both TF32 flags**, and the versions of
+every package a result depends on. Callers add what only they know — the device
+actually used, the corpus read, the regime run.
+
+Wired into every writer of a graded deliverable: `train_mfstnet.py`,
+`train_baselines.py`, `benchmark.py`, `webster_sweep.py`. A parametrised test
+asserts each still does, so a fifth result writer added later fails until it
+joins them.
+
+### Why a sidecar rather than columns
+
+Existing result CSVs are committed graded deliverables (NFR-09/10). Adding
+columns to them means rewriting files whose contents were produced by a run —
+which is transcription, the exact thing NFR-09 forbids. A file beside them costs
+nothing and rewrites nothing.
+
+### Two things deliberately absent
+
+No timestamp and no username. The question a sidecar is asked is *"are these two
+results comparable?"*, and a field that always differs between two runs makes
+the diff useless for answering it. A test asserts two records written moments
+apart are **identical**.
+
+### What this does not fix
+
+The 27 result CSVs already committed have no sidecar and will not get one
+retroactively — inventing an environment record for a run nobody observed would
+be worse than having none. They are dated and the changelog says what the
+environment was on those dates; that is the audit trail for anything before
+today.
