@@ -254,7 +254,7 @@ class Deck:
         return self.rect(slide, left, top, width, weight, fill=colour)
 
     # -- slide furniture ---------------------------------------------------
-    def content(self, number, section, headline, *, lead=None, total=19):
+    def content(self, number, section, headline, *, lead=None, total=20):
         slide = self._blank(PAPER)
         self.slides.append(slide)
 
@@ -1412,6 +1412,114 @@ that fixes it.
 """)
 
 
+KAGGLE_USER = "idredk"
+KAGGLE_RUNS = [
+    ("S11", "cnn-vit-bilstm-cross-attention-traffic-system-s11",
+     "—", "IDD bootstrap detector", "in repo", GOOD),
+    ("S14", "cnn-vit-bilstm-cross-attention-traffic-system-s14",
+     "—", "joint BMD-45 + IDD detector, and the s15 augmented variant",
+     "in repo", GOOD),
+    ("S16", "cnn-vit-bilstm-cross-attention-traffic-system-s16",
+     "4.2 h", "ITD-distilled detector — not adopted, BMD-45 fell 0.0057",
+     "not fetched", WARN),
+    ("S17", "cnn-vit-bilstm-cross-attention-traffic-system-s17",
+     "2.8 h", "TrafficCAM-augmented detector — verdict suspended (P43)",
+     "not fetched", BAD),
+]
+KAGGLE_DATASETS = [
+    "indiatrafficnet-bootstrap-idd-yolo",
+    "cnn-vit-bilstm-traffic-itd-pseudo-labels",
+    "cnn-vit-bilstm-traffic-trafficcam-yolo",
+]
+
+
+def slide_compute(deck: Deck) -> None:
+    slide = deck.content(19, "Compute", ["Where each run happened, ",
+                                         "and what came back"],
+                         lead="Detector training ran on Kaggle T4 x2. Everything "
+                              "else runs on the project laptop.")
+    # A touch below the usual body line: this slide's lead sits directly above
+    # a header row, and they crowd each other at the default spacing.
+    y = BODY_Y + Inches(0.18)
+    headers = [("run", Inches(0.8)), ("kaggle notebook", Inches(4.0)),
+               ("gpu time", Inches(1.0)), ("what it produced", Inches(3.4)),
+               ("weights", Inches(1.2))]
+    x = MARGIN
+    for name, w in headers:
+        deck.text(slide, x, y - Inches(0.26), w - Inches(0.1), Inches(0.2),
+                  size=8.5, font=MONO, colour=FAINT, bold=True)[3].text = name.upper()
+        x += w
+    deck.rule(slide, MARGIN, y - Inches(0.04), Inches(10.4), colour=ACCENT,
+              weight=Pt(1.0))
+    y += Inches(0.12)
+
+    for run, slug, hours, produced, state, colour in KAGGLE_RUNS:
+        deck.text(slide, MARGIN, y, Inches(0.7), Inches(0.2),
+                  size=11, colour=INK, bold=True)[3].text = run
+        _, _, para, run_obj = deck.text(slide, MARGIN + Inches(0.8), y,
+                                        Inches(3.9), Inches(0.2),
+                                        size=8.5, font=MONO, colour=MUTED)
+        run_obj.text = ""
+        deck.rich(para, [(slug, {"colour": ACCENT, "size": 8.5,
+                                 "link": f"https://www.kaggle.com/code/"
+                                         f"{KAGGLE_USER}/{slug}"})],
+                  size=8.5, font=MONO)
+        deck.text(slide, MARGIN + Inches(4.8), y, Inches(0.9), Inches(0.2),
+                  size=9.5, font=MONO, colour=INK)[3].text = hours
+        deck.text(slide, MARGIN + Inches(5.8), y - Inches(0.02), Inches(3.3),
+                  Inches(0.4), size=9, colour=MUTED, spacing=1.15)[3].text = produced
+        deck.text(slide, MARGIN + Inches(9.2), y, Inches(1.2), Inches(0.2),
+                  size=9, font=MONO, colour=colour, bold=True)[3].text = state
+        y += Inches(0.62)
+        deck.rule(slide, MARGIN, y - Inches(0.14), Inches(10.4))
+
+    deck.text(slide, MARGIN, y + Inches(0.06), Inches(2.2), Inches(0.2),
+              size=8.5, font=MONO, colour=FAINT, bold=True)[3].text = "KAGGLE DATASETS"
+    _, _, para, run_obj = deck.text(slide, MARGIN, y + Inches(0.3),
+                                    Inches(11.6), Inches(0.2),
+                                    size=8.5, font=MONO, colour=MUTED)
+    run_obj.text = ""
+    pieces = []
+    for index, slug in enumerate(KAGGLE_DATASETS):
+        if index:
+            pieces.append(("   ·   ", {"colour": FAINT, "size": 8.5}))
+        pieces.append((slug, {"colour": ACCENT, "size": 8.5,
+                              "link": f"https://www.kaggle.com/datasets/"
+                                      f"{KAGGLE_USER}/{slug}"}))
+    deck.rich(para, pieces, size=8.5, font=MONO)
+
+    deck.rect(slide, MARGIN, Inches(5.86), Inches(11.9), Inches(1.2),
+              fill=RGBColor(0xF7, 0xF1, 0xE4), line=AMBER)
+    deck.text(slide, MARGIN + Inches(0.3), Inches(6.04), Inches(11.0), Inches(0.22),
+              size=9.5, font=MONO, colour=WARN,
+              bold=True)[3].text = "TWO THINGS THIS SLIDE IS ACTUALLY FOR"
+    _, _, _, run_obj = deck.text(slide, MARGIN + Inches(0.3), Inches(6.3),
+                                 Inches(11.3), Inches(0.7), size=10.5, colour=INK,
+                                 spacing=1.28)
+    run_obj.text = ("The S17 weights were never fetched from Kaggle, which is precisely "
+                    "why criterion 4 cannot be re-measured and why the verdict is "
+                    "suspended rather than settled. And every notebook above is "
+                    "currently PRIVATE — the links work for us and 404 for anyone else, "
+                    "so they need making public, or the guide added, before this deck "
+                    "is shared.")
+    deck.notes(slide, """
+Two honest points, and neither is a formality.
+
+First: only the detector training went to Kaggle, because it needs more GPU than
+the laptop has. Everything else -- corpus, cache, MFSTNet, the whole ablation,
+the controller -- runs locally in about an hour and a half. Say that, because a
+panel will assume a project like this lives on rented compute.
+
+Second, the amber box. Two of the four runs produced weights we never brought
+back, and one of them is S17. That is not tidiness -- it is the direct reason we
+cannot re-measure the criterion that rejected it, and therefore the reason the
+IDD scope question is still open. It is a good example of an operational
+shortcut turning into a blocked decision.
+
+Also flag the private notebooks before anyone clicks a link in the room.
+""")
+
+
 REFERENCES = [
     ("IDD",
      "Varma, G., Subramanian, A., Namboodiri, A., Chandraker, M., & Jawahar, C. V. "
@@ -1444,11 +1552,11 @@ REFERENCES = [
 
 
 def slide_references(deck: Deck) -> None:
-    slide = deck.content(19, "References", ["Sources, ",
+    slide = deck.content(20, "References", ["Sources, ",
                                             "and what each one obliges us to do"],
                          lead="Written down now rather than reconstructed in Week 20. "
                               "Two of these carry conditions that shape what can be "
-                              "released.", total=19)
+                              "released.", total=20)
     y = BODY_Y - Inches(0.1)
     for name, citation, obligation, colour in REFERENCES:
         deck.text(slide, MARGIN, y, Inches(2.5), Inches(0.22),
@@ -1669,6 +1777,7 @@ def main(argv: list[str] | None = None) -> int:
     slide_control(deck, figures)
     slide_engineering(deck)
     slide_next(deck)
+    slide_compute(deck)
     slide_references(deck)
 
     deck.save(args.out)
