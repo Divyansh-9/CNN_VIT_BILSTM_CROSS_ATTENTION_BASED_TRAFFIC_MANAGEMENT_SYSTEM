@@ -166,3 +166,78 @@ is not comparable to our 0.8915 here. See the ITD assessment in
   not applying a threshold at all.
 - `cattle` at 1.50 PCU is a low-confidence assumption. It was 0% of the measured
   fleet, so it has not yet mattered.
+
+---
+
+## Proposed amendment, 2026-08-20 — the calibration rule and its scope
+
+**Status:** PROPOSED, folded into the same sign-off. Two defects were found by
+running decision 2 against a real multi-camera corpus rather than one camera.
+Evidence: [P34](../PRD-CHANGELOG.md#p34), [P37](../PRD-CHANGELOG.md#p37),
+`experiments/results/corpus_yield.csv`.
+
+### 1. `low_max = p33 − 1` makes LOW unreachable on per-lane counts
+
+The measurement behind this ADR is on **whole-frame** counts from one camera,
+where "the quietest moment in twenty minutes still had nine vehicles in view".
+The corpus labels **per-lane** counts, and those are zero-inflated: with four
+lanes on a camera, **41.2% of per-lane counts are zero**. So p33 = 0,
+`low_max` = −1, and nothing satisfies `count ≤ −1`.
+
+Run as written, `--calibrate` produced **0% LOW in every split** — the exact
+degeneracy this ADR was raised to remove.
+
+> **Amend decision 2 to** `low_max = max(0, p33 − 1)`, with `med_max` widened
+> to at least `low_max + 1`. When p33 is zero, **LOW means "an empty lane"**,
+> which is what the class should mean; the unwritten alternative expressed it
+> as an impossibility.
+
+### 2. The implementation calibrated globally, which decision 2 rejects
+
+Decision 2 already says thresholds are per camera, and gives the reason: *"A
+threshold in absolute units describes the view, not the road."* The
+implementation pooled every camera into one pair. Measured on the five-camera
+pilot:
+
+| camera | p33 | p67 | zero share |
+|---|---|---|---|
+| 4K Road traffic | 0 | 1 | 64% |
+| Mumbai Andheri | 4 | 9 | 0% |
+| Pov_Thursday | 4 | 9 | 8% |
+| South Extension | 8 | 18 | 9% |
+| video1 | 13 | 19 | 0% |
+| **pooled** | **0** | **3** | 41% |
+
+The pooled p67 is 3 while video1's p33 alone is 13. Pooled thresholds mark
+almost everything HIGH on a busy camera and LOW on a quiet one.
+
+Resulting label distribution on the pilot:
+
+| labelling | train | test |
+|---|---|---|
+| §14.1 defaults (4 / 15) | 83.5 / 12.9 / 3.5 | degenerate |
+| pooled calibration | 57.2 / 19.2 / 23.6 | degenerate |
+| **per camera** | **59.2 / 26.0 / 14.7** | **25 / 50 / 25** |
+
+> **No change to decision 2 is needed — the code was wrong, and is fixed.**
+> `--calibrate` now calibrates per camera and records `thresholds_by_clip` and
+> `threshold_scope` in the manifest. `--calibrate-global` is kept only so the
+> two arms can be compared for this sign-off.
+
+### The honest cost of per-camera thresholds
+
+Per-camera calibration means **HIGH is relative to the camera's own range**. On
+a lane that only ever holds zero or one vehicle there is no congested state,
+and calibration must not manufacture one — two vehicles on a free-flowing
+motorway is not congestion however unusual it is for that camera.
+
+So a quiet camera contributes **no HIGH examples at all**. That is the correct
+behaviour and it is still a cost: the HIGH class is then carried by a subset of
+cameras, and cross-camera generalisation for that class is tested on fewer
+viewpoints than the other two. It should be reported alongside the per-class
+results rather than discovered from them.
+
+**This is the trade the guide is being asked to accept**: pooled thresholds
+give every camera all three classes and make them mean different things;
+per-camera thresholds make them mean the same thing and give some cameras
+fewer.

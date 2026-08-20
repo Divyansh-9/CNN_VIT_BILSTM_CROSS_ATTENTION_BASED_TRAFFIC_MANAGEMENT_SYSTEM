@@ -3620,3 +3620,64 @@ rather than discovering in review.
 Recording it, not changing it: the residual is PRD §8.1's architecture, and
 altering what the gate can do would change what the ablation measures. That is
 a decision for the guide, with this evidence attached.
+
+## P37 — calibration pooled every camera, which ADR-017 explicitly rejects (2026-08-20)
+
+**Status:** CLOSED · Found while drafting the [P34](#p34) amendment to ADR-017
+
+ADR-017 decision 2 reads: *"Thresholds are calibrated per camera at the p33/p67
+of a calibration period, and recorded in the corpus manifest. A threshold in
+absolute units describes the view, not the road."*
+
+`relabel_corpus.py --calibrate` pooled every clip into **one** threshold pair,
+and its help text called that "ADR-017's rule". The script had implemented half
+the decision, and the half it implemented contradicted the half it had not.
+
+### What pooling costs, measured
+
+| camera | p33 | p67 | zero share |
+|---|---|---|---|
+| 4K Road traffic | 0 | 1 | 64% |
+| Mumbai Andheri | 4 | 9 | 0% |
+| Pov_Thursday | 4 | 9 | 8% |
+| South Extension | 8 | 18 | 9% |
+| video1 | 13 | 19 | 0% |
+| **pooled** | **0** | **3** | 41% |
+
+The pooled p67 is 3; video1's **p33 alone is 13**. Under pooled thresholds the
+busy cameras never see LOW and the quiet one never sees HIGH — each camera gets
+a truncated label alphabet, decided by where it sits relative to the others.
+
+| labelling | train | test |
+|---|---|---|
+| §14.1 defaults | 83.5 / 12.9 / 3.5 | degenerate |
+| pooled | 57.2 / 19.2 / 23.6 | degenerate |
+| **per camera** | **59.2 / 26.0 / 14.7** | **25 / 50 / 25** |
+
+Per-camera calibration is the first labelling that leaves **all three classes
+present in every split**, including the one-sequence test split.
+
+### The fix
+
+`--calibrate` now calibrates per camera, labels each clip with its own
+boundaries, and records `thresholds_by_clip` plus `threshold_scope` in the
+manifest — a corpus that does not say which scope produced it cannot be
+compared with one that does. `--calibrate-global` is kept only as the
+comparison arm for the sign-off.
+
+### The cost, which belongs in the paper
+
+Per-camera thresholds make HIGH **relative to the camera's own range**. A lane
+that only ever holds zero or one vehicle has no congested state, and
+calibration must not invent one — two vehicles on a free-flowing motorway is
+not congestion however rare it is there.
+
+So a quiet camera contributes **no HIGH examples**. That is the right
+behaviour and still a cost: HIGH is then carried by a subset of viewpoints, and
+its cross-camera generalisation is tested on fewer cameras than LOW's or
+MEDIUM's. Report it beside the per-class results rather than leaving it to be
+inferred.
+
+A test pins this deliberately — `test_per_camera_calibration_cannot_invent_a_class_that_never_occurs`
+asserts that a quiet lane yields **zero** HIGH, so a future change that
+"fixes" the imbalance by manufacturing congestion fails loudly.
