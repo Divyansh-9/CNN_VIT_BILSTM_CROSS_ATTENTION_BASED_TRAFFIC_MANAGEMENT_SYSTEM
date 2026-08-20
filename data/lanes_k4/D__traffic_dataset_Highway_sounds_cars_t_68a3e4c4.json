@@ -1,0 +1,39 @@
+{
+  "clip": "Highway sounds cars trucks passing by for sleeping relaxing.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Highway sounds cars trucks passing by for sleeping relaxing.mp4",
+  "detections": 426,
+  "unassigned_rate": 0.0023,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.22337124322948135,
+        0.3591277276839144
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.4018067250843921,
+        0.42292898270905493
+      ]
+    },
+    {
+      "name": "lane_2",
+      "centre": [
+        0.6667535801323092,
+        0.5406530136604338
+      ]
+    },
+    {
+      "name": "lane_3",
+      "centre": [
+        0.9437087942052771,
+        0.736900933976036
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

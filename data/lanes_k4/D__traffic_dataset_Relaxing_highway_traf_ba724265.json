@@ -1,0 +1,39 @@
+{
+  "clip": "Relaxing highway traffic.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Relaxing highway traffic.mp4",
+  "detections": 773,
+  "unassigned_rate": 0.0168,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.09638288842845631,
+        0.39945691973785236
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.2960645255140172,
+        0.6883904538602911
+      ]
+    },
+    {
+      "name": "lane_2",
+      "centre": [
+        0.5180230135631224,
+        0.4106153142934319
+      ]
+    },
+    {
+      "name": "lane_3",
+      "centre": [
+        0.7231720743757305,
+        0.7106067342790289
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

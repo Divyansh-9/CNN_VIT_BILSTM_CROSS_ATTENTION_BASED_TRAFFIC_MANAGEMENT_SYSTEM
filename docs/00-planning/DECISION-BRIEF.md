@@ -126,7 +126,7 @@ a reviewer was right to call that out.
 > | `step_s` | independent segments | cameras contributing |
 > |---|---|---|
 > | 5 (today) | 29 | 7 of 11 |
-> | **2** | **62** | **9 of 11** |
+> | **2** | **64** | **11 of 11** |
 >
 > The segment count is the lesser half of this. `step_s = 5` needs 355 s of
 > footage per clip and so **deletes four cameras outright** — including the

@@ -1,0 +1,39 @@
+{
+  "clip": "video1.mp4",
+  "surveyed_from": "D:\\traffic dataset\\video1.mp4",
+  "detections": 3862,
+  "unassigned_rate": 0.0321,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.1293628434473766,
+        0.7309792640135535
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.30124062231501386,
+        0.3143590433182701
+      ]
+    },
+    {
+      "name": "lane_2",
+      "centre": [
+        0.5203228044961153,
+        0.7936961065373253
+      ]
+    },
+    {
+      "name": "lane_3",
+      "centre": [
+        0.7554363109842936,
+        0.5164272697505244
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

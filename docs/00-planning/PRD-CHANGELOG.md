@@ -2284,7 +2284,7 @@ A28 already nominated as its working default.
 
 > **Superseded by [P27](#p27).** The segment counts here no longer reproduce —
 > they predate the duplicate-camera finding and two detector fixes. Measured
-> today: 29 segments over 7 cameras at `step_s = 5`, 62 over 9 at `step_s = 2`.
+> today: 29 segments over 7 cameras at `step_s = 5`, 64 over 11 at `step_s = 2`.
 > The window spans are arithmetic and stand.
 
 **This is the decision that determines whether a corpus exists**, and it needs no
@@ -2940,9 +2940,14 @@ those clearing P17's 35% unassigned gate:
 
 | `step_s` | window span | sequences | independent segments | inflation | cameras |
 |---|---|---|---|---|---|
-| 1 | 119 s | 373 | 98 | 3.8× | 9 of 11 |
-| **2** | **178 s** | **355** | **62** | **5.7×** | **9 of 11** |
+| 1 | 119 s | 381 | 101 | 3.8× | 11 of 11 |
+| **2** | **178 s** | **359** | **64** | **5.6×** | **11 of 11** |
 | 5 | 355 s | 302 | 29 | 10.4× | 7 of 11 |
+
+*Computed against the four-lane survey. An earlier run of this table, made
+before P25's lane counts were placed, excluded South Extension and video1 for
+exceeding the 35% unassigned gate and read 62 segments over 9 cameras. At four
+lanes both clear it comfortably — 10.5% and 3.2% — so all eleven contribute.*
 
 The old figures were computed on a footage set from an earlier date and are
 withdrawn rather than reconciled — the footage has changed, the duplicate
@@ -2967,11 +2972,12 @@ the change that matters.
 
 ### The honest limit is unchanged and slightly worse
 
-62 independent segments is a pilot-scale corpus, and 20 of them come from a
-single motorway clip. Both numbers travel together in the paper: **355 windows
-over 62 independent segments over 9 cameras.** The window count alone overstates
-the evidence by 5.7×, and the segment count alone hides that a third of it is
-one camera.
+64 independent segments is a pilot-scale corpus, and 20 of them come from a
+single motorway clip. Both numbers travel together in the paper: **359 windows
+over 64 independent segments over 11 cameras.** The window count alone
+overstates the evidence by 5.6×, and the segment count alone hides that
+**31% of it is one camera** — the 3,602-second highway clip. That concentration
+is the corpus's real weakness, and no choice of `step_s` fixes it.
 
 ## P28 — moving a lane centre cost a full detector pass, so it would not have been moved (2026-08-20)
 
@@ -3024,3 +3030,46 @@ NFR-13 is unaffected — normalised boxes and class names, never pixels.
 > **Note for the paper.** This makes lane placement a *revisable* parameter,
 > which means the placement finally used has to be recorded and justified like
 > any other. `relaned_from` in the manifest keeps the chain.
+
+## P25 addendum — four lanes, measured on all twelve cameras (2026-08-20)
+
+P25 measured the four-lane hypothesis on three cameras. Re-surveying all twelve
+at `--lanes 4` settles it:
+
+| camera | at 2 lanes | at 4 lanes |
+|---|---|---|
+| South Extension | **35.1%** | 10.5% |
+| video1 | **44.4%** | 3.2% |
+| Dhaka Rampura (b) | 22.2% | 2.6% |
+| Dhaka Rampura | 23.9% | 1.3% |
+| Relaxing highway | 18.5% | 1.7% |
+| Mumbai Andheri | 11.6% | 2.2% |
+| Pov_Thursday | 9.8% | 1.7% |
+| 4K Road traffic (1) | 7.2% | 2.5% |
+| Road traffic recognition | 6.8% | 0.8% |
+| M6 Motorway | 6.6% | 1.0% |
+| Highway sounds | 3.5% | 0.2% |
+| 4K Road traffic (2) | 3.0% | 0.0% |
+
+**Every camera improved. None got worse. All twelve clear the 35% gate**, the
+worst now being 10.5%. The two "failures" were a wrong lane count throughout,
+exactly as P25 argued from three cameras.
+
+### What it changes downstream
+
+All **11 distinct cameras** now contribute, where the k=2 survey excluded two.
+The corrected yield is **64 independent segments over 11 of 11 cameras** at
+`step_s = 2`, against 29 over 7 at `step_s = 5` — which strengthens A28 rather
+than changing its direction.
+
+The placement page is reseeded from this survey, so the reviewer's job is to
+**move crosses that sit wrong rather than place four from nothing**. The
+heatmaps did not need regenerating: detection density does not depend on the
+lanes.
+
+> **The automatic centres are still not trusted.** They sit at the centre of
+> mass of a cluster, which on a junction can land between two approaches — a
+> low unassigned rate only proves the crosses are *near the traffic*, not that
+> they mark the approaches a signal controller would act on. That distinction
+> is the whole reason for the review step (P23), and 10.5% versus 0.2% does not
+> excuse it.
