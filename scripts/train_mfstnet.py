@@ -49,6 +49,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 RESULTS = Path("experiments/results/ablation.csv")
 from scripts.device import move, resolve_device  # noqa: E402
 
@@ -485,6 +489,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         row["labels"] = "auto" if auto else "human_verified"
         row["corpus"] = str(args.corpus)
+        # ADR-019. A fold result and a single-draw result are not comparable,
+        # and the only thing that distinguishes them is this. Read from the
+        # corpus manifest rather than passed in, so it cannot disagree with the
+        # data the run actually used.
+        row["split_protocol"] = manifest.get("split_protocol", "hash")
+        row["fold"] = manifest.get("fold", "")
+        row["folds_total"] = manifest.get("folds_total", "")
+        row["test_camera"] = manifest.get("fold_test_camera", "")
         rows.append(row)
         print(f"    macro-F1 {row['macro_f1']}  QWK {row['qwk']}  "
               f"gate std {row['gate_std'] or '—'}")

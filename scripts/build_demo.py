@@ -35,6 +35,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 TEMPLATE = Path(__file__).resolve().parent.parent / "docs" / "demo" / "template.html"
 CHART_W, CHART_H = 1000, 320
 PAD_L, PAD_R, PAD_T, PAD_B = 46, 16, 16, 34

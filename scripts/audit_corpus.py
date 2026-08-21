@@ -43,7 +43,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from mfstnet.corpus.labels import label_from_count, smooth_counts  # noqa: E402
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
+from mfstnet.corpus.labels import (  # noqa: E402
+    CongestionClass, label_from_count, smooth_counts,
+)
+from mfstnet.corpus.validation import (  # noqa: E402
+    SequenceRecord, check_effective_sample_size, check_split_balance,
+    check_transition_rate,
+)
 
 PASS, FAIL, WARN = "  ok  ", " FAIL ", " warn "
 
@@ -245,6 +255,51 @@ def main(argv: list[str] | None = None) -> int:
             f"{', '.join(absent)} absent — macro F1 over a class with no "
             f"support is 0 by convention and drags the mean (P31)",
         )
+
+    # -- 8. the corpus-level gates (P46) -----------------------------------
+    # `validate_corpus` holds the gates that decide whether a corpus can carry
+    # a *result* — split balance, effective sample size, transition rate — as
+    # opposed to whether it is internally consistent, which is everything
+    # above. Until P46 its only caller was `demo_pipeline.py`, running on
+    # synthetic data. A real corpus built by `build_corpus.py` and checked here
+    # never met them, so the corpus that actually trains the model got the
+    # weaker of the two checks.
+    records = []
+    for row in sequences:
+        clip = row["clip_id"]
+        bound = by_clip_thresholds.get(clip)
+        low = bound["low_max"] if bound else manifest["low_max"]
+        med = bound["med_max"] if bound else manifest["med_max"]
+        end = int(row["start_index"]) + T - 1
+        records.append(SequenceRecord(
+            seq_id=f"{clip}_{row['start_index']}",
+            clip_id=clip,
+            split=row["split"],
+            labels=tuple(int(CongestionClass[row["label_" + lane]])
+                         for lane in lanes),
+            labels_now=tuple(int(label_from_count(smoothed[clip][lane][end],
+                                                  low_max=low, med_max=med))
+                             for lane in lanes),
+            label_origin=row.get("label_origin", "auto"),
+        ))
+
+    print()
+    # A leave-one-camera-out view is deliberately unbalanced: the test split is
+    # one whole camera, so its share is whatever share that camera holds. The
+    # 60/20/20 gate would fire on every fold and its advice -- "collect more
+    # clips rather than reaching for a different splitter" -- is aimed at the
+    # hash splitter, not at this. Reporting a warning that cannot be acted on
+    # is how real warnings stop being read.
+    protocol = manifest.get("split_protocol")
+    gates = [check_effective_sample_size(records), check_transition_rate(records)]
+    if protocol == "loco":
+        print(f"[{PASS}] split_balance: not applicable — fold "
+              f"{manifest.get('fold')} of {manifest.get('folds_total')}, "
+              f"test is one whole camera by construction")
+    else:
+        gates.insert(0, check_split_balance(records))
+    for gate in gates:
+        audit.warn(gate.passed, f"{gate.name}: {gate.detail}")
 
     print()
     if audit.failures:

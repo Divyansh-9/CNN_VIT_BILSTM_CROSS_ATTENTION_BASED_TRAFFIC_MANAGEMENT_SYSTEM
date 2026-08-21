@@ -32,6 +32,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 # Pinned from the dataset's own README. Recorded here so the set of sources is a
 # committed fact rather than something re-found by hand each time.
 CAMERAS = {

@@ -30,6 +30,10 @@ from statistics import fmean
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 from experiments.results_io import merge_by_key  # noqa: E402
 from experiments.statistics import compare  # noqa: E402
 from simulation.controllers import Fixed, LongestQueue  # noqa: E402

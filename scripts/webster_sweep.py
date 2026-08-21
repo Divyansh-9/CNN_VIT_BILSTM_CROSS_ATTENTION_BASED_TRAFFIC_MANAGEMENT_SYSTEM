@@ -33,6 +33,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 from experiments.results_io import merge_by_key  # noqa: E402
 
 # ADR-012: no published value fits a mixed-traffic Indian approach, so the sweep

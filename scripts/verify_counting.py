@@ -33,6 +33,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 
 def ground_truth_counts(label_file: Path, ids: set[int]) -> int:
     total = 0

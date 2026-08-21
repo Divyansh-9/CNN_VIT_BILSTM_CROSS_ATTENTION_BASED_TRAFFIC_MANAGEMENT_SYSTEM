@@ -32,6 +32,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 from mfstnet.corpus.pilot import analyse_counts  # noqa: E402
 from mfstnet.corpus.windows import WindowGeometry  # noqa: E402
 

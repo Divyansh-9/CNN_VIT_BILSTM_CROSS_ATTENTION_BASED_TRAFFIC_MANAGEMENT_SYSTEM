@@ -37,6 +37,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 from mfstnet.corpus.counting import Detection, count_frame  # noqa: E402
 from mfstnet.corpus.geometry import Polygon  # noqa: E402
 from mfstnet.corpus.labels import label_from_count, smooth_counts  # noqa: E402
@@ -143,17 +147,18 @@ def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
     """
     import cv2
 
+    from mfstnet.corpus.video import iter_sampled_frames
+
     capture = cv2.VideoCapture(str(clip))
     fps = capture.get(cv2.CAP_PROP_FPS) or 25.0
-    total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
     stride = max(1, int(round(fps * step_s)))
+    capture.release()
 
     rows, detected = [], []
-    for index in range(0, total, stride):
-        capture.set(cv2.CAP_PROP_POS_FRAMES, index)
-        ok, frame = capture.read()
-        if not ok:
-            break
+    # P51. Seeking to each sample cost ~105 ms at 1080p against 55 ms for the
+    # detector itself, so the build spent most of its time deciding which frame
+    # to look at. Decoding forward returns the same pixels for less.
+    for frame in iter_sampled_frames(clip, stride):
         result = model.predict(source=frame, conf=conf, imgsz=imgsz,
                                verbose=False)[0]
         height, width = result.orig_shape
@@ -183,7 +188,6 @@ def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
             row[f"count_{name}"] = counts.per_lane.get(name, 0)
         row["unassigned"] = counts.unassigned
         rows.append(row)
-    capture.release()
     return rows, len(rows), detected
 
 

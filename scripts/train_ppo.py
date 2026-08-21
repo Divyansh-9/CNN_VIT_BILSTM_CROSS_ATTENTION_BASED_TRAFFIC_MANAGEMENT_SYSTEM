@@ -14,16 +14,29 @@ file (NFR-16). The three arms ADR-009 defines differ only by config:
 
 `--smoke` exists because a 500,000-step run that fails at step 400,000 has cost a
 day. The smoke run is the same code path at 0.6% of the length.
+
+**Every checkpoint carries a sidecar, and a short run will not overwrite a long
+one** (P47). A 3,000-step smoke run and a 500,000-step training run wrote to the
+same filename, and nothing on disk told them apart — a `.zip` records weights,
+not how long they were trained for. The same rule `train_mfstnet.py` applies to
+`ablation.csv` applies here: refuse, name the run being protected, and offer
+`--force` to whoever means it.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
+from experiments.provenance import environment  # noqa: E402
 from scripts.seed import set_seed  # noqa: E402
 
 CONFIG = Path("simulation/configs/ppo_config.yaml")
@@ -41,6 +54,48 @@ def load_config(path: Path = CONFIG) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def sidecar_path(checkpoint: Path) -> Path:
+    """Where a checkpoint's provenance lives. `.zip` in, `.provenance.json` out."""
+    return Path(str(checkpoint) + ".provenance.json")
+
+
+def guard_checkpoint(checkpoint: Path, timesteps: int, *, force: bool = False) -> None:
+    """Refuse to replace a longer run's weights with a shorter run's (P47).
+
+    Checked **before** training, not after: discovering at the end of an hour
+    that the result cannot be written has already cost the hour.
+
+    Three cases, and the third is the one that bites:
+
+    * no checkpoint — nothing to protect, proceed.
+    * a sidecar recording FEWER timesteps — this run supersedes it, proceed.
+    * **a checkpoint with no sidecar at all** — every checkpoint written before
+      P47 is in this state. Its length is unknown, so it cannot be compared, and
+      an unknown-length checkpoint is exactly what caused a 16-August file to be
+      read as that day's output. Say so and require `--force`.
+    """
+    if force or not checkpoint.exists():
+        return
+
+    side = sidecar_path(checkpoint)
+    if not side.exists():
+        raise SystemExit(f"""
+{checkpoint.name} exists and has no provenance sidecar, so how long it trained
+for is unknown, and this {timesteps:,}-step run cannot be shown to supersede it.
+Move it aside, or pass --force if replacing it is what you mean.""")
+
+    recorded = json.loads(side.read_text(encoding="utf-8"))
+    previous = int(recorded.get("timesteps", 0))
+    if previous > timesteps:
+        kind = " (smoke)" if recorded.get("smoke") else ""
+        raise SystemExit(f"""
+{checkpoint.name} holds a {previous:,}-step run{kind}, and this one is
+{timesteps:,} steps. A short run silently replacing a long one is how a
+benchmark ends up measuring the wrong weights.
+Pass --force if replacing it is what you mean.""")
+
+
+
 def train(
     arm: str = "no-forecast",
     *,
@@ -51,6 +106,7 @@ def train(
     out: Path = Path("models/ppo"),
     smoke: bool = False,
     action_space: str = "phase_duration",
+    force: bool = False,
 ) -> dict:
     from stable_baselines3 import PPO
     from stable_baselines3.common.monitor import Monitor
@@ -65,6 +121,13 @@ def train(
 
     if arm not in config["arms"]:
         raise ValueError(f"unknown arm {arm!r}; expected one of {list(config['arms'])}")
+
+    # Before the env, before the model, before an hour of learning: the run
+    # has to be allowed to write its result at all (P47).
+    out.mkdir(parents=True, exist_ok=True)
+    suffix = "" if action_space == "phase_duration" else f"_{action_space}"
+    path = out / f"ppo_{arm}_{regime}{suffix}_seed{seed}"
+    guard_checkpoint(path.with_suffix(".zip"), timesteps, force=force)
 
     set_seed(seed)
     env = Monitor(
@@ -108,21 +171,28 @@ def train(
     )
     model.learn(total_timesteps=timesteps, progress_bar=False)
 
-    out.mkdir(parents=True, exist_ok=True)
-    suffix = "" if action_space == "phase_duration" else f"_{action_space}"
-    path = out / f"ppo_{arm}_{regime}{suffix}_seed{seed}"
     model.save(path)
     env.close()
 
-    return {
+    info = {
         "arm": arm,
         "action_space": action_space,
         "regime": regime,
         "seed": seed,
         "timesteps": timesteps,
         "episode_s": episode_s,
+        "smoke": smoke,
         "checkpoint": str(path) + ".zip",
     }
+    # The weights and the facts that give them meaning, written together. P38
+    # put PPO on the CPU deliberately; the sidecar is where that is recorded,
+    # so a benchmark can check that two arms were measured on one device.
+    sidecar = sidecar_path(path.with_suffix(".zip"))
+    sidecar.write_text(
+        json.dumps(environment(**info, device="cpu"), indent=2) + chr(10),
+        encoding="utf-8")
+    info["provenance"] = str(sidecar)
+    return info
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -136,11 +206,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int)
     parser.add_argument("--smoke", action="store_true",
                         help="short run that exercises the same code path")
+    parser.add_argument("--force", action="store_true",
+                        help="replace a checkpoint this run cannot be shown to "
+                             "supersede (P47)")
     args = parser.parse_args(argv)
 
     info = train(
         args.arm, timesteps=args.timesteps, regime=args.regime,
         seed=args.seed, smoke=args.smoke, action_space=args.action_space,
+        force=args.force,
     )
     for key, value in info.items():
         print(f"  {key:12} {value}")

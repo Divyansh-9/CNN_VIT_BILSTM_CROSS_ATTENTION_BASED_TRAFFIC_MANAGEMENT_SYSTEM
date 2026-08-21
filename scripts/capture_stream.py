@@ -34,6 +34,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 OUT = Path("data/dev_footage")
 MIN_USABLE_S = 360          # A15 — below this a clip yields zero sequences
 

@@ -107,3 +107,16 @@ models/external/
 data/pseudo/
 data/pseudo_upload/
 data/trafficcam_yolo/
+
+# Cached frozen-backbone features (ADR-005). ~1 GB, and rebuilt from the corpus
+# by scripts/build_cache.py. The preprocessing_hash guard makes a stale one
+# raise rather than be used, so there is nothing to preserve here.
+data/cache_corpus/
+
+# Leave-one-camera-out fold views (ADR-019). Each is a rewritten split column
+# over the same counts and detections, re-derived from data/corpus in about a
+# second by scripts/resplit_corpus.py.
+data/corpus_loco/
+
+# Run logs. Useful while a job is in flight, not afterwards.
+logs/

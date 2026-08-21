@@ -38,6 +38,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 from mfstnet.corpus.counting import Detection, count_frame  # noqa: E402
 from mfstnet.corpus.labels import label_from_count, smooth_counts  # noqa: E402
 from mfstnet.corpus.splits import assert_no_clip_leakage  # noqa: E402

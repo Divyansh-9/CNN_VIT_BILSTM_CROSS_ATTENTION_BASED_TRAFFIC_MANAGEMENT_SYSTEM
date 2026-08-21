@@ -178,3 +178,42 @@ def test_an_off_by_one_label_is_otherwise_invisible(tmp_path):
             == collections.Counter(r["split"] for r in after))
     assert (collections.Counter(r["label_lane_0"] for r in before)
             == collections.Counter(r["label_lane_0"] for r in after))
+
+
+# -- P46: the corpus-level gates run here, not only on synthetic data ------
+#
+# `validate_corpus` holds the gates that decide whether a corpus can carry a
+# result — split balance, effective sample size, transition rate. Its only
+# caller was `demo_pipeline.py`, so a real corpus never met them and the one
+# that trains the model got the weaker check. These pin the wiring.
+
+
+def test_the_audit_reports_split_balance(tmp_path, capsys):
+    main(["--corpus", str(build(tmp_path))])
+    out = capsys.readouterr().out
+    assert "split_balance" in out
+
+
+def test_the_audit_reports_effective_sample_size(tmp_path, capsys):
+    """The fixture's test split is one clip. Effective n is 1, not the
+    sequence count, and the auditor has to say so — a confidence interval
+    over one clip is the failure this gate exists to name."""
+    main(["--corpus", str(build(tmp_path))])
+    out = capsys.readouterr().out
+    assert "effective_sample_size" in out
+    assert "1 clip(s)" in out
+
+
+def test_the_audit_reports_the_transition_rate(tmp_path, capsys):
+    """PRD A17: if congestion never changes class over the horizon, a
+    last-value baseline sits at the ceiling and no model can be ranked."""
+    main(["--corpus", str(build(tmp_path))])
+    out = capsys.readouterr().out
+    assert "transition_rate" in out
+
+
+def test_the_gates_are_advisory_and_do_not_fail_a_sound_corpus(tmp_path):
+    """A skewed split does not make results wrong, it makes them
+    unrepresentative. Blocking on it would stop work that should continue
+    with a caveat attached."""
+    assert main(["--corpus", str(build(tmp_path))]) == 0

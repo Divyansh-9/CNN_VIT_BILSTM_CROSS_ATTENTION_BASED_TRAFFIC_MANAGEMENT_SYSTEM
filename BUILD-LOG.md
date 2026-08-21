@@ -912,3 +912,104 @@ headline result, and ADR-016 exists precisely to separate those two uses.
 ADR-016 is still **Proposed**. Fetching the data is reversible and costs only
 disk; training the headline model on it is the decision. Those should not be
 conflated, and the second is the guide's.
+
+---
+
+## S27c — the corpus exists, and the split it was born with was unusable (2026-08-21)
+
+The corpus finished building at **10:11** on 2026-08-21: **153 sequences, 2,862
+count rows, 4 lanes, 7 cameras**, from the seven clips that clear P45's density
+gate. `audit_corpus.py` passes all twelve correctness checks on it.
+
+It also raised one warning, and the warning was the important part.
+
+### Three things wrong with a hash-assigned split over seven cameras
+
+| split | cameras | sequences | LOW / MED / HIGH |
+|---|---|---|---|
+| train | 5 | 55 | 38.2% / 53.6% / 8.2% |
+| val | 1 | 35 | 44.3% / 55.7% / **0.0%** |
+| test | 1 | 63 | 59.5% / 32.5% / 7.9% |
+
+**The test set was the M6 Motorway** — a UK motorway, free-flowing and lane-
+disciplined, holding 41% of the corpus. Every generalisation number in the paper
+would have been measured on the least representative camera we have.
+
+**Validation held no HIGH window.** Macro F1 scores an absent class 0 by
+convention (P31), so early stopping would have selected on a two-class problem
+while the paper reported three.
+
+**The assignment is a function of the filename.** `_clip_fraction` hashes the
+clip id, so renaming a video changes which camera is the test set and therefore
+changes the headline number, with nothing in any CSV recording that it moved.
+
+None of these is a tuning problem, and re-rolling the seed only picks a
+different lottery ticket — chosen after seeing that this one was bad, which is
+selection on the test set.
+
+### What replaced it
+
+**[ADR-019](docs/00-planning/decisions/ADR-019-leave-one-camera-out-evaluation.md)
+— leave-one-camera-out.** Every eligible camera is tested exactly once and
+validated exactly once; the reported figure is a mean over folds with a
+bootstrap CI, which is what NFR-10 required all along and what a single draw
+could not supply.
+
+Rotating over all seven cameras first produced a fold whose **test split held
+one sequence**, so a camera must contribute at least ten windows to be tested.
+The three that cannot stay in `train` in every fold rather than being discarded.
+Four folds result:
+
+| fold | test | n | val | n | train |
+|---|---|---|---|---|---|
+| 0 | Dhaka Rampura (a) | 35 | M6 Motorway | 63 | 55 |
+| 1 | M6 Motorway | 63 | Pov Footover bridge | 11 | 79 |
+| 2 | Pov Footover bridge | 11 | Dhaka Rampura (b) | 34 | 108 |
+| 3 | Dhaka Rampura (b) | 34 | Dhaka Rampura (a) | 35 | 84 |
+
+All four pass `audit_corpus.py`. A fold view is re-derived from the built corpus
+in about a second — the split depends on which camera a window came from and on
+nothing the detector produced — so this cost no rebuild, which is the same
+argument P28 makes for lane centres and `relabel_corpus.py` makes for
+thresholds.
+
+**It creates no data.** Twenty-eight independent segments stay twenty-eight, and
+every fold's test set is still one camera. Three cameras hold 86% of this
+corpus. Under LOCO the M6 is one fold of four instead of the whole test set,
+which is a real improvement and not a cure.
+
+### Two defects found on the way
+
+**P50 — a filename killed a twenty-minute GPU job.** The cache build died after
+four of seven clips with `UnicodeEncodeError: 'charmap' codec can't encode
+character '\u0964'` while printing `Pov_Thursday Traffic From Footover
+bridge। Cloudy Seen।.mp4`. Nothing was wrong with the data: the clip decoded,
+both backbones ran, the features were written, and the process then died
+describing what it had just done. Footage of Indian and Bangladeshi traffic will
+keep carrying Devanagari, Bengali and emoji in its filenames. `scripts/console.py`
+now makes stdout UTF-8 tolerant and 40 scripts call it; six tests, including a
+control that shows the crash is real.
+
+**P47 — a smoke run and a full run wrote to the same checkpoint path.**
+`train_ppo.py --smoke` runs 3,000 timesteps instead of 500,000 and saved to
+byte-identical filename. The 30-seed benchmark evaluates whatever `.zip` it
+finds, so an unnoticed overwrite would mean every PPO number was measured on a
+model trained for 0.6% of its budget with no artifact saying so. Checkpoints now
+carry a provenance sidecar and a shorter run refuses to replace a longer one.
+Eight tests.
+
+### Also measured, and not adopted
+
+The corpus build spends most of its time seeking, not detecting: the detector
+runs at **55 ms/frame on CUDA**, while `capture.set(CAP_PROP_POS_FRAMES)` costs
+**~105 ms** per sampled frame at 1080p. Sequential `grab()`/`retrieve()` is
+**bit-identical** to it -- asserted frame-for-frame on real footage at strides
+1, 30 and 60 -- and faster by **2.0× at 1080p** and **1.36× at 3840x2160**,
+where decode dominates and there is less seeking to avoid. `mfstnet/corpus/video.py`,
+eight tests. The 4K figures were taken while the cache build was running, so
+both sides are inflated and only their ratio is meaningful.
+
+Hardware-accelerated decode was tested in the same run and **rejected**: it was
+slower (69 ms against 52 ms) *and* it produced different pixels, which would
+change every detection and every label derived from them. That is the same class
+of defect as P33's TF32 cache divergence, and it would have been invisible.

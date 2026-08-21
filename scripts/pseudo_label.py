@@ -52,6 +52,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 # ITD class name -> our class name. `bicycle` has no counterpart in our label
 # set and is dropped rather than folded into something it is not.
 ITD_TO_OURS = {

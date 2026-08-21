@@ -4144,3 +4144,143 @@ step, but a corpus that no amount of pipeline work enlarges. The one input that
 moves 28 upward is **two or three long fixed-camera recordings of dense
 traffic** — a narrowed [S19](../../BUILD-LOG.md), not the 60 sessions ADR-006
 cut.
+
+---
+
+## P47 — a 3,000-step smoke run and a 500,000-step training run wrote to the same filename (2026-08-21)
+
+**Status: fixed.** `scripts/train_ppo.py`, `tests/test_checkpoint_guard.py`.
+
+`train_ppo.py --smoke` exists so that a long run which fails at 80% has not cost
+a day. It runs 3,000 timesteps instead of 500,000 — the same code path at 0.6%
+of the length — and then saved its weights to
+
+```
+models/ppo/ppo_{arm}_{regime}{suffix}_seed{seed}.zip
+```
+
+which is byte-identical to the path the full run uses. A `.zip` records weights.
+It does not record how long they were trained for, and nothing beside it did
+either.
+
+### Why this is not hypothetical
+
+Earlier the same day a checkpoint dated **16 August** was nearly reported as the
+output of a run started **21 August**, on nothing but a filename. The file was
+not wrong; the question "which run produced this" simply had no answer on disk.
+A smoke run overwriting a full one produces the same ambiguity with worse
+consequences: the 30-seed benchmark (S38) evaluates whatever `.zip` it finds, so
+an unnoticed overwrite means every PPO number in the paper was measured on a
+model trained for 0.6% of its specified budget, and no artifact would say so.
+
+### The fix, which the repository had already written once
+
+`train_mfstnet.py` refuses to let a short verification run overwrite
+`ablation.csv` when a longer run wrote it, and offers `--force` to whoever means
+it. That rule was never applied to model weights. It is now:
+
+* every checkpoint gets a `.zip.provenance.json` sidecar recording `timesteps`,
+  `smoke`, arm, action space, regime, seed, episode length, **and the device**
+  — [P38](#p38) pinned PPO to the CPU deliberately, and the sidecar is where a
+  benchmark can verify two arms were measured on one device;
+* a run whose `timesteps` is lower than the recorded run's **refuses**, naming
+  both numbers, because "refused" without them sends the reader looking for
+  which run they just protected;
+* equal lengths proceed — re-running the same length is a reproducibility check
+  (NFR-07), not a mistake;
+* the check runs **before** the environment is built, not after training.
+  Discovering at the end of an hour that the result cannot be written has
+  already cost the hour.
+
+### The case that will be hit most often
+
+**A checkpoint with no sidecar at all.** Every one of the twelve checkpoints in
+`models/ppo/` predates this and is in that state. Their length is unknown, so
+they cannot be compared, and the guard refuses rather than guessing. That is
+deliberately inconvenient: it is the same condition that produced the 16-August
+confusion, and silently overwriting is what let it happen.
+
+Eight tests. The last one pins a detail that would have been easy to get wrong —
+`Path.with_suffix` turns `x.zip` into `x.provenance.json`, dropping `.zip` and
+breaking the association between sidecar and checkpoint for anything sorting or
+globbing them, so the sidecar keeps the full name.
+
+---
+
+## P46 — the gates that decide whether a corpus can carry a result ran only on synthetic data (2026-08-21)
+
+**Status:** CLOSED as a wiring defect · **OPEN as the finding it exposed** ·
+Found by building the first real multi-camera corpus, [P44](#p44)
+
+`mfstnet/corpus/validation.py` holds `validate_corpus`, and with it the gates
+that decide whether a corpus can carry a *result*: split balance, effective
+sample size, transition rate, class distribution. **Its only caller was
+`scripts/demo_pipeline.py`** — the end-to-end demo, which runs on synthetic
+data.
+
+The auditor that runs on a real corpus, `scripts/audit_corpus.py`, checks a
+different and narrower question: internal consistency ([P40](#p40)) — is the
+label where A15 says, does it re-derive from the counts, is any clip in two
+splits. Every one of those is necessary and none of them asks whether the
+corpus can support a claim.
+
+**So the corpus that actually trains the model got the weaker of the two
+checks, and the stronger set only ever ran on data nobody would publish.**
+
+### What it was hiding
+
+The first real corpus — 153 sequences, 7 cameras, built 2026-08-21 — passes
+every consistency check. Running the corpus-level gates on it for the first
+time:
+
+```
+[ warn ] split_balance: train 55 (36%) · val 35 (23%) · test 63 (41%)
+         — 'train' is 24% off target
+[ warn ] effective_sample_size: test split draws on 1 clip(s) — this is the
+         effective n, not the sequence count
+[  ok  ] transition_rate: 174 of 612 lane-windows change class (28.4%)
+```
+
+**The test split is one camera.** Splits are assigned by hashing the clip id,
+which balances clip *count* and says nothing about clip *size*; with seven
+cameras ranging from 1 to 63 sequences, the single largest landed alone in
+test. Every confidence interval on M5 would have had an effective n of **1**,
+and the bootstrap resamples clips, so no number of sequences rescues it.
+
+Worse than the arithmetic: that one camera is **M6 Motorway, the only
+non-South-Asian camera in the corpus.** The model would have trained on Dhaka,
+Mumbai and Delhi and been tested exclusively on a UK free-flow motorway. The
+transition rate of 28.4% — healthy, and consistent with the 31.0% [S06](../../BUILD-LOG.md)
+measured — would have made the corpus look fine.
+
+Dropping M6 does not fix it. Re-simulating the assignment over the remaining
+six cameras gives **22 / 38 / 40**, with 20 training sequences. Hash assignment
+is lumpy below ~60 clips and `check_split_balance`'s own docstring already says
+the fix is more clips, not a different splitter.
+
+### What changed
+
+- `audit_corpus.py` now runs `check_split_balance`,
+  `check_effective_sample_size` and `check_transition_rate` on every real
+  corpus, as advisories. A skewed split does not make results wrong; it makes
+  them unrepresentative, and blocking would stop work that should continue with
+  the caveat attached.
+- Four regression tests in `tests/test_audit_corpus.py` pin the wiring, so the
+  gates cannot be silently unhooked again.
+
+### The finding that stays open
+
+Combined with [P45](#p45), this is the arithmetic that answers *"what is
+blocking the project"*:
+
+| | |
+|---|---|
+| independent segments, `step_s=2` | **28** |
+| of which from one junction (Dhaka Rampura, filmed twice) | **12** |
+| effective n of the test split | **1** |
+| in-domain cameras after the density gate | **6** |
+
+**No pipeline work changes any of these numbers.** The corpus is built, audited
+and reproducible, and it cannot support an A–H × 5-seed ablation whose result
+would survive review. The one input that moves them is two or three long
+fixed-camera recordings of dense traffic.

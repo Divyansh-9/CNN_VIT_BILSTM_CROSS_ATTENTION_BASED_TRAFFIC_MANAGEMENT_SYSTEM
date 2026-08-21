@@ -35,6 +35,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 
 def clip_frames(path: Path, indices: list[int], stride: int, size: int):
     """Read the sampled frames of one clip as a normalised tensor batch."""
@@ -42,20 +46,18 @@ def clip_frames(path: Path, indices: list[int], stride: int, size: int):
     import numpy as np
     import torch
 
+    from mfstnet.corpus.video import iter_sampled_frames
+
     mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
     std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
-    capture = cv2.VideoCapture(str(path))
+    # P51: decoded forward rather than seeked to, which returns byte-identical
+    # frames and skips the keyframe walk a seek pays for on every sample.
     frames = []
-    for index in indices:
-        capture.set(cv2.CAP_PROP_POS_FRAMES, index * stride)
-        ok, frame = capture.read()
-        if not ok:
-            break
+    for frame in iter_sampled_frames(path, stride, limit=len(indices)):
         frame = cv2.resize(frame, (size, size), interpolation=cv2.INTER_AREA)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
         frames.append(torch.from_numpy(((rgb - mean) / std).transpose(2, 0, 1)))
-    capture.release()
     return torch.stack(frames) if frames else None
 
 
