@@ -96,3 +96,85 @@ def test_matching_metrics_do_not_imply_matching_computation(inputs):
     b, e = logits_for("B", cnn, vit), logits_for("E", cnn, vit)
     assert torch.equal(b.argmax(-1), e.argmax(-1))
     assert not torch.equal(b, e)
+
+
+# ---------------------------------------------------------------------------
+# After training, not at initialisation.
+#
+# The tests above compare logits on freshly-built models, and two networks
+# agreeing at initialisation is the NULL expectation rather than evidence — a
+# guard that only checks initialisation passes trivially and cannot fail.
+#
+# The failure mode actually worth catching is a module that is present, wired,
+# and dominated by its residual: it looks like a live flag at initialisation and
+# like a dead flag in the metrics. That is the shape already seen in the gate,
+# which sits at 0.54 with a spread of 0.005.
+#
+# So: take a few optimiser steps on a fixed problem and require the two
+# configurations to have MOVED APART. A module that contributes nothing cannot.
+
+
+STEPS = 6
+
+
+def trained_logits(name, cnn, vit, targets):
+    """Logits after a few steps of real optimisation, same data, same seed."""
+    config, model = build(name)
+    optimiser = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    criterion = torch.nn.CrossEntropyLoss()
+    model.train()
+    for _ in range(STEPS):
+        out = model(cnn if config.fusion.use_cnn else None,
+                    vit if config.fusion.use_vit else None)
+        loss = criterion(out.logits.reshape(-1, 3), targets.reshape(-1))
+        optimiser.zero_grad()
+        loss.backward()
+        optimiser.step()
+    model.eval()
+    with torch.no_grad():
+        out = model(cnn if config.fusion.use_cnn else None,
+                    vit if config.fusion.use_vit else None)
+    return out.logits
+
+
+@pytest.fixture(scope="module")
+def targets():
+    torch.manual_seed(1)
+    return torch.randint(0, 3, (2, 4))
+
+
+def test_configs_diverge_under_optimisation(inputs, targets):
+    """The guard that can actually fail.
+
+    Two configurations that train to the same function are not two experiments,
+    whatever their parameter counts say.
+    """
+    cnn, vit = inputs
+    names = [c.name for c in iter_ablation_configs()]
+    trained = {name: trained_logits(name, cnn, vit, targets) for name in names}
+    collapsed = []
+    for a, b in itertools.combinations(names, 2):
+        divergence = float((trained[a] - trained[b]).abs().max())
+        if divergence < 1e-3:
+            collapsed.append((a, b, divergence))
+    assert not collapsed, (
+        f"config pairs that trained to the same function: {collapsed}"
+    )
+
+
+def test_b_and_e_diverge_further_after_training_than_at_init(inputs, targets):
+    """The specific pair, at the moment that carries information.
+
+    If E's fusion contributed nothing, optimisation would have nothing extra to
+    move and the gap would not grow.
+    """
+    cnn, vit = inputs
+    at_init = float((logits_for("B", cnn, vit)
+                     - logits_for("E", cnn, vit)).abs().max())
+    after = float((trained_logits("B", cnn, vit, targets)
+                   - trained_logits("E", cnn, vit, targets)).abs().max())
+    assert after > at_init, (
+        f"B and E are {at_init:.4f} apart at init and {after:.4f} apart after "
+        f"{STEPS} steps — E's fusion is not contributing anything optimisation "
+        f"can use"
+    )

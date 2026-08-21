@@ -35,15 +35,77 @@ architecture survive.
 
 The following is fixed **before** the leave-one-camera-out suite completes.
 
-### The test
+### First, the size of the thing being measured
 
-**Paired within fold, then aggregated over folds.** For each of the four folds,
-compute `G − H` at the same seed, average over the five seeds, and take the
-paired mean and bootstrap 95% CI across the four fold-level differences.
+A fold's test split is one camera. In lane-windows that is **140, 252, 44 and
+136** across the four folds — **572 paired observations in total**, and 44 in
+the smallest.
 
-Not mean-versus-mean: G and H see the same cameras in the same folds, so the
-fold is a blocking factor and ignoring it discards the only thing making n=4
-tolerable.
+Measured on fold 0's actual class support (62 LOW, 78 MEDIUM, 0 HIGH), flipping
+one window's prediction moves macro F1 by a **median of 0.0029** — finer than
+the `1/n = 0.0071` a reader would estimate, because macro F1 averages per-class
+F1 and an absent class contributes a constant 0. So:
+
+* the observed `G − H` gap of 0.027 is about **9 windows**;
+* the material threshold of 0.05 is about **17 windows**;
+* config C to config F, the full span of the fold-0 table, is about 96.
+
+**A doubling of parameters that changes nine argmaxes out of 140 is not
+principally a statement about the architecture. It is a statement about what
+this test set can resolve.** That is the finding, and it is more consequential
+than any single pairwise comparison in the ablation.
+
+### The test, and the aggregation order
+
+**Paired within fold, then aggregated over folds.** Not mean-versus-mean: G and
+H see the same cameras in the same folds, so the fold is a blocking factor and
+ignoring it discards the only thing making n=4 tolerable.
+
+The order is fixed here because it is an analytic degree of freedom and it
+changes the answer:
+
+1. within a fold, take the **mean over the five seeds** for G and for H;
+2. take the **difference of those means** — one number per fold;
+3. across the **four folds**, take the paired mean and a bootstrap 95% CI.
+
+Not the reverse (difference per seed, then pooled across all twenty runs), and
+not pooled. With a seed spread of the magnitude P54 reported, averaging seeds
+first shrinks the within-fold noise by about √5 before the fold-level variance
+is estimated; doing it the other way round mixes seed noise into the fold
+denominator. **Choosing that order after seeing `loco_summary.csv` would be a
+free parameter**, and this document exists to close those.
+
+### Two tests, answering two different questions
+
+These are **not** primary and fallback for one question. Naming them as
+substitutes would invite exactly the swap this ADR exists to prevent — running
+both and reporting whichever separates.
+
+**Q1 — does the architecture generalise better to a camera it has not seen?**
+This is the paper's claim. The unit is the camera, because ADR-019 makes the
+camera the unit of generalisation and A28 established that consecutive windows
+share 54 of 60 frames. **n = 4.** Underpowered, as quantified below. This is the
+number that supports or fails to support the architectural claim, and no other
+test can stand in for it.
+
+**Q2 — on the windows we have, do G and H decide differently at all?**
+A diagnostic, not a claim. G and H are scored on the same 572 lane-windows, so
+the comparison is paired per window: report the **discordance count** — how many
+of the 572 the two models label differently — and McNemar's test on the
+discordant pairs.
+
+The discordance count is the most informative single number here and needs no
+distributional assumption at all. If G and H disagree on nine windows out of
+572, that is a complete description of the difference between them, and the
+`p`-value adds nothing to it.
+
+**McNemar's `p` will be reported with its assumption violated, and labelled.**
+It treats the 572 windows as independent and they are emphatically not —
+consecutive windows from one camera share 90% of their frames. It will therefore
+overstate significance, possibly by a large factor, and **cannot be used to
+support a generalisation claim**. It is reported because "the two models are
+decision-identical on this data" and "the two models differ but the fold test
+cannot see it" are different situations, and Q1 alone cannot tell them apart.
 
 ### The power, stated before the result
 
@@ -61,12 +123,30 @@ minimum detectable difference = 1.591 × sd(fold-level G − H)
 | 0.050 | 0.080 |
 
 **To resolve the observed 0.027, the fold-to-fold standard deviation of the
-difference must be at most 0.017.** Given that P54 measured a *seed* spread of
-0.242 on one config on one fold, a fold-to-fold sd that small is unlikely.
+difference must be at most 0.017.**
 
-**So the expected outcome of this test is "cannot distinguish."** That is
-written here, in advance, so that it cannot later be presented as a surprise or
-as a success.
+### The uncomfortable version of that, said plainly
+
+P54 measured a seed spread of **0.242** on one config on one fold. The full span
+of the fold-0 config table is 0.211 (C) to 0.499 (F) — about **0.29**.
+
+**The movement from changing a random seed is comparable to the entire distance
+between the best and worst architectures in the table.** Five seeds brings the
+standard error of a fold mean to roughly `0.242 / √5 ≈ 0.108`, still four times
+the gap being tested for.
+
+So the honest prior, written before the results: **nothing in the eight-config
+table is likely to separate from anything else.** The expected outcome of Q1 is
+"cannot distinguish", and that is recorded here so it cannot later be presented
+as a surprise, a disappointment, or a success.
+
+One caveat on that prior, because it cuts the other way. **The 0.242 figure is
+itself a withdrawn pre-P55 number** — measured while cached windows were views
+into a released memory map. It is used here as an order-of-magnitude expectation
+and nothing more; the clean suite produces the real value, and if it comes back
+far smaller the power calculation above improves accordingly. It is quoted
+rather than omitted because planning the paper on the optimistic assumption
+instead would be the mistake this document exists to prevent.
 
 ### What "cannot distinguish" means, and what it does not
 
@@ -107,7 +187,18 @@ The commit that adds this file precedes the commit that adds
 
 - `scripts/run_loco.py` will gain the paired `G − H` computation and print the
   minimum detectable difference beside it, so the caveat is generated rather
-  than remembered.
+  than remembered. Q2's discordance count needs per-window predictions, which
+  the per-run CSVs do not carry — a metrics row cannot be un-aggregated back
+  into the 572 decisions behind it.
+- **The running suite is not being restarted for that.** Q2 needs only G and H,
+  so it costs `2 configs × 4 folds × 5 seeds = 40` runs afterwards rather than
+  160, and restarting would discard the runs already paid for while making the
+  suite's artifacts inconsistent — some runs carrying predictions and some not.
+  Prediction dumping is added now and the 40 runs follow the suite.
+- **The paper is planned for the "cannot distinguish" outcome starting now**:
+  benchmark, protocol, and a well-characterised negative result. If the suite
+  separates something, that is an upgrade to a plan that already works, not a
+  rescue of one that does not.
 - The result is reported whichever way it lands (§2.5.5).
 - The same reasoning applies to any other pair of configs the ablation is asked
   to separate. The 0.05 threshold and the paired-within-fold structure are
