@@ -96,10 +96,10 @@ guesses.
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S18 | Curate Part A benchmark (harmonise taxonomies) | ⬜ | R1 | **unblocked** · S09 |
-| S19 | ~~Recording sessions (≥60 × ≥6 min)~~ → Part B campus capture, 1.5–3k frames | ⬜ | R1 | **superseded by ADR-006**; needs institutional permission |
+| S18 | Curate Part A benchmark (harmonise taxonomies) | ⬜ | R2, R3 | **unblocked** · S09 · moved off R1, who is on placements and owns capture, blurring and curation simultaneously |
+| S19 | ~~Recording sessions (≥60 × ≥6 min)~~ ~~→ Part B campus capture, 1.5–3k frames~~ → six-viewpoint evaluation set | ⛔ | Guide | **BLOCKED ON DECISION since 2026-08-22** — [memo](docs/00-planning/MEMO-2026-08-22-part-b.md), reply due 08-29. One campus location is ONE camera, so ADR-019 cannot score it. Permission filed regardless |
 | S20 | Annotation (Part B only; Part A inherits source labels) | ⬜ | All | S19, S06 |
-| S21 | Face/plate blurring script | ⬜ | R1 | S19 |
+| S21 | Face/plate blurring script | ⬜ | R2 | S19 · **moot if the memo is accepted** — public-space capture of a ~300-frame test set still needs blurring, but not a pipeline |
 | S22 | Publish → **M1** | ⬜ | R1 | S18, S20, S21 |
 
 **S19 is not what blocks the model track.** It is the *detection* dataset. The
