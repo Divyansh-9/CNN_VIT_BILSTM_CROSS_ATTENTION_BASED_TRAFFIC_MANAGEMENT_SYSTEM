@@ -38,6 +38,7 @@ use_utf8()
 
 from experiments.provenance import environment  # noqa: E402
 from scripts.seed import set_seed  # noqa: E402
+from simulation.contract import contract_digest  # noqa: E402
 
 CONFIG = Path("simulation/configs/ppo_config.yaml")
 
@@ -182,6 +183,10 @@ def train(
         "timesteps": timesteps,
         "episode_s": episode_s,
         "smoke": smoke,
+        # What the policy learned to read. P52: the length of the state vector
+        # is already guarded, but a permuted or re-normalised index keeps the
+        # length and changes the meaning, and nothing raises on that by itself.
+        "observation_contract": contract_digest(),
         "checkpoint": str(path) + ".zip",
     }
     # The weights and the facts that give them meaning, written together. P38

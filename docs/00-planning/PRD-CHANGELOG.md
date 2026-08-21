@@ -4284,3 +4284,107 @@ blocking the project"*:
 and reproducible, and it cannot support an A–H × 5-seed ablation whose result
 would survive review. The one input that moves them is two or three long
 fixed-camera recordings of dense traffic.
+
+---
+
+## P52 — the `no-forecast` and `surrogate` PPO arms are the same environment (2026-08-21)
+
+**Status: open. This is a design decision, not a patch.**
+
+ADR-009 defines three arms and they are supposed to differ only by config:
+
+> `no-forecast` — the 16-dim state with indices 11-14 zeroed. The honest floor.
+> `surrogate` — a SUMO-derived congestion proxy in 11-14, standing in for the
+> forecast so the RL half is not blocked on the vision half.
+
+`simulation/configs/ppo_config.yaml` sets `use_mfstnet: false` for **both**, and
+`traffic_env.py` branches on `use_mfstnet` exactly once — to raise
+`NotImplementedError` because live MFSTNet is Phase 3. Nothing anywhere writes
+a proxy into indices 11-14.
+
+So the two arms produce **byte-identical observations**, and:
+
+* the arms cannot be compared, because there is nothing to compare;
+* a 30,000-step run trained today under the name
+  `ppo_surrogate_saturated_keep_or_switch_seed42.zip` was a `no-forecast`
+  policy. It has been deleted — a filename asserting something the contents do
+  not support is the [P47](#p47) failure with a different field;
+* the config's own note describes behaviour that does not exist, which is worse
+  than a gap, because it reads as a specification of something already built.
+
+### Why it went unnoticed
+
+Both arms *train*. Both converge. Both write plausible checkpoints. The
+difference between them is four numbers that are zero in both cases, and no
+assertion anywhere compares one arm's observations with another's.
+
+### What has to be decided, not just written
+
+The proxy is not a formality. ADR-009's whole claim is that a *forecast-shaped*
+input can stand in for MFSTNet while the vision half is unfinished, and that
+claim only holds if the proxy has the same **failure profile** as the real
+thing, not merely the same shape. A proxy read straight from SUMO's future
+state is an oracle: PPO trained against it learns to trust a forecast that is
+never wrong, and swapping in a model whose cross-camera macro F1 is what this
+corpus supports would then be a *regression* the benchmark cannot anticipate.
+
+A defensible proxy needs, at minimum, a stated accuracy target it is degraded
+to, and that target has to come from a measured MFSTNet number. Which means
+**the surrogate arm is blocked on S28/S29 after all** — the opposite of what
+ADR-009 assumed when it introduced the arm to unblock the RL track.
+
+That is the finding. The arm was created to decouple two halves of the project
+and it cannot do so honestly, because calibrating the proxy requires the number
+the other half has not produced yet.
+
+## P53 — a zeroed forecast is indistinguishable from "every lane is clear" (2026-08-21)
+
+**Status: partly fixed.** The contract digest is in; the encoding is not.
+
+`spec.yaml` maps the three congestion classes through `mfst_pred_divisor: 2`,
+so `{LOW, MEDIUM, HIGH}` becomes `{0.0, 0.5, 1.0}`. Indices 11-14 are zeroed
+when the forecast is unavailable (FR-A06), and `traffic_env`'s docstring says
+this "states 'no forecast'".
+
+It does not. **`0.0` is LOW.** The declared fallback tells the policy that all
+four approaches are predicted clear — the most optimistic forecast the encoding
+can express — at precisely the moment the forecast has failed. A policy that
+learned to shorten green on a LOW forecast will do exactly that when MFSTNet
+dies.
+
+Two things follow, and they are separable:
+
+**The encoding is wrong and the fix is cheap.** Reserving `0.0` for "absent" and
+mapping the classes to `{1,2,3}/3` costs one normaliser change, keeps the
+dimension at 16, and needs no PRD amendment beyond the divisor. It removes the
+ambiguity outright rather than adding a flag to compensate for it.
+
+**The fallback is off-manifold and the fix is not cheap.** Even unambiguous,
+a zero block the policy never saw during training is an input it has no learned
+response to. Making the fallback in-distribution means training with forecast
+dropout, which changes what every arm measures and so belongs in an ADR with
+the arm definitions, not in a patch.
+
+### What is fixed today
+
+`simulation/contract.py` hashes the part of the spec that decides what a state
+number *means* — index map, dimension, normalisers, fallback index list — and
+`train_ppo.py` writes that digest into each checkpoint's provenance sidecar
+beside the timesteps [P47](#p47) records.
+
+The length of the state vector was already guarded: `traffic_env` refuses to
+build if `spec.yaml`'s `dim` disagrees with its `STATE_DIM`. The change that
+costs more keeps the length. Permute two entries in the index map, or halve a
+divisor, and every shape still matches while the policy acts on a feature that
+no longer means what it did while it learned to read it. Nothing raises.
+
+An **absent** digest is refused rather than waved through, for the same reason
+P47 refuses a checkpoint with no recorded length: every checkpoint written
+before today is in that state, and that is exactly the condition that lets a
+policy be scored against a state it never saw.
+
+The action space is deliberately not hashed — ADR-015 is screening two against
+each other, so a difference there is an intended comparison, and the filename
+already carries which one ran. Twelve tests, pinning what the digest must
+*notice* rather than its literal value: a test asserting a fixed digest would be
+updated in the same commit as the mistake it exists to catch.
