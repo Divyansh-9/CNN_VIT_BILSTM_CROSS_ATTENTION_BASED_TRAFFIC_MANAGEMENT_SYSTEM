@@ -102,6 +102,36 @@ def summarise(fold_files: list[Path], out: Path) -> list[dict]:
             entry[f"{field}_mean"] = round(mean, 4)
             entry[f"{field}_lo"] = round(low, 4)
             entry[f"{field}_hi"] = round(high, 4)
+        # P57. Macro F1 divides by THREE classes and scores an absent one 0, so
+        # a fold whose test camera has no HIGH window caps mechanically at
+        # 0.667. A reader who does not know the convention reads 0.4977 as half
+        # of 1.0 when it is three-quarters of what was reachable.
+        #
+        # Both conventions are derived here rather than added to `metrics.py`,
+        # because the per-run CSVs already carry `f1_*` and `support_*` and a
+        # suite is in flight — changing the columns mid-run would leave half the
+        # fold files with one header and half with another.
+        present = []
+        ceilings = []
+        highs = []
+        for row in rows:
+            supported = [c for c in ("low", "medium", "high")
+                         if float(row.get(f"support_{c}", 0) or 0) > 0]
+            if supported:
+                present.append(sum(float(row[f"f1_{c}"]) for c in supported)
+                               / len(supported))
+                ceilings.append(len(supported) / 3)
+            total = sum(float(row.get(f"support_{c}", 0) or 0)
+                        for c in ("low", "medium", "high"))
+            if total:
+                highs.append(float(row.get("support_high", 0) or 0) / total)
+        entry["macro_f1_present_mean"] = (
+            round(sum(present) / len(present), 4) if present else "")
+        entry["macro_f1_ceiling"] = (
+            round(sum(ceilings) / len(ceilings), 4) if ceilings else "")
+        entry["test_high_share"] = (
+            round(sum(highs) / len(highs), 4) if highs else "")
+
         # P54. How far this config moved on ONE fold when only the seed
         # changed, averaged over folds. If it exceeds the distance between two
         # configs, the ablation has not separated them and the table should say
@@ -122,6 +152,16 @@ def summarise(fold_files: list[Path], out: Path) -> list[dict]:
             f"{r.get('fold', '?')}/{r.get('seed', '?')}:{r['macro_f1']}"
             for r in sorted(rows,
                             key=lambda r: (str(r.get("fold")), str(r.get("seed")))))
+
+        # ADR-022 asks for the four per-fold numbers beside the interval. Four
+        # raw numbers are more honest than any CI computed over four numbers,
+        # and the folds are not exchangeable — one has no HIGH window at all.
+        by_fold = {}
+        for row in rows:
+            by_fold.setdefault(str(row.get("fold", "?")), []).append(
+                float(row["macro_f1"]))
+        entry["macro_f1_per_fold"] = " ".join(
+            f"{fold}:{sum(v) / len(v):.4f}" for fold, v in sorted(by_fold.items()))
         summary.append(entry)
 
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -244,6 +284,25 @@ def main(argv: list[str] | None = None) -> int:
               "have been")
         print("           measured smaller than seed-to-seed movement (P54); "
               "pass --seeds 42 1 7 13 21.")
+
+    # P57. The class the controller exists to act on.
+    ceilings = [e["macro_f1_ceiling"] for e in summary
+                if e.get("macro_f1_ceiling") != ""]
+    shares = [e["test_high_share"] for e in summary
+              if e.get("test_high_share") != ""]
+    if ceilings and min(ceilings) < 1.0:
+        print()
+        print(f"  WARNING  macro F1 is capped at {min(ceilings):.3f} on average, "
+              f"not 1.0 — a test camera")
+        print("           with no HIGH window scores that class 0 by convention. "
+              "Report the")
+        print("           ceiling beside the score, or the number reads as half "
+              "of one.")
+    if shares and min(shares) < 0.05:
+        print(f"  WARNING  HIGH is {min(shares):.1%} of some fold's test split. "
+              f"A signal controller")
+        print("           acts on HIGH; a table that cannot separate it cannot "
+              "bear on control.")
     print()
     print(f"  wrote {args.summary}")
     print("  Every fold's test split is ONE camera. The interval is over folds,")

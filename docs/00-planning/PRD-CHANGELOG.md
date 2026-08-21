@@ -4678,3 +4678,86 @@ effective problem is two-class over 140 predictions, and a corpus that easy is
 one where architecture stops mattering. That is a statement about the corpus,
 not the code, and it belongs with the other three pointing the same way —
 see [ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md).
+
+---
+
+## P57 — the ablation cannot bear on control, because HIGH barely exists in it (2026-08-22)
+
+**Status: open. This is a corpus and threshold finding, not a code defect.**
+
+Fold 0's test camera has **62 LOW, 78 MEDIUM and 0 HIGH**. Checking the other
+three folds before the suite finished — a five-minute query that decides whether
+four hours of GPU time are worth waiting for:
+
+| fold | test camera | lane-windows | LOW | MEDIUM | **HIGH** | HIGH share |
+|---|---|---|---|---|---|---|
+| 0 | Dhaka Rampura (a) | 140 | 62 | 78 | **0** | 0.0% |
+| 1 | M6 Motorway | 252 | 150 | 82 | **20** | 7.9% |
+| 2 | Pov footover bridge | 44 | 27 | 8 | **9** | 20.5% |
+| 3 | Dhaka Rampura (b) | 136 | 49 | 86 | **1** | 0.7% |
+
+**Thirty HIGH lane-windows across all 572.** Two of the four folds are
+effectively binary tasks with a dead output head, and a third has 44 windows in
+total. Only fold 1 carries meaningful HIGH support — and its *training* split
+holds 9 HIGH in 316 (2.8%) before being tested on 20.
+
+### Why this is the finding rather than a caveat
+
+A signal controller does not act on the LOW/MEDIUM boundary. **HIGH is the class
+the entire downstream system exists to respond to.** An ablation that cannot
+separate architectures on HIGH cannot bear on the project's actual claim,
+however many configs and seeds it runs.
+
+So the eight-config table measures LOW-versus-MEDIUM discrimination on most
+folds. That is a real result about a real task, and it is **not** the task the
+PRD's control chapter needs.
+
+### The absent-class convention is now load-bearing on the numbers themselves
+
+`macro_f1` divides by three classes and scores an absent one 0 by convention
+([P31](#p31)). With HIGH absent it **caps mechanically at 0.667**. So fold 0's
+0.4977 is roughly **three-quarters of what was reachable**, not half of 1.0, and
+a reader who does not know the convention will misread it by a wide margin.
+
+Two things follow, and both are fixed today:
+
+* `run_loco.py` now derives and reports **`macro_f1_ceiling`**,
+  **`macro_f1_present_mean`** (the mean over classes that actually occur) and
+  **`test_high_share`** beside every config, and warns when the ceiling is
+  below 1.0 or when HIGH falls under 5% of a fold's test split;
+* both are **derived from the per-run CSVs**, which already carry `f1_*` and
+  `support_*`. Adding columns to `metrics.py` mid-suite would have left half the
+  fold files with one header and half with another.
+
+[ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md)'s material threshold
+of 0.05 was stated in the three-class-with-zeros convention and corresponds to
+roughly **0.075** in a present-classes-only metric. A pre-registered threshold
+whose meaning depends on an unfixed convention is not pre-registered in any
+useful sense, so the convention is now stated explicitly in both documents.
+
+### What is *not* being done about it
+
+**The thresholds are not being recalibrated to produce more HIGH.** ADR-017 sets
+them in Indo-HCM PCU and they are pre-registered and awaiting the guide.
+Adjusting them until the class balance looks better is fitting the labels to the
+desired outcome, and it is the exact failure [P45](#p45) already warned about:
+per-camera percentile calibration will manufacture a HIGH class out of an empty
+road.
+
+**The running suite is not being stopped.** It still measures the seed spread
+that [P54](#p54) needs re-measured on clean data — already at **0.1853** on the
+clean runs in hand, against the withdrawn 0.242, so the same order of magnitude
+and the same conclusion. It still measures LOW/MEDIUM discrimination, and it
+still exercises the protocol. What it cannot do is support a claim about
+congestion severity.
+
+### Where this actually points
+
+Not at the ablation, and not at the architecture. At the **corpus**: four of
+eleven cameras were already excluded for averaging under 15 detections per frame
+(P45), and of the seven that remain, the two densest contribute almost no HIGH
+under the current thresholds. This is the same conclusion P45 reached from a
+different direction, and it strengthens the case in the
+[Part B memo](MEMO-2026-08-22-part-b.md) — a decision about which dataset to
+build should be made knowing that the current one cannot express the class the
+system acts on.

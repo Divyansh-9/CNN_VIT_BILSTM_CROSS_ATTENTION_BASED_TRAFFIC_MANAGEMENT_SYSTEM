@@ -80,6 +80,31 @@ same argument [P28](../PRD-CHANGELOG.md) makes for lane centres and
 `relabel_corpus.py` makes for thresholds: the expensive artifact is the
 detections, and everything downstream of them should re-derive cheaply.
 
+## The macro F1 convention, fixed here
+
+`macro_f1` divides by **all three classes** and scores a class with no support
+**0**. It therefore caps mechanically below 1.0 whenever a fold's test camera
+lacks a class — at **0.667** with one class absent, which is the case in two of
+the four folds ([P57](../PRD-CHANGELOG.md)).
+
+**Three-class-with-zeros is the primary convention.** The alternative — average
+over present classes only — is not comparable across folds, because fold 0 would
+report a two-class mean and fold 1 a three-class one, and a fold mean built from
+two different quantities is not a mean of anything.
+
+Because it is easy to misread, three numbers are reported together and never
+apart:
+
+| column | meaning |
+|---|---|
+| `macro_f1_mean` | the primary figure, three classes, absent scored 0 |
+| `macro_f1_ceiling` | what was reachable given which classes occur |
+| `macro_f1_present_mean` | the present-classes-only average, for context only |
+
+A score of 0.4977 against a ceiling of 0.667 is **three-quarters of what was
+achievable**, and reporting the first without the second invites a reader to
+divide by 1.0. Every caption the table generator produces carries the ceiling.
+
 ## What this does not fix
 
 **It creates no data.** Twenty-eight independent segments stay twenty-eight.

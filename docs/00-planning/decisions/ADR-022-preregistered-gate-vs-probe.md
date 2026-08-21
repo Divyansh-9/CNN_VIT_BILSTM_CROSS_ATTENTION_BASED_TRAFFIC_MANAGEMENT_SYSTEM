@@ -143,10 +143,14 @@ as a surprise, a disappointment, or a success.
 One caveat on that prior, because it cuts the other way. **The 0.242 figure is
 itself a withdrawn pre-P55 number** — measured while cached windows were views
 into a released memory map. It is used here as an order-of-magnitude expectation
-and nothing more; the clean suite produces the real value, and if it comes back
-far smaller the power calculation above improves accordingly. It is quoted
-rather than omitted because planning the paper on the optimistic assumption
-instead would be the mistake this document exists to prevent.
+and nothing more.
+
+**Re-measured on clean runs the same day: 0.1853**, from the first two seeds of
+fold 0 after the fix. Lower than 0.242 and the same order, so the conclusion is
+unchanged: `0.1853 / √5 ≈ 0.083`, still three times the gap being tested for.
+Re-measuring it was the first thing the clean suite was asked for, because it is
+the number that decides whether five seeds was ever enough — and on this
+evidence it is not.
 
 ### What "cannot distinguish" means, and what it does not
 
@@ -161,6 +165,14 @@ nothing." Those are claims this experiment cannot support in either direction.
 the architecture doing measurable work.** Below that, it does not — regardless
 of the *p*-value, because at this n a significant result on a 0.02 gap would be
 a small-sample artifact before it was a finding.
+
+**Stated in the three-class-with-zeros convention** that ADR-019 fixes: macro F1
+over all three classes, an absent class scored 0. On a fold whose test camera
+has no HIGH window the metric caps at 0.667, so 0.05 there is **7.5% of the
+reachable range**, and the same 0.05 expressed present-classes-only is
+approximately **0.075**. A threshold whose meaning depends on an unfixed
+convention is not pre-registered in any useful sense, which is why the
+convention is named here rather than assumed.
 
 ### The consequence, also fixed now
 
@@ -195,6 +207,11 @@ The commit that adds this file precedes the commit that adds
   160, and restarting would discard the runs already paid for while making the
   suite's artifacts inconsistent — some runs carrying predictions and some not.
   Prediction dumping is added now and the 40 runs follow the suite.
+- **Report the four per-fold differences as raw numbers beside the interval.**
+  Four numbers are more honest than a confidence interval computed over four
+  numbers, and these folds are **not exchangeable** — one test camera has no
+  HIGH window at all and another has 44 lane-windows in total
+  ([P57](../PRD-CHANGELOG.md)). `run_loco.py` emits `macro_f1_per_fold`.
 - **The paper is planned for the "cannot distinguish" outcome starting now**:
   benchmark, protocol, and a well-characterised negative result. If the suite
   separates something, that is an upgrade to a plan that already works, not a

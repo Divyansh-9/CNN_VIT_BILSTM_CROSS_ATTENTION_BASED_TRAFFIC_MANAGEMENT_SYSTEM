@@ -82,6 +82,36 @@ adding an artifact**: TrafficCAM's licence is unresolved and is currently our
 sole source of `e_rickshaw` boxes, so anything derived from it may not be
 releasable.
 
+## The finding that may change this conversation entirely
+
+Measured today, after the memo above was drafted. The MFSTNet corpus is built,
+and its **HIGH** class — the one a signal controller actually acts on — is
+almost absent from it:
+
+| fold | test camera | lane-windows | **HIGH** | share |
+|---|---|---|---|---|
+| 0 | Dhaka Rampura (a) | 140 | **0** | 0.0% |
+| 1 | M6 Motorway | 252 | 20 | 7.9% |
+| 2 | Pov footover bridge | 44 | 9 | 20.5% |
+| 3 | Dhaka Rampura (b) | 136 | **1** | 0.7% |
+
+**Thirty HIGH windows in 572.** Two folds are effectively binary. The ablation
+now running can distinguish architectures on LOW-versus-MEDIUM and cannot
+distinguish them on the distinction that matters for control
+([P57](PRD-CHANGELOG.md)).
+
+We are **not** recalibrating the ADR-017 thresholds to fix this. Adjusting
+thresholds until the class balance improves is fitting labels to a desired
+outcome, and P45 already established that per-camera percentile calibration
+manufactures a HIGH class out of an empty road.
+
+**Why it belongs in this memo.** The recommendation above optimises for
+*viewpoint diversity*. If the corpus cannot express HIGH, the binding constraint
+may instead be **density** — footage of genuinely congested traffic — and the
+right capture target changes accordingly: fewer viewpoints, chosen for
+congestion, at peak hours. A decision about which dataset to build should be
+made knowing this, and it was not known when ADR-006 was accepted.
+
 ## What we are asking, precisely
 
 1. **Approve** converting Part B to the six-viewpoint evaluation set above, or
@@ -92,6 +122,18 @@ releasable.
 3. Note that **S19 is marked "blocked on this decision" on the build log as of
    today**, not "not started". A board showing *awaiting guide since 22 Aug* is
    defensible at week 18; a purple square is not.
+
+### The default, so the date is not a wish
+
+**If no decision is received by 2026-08-29, Part B is cut.** ADR-006 will be
+amended to record that Novel Contribution 1 is Part A alone, the amendment will
+name this memo and the silence as its cause, and S19/S20/S21 will close as
+descoped rather than remaining open.
+
+This is stated so that inaction has a defined result. It is reversible at any
+point — reviving Part B later costs a decision, not rework — and the permission
+request is being filed this week precisely to keep that reversal cheap. What is
+not reversible is another two months of a board square that means nothing.
 
 ## What is not affected
 
