@@ -47,6 +47,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=Path("data/lanes_reviewed"))
     parser.add_argument("--max-radius", type=float, default=0.25)
     parser.add_argument("--min-separation", type=float, default=MIN_SEPARATION)
+    parser.add_argument("--reviewer", default="",
+                        help="who placed these centres, recorded verbatim in "
+                             "each file. `reviewed: true` asserts a reviewer "
+                             "existed; this says which one, so a placement "
+                             "nobody on the team made cannot read as one "
+                             "somebody did.")
     args = parser.parse_args(argv)
 
     from mfstnet.corpus.lanes import LaneCentres
@@ -101,10 +107,11 @@ def main(argv: list[str] | None = None) -> int:
             "clip": clip,
             "surveyed_from": spec.get("surveyed_from", ""),
             "reviewed": True,
+            "reviewer": args.reviewer or "unrecorded",
             "max_radius": resolved.max_radius,
             "lanes": [{"name": n, "centre": list(c)}
                       for n, c in zip(resolved.names, resolved.centres)],
-            "note": ("Placed by hand over a detection-density heatmap. P23: "
+            "note": ("Placed against the camera's own preview render. P23: "
                      "automatic centres moved 0.164 of frame width when the "
                      "detector changed, so they are not used unreviewed. "
                      "P17: these belong to THIS camera only."),

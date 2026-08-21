@@ -48,6 +48,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-unassigned", type=float, default=0.35,
                         help="P17's gate; a camera over it is rejected by "
                              "build_corpus and contributes nothing")
+    parser.add_argument("--min-density", type=float, default=15.0,
+                        help="mean detections per sampled frame. PRD 14.1 puts "
+                             "the MEDIUM->HIGH boundary at 15 vehicles, so a "
+                             "camera whose AVERAGE frame does not reach it "
+                             "cannot show sustained HIGH congestion. Its HIGH "
+                             "class is then noise however the thresholds are "
+                             "later calibrated, because per-camera percentiles "
+                             "will manufacture one out of an empty road")
+    parser.add_argument("--survey-frames", type=int, default=60,
+                        help="frames survey_all.py sampled per clip, to turn "
+                             "its detection total into a rate")
     parser.add_argument("--out", type=Path, default=RESULTS)
     args = parser.parse_args(argv)
 
@@ -78,10 +89,14 @@ def main(argv: list[str] | None = None) -> int:
     for entry in distinct:
         seconds = float(entry.get("seconds", 0.0))
         rate = float(entry.get("unassigned_rate", 0.0))
+        density = float(entry.get("detections", 0)) / max(args.survey_frames, 1)
+        dense_enough = density >= args.min_density
         row = {"clip": entry["clip"], "camera": entry["camera"],
                "seconds": round(seconds, 1),
                "unassigned_rate": round(rate, 4),
-               "clears_gate": rate <= args.max_unassigned}
+               "detections_per_frame": round(density, 1),
+               "dense_enough": dense_enough,
+               "clears_gate": rate <= args.max_unassigned and dense_enough}
         for step in STEPS:
             g = WindowGeometry(T=args.timesteps, step_s=step,
                                horizon_s=args.horizon_s, stride_s=args.stride_s)
@@ -100,13 +115,18 @@ def main(argv: list[str] | None = None) -> int:
         writer.writerows(rows)
 
     print(f"  {len(entries)} clip(s) -> {len(distinct)} distinct camera(s)\n")
-    print("  {:<36}{:>9}{:>9}{:>10}{:>9}".format(
-        "camera", "seconds", "seq @2s", "indep @2s", "gate"))
+    print("  {:<32}{:>8}{:>7}{:>8}{:>9}{:>14}".format(
+        "camera", "seconds", "det/fr", "seq @2s", "indep @2s", "gate"))
     for row in rows:
-        print("  {:<36}{:>9.0f}{:>9}{:>10}{:>9}".format(
-            row["clip"][:34], row["seconds"],
-            row["sequences_step2"], row["independent_step2"],
-            "ok" if row["clears_gate"] else f"{row['unassigned_rate']:.0%} OUT"))
+        if row["clears_gate"]:
+            gate = "ok"
+        elif not row["dense_enough"]:
+            gate = f"{row['detections_per_frame']:.0f}/fr THIN"
+        else:
+            gate = f"{row['unassigned_rate']:.0%} OUT"
+        print("  {:<32}{:>8.0f}{:>7.1f}{:>8}{:>9}{:>14}".format(
+            row["clip"][:30], row["seconds"], row["detections_per_frame"],
+            row["sequences_step2"], row["independent_step2"], gate))
 
     print()
     print("  {:<12}{:>12}{:>14}{:>12}{:>10}".format(
@@ -122,7 +142,21 @@ def main(argv: list[str] | None = None) -> int:
             f"{step}s", seq, ind, seq / max(ind, 1), cams, len(rows)))
         print("  {:<12}{:>12}".format("", f"needs >= {g.min_clip_s}s per clip"))
 
-    rejected = [r for r in rows if not r["clears_gate"]]
+    thin = [r for r in rows if not r["dense_enough"]]
+    if thin:
+        print(f"\n  {len(thin)} camera(s) under {args.min_density:.0f} "
+              f"detections/frame, excluded from the totals above:")
+        for row in thin:
+            print(f"    {row['clip'][:52]}  {row['detections_per_frame']:.1f}/fr")
+        print("  Length and steadiness say nothing about whether a road carries "
+              "traffic.")
+        print("  These clips pass triage and are the LONGEST footage available, "
+              "which is")
+        print("  exactly why the gate is needed: duration and density run "
+              "opposite here.")
+
+    rejected = [r for r in rows
+                if not r["clears_gate"] and r["dense_enough"]]
     if rejected:
         print(f"\n  {len(rejected)} camera(s) over the {args.max_unassigned:.0%} "
               f"unassigned gate, excluded from the totals above:")

@@ -4032,3 +4032,115 @@ anywhere states the −0.0916 delta without saying it is unverified.
 > on disk, and it turned up a result that changes a pending decision. Deferring
 > a check is a decision too, and it should be re-examined whenever the cost
 > estimate was a guess.
+
+---
+
+## P44 — an automatic lane centre sat above the horizon, counting sky (2026-08-21)
+
+**Status:** CLOSED · Found by doing the lane review the pipeline was waiting on ·
+**Justifies the review gate on stronger grounds than the one it was built for**
+
+`data/lanes_reviewed/` did not exist, so `build_corpus.py` refused every build
+and the whole model track — corpus, cache, S28, S29, **M5** — was stalled behind
+it. The step is placing four points on twelve preview images.
+
+Doing it found this. On `Pov_Thursday_Traffic__182ecf5e`, k-means had put
+`lane_1` at **(0.43, 0.28)** — the horizon on that camera is near y=0.38, so the
+centre was **in the sky**. Nearest-centre assignment is disjoint by
+construction, so the lane was not empty: it was collecting far-field haze
+detections from the vanishing point and reporting them as vehicles in a lane.
+
+**Nothing downstream would have raised.** The lane has counts. The counts vary
+over time. The labels derived from them look ordinary, and every validation gate
+in `audit_corpus.py` passes on a distribution that is entirely artefact.
+
+### Why this is a stronger argument than P23
+
+[P23](#p23) established that automatic centres are **unstable** — they moved
+0.164 of frame width when the detector changed — and that is why
+`build_corpus.py` refuses `reviewed: false`. P23 is an argument about variance.
+
+This is an argument about correctness: a centre that is not on the road at all.
+Stability would not have caught it, because a centre in the sky is stable. Only
+looking at the preview catches it, which is precisely what the gate demands and
+what had not been done.
+
+### What changed
+
+- Centres placed on all twelve surveyed cameras; all four on this camera now sit
+  below y=0.46, on road surface. Every camera clears the 0.05 separation check
+  (tightest 0.221, widest 0.424).
+- `import_lane_centres.py` gained `--reviewer`, recorded verbatim in every file.
+  `reviewed: true` asserts *a human looked*; it did not say **who**, so a
+  placement nobody on the team made could read as one somebody did.
+- **The current twelve are recorded as placed by the assistant and NOT confirmed
+  by a team member.** They unblock the pipeline; they are not a signed review.
+  R1 opening the twelve previews closes this properly.
+
+---
+
+## P45 — triage admits footage on length, and length is anti-correlated with traffic (2026-08-21)
+
+**Status:** CLOSED as a gate · **OPEN as a project risk** · Found by asking why
+the corpus was small after it was finally buildable
+
+`triage_footage.py` sets `mechanically_ok = long_enough and scene_moves and
+steady`. None of those three says the road carries vehicles, and nothing between
+triage and `build_corpus` checked. Measured over the surveyed footage:
+
+| clip | seconds | det/frame | triage verdict |
+|---|---:|---:|---|
+| Highway sounds (US interstate) | 3602 | **7.1** | PASS |
+| 4K road tracking (SE Asia) | 2093 | **2.8** | PASS |
+| M6 Motorway (UK) | 2048 | 23.4 | PASS |
+| Road traffic recognition | 2048 | 21.2 | PASS — duplicate of M6, [P22](#p22), r=0.981 |
+| Dhaka Rampura | 1206 | 19.4 | PASS |
+| Dhaka Rampura 🎧 | 1170 | 31.5 | PASS |
+| Relaxing highway (Alpine) | 840 | 12.9 | PASS |
+| Pov Thursday (Dhaka) | 497 | 29.8 | PASS |
+| Mumbai Andheri | 349 | 29.7 | **reject: 349s<360** |
+| 4K free download | 306 | 14.6 | **reject: 306s<360** |
+| Delhi South Extension | 264 | **66.6** | **reject: 264s<360** |
+| Dhaka roundabout (video1) | 183 | **64.4** | **reject: 183s<360** |
+
+**The four densest cameras are all rejected on length, and three of the four
+longest survivors are empty roads.** The 2093-second clip that passes averages
+2.8 vehicles per frame. Triage was selecting against the target domain, and the
+`MIN_USABLE_S = 360` threshold is not wrong — it is A15, and a shorter clip
+genuinely yields fewer windows — it is simply insufficient on its own.
+
+### The gate
+
+`corpus_yield.py` gained `--min-density`, default **15.0 detections per sampled
+frame**, which is PRD §14.1's MEDIUM→HIGH boundary. A camera whose *mean* frame
+does not reach that boundary cannot show sustained HIGH congestion. Per-camera
+percentile calibration does not rescue it — percentiles will manufacture a HIGH
+class out of an empty road, and every label in it is noise.
+
+Density and [P17](#p17)'s unassigned-rate gate are reported as **separate**
+reasons: [P25](#p25) established that a camera can fail the second for having
+the wrong lane *count*, which is a few clicks to fix, and collapsing the two
+would hide that. Six tests in `tests/test_density_gate.py`.
+
+The principle was already in the codebase and had never been generalised —
+`build_corpus.py` excludes Bellevue by default at 0.73 det/frame against a 9.88
+reference, noting *"a wrong count becomes a wrong LABEL, which is worse than no
+data at all."*
+
+### The risk this leaves open
+
+Seven usable cameras of eleven distinct. At `step_s=2`: **152 overlapping
+sequences, 28 independent segments, 5.4× inflation.** At the PRD's own
+`step_s=5`: **12 independent segments from 4 cameras.**
+
+Twelve of the 28 come from Dhaka Rampura — one junction, filmed twice. **No
+available clip is both long enough and dense enough except that one junction.**
+An A–H × 5-seed ablation over 28 segments split 60/20/20 by camera is
+underpowered, and reporting it without saying so is the cherry-picking PRD
+§2.5.5 forbids.
+
+This is the honest answer to *"what is blocking the project"*: not an unstarted
+step, but a corpus that no amount of pipeline work enlarges. The one input that
+moves 28 upward is **two or three long fixed-camera recordings of dense
+traffic** — a narrowed [S19](../../BUILD-LOG.md), not the 60 sessions ADR-006
+cut.

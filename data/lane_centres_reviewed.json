@@ -1,0 +1,410 @@
+[
+  {
+    "camera": "D__traffic_dataset_Highway_sounds_cars_t_68a3e4c4",
+    "clip": "Highway sounds cars trucks passing by for sleeping relaxing.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.25,
+          0.45
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.45,
+          0.6
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.65,
+          0.5
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.85,
+          0.72
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_4K_Road_traffic_video_da369d62",
+    "clip": "4K Road traffic video for object detection and tracking.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.3,
+          0.3
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.48,
+          0.55
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.66,
+          0.42
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.84,
+          0.62
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_M6_Motorway_Traffic_m_776c6509",
+    "clip": "M6 Motorway Traffic.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.2,
+          0.78
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.4,
+          0.5
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.62,
+          0.55
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.8,
+          0.72
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_Road_traffic_video_fo_972c7197",
+    "clip": "Road traffic video for object recognition.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.2,
+          0.78
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.4,
+          0.5
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.62,
+          0.55
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.8,
+          0.72
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_Incredible_traffic_So_d3e34949",
+    "clip": "Incredible traffic Sound in Dhaka, Bangladesh। Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.16,
+          0.73
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.57,
+          0.53
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.8,
+          0.85
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.88,
+          0.53
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset___Incredible_traffic__50708eee",
+    "clip": "🎧 Incredible traffic Sound in Dhaka, Bangladesh। Rampura [4K ASMR] #TheSoundOfDhaka.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.15,
+          0.8
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.36,
+          0.6
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.63,
+          0.6
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.85,
+          0.66
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_Relaxing_highway_traf_ba724265",
+    "clip": "Relaxing highway traffic.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.18,
+          0.72
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.38,
+          0.5
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.6,
+          0.52
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.78,
+          0.7
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_Pov_Thursday_Traffic__182ecf5e",
+    "clip": "Pov_Thursday Traffic From Footover bridge। Cloudy Seen।.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.2,
+          0.58
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.45,
+          0.46
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.55,
+          0.82
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.75,
+          0.72
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_Mumbai_Traffic_Chaos__c0976fce",
+    "clip": "Mumbai Traffic Chaos - Near Andheri Station.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.16,
+          0.68
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.42,
+          0.5
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.56,
+          0.24
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.6,
+          0.85
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_4K_Road_traffic_video_152b1b73",
+    "clip": "4K Road traffic video for object detection and tracking - free download now!.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.14,
+          0.55
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.34,
+          0.42
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.5,
+          0.62
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.72,
+          0.3
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_South_Extension_traff_b5275a32",
+    "clip": "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.18,
+          0.72
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.34,
+          0.38
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.62,
+          0.7
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.7,
+          0.3
+        ]
+      }
+    ]
+  },
+  {
+    "camera": "D__traffic_dataset_video1_mp4_78d40123",
+    "clip": "video1.mp4",
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.13,
+          0.74
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.24,
+          0.33
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.55,
+          0.8
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.76,
+          0.42
+        ]
+      }
+    ]
+  }
+]

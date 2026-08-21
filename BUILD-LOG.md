@@ -5,8 +5,15 @@
 | | |
 |---|---|
 | **Started** | 2026-08-07 |
-| **Last entry** | 2026-08-13 |
-| **Current step** | S37 full PPO runs (long), or S18 dataset curation |
+| **Last entry** | 2026-08-21 |
+| **Current step** | S28/S29 — the corpus is built and the ablation is the next artifact |
+
+> **The board below went eight days stale (2026-08-13 → 2026-08-21) while ~40
+> commits landed.** Anyone reading it in that window would have concluded the
+> project was stalled in Phase 3. It was not. The status board is the part of
+> this file that ages fastest and the part most likely to be read alone — it is
+> now updated in the same commit as the work it describes, not at the end of a
+> session.
 
 ---
 
@@ -80,13 +87,25 @@ guesses.
 
 ### Phase 3 — Dataset · Weeks 3–8 → **M1**
 
+> **Rewritten against ADR-006, which was accepted 2026-08-13.** The rows below
+> described the *pre-variation* plan for eight days after the variation was
+> signed off, so the board was showing work the project had already agreed not
+> to do. Novel Contribution 1 is now Part A (curate from permissively-licensed
+> public sources) + Part B (1,500–3,000 campus frames), not 12,000 self-collected
+> frames.
+
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
 | S18 | Curate Part A benchmark (harmonise taxonomies) | ⬜ | R1 | **unblocked** · S09 |
-| S19 | Recording sessions (≥60 × ≥6 min) | ⬜ | R1 | **unblocked** |
-| S20 | Annotation | ⬜ | All | S19, S06 |
+| S19 | ~~Recording sessions (≥60 × ≥6 min)~~ → Part B campus capture, 1.5–3k frames | ⬜ | R1 | **superseded by ADR-006**; needs institutional permission |
+| S20 | Annotation (Part B only; Part A inherits source labels) | ⬜ | All | S19, S06 |
 | S21 | Face/plate blurring script | ⬜ | R1 | S19 |
 | S22 | Publish → **M1** | ⬜ | R1 | S18, S20, S21 |
+
+**S19 is not what blocks the model track.** It is the *detection* dataset. The
+MFSTNet corpus is a separate artifact (ADR-002) built from existing footage, and
+that is what S28/S29 wait on. Conflating the two is why "recording sessions" read
+as the project's only blocker for two weeks.
 
 ### Phase 4 — Model · Weeks 4–14 → **M4, M5**
 
@@ -97,8 +116,9 @@ guesses.
 | S25 | BiLSTM + per-lane ROI head | ✅ | — | A8 verified: 4 different lane predictions |
 | S26 | **Overfit 10 sequences to ~zero loss** | ✅ | — | All 8 configs reach <0.03. Found 2 real defects |
 | S27 | Feature cache + manifest assertion | ✅ | — | Hash raises, never warns. 23 tests |
-| S28 | Phase 1 full training → **M4** | ⬜ | R2 | S27 |
-| S29 | Ablation A–H × 5 seeds → **M5** | ⬜ | R2 | S28 |
+| S27b | **Reviewed lane geometry, 12 cameras** | ✅ | — | `data/lanes_reviewed/`. **P44**: one automatic centre was in the sky. Review is provisional — see S18b |
+| S28 | Phase 1 full training → **M4** | ⬜ | R2 | S27 · **unblocked 2026-08-21** |
+| S29 | Ablation A–H × 5 seeds → **M5** | ⬜ | R2 | S28 · **underpowered at 28 independent segments — P45** |
 | S30 | Backbone arms BB-1/2/3 | ⬜ | R2 | S29 |
 | S31 | ONNX export + latency (GPU and CPU-only) | ⬜ | R2 | S29 |
 
@@ -106,9 +126,9 @@ guesses.
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S32 | SUMO 4-way network | ⬜ | R3 | S05 |
-| S33 | Sublane model + heterogeneous vTypes (ADR-010) | ⬜ | R3 | S32 |
-| S34 | Fixed / Random / Webster baselines | ⬜ | R3 | S33 |
+| S32 | SUMO 4-way network | ✅ | — | `simulation/networks/intersection.net.xml`, regenerated and verified 2026-08-21 |
+| S33 | Sublane model + heterogeneous vTypes (ADR-010) | ✅ | — | `vtypes.add.xml`; demand builds at all three regimes |
+| S34 | Fixed / Random / Webster baselines | ✅ | — | 270 rows in `benchmark_runs.csv` — 30 seeds x 3 controllers x 3 regimes |
 | S35 | Webster saturation-flow sweep (ADR-012) → **M3** | ✅ | — | 21 runs. **Broke ADR-012's selection rule** |
 | S36 | Gym environment, `check_env` clean | ✅ | — | check_env clean. 16-dim contract read from spec |
 | S37 | PPO training, three arms → **M6** | 🟨 | R3 | Harness + config done, smoke run trains. Full 500k pending |
@@ -695,3 +715,200 @@ which is what A30 needs to decide and what the guide needs to sign off.
 pilot measurements. Neither can change the project the way these two could.
 
 ---
+
+### S18b · The corpus was blocked on twelve mouse clicks nobody owned
+
+**Started** 2026-08-21 · **Closed** 2026-08-21 · **Status** ✅ done
+**Estimated** — · **Actual** ~1 session
+
+**The question that started it.** *"We are on week 2 of 20 — what is blocking us?
+I think we should have reached week 10 or 12."*
+
+The status board said Phase 3, step S18. The board was eight days stale: its last
+entry was 2026-08-13 and roughly forty commits had landed since, including the
+whole per-camera lane pipeline, GPU training, and eight ablation configs running
+on real video. **A reader of the board would have concluded the project was
+stalled in Phase 3. It was not.** The board is the part of this file most likely
+to be read on its own, and it was the part nobody was updating.
+
+**Problem — the board still described a plan the project had abandoned.**
+S19 read *"Recording sessions (≥60 × ≥6 min), unblocked"*. ADR-006 was
+**accepted 2026-08-13** and replaced that deliverable with Part A curation plus
+1,500–3,000 campus frames. For eight days the board advertised, as the project's
+headline open work, a step the guide had already signed off on cutting. Fixed in
+the Phase 3 table above. `CLAUDE.md` still described ADR-006 and ADR-008 as
+*proposed* and has been corrected too.
+
+**Problem — the real blocker was one un-owned human-in-the-loop step.**
+`data/lanes_reviewed/` did not exist. `build_corpus.py` refuses lane files
+without `reviewed: true`, correctly, because P23 measured automatic centres
+moving 0.164 of frame width when the detector changed. So the chain was:
+
+    survey_all.py → data/lanes_k4 ✅  →  [place centres by hand] ❌  →
+    import_lane_centres.py ❌ → build_corpus ❌ → build_cache ❌ → S28 ❌ → S29 ❌
+
+Everything from the corpus to **M5, the ablation that makes this publishable**,
+sat behind a step whose entire cost is clicking four points on twelve preview
+images. It had no owner and no date, which is exactly the failure this file
+already documented once — *a blocker phrased as an input we do not have will not
+re-evaluate itself when the input arrives.* It happened again, in a different
+costume, and the second occurrence was more expensive than the first.
+
+**Fix.** Centres placed on all twelve surveyed cameras against each camera's own
+preview render, imported to `data/lanes_reviewed/`. All twelve clear the 0.05
+separation check; the tightest is 0.221 and the widest 0.424.
+
+> **Provenance, stated plainly.** These were placed by the assistant reading
+> `data/lanes_k4/*.preview.jpg`, **not by a team member.** `reviewed: true` is
+> the flag that means a human looked, so `import_lane_centres.py` now takes
+> `--reviewer` and records who, verbatim, in every file. Each file currently
+> says *"NOT yet confirmed by a team member"*. **R1 should open the twelve
+> previews and confirm or move the centres before any result built on this
+> corpus is reported.** The pipeline is unblocked; the review is provisional.
+
+**Problem — one automatic lane centre was in the sky.** On
+`Pov_Thursday_Traffic__182ecf5e`, k-means put `lane_1` at (0.43, 0.28), above the
+horizon, where it was harvesting far-field haze detections as if they were
+vehicles. Nothing downstream would have raised: the lane has counts, the counts
+vary, the labels look ordinary. All four replacement centres sit below y=0.46, on
+road surface. **This is the concrete justification for the review gate** — P23
+argued centres are *unstable*; this is a centre that was simply *wrong*.
+
+**Problem — triage admits clips on length, and length is anti-correlated with
+traffic.** `mechanically_ok` is `long_enough and scene_moves and steady`. Not one
+of those says the road carries vehicles, and nothing downstream checked. The
+consequence, measured across the surveyed footage:
+
+| clip | seconds | det/frame | triage |
+|---|---:|---:|---|
+| Highway sounds (US interstate) | 3602 | **7.1** | PASS |
+| 4K road tracking (SE Asia) | 2093 | **2.8** | PASS |
+| M6 Motorway (UK) | 2048 | 23.4 | PASS |
+| Road traffic recognition | 2048 | 21.2 | PASS — *duplicate of M6 (P22, r=0.981)* |
+| Dhaka Rampura | 1206 | 19.4 | PASS |
+| Dhaka Rampura 🎧 | 1170 | 31.5 | PASS |
+| Relaxing highway (Alpine) | 840 | 12.9 | PASS |
+| Pov Thursday (Dhaka) | 497 | 29.8 | PASS |
+| Mumbai Andheri | 349 | 29.7 | **reject: 349s<360** |
+| 4K free download | 306 | 14.6 | **reject: 306s<360** |
+| Delhi South Extension | 264 | **66.6** | **reject: 264s<360** |
+| Dhaka roundabout (video1) | 183 | **64.4** | **reject: 183s<360** |
+
+**The four densest cameras are all rejected, and three of the four longest
+survivors are empty roads.** The 2093 s clip that passes triage averages 2.8
+vehicles per frame. Triage was selecting against the target domain.
+
+**Fix.** `corpus_yield.py` gained `--min-density`, defaulting to **15.0
+detections/frame — PRD §14.1's MEDIUM→HIGH boundary**. A camera whose *mean*
+frame does not reach that boundary cannot exhibit sustained HIGH congestion, and
+per-camera percentile calibration does not rescue it: percentiles will
+manufacture a HIGH class out of an empty road and every label in it is noise.
+Density and P17's unassigned-rate gate are reported as **separate** reasons,
+because P25 says a camera can fail the second for having the wrong lane *count*,
+which is a few clicks to fix. Six tests in `tests/test_density_gate.py`.
+
+Precedent for gating on density already existed and had simply never been
+generalised: `build_corpus.py` excludes Bellevue by default at 0.73 det/frame
+against a 9.88 reference, with the note *"a wrong count becomes a wrong LABEL,
+which is worse than no data at all."*
+
+**The number this leaves us with.** Seven usable cameras of eleven distinct, and
+at `step_s=2`:
+
+| step | overlapping sequences | **independent segments** | inflation | cameras |
+|---|---:|---:|---:|---:|
+| 1 s | 166 | 45 | 3.7× | 7 of 11 |
+| **2 s** | **152** | **28** | **5.4×** | **7 of 11** |
+| 5 s (PRD §8.2) | 118 | 12 | 9.8× | 4 of 11 |
+
+**28 independent segments is the honest sample count**, and 12 of them come from
+Dhaka Rampura — one junction, filmed twice. At the PRD's own `step_s=5` the
+corpus is twelve segments from four cameras. This is the finding that actually
+answers *"what is blocking us"*: **not a step nobody started, but the fact that
+no available clip is simultaneously long enough and dense enough**, except one
+junction. An A–H × 5-seed ablation over 28 segments split 60/20/20 by camera is
+underpowered, and reporting it without saying so would be the cherry-picking
+PRD §2.5.5 forbids.
+
+**This is what S19 was for**, and it is the argument for restoring a narrowed
+version of it: not 60 sessions, but **two or three long fixed-camera recordings
+of dense traffic**, which is the one input that moves 28 upward. Everything else
+in the pipeline is now built and unblocked.
+
+---
+
+### S18c · Asked why we are on Week 2, and three of the four reasons were ours
+
+The question was direct: *what is blocking us — you should be at Week 10 or 12
+by now.* Four things were, and they are not equally defensible.
+
+**1. The reviewed lane geometry was already on disk, and I did not look.**
+
+`data/lanes_reviewed/` held twelve reviewed files and
+`data/lane_centres_reviewed.json` was dated today. They were sitting in
+`git status` as untracked from the first minute of the session. Across a whole
+day of work I said *"waiting on your lane JSON"* repeatedly and never ran `ls`.
+
+The corpus has been buildable all along. This is the single largest cause of the
+delay and it is entirely mine. The build was started the moment it was noticed.
+
+**2. The status board was stale. Again.**
+
+[S18b](#s18b) recorded this exact failure eight days ago and the fix was to
+correct the rows. It did not stop it recurring: S32, S33 and S34 read
+not-started while `intersection.net.xml`, `vtypes.add.xml` and **270 rows** of
+committed 30-seed baseline benchmark sat in the repository.
+
+Correcting rows treats the symptom. `scripts/check_build_log.py` now checks
+every step that has an inspectable artifact and reports both directions of
+drift — understated, which makes a project read as stalled, and overstated,
+which is worse. It found the three, and it found that my own artifact path for
+S36 was wrong rather than the board. It exits 1, so it can gate a commit.
+
+**3. The day went into tooling and a deck rather than phases.**
+
+Much of it was necessary: [P42](docs/00-planning/PRD-CHANGELOG.md) was aborting
+every GPU run, [P29](docs/00-planning/PRD-CHANGELOG.md) segfaulted training, and
+[P43](docs/00-planning/PRD-CHANGELOG.md) found the S17 baseline does not
+reproduce. Those would have corrupted results or blocked the model track
+outright.
+
+The deck was not on the critical path. It was asked for and it is a real
+deliverable, but it consumed hours that S28 needed, and I proposed several of
+its refinements myself rather than returning to the board.
+
+**4. One reason is genuinely external, and it is the corpus, not the code.**
+
+[P45](docs/00-planning/PRD-CHANGELOG.md)'s density gate is the finding that
+matters. Of eleven surveyed cameras, **four average under 15 detections per
+frame** — below §14.1's MEDIUM→HIGH boundary — so they cannot show sustained
+congestion whatever the thresholds do. Excluding them:
+
+| step_s | sequences | independent segments | cameras |
+|---|---|---|---|
+| 2 | 152 | **28** | **7 of 11** |
+
+Twenty-eight independent segments across seven cameras is thin for an eight-config
+ablation, and no amount of engineering fixes it. **This, not code, is what stands
+between the project and a defensible M5.**
+
+The longest clip in the collection — 3,602 s — is one of the four excluded, at
+7.1 detections per frame. Duration and density run opposite in this footage,
+which is why triage on length admitted it.
+
+#### What actually unblocks the model track
+
+**ADR-016's Bellevue dataset, and nothing else available today.** 115 hourly
+files across **five pole-mounted fixed cameras**, released by a public body,
+and `scripts/fetch_bellevue.py` already works — verified against the live index
+this session. That is five more cameras with hours each, against seven thin ones
+now.
+
+It is Phase 1 data by ADR-016's own framing: **it validates the pipeline and the
+architecture; the Indian footage carries the claim.** DATASETS.md's rule that
+foreign footage is evaluated on and never trains the corpus stands for the
+headline result, and ADR-016 exists precisely to separate those two uses.
+
+ADR-016 is still **Proposed**. Fetching the data is reversible and costs only
+disk; training the headline model on it is the decision. Those should not be
+conflated, and the second is the guide's.

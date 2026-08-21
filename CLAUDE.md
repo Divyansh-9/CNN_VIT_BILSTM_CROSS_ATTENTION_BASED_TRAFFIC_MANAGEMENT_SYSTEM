@@ -18,7 +18,7 @@ Project context: 4th-year B.Tech CSE (ML/AI) major project, 20-week academic tim
 
 [docs/00-planning/FEASIBILITY-AUDIT.md](docs/00-planning/FEASIBILITY-AUDIT.md) estimates ~1,200 person-hours of specified work against ~715 hours of realistic team capacity. Its conclusions govern: annotation effort was underestimated by roughly 3×, the dashboard and production stack consume a quarter of the project for almost no assessed value, and the novelty claim must be narrowed (see [RELATED-WORK.md](docs/00-planning/RELATED-WORK.md) — the fusion mechanisms are all published; the gate-as-artifact, camera-only framing, and density-stratified evaluation are what is defensible).
 
-ADR-006 and ADR-008 are **proposed, not accepted** — they change graded requirements and need faculty guide sign-off. Do not implement against them until that happens; do not implement against the superseded plan either without flagging the conflict.
+ADR-006 and ADR-008 were **accepted 2026-08-13 by the project owner**, and both records say in as many words that this is **not a faculty-guide signature**. Build against them — that is what the acceptance decided — but treat the scope they cut as still owing the guide a conversation, and keep the ~340 h of recovered work visible in any progress report rather than quietly gone.
 
 ## Decisions that override the original PRD text
 
@@ -30,7 +30,7 @@ Eight ADRs in [docs/00-planning/decisions/](docs/00-planning/decisions/) changed
 - **ADR-004** — documents ship in four waves gated on PRD §18 phases.
 - **ADR-005** — training is local-first (RTX 4050 laptop) on **cached frozen-backbone features**. At batch 32 × T=60 an uncached step pushes 1,920 frames through both backbones, which does not fit 6GB and is tight even on a T4. Caching collapses the 60–90h ablation to hours. A cache is invalidated by any change to backbone, resize, or normalization — assert the `preprocessing_hash` on load and raise, never warn.
 - **ADR-007** — DINOv2 ViT-S/14 replaces supervised ViT-S/16 as the default (frozen backbones mean representation quality is everything); bf16 AMP for training; INT8 ONNX only at export; LoRA instead of `unfreeze_epoch: 30`. Note patch-14 gives 257 tokens, not 197 — read token counts from config.
-- **ADR-006 / ADR-008 (proposed)** — curate-then-collect dataset, and prototype descoping. Both blocked on faculty sign-off.
+- **ADR-006 / ADR-008 (accepted 2026-08-13, project owner — not the guide)** — curate-then-collect dataset, and prototype descoping. IndiaTrafficNet is now Part A (curated from permissively-licensed public sources) + Part B (1,500–3,000 campus frames), not 12,000 self-collected ones.
 
 Also fixed in the corpus spec: PRD §8.1 cannot produce four different lane predictions as written (global pooling then one shared head applied 4×) — **per-lane ROI pooling** replaces global pooling, which is why the feature cache must preserve spatial structure. And the evaluation was circular: labels derive from detector counts and three PRD §14.3 baselines also consume detector counts, so the **test split is human-verified** while train/val stay auto-labelled.
 
@@ -187,9 +187,9 @@ python scripts/evaluate_detector_arms.py --weights <pt>         # A31 viewpoint 
 ```
 
 Not yet built: ONNX export, the FastAPI server, the dashboard, and the edge
-node. ADR-008 (prototype descoping) is still proposed and blocked on guide
-sign-off, so do not build against it or against the superseded plan without
-flagging the conflict.
+node. Build these to ADR-008's descoped shape — it was accepted 2026-08-13 —
+while remembering the acceptance came from the project owner and not from the
+guide.
 
 ## Working conventions
 
