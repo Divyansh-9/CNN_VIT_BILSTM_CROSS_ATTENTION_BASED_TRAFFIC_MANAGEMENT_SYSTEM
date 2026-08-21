@@ -110,6 +110,21 @@ epoch (P35). The widening is exact, so this is a free 2.5× and not a
 precision trade. Assume notebook-and-script hybrid workflows, and that model
 weights are too large for plain git.
 
+**A cached window must be copied out of the memory map, never viewed** (P55).
+`read_window` mmaps the clip and slices it, and `Tensor.to(dtype)` is a *no-op
+returning self* when the dtype already matches — so asking for the cache's own
+fp16 handed back a view into a mapping nothing kept alive, and training
+segfaulted in threads with no Python frame. `copy=True` is load-bearing. Note
+the shape of that bug: P29 (mmap) and P35 (fp16 to the device) were each right,
+and composed into a use-after-free. If a crash has no Python frame, suspect the
+cache before suspecting the GPU.
+
+Training holds **`--micro-batch` windows at once (default 8) and accumulates to
+the config's `batch_size`**. `batch_size` is PRD §8.2 and is not negotiable;
+residency is not a hyperparameter. The gradient is summed as `loss * windows`
+and divided by the windows actually seen — averaging per-micro-batch means
+over-weights a short final group and does move the gradient.
+
 ## Stack
 
 PyTorch 2.x · torchvision (ResNet-50) · timm (ViT-Small/16) · Ultralytics YOLOv8 · Stable-Baselines3 · SUMO 1.19+ / TraCI · ONNX Runtime · MLflow + TensorBoard · Python 3.10+ · OpenCV · Paho-MQTT / Mosquitto · FastAPI · PostgreSQL 15 + TimescaleDB · React 18 + Vite + Zustand + Recharts, native WebSocket, CSS Modules, dark-mode-only (`#0D1117` bg, `#6366F1` accent, Inter + JetBrains Mono).
@@ -169,7 +184,7 @@ at least 10 windows — four folds today — with the other three always in trai
 python scripts/overfit_check.py --all                  # plumbing: must reach ~0 loss
 python scripts/train_mfstnet.py --corpus data/corpus --cache data/cache --config G
 python scripts/train_mfstnet.py --corpus data/corpus_loco/fold0 --cache data/cache_corpus --ablation
-python scripts/run_loco.py --corpus data/corpus --clips data/_corpus_clips --cache data/cache_corpus --ablation --device cuda
+python scripts/run_loco.py --corpus data/corpus --clips data/_corpus_clips --cache data/cache_corpus --ablation --device cuda --seeds 42 1 7 13 21
 python scripts/run_loco.py --restat                    # rebuild the summary, retrain nothing
 # --device auto|cpu|cuda (default auto). Results record which one ran.
 python scripts/train_baselines.py --corpus data/corpus
@@ -181,6 +196,16 @@ across folds**, generated from the per-fold CSVs by a committed script, never
 transcribed (NFR-09/10). Quote the fold mean, not a single fold, and quote
 `n_folds` beside it: an interval over four points is not an interval over
 thirty. Every fold's test split is one camera, which is the effective n.
+
+**Always pass `--seeds 42 1 7 13 21`** (PRD §14.4). A one-seed table ranks
+initialisations, not architectures: on fold 0 config E moved 0.4469 / 0.2385 /
+0.2046 across three seeds while config B moved 0.039, and at seed 42 the two
+were identical to four decimal places (P54). `run_loco.py` reports
+`macro_f1_seed_spread` — movement on *one* fold from the seed alone — and warns
+when it exceeds the closest gap between two configs, because those two are then
+not separated. It runs **one config per process**: eight models built back to
+back exhausted a 6 GB card, and a fresh interpreter is the only thing that
+reliably hands the whole allocation back.
 
 `--out` defaults to `experiments/results/ablation.csv`, a graded deliverable
 (NFR-09/10). A short run will refuse to overwrite results recorded from a
