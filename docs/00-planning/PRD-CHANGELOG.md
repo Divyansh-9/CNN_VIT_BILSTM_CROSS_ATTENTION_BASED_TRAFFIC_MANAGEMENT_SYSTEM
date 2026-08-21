@@ -4431,6 +4431,25 @@ initialisations. PRD §14.4 has always specified **A–H across five seeds**;
 `run_loco.py` was written with `--seed 42` and would have produced a table that
 looked like a result.
 
+### Every number above was measured before P55, and none of them is safe
+
+[P55](#p55) found that a cached window was a view into a memory map nothing kept
+alive. It did not always crash — sometimes the pages were still intact when they
+were read — so the runs that *completed* returned numbers computed on memory
+that may or may not still have held the features.
+
+That includes the table above. Re-running config A after the fix gave **0.3424**
+where the pre-fix run gave 0.3408, and config C gave 0.2109 where it gave
+0.2088; config B gave 0.4469 both times. Some reads were fine and some were not,
+which is exactly what a use-after-free looks like when it does not fault.
+
+**So the evidence for this entry is provisional.** The finding it rests on —
+that seed-to-seed movement can exceed the distance between two configs — is not
+in doubt as a *risk*, because the fix for it (report the spread, run five seeds)
+is correct whether or not these particular numbers were. But the specific
+figures are withdrawn, and the clean five-seed run now in flight either
+reproduces them or does not. Whichever it does gets recorded here.
+
 ### The fix, and the part of it that matters
 
 `--seeds` now takes a list, defaulting to `[42]` so a quick look stays quick,
@@ -4517,6 +4536,26 @@ What settled it was that a repro reading all 153 windows straight from the cache
 **passed** — and that repro called `read_window` without a `dtype`, taking the
 fp32 default. The difference between the passing repro and the crashing trainer
 was one keyword argument.
+
+### What else this invalidates
+
+The bug did not always fault. When the mapped pages happened to survive until
+the read, the run completed and produced a number — computed on memory the
+process no longer owned. So **every MFSTNet result measured between P35 and this
+fix is provisional**, whether or not it crashed:
+
+* the fold-0 ablation table quoted in [P54](#p54), and the three-seed B-versus-E
+  comparison that entry is built on;
+* the 2-epoch smoke figure recorded when the leave-one-camera-out pipeline was
+  first exercised.
+
+Re-running config A after the fix gave 0.3424 against 0.3408 before, and config
+C 0.2109 against 0.2088, while config B gave 0.4469 both times. Some reads were
+intact and some were not, which is the signature of a use-after-free that does
+not fault.
+
+Nothing outside MFSTNet is affected: the detector, the corpus counts, the SUMO
+baselines and the PPO arms never read the feature cache.
 
 ### Kept from the wrong turns
 
