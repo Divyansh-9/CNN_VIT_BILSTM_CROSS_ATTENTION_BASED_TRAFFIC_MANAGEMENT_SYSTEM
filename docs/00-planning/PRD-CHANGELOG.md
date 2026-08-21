@@ -4557,6 +4557,39 @@ not fault.
 Nothing outside MFSTNet is affected: the detector, the corpus counts, the SUMO
 baselines and the PPO arms never read the feature cache.
 
+### How much it actually moved, measured
+
+Fold 0 seed 42 has now been re-run cleanly through all eight configs, against
+the same fold and the same seed as the withdrawn table:
+
+| config | pre-fix | post-fix | delta |
+|---|---|---|---|
+| A | 0.3408 | 0.3424 | +0.0016 |
+| B | 0.4469 | 0.4469 | 0.0000 |
+| C | 0.2088 | 0.2109 | +0.0021 |
+| D | 0.2385 | 0.2385 | 0.0000 |
+| E | 0.4469 | 0.4469 | 0.0000 |
+| **F** | **0.4045** | **0.4992** | **+0.0947** |
+
+Five configs moved by less than 0.003 or not at all, and one moved by **0.095** —
+larger than the distance between most pairs of configs in the table, and enough
+to reorder them. That is what a use-after-free that mostly does not fault looks
+like from the outside: almost everything is fine, and there is no way to tell
+which reading was the exception without re-running it.
+
+Withdrawing all of them rather than the ones that looked wrong was therefore not
+caution. F is the config that would have been kept.
+
+### What the clean numbers show so far
+
+On this one fold and seed — one camera, one initialisation, so not yet a
+result — **H, the linear probe, reaches 0.4710 against the full model's
+0.4977**. A22 added H precisely because a frozen-backbone paper is expected to
+report the floor, and a 0.027 gap between "mean over time plus a classifier" and
+the full gated architecture is the kind of finding §2.5.5 requires to be
+reported rather than quietly dropped. Whether it survives four folds and five
+seeds is what the run in flight decides.
+
 ### Kept from the wrong turns
 
 Two changes came out of the false diagnoses and are kept on their own merits,
