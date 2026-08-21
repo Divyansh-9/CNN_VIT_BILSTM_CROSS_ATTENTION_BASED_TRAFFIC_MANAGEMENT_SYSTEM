@@ -4458,3 +4458,86 @@ run on CUDA *while the ablation was running*, on a 6 GB card. Not
 [P42](#p42)'s `0xC0000409` cuDNN teardown abort, and not a defect in either
 script: two CUDA training processes on this GPU is one too many. Verification
 runs go on the CPU or wait.
+
+---
+
+## P55 — every cached window was a dangling view into a released memory map (2026-08-21)
+
+**Status: fixed.** `mfstnet/cache.py`, `tests/test_cache_aliasing.py`.
+
+Training segfaulted. Exit `3221225477` on Windows, `139` under the shell — an
+**access violation**, in several threads at once, with no Python frame in the
+faulthandler dump. It happened on CPU and CUDA alike, on every ablation config,
+at a point in the first epoch that moved between runs.
+
+### The bug
+
+[P29](#p29) made `read_window` memory-map the clip file so a 60-frame window
+could be sliced without materialising a 1,000-frame clip. The window was then
+returned as:
+
+```python
+cnn[window].to(dtype).unsqueeze(0)
+```
+
+`Tensor.to(dtype)` is a **no-op that returns `self`** when the tensor already
+has that dtype. The cache stores fp16. So a caller asking for fp16 received a
+**view into the memory map**, and `payload` — the only reference keeping that
+mapping alive — went out of scope the moment `read_window` returned.
+
+Every window handed to the trainer pointed at memory that had been released.
+Whether it crashed depended on when the collector ran and when the pages were
+reclaimed, which is why it moved around.
+
+### Why it appeared only now
+
+It was invisible for as long as callers asked for **fp32**, because widening
+copies. [P35](#p35) then changed the training path to request fp16 — correctly,
+to halve what `torch.stack` copies and what crosses the bus — and turned every
+cached window into a dangling view. Two fixes, each right on its own, that
+compose into a use-after-free.
+
+The fix is `.to(dtype, copy=True)`, which materialises the window whatever the
+dtypes are.
+
+### Three wrong diagnoses, recorded because they cost the most time
+
+1. **"Concurrent CUDA jobs."** The first crash happened while a verification
+   run was on the GPU, so contention looked sufficient. It crashed again with
+   the card idle.
+2. **"Memory accumulated across the eight ablation configs."** Nothing released
+   a model between configs, which was true and worth fixing, but a single
+   config in a fresh process crashed too.
+3. **"Peak host memory per batch."** Available RAM did fall to 2.4 GB while one
+   batch was resident, which is genuinely tight. Gradient accumulation cut peak
+   memory fourfold and it still crashed.
+
+Each was plausible, each was consistent with the symptom, and each was wrong.
+What settled it was that a repro reading all 153 windows straight from the cache
+**passed** — and that repro called `read_window` without a `dtype`, taking the
+fp32 default. The difference between the passing repro and the crashing trainer
+was one keyword argument.
+
+### Kept from the wrong turns
+
+Two changes came out of the false diagnoses and are kept on their own merits,
+not because they fixed anything:
+
+**Class weights no longer read the feature cache.** Computing the label
+distribution went through `Windows.__getitem__`, pulling every training window's
+features through the cache — for one fold, 108 windows of `[60, 2048, 7, 7]` —
+materialised, counted, and discarded before epoch 1 began. The labels are
+columns in `sequences.csv`.
+
+**`--micro-batch`, default 8, with accumulation to the config's `batch_size`.**
+`batch_size` is PRD §8.2 and is not negotiable; how many windows are resident at
+once is not a hyperparameter. Seven tests hold it to that, and the weighting is
+the part worth testing: each micro-batch's loss is a mean over its own windows,
+so summing the means over-weights a short final group. `train_mfstnet` sums
+`loss * windows` and divides the accumulated gradient by the windows actually
+seen. One test demonstrates that the naive version **does** move the gradient,
+so the weighting is not ceremony.
+
+**Models are released between ablation configs**, and `run_loco.py` now runs one
+config per process. The second is what removes the failure mode; the first only
+makes it less likely.

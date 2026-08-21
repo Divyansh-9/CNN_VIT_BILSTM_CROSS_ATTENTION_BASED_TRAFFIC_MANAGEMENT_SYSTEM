@@ -101,6 +101,19 @@ class Windows:
     def __len__(self) -> int:
         return len(self.rows)
 
+    def labels(self) -> list[int]:
+        """Every lane label, without touching the feature cache (P55).
+
+        Class weights need the label distribution and nothing else. Reading it
+        through `__getitem__` pulled the whole training set's features through
+        the cache first -- for one fold, 108 windows of `[60, 2048, 7, 7]` --
+        materialised, counted, and thrown away before epoch 1 began. The labels
+        are columns in `sequences.csv`; the features are not needed to read
+        them.
+        """
+        return [CLASSES.index(row[f"label_{lane}"])
+                for row in self.rows for lane in self.lanes]
+
     def __getitem__(self, index):
         import torch
 
@@ -214,7 +227,8 @@ def evaluate_split(model, dataset, size: int, lanes, device: str = "cpu"):
 
 
 def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
-              epochs: int, seed: int, device: str = "cpu"):
+              epochs: int, seed: int, device: str = "cpu",
+              micro_batch: int | None = None):
     """`config.n_lanes` comes from the CORPUS, not from the ablation default.
 
     A junction has four approaches and a motorway two; the lane count is a
@@ -231,6 +245,9 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     from scripts.seed import set_seed
 
     t = spec["training"]
+    # Never larger than the real batch: a "micro" batch bigger than the batch
+    # would silently raise the effective batch size, which IS a hyperparameter.
+    micro_batch = min(micro_batch or t["batch_size"], t["batch_size"])
     set_seed(seed)                      # NFR-07, before the model is built
 
     masks = (lane_masks_from_centres(lanes, spec.get("grid", 7))
@@ -249,28 +266,61 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, T_max=epochs)
 
-    labels = [y for _, _, ys, _ in (train_set[i] for i in range(len(train_set)))
-              for y in ys.tolist()]
-    weights, counts = class_weights(labels, len(CLASSES))
+    weights, counts = class_weights(train_set.labels(), len(CLASSES))
     criterion = torch.nn.CrossEntropyLoss(weight=weights.to(device))
 
     generator = torch.Generator().manual_seed(seed)
     best, best_state, stale = float("inf"), None, 0
     started = time.perf_counter()
 
+    # P55. `batch_size` is PRD §8.2 and is not negotiable; how many windows are
+    # resident at once is an implementation detail. One batch of 32 windows is
+    # 32 x 60 x 2048 x 7 x 7 — 0.77 GB fp16 on the host, twice that again once
+    # `torch.stack` has copied it, and 1.5 GB fp32 on a 6 GB card before the
+    # model, its gradients and AdamW's two moment buffers. That segfaulted on
+    # the second batch of the first epoch, on CPU and CUDA alike.
+    #
+    # Accumulating `micro` windows at a time and stepping once per
+    # `batch_size` keeps the optimiser step mathematically identical while
+    # holding a quarter of the memory. Gradients are summed and divided by the
+    # window count actually seen, not by the group count, so the last partial
+    # group of an epoch is weighted correctly rather than counted as if it were
+    # full.
+    step_every = max(1, t["batch_size"] // micro_batch)
+
     for epoch in range(epochs):
         model.train()
-        total = 0.0
-        for cnn, vit, y, masks in batches(train_set, t["batch_size"], shuffle=True,
+        total, batches_seen = 0.0, 0
+        optimiser.zero_grad(set_to_none=True)
+        pending, in_group = 0, 0
+        for cnn, vit, y, masks in batches(train_set, micro_batch, shuffle=True,
                                           generator=generator):
             cnn, vit, masks, y = move((cnn, vit, masks, y), device,
                                       cast=torch.float32)
             out = feed(model, cnn, vit, masks)
             loss = criterion(out.logits.reshape(-1, len(CLASSES)), y.reshape(-1))
-            optimiser.zero_grad()
-            loss.backward()
+            windows = y.shape[0]
+            # Summed, not averaged: the division happens once per step, over
+            # the windows the step actually covers.
+            (loss * windows).backward()
+            in_group += windows
+            pending += 1
+            total += float(loss.detach()) * windows
+            batches_seen += windows
+            if pending == step_every:
+                for parameter in model.parameters():
+                    if parameter.grad is not None:
+                        parameter.grad /= in_group
+                optimiser.step()
+                optimiser.zero_grad(set_to_none=True)
+                pending, in_group = 0, 0
+        if pending:                      # the epoch's last, short group
+            for parameter in model.parameters():
+                if parameter.grad is not None:
+                    parameter.grad /= in_group
             optimiser.step()
-            total += float(loss)
+            optimiser.zero_grad(set_to_none=True)
+        total = total / max(batches_seen, 1)
         scheduler.step()
 
         val_report, _ = evaluate_split(model, val_set, t["batch_size"], lanes,
@@ -347,6 +397,11 @@ def main(argv: list[str] | None = None) -> int:
              "nothing moved the model or the batches before P32")
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--micro-batch", type=int, default=8,
+                        help="windows resident at once. Gradients accumulate to "
+                             "the config's batch_size, so the optimiser step is "
+                             "unchanged — this trades speed for peak memory "
+                             "(P55), it is not a hyperparameter")
     parser.add_argument("--out", type=Path, default=RESULTS)
     parser.add_argument(
         "--force", action="store_true",
@@ -485,7 +540,7 @@ def main(argv: list[str] | None = None) -> int:
             name, config, device=device,
             train_set=split["train"], val_set=split["val"],
             test_set=split["test"], lanes=lanes, spec=spec,
-            epochs=epochs, seed=args.seed,
+            epochs=epochs, seed=args.seed, micro_batch=args.micro_batch,
         )
         row["labels"] = "auto" if auto else "human_verified"
         row["corpus"] = str(args.corpus)
@@ -509,6 +564,26 @@ def main(argv: list[str] | None = None) -> int:
             writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
             writer.writeheader()
             writer.writerows(rows)
+
+        # P55. Eight models are built back to back in this loop, each with its
+        # own optimiser state and activations, and nothing released the previous
+        # one — on a 6 GB card that ran the allocator into a driver-level access
+        # violation (0xC0000005) at a config that varied between runs. Dropping
+        # the reference is what actually frees; `empty_cache` only returns
+        # already-free blocks to the driver, and is here because fragmentation
+        # across differently-shaped models is the other half of the problem.
+        #
+        # This is mitigation, not isolation. `run_loco.py` runs one config per
+        # process, which is what removes the failure mode rather than making it
+        # less likely.
+        del report
+        if device.startswith("cuda"):
+            import gc
+
+            import torch
+
+            gc.collect()
+            torch.cuda.empty_cache()
 
     # P39: the numbers above depend on the device, the torch build and the
     # TF32 setting, and none of those is a column. The sidecar is what makes

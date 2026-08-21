@@ -117,10 +117,18 @@ def main(argv: list[str] | None = None) -> int:
             )
             from stable_baselines3 import PPO
 
+            from simulation.contract import assert_compatible
+
             suffix = "" if action_space == "phase_duration" else f"_{action_space}"
-            model = PPO.load(
-                f"models/ppo/ppo_{args.arm}_{args.regime}{suffix}_seed{seed}"
-            )
+            checkpoint = (f"models/ppo/ppo_{args.arm}_{args.regime}{suffix}"
+                          f"_seed{seed}")
+            # P52/P53. This screen resumes: `done` skips seeds an earlier run
+            # already paid for, so the checkpoint being loaded here was not
+            # necessarily written by the process that is about to score it. A
+            # policy from before a spec change loads cleanly and acts on indices
+            # that have since been re-meant, and nothing about that raises.
+            assert_compatible(checkpoint + ".zip", action_space=action_space)
+            model = PPO.load(checkpoint)
             waits = evaluate(model, action_space, regime=args.regime, seed=seed,
                              episode_s=args.episode_s, episodes=args.eval_episodes)
             elapsed = time.perf_counter() - started

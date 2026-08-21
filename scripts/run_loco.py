@@ -165,8 +165,25 @@ def main(argv: list[str] | None = None) -> int:
         summary = summarise(existing, args.summary)
     else:
         folds = fold_count(args.corpus, args.clips, args.min_test_sequences)
-        print(f"  {folds} fold(s), min {args.min_test_sequences} test window(s) "
-              f"per camera (ADR-019)")
+
+        # P55. One process per config, not one per fold. Eight models built
+        # back to back in a single process ran a 6 GB card into a driver-level
+        # access violation at a config that varied between runs, so the
+        # `--ablation` flag is expanded here instead of being passed through:
+        # a fresh interpreter is the only thing that reliably hands the whole
+        # allocation back. It also means a crash costs one config rather than a
+        # whole fold's worth of training.
+        if args.ablation:
+            from mfstnet.model import iter_ablation_configs
+
+            configs = [c.name for c in iter_ablation_configs()]
+        else:
+            configs = [args.config]
+
+        print(f"  {folds} fold(s) x {len(args.seeds)} seed(s) x "
+              f"{len(configs)} config(s) = "
+              f"{folds * len(args.seeds) * len(configs)} runs, "
+              f"one process each (P55)")
         print()
         written = []
         for index in range(folds):
@@ -180,21 +197,21 @@ def main(argv: list[str] | None = None) -> int:
                 check=True,
             )
             for seed in args.seeds:
-                target = args.out / f"fold{index}_seed{seed}.csv"
-                command = [sys.executable, "-u", "scripts/train_mfstnet.py",
-                           "--corpus", str(view), "--cache", str(args.cache),
-                           "--device", args.device, "--seed", str(seed),
-                           "--out", str(target)]
-                if args.ablation:
-                    command.append("--ablation")
-                else:
-                    command += ["--config", args.config]
-                if args.epochs:
-                    command += ["--epochs", str(args.epochs)]
-                if args.force:
-                    command.append("--force")
-                subprocess.run(command, check=True)
-                written.append(target)
+                for config in configs:
+                    target = (args.out /
+                              f"fold{index}_seed{seed}_{config}.csv")
+                    command = [sys.executable, "-u",
+                               "scripts/train_mfstnet.py",
+                               "--corpus", str(view),
+                               "--cache", str(args.cache),
+                               "--device", args.device, "--seed", str(seed),
+                               "--config", config, "--out", str(target)]
+                    if args.epochs:
+                        command += ["--epochs", str(args.epochs)]
+                    if args.force:
+                        command.append("--force")
+                    subprocess.run(command, check=True)
+                    written.append(target)
         summary = summarise(written, args.summary)
 
     print()

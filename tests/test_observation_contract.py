@@ -179,3 +179,19 @@ def test_train_ppo_writes_the_digest_it_trained_against():
 
     source = pathlib.Path("scripts/train_ppo.py").read_text(encoding="utf-8")
     assert '"observation_contract": contract_digest()' in source
+
+
+def test_the_screen_checks_before_it_loads():
+    """`assert_compatible` is only worth having if a load path calls it.
+
+    `screen_action_space.py` resumes: it skips seeds an earlier run finished, so
+    the checkpoint it loads was not necessarily written by the process about to
+    score it. That is the case the guard exists for, and a guard nothing calls
+    is documentation.
+    """
+    import pathlib
+
+    source = pathlib.Path("scripts/screen_action_space.py").read_text(
+        encoding="utf-8")
+    assert "assert_compatible(" in source
+    assert source.index("assert_compatible(") < source.index("PPO.load(")

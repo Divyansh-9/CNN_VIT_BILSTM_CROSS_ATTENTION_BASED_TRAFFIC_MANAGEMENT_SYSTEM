@@ -321,10 +321,23 @@ class FeatureCache:
         # Slice first, widen second. Converting before the slice materialises
         # the whole clip at twice its stored size, which is the cost this
         # method exists to avoid.
+        #
+        # `copy=True` is load-bearing (P55). `payload` holds memory-mapped
+        # tensors and goes out of scope when this returns; `Tensor.to(dtype)` is
+        # a **no-op returning self** when the tensor is already that dtype, so
+        # asking for the cache's own fp16 handed back a view into a mapping
+        # nothing was keeping alive. Touching it later is an access violation —
+        # in several threads at once, with no Python frame, at a moment that
+        # depends on when the collector ran.
+        #
+        # It was invisible while callers asked for fp32, because widening
+        # copies. P35 then made the training path request fp16 to halve what
+        # crosses the bus, which was right, and turned every cached window into
+        # a dangling view.
         window = slice(start, start + length)
         return (
-            None if cnn is None else cnn[window].to(dtype).unsqueeze(0),
-            None if vit is None else vit[window].to(dtype).unsqueeze(0),
+            None if cnn is None else cnn[window].to(dtype, copy=True).unsqueeze(0),
+            None if vit is None else vit[window].to(dtype, copy=True).unsqueeze(0),
         )
 
     def estimate_bytes(self, n_frames: int) -> int:
