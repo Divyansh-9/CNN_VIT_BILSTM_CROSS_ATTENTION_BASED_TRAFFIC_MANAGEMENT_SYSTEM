@@ -1,2 +1,0 @@
-config,batch,timesteps,opset,parameters,exposes_gate,onnx_vs_torch_max_abs,head_ms_mean,head_ms_p50,head_ms_p95,size_mb,path,backbone_ms,total_ms,budget_ms,within_budget_head_only,within_budget_deployed
-H,1,60,18,755715,False,1.043e-07,31.12,31.13,39.45,0.04,models\onnx\mfstnet_H.onnx,,,150.0,True,

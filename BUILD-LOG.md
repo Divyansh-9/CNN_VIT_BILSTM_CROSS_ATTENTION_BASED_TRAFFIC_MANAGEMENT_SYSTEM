@@ -1013,3 +1013,62 @@ Hardware-accelerated decode was tested in the same run and **rejected**: it was
 slower (69 ms against 52 ms) *and* it produced different pixels, which would
 change every detection and every label derived from them. That is the same class
 of defect as P33's TF32 cache divergence, and it would have been invisible.
+
+---
+
+## S31 — ONNX export, and the half of the latency budget nobody was measuring (2026-08-21)
+
+`scripts/export_onnx.py` writes the fp32 graph for any ablation config, checks
+it against PyTorch on the same input, and times it under ONNX Runtime on CPU.
+Eleven tests. One of them exports **all eight configs**: a config that cannot
+leave the training harness is not deployable, and an ablation table comparing
+one deployable model against seven undeployable ones is comparing things of
+different kinds.
+
+### The budget was being measured against a third of the work
+
+PRD §16 sets **150 ms on server CPU**. `MFSTNet` deliberately does not own the
+backbones (ADR-005) — they are frozen, they run once into the feature cache, and
+keeping them out is what lets the ablation build eight configs without loading
+45 M parameters eight times. So the exported graph takes **cached features**,
+and 150 ms measured against it is a budget for the head alone.
+
+A deployed server has no cache. Handed a 60-frame window it must run ResNet-50
+and DINOv2 over all sixty frames before this graph can start, and that cost is
+neither optional nor amortised. The CSV therefore carries `head_ms` **and**
+`backbone_ms`, because reporting only the first satisfies the budget by leaving
+out most of the work. ADR-003 already requires a latency figure to name its
+measurement host; this requires it to name its **scope**.
+
+The full A–H run with backbone timing is deliberately **not** recorded yet: the
+machine has a cache build on it, and a latency number taken under contention is
+not a latency number.
+
+### The gate is asserted, not assumed
+
+A graph that dropped the gate would still serve predictions, still hit the
+budget, and quietly remove the thing the architecture chapter is about. So
+`exposes_gate` is a column, and a test pins it per config: G has one, H — the
+linear probe — must not.
+
+### Not done here
+
+**INT8.** ADR-007 puts quantisation at export time, and that is right, but an
+INT8 graph has to be calibrated on real feature windows and validated against
+the fp32 one on the test split. Spot-checking it on random tensors would produce
+a number and no evidence. This writes the fp32 graph that calibration starts
+from.
+
+### Also: three jobs did not crash
+
+A cache build and two 500,000-step PPO runs all died at once, one of them with
+`FatalTraCIError: Connection closed by SUMO`, and two with no traceback at all.
+The wall clock moved from 10:48 to 18:06 across the gap. **The machine slept.**
+A suspend drops a local TraCI socket exactly that way, and the missing
+tracebacks are processes that never got to raise.
+
+Worth recording because the first reading was a defect hunt — SUMO instability,
+memory pressure, a bug that only appears after 38 minutes — and all of it would
+have been chasing nothing. A 30,000-step surrogate run afterwards completed
+cleanly and wrote its P47 sidecar. Long unattended runs on this machine need
+sleep disabled, not code changes.
