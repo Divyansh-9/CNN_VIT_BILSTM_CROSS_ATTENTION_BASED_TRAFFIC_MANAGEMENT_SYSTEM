@@ -117,10 +117,11 @@ as the project's only blocker for two weeks.
 | S26 | **Overfit 10 sequences to ~zero loss** | ✅ | — | All 8 configs reach <0.03. Found 2 real defects |
 | S27 | Feature cache + manifest assertion | ✅ | — | Hash raises, never warns. 23 tests |
 | S27b | **Reviewed lane geometry, 12 cameras** | ✅ | — | `data/lanes_reviewed/`. **P44**: one automatic centre was in the sky. Review is provisional — see S18b |
+| S27c | Corpus built + **leave-one-camera-out split (ADR-019)** | ✅ | — | 153 sequences, 7 cameras. Hash split put a UK motorway alone in `test`; 4 folds now, all audited |
 | S28 | Phase 1 full training → **M4** | ⬜ | R2 | S27 · **unblocked 2026-08-21** |
 | S29 | Ablation A–H × 5 seeds → **M5** | ⬜ | R2 | S28 · **underpowered at 28 independent segments — P45** |
 | S30 | Backbone arms BB-1/2/3 | ⬜ | R2 | S29 |
-| S31 | ONNX export + latency (GPU and CPU-only) | ⬜ | R2 | S29 |
+| S31 | ONNX export + latency (GPU and CPU-only) | 🟨 | R2 | Graph exports for all 8 configs, parity 1e-7, 11 tests. **A-H latency run pending a quiet machine**; INT8 pending a trained checkpoint |
 
 ### Phase 5 — Simulation and RL · Weeks 3–14 → **M3, M6, M7**
 
