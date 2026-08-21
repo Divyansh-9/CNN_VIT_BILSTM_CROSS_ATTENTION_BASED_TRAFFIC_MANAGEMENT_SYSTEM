@@ -113,3 +113,69 @@ def test_the_fields_hashed_are_the_ones_that_carry_meaning(spec):
     fields = contract_fields(spec)
     assert set(fields) == {
         "dim", "index_map", "normalisers", "zero_when_mfstnet_unavailable"}
+
+
+# ---------------------------------------------------------------------------
+# assert_compatible: one call, because two checks are one an eval path forgets.
+
+
+def write_checkpoint(tmp_path, *, digest=..., action_space="keep_or_switch"):
+    import json
+
+    from simulation.contract import contract_digest
+
+    checkpoint = tmp_path / "ppo_no-forecast_saturated_seed42.zip"
+    checkpoint.write_bytes(b"weights")
+    payload = {"action_space": action_space,
+               "observation_contract":
+                   contract_digest() if digest is ... else digest}
+    (tmp_path / (checkpoint.name + ".provenance.json")).write_text(
+        json.dumps(payload), encoding="utf-8")
+    return checkpoint
+
+
+def test_a_matching_checkpoint_is_accepted(tmp_path):
+    from simulation.contract import assert_compatible
+
+    got = assert_compatible(write_checkpoint(tmp_path),
+                            action_space="keep_or_switch")
+    assert got["action_space"] == "keep_or_switch"
+
+
+def test_the_wrong_action_space_refuses(tmp_path):
+    """The digest passes and the observation length is right. ADR-015 keeps the
+    action space out of the hash deliberately, so this is the level it has to
+    be caught at instead."""
+    from simulation.contract import assert_compatible
+
+    with pytest.raises(SystemExit) as caught:
+        assert_compatible(write_checkpoint(tmp_path, action_space="phase_duration"),
+                          action_space="keep_or_switch")
+    message = str(caught.value)
+    assert "phase_duration" in message and "keep_or_switch" in message
+
+
+def test_a_stale_observation_contract_refuses_before_the_action_space(tmp_path):
+    from simulation.contract import assert_compatible
+
+    with pytest.raises(SystemExit) as caught:
+        assert_compatible(write_checkpoint(tmp_path, digest="0" * 16),
+                          action_space="keep_or_switch")
+    assert "observation contract" in str(caught.value)
+
+
+def test_a_checkpoint_with_no_sidecar_at_all_refuses(tmp_path):
+    from simulation.contract import assert_compatible
+
+    orphan = tmp_path / "ppo_orphan_seed42.zip"
+    orphan.write_bytes(b"weights")
+    with pytest.raises(SystemExit):
+        assert_compatible(orphan, action_space="keep_or_switch")
+
+
+def test_train_ppo_writes_the_digest_it_trained_against():
+    """The sidecar is only worth reading if the trainer fills it in."""
+    import pathlib
+
+    source = pathlib.Path("scripts/train_ppo.py").read_text(encoding="utf-8")
+    assert '"observation_contract": contract_digest()' in source

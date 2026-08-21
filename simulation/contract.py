@@ -30,8 +30,16 @@ number at a given position *means*:
 
 The action space is deliberately **not** hashed here. ADR-015 is screening two
 action spaces against each other, so two policies with different action spaces
-are an intended comparison rather than an accident, and the checkpoint filename
-already carries which one ran.
+are an intended comparison rather than an accident, and putting it in the digest
+would make every arm-A checkpoint refuse to load in an arm-B run that legitimately
+wanted to compare them.
+
+**It is still checked.** Recording it without enforcing it would leave the exact
+hole this module exists to close one level up: load an arm-A policy into an
+arm-B environment and the digest passes, the observation length is right, and
+the semantics are wrong. So `assert_compatible` checks both in one call --
+observation contract *and* action space -- because two separate checks are one
+that an evaluation path can forget.
 """
 
 from __future__ import annotations
@@ -40,7 +48,8 @@ import hashlib
 import json
 from pathlib import Path
 
-__all__ = ["contract_digest", "contract_fields", "assert_contract_matches"]
+__all__ = ["contract_digest", "contract_fields", "assert_contract_matches",
+           "assert_compatible", "load_sidecar"]
 
 SPEC = Path("mfstnet/configs/spec.yaml")
 
@@ -97,3 +106,40 @@ def assert_contract_matches(recorded: str | None, *, what: str) -> None:
         f"read it, and nothing about that raises on its own. Retrain, or check "
         f"out the spec that digest belongs to."
     )
+
+
+def load_sidecar(checkpoint: Path | str) -> dict:
+    """Read a checkpoint's provenance sidecar, or `{}` if it has none."""
+    path = Path(str(checkpoint) + ".provenance.json")
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def assert_compatible(checkpoint: Path | str, *, action_space: str) -> dict:
+    """Refuse to use a policy that was not trained against this world.
+
+    One entry point on purpose. The observation contract and the action space
+    fail in the same way -- shapes match, meanings do not -- and an evaluation
+    path that remembered to check one and forgot the other would be exactly as
+    wrong as one that checked neither.
+
+    Returns the sidecar so a caller can record what it evaluated.
+    """
+    checkpoint = Path(checkpoint)
+    recorded = load_sidecar(checkpoint)
+    what = checkpoint.name
+
+    assert_contract_matches(recorded.get("observation_contract"), what=what)
+
+    trained_on = recorded.get("action_space")
+    if trained_on != action_space:
+        raise SystemExit(
+            f"{what} was trained on the {trained_on!r} action space and this "
+            f"run uses {action_space!r}. ADR-015 screens the two against each "
+            f"other, so this is not hashed into the observation contract -- "
+            f"which means the digest passed and the observation length is "
+            f"right. The policy would act, and its actions would mean "
+            f"something else."
+        )
+    return recorded
