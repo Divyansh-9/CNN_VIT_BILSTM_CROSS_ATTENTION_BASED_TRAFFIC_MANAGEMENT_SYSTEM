@@ -91,9 +91,54 @@ def put_manifest(corpus: Path, record: dict) -> None:
                                           encoding="utf-8")
 
 
+def registry_for(tmp_path, corpus, *, country="India", traffic="mixed"):
+    """A camera registry declaring whatever the synthetic corpus contains.
+
+    P58's check compares the test split against the claimed domain, so a
+    corpus fixture has to say what its cameras are. Pointing the audit at a
+    temp registry exercises the real path rather than disabling it.
+    """
+    import csv as _csv
+    import json as _json
+
+    with (corpus / "sequences.csv").open(encoding="utf-8", newline="") as handle:
+        cameras = sorted({row["clip_id"] for row in _csv.DictReader(handle)})
+    path = tmp_path / "cameras.json"
+    path.write_text(_json.dumps({
+        "target_domain": {"country": [country], "traffic_type": [traffic]},
+        "cameras": {c: {"country": country, "traffic_type": traffic,
+                        "viewpoint": "elevated", "determined_by": "fixture"}
+                    for c in cameras},
+    }), encoding="utf-8")
+    return path
+
 def test_a_sound_corpus_passes(tmp_path, capsys):
-    assert main(["--corpus", str(build(tmp_path))]) == 0
+    corpus = build(tmp_path)
+    assert main(["--corpus", str(corpus),
+                 "--cameras", str(registry_for(tmp_path, corpus))]) == 0
     assert "FAIL" not in capsys.readouterr().out
+
+
+def test_a_corpus_whose_test_split_is_off_target_fails(tmp_path, capsys):
+    """P58. The M6 Motorway passed every existing gate and made a project about
+    unstructured Indian traffic 41% British."""
+    corpus = build(tmp_path)
+    cameras = registry_for(tmp_path, corpus, country="United Kingdom",
+                           traffic="structured")
+    import json as _json
+    payload = _json.loads(cameras.read_text(encoding="utf-8"))
+    payload["target_domain"] = {"country": ["India"], "traffic_type": ["mixed"]}
+    cameras.write_text(_json.dumps(payload), encoding="utf-8")
+    assert main(["--corpus", str(corpus), "--cameras", str(cameras)]) == 1
+    assert "claimed domain" in capsys.readouterr().out
+
+
+def test_an_absent_registry_warns_rather_than_passing(tmp_path, capsys):
+    """A silent skip is a hole; a pass would be a lie."""
+    corpus = build(tmp_path)
+    assert main(["--corpus", str(corpus),
+                 "--cameras", str(tmp_path / "nothing.json")]) == 0
+    assert "composition unchecked" in capsys.readouterr().out
 
 
 # ------------------------------------------------------------- mutations --
@@ -216,4 +261,6 @@ def test_the_gates_are_advisory_and_do_not_fail_a_sound_corpus(tmp_path):
     """A skewed split does not make results wrong, it makes them
     unrepresentative. Blocking on it would stop work that should continue
     with a caveat attached."""
-    assert main(["--corpus", str(build(tmp_path))]) == 0
+    corpus = build(tmp_path)
+    assert main(["--corpus", str(corpus),
+                 "--cameras", str(registry_for(tmp_path, corpus))]) == 0

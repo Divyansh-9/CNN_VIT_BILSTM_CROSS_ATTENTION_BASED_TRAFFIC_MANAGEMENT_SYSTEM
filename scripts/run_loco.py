@@ -199,7 +199,12 @@ def main(argv: list[str] | None = None) -> int:
     args.out.mkdir(parents=True, exist_ok=True)
 
     if args.restat:
-        existing = sorted(args.out.glob("fold*.csv"))
+        # Not a bare `fold*.csv` glob. P59's per-window files match it, and they
+        # carry `config`, `seed` and `fold` columns of their own — so they would
+        # be ingested as metrics rows without erroring, contributing 140 rows
+        # per run to a summary that would look plausible and be nonsense.
+        existing = sorted(p for p in args.out.glob("fold*.csv")
+                          if not p.name.endswith(".predictions.csv"))
         if not existing:
             raise SystemExit(f"no fold CSVs under {args.out} to re-stat")
         summary = summarise(existing, args.summary)

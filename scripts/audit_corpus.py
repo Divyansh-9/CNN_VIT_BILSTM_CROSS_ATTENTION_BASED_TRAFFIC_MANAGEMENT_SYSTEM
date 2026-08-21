@@ -85,9 +85,78 @@ class Audit:
                     print(f"         {line}")
 
 
+def check_composition(audit, cameras: Path, rows: list[dict]) -> None:
+    """Does the test split contain the domain the paper claims (P58)?
+
+    A FAIL rather than a warning when it does not. A model tested only on
+    cameras outside its claimed domain has not been evaluated on its claim, and
+    nothing computed downstream repairs that.
+    """
+    from collections import Counter
+
+    from mfstnet.corpus.composition import CameraRegistry, compose
+
+    if not cameras.is_file():
+        # Absent registry is a different situation from a camera missing FROM
+        # one: the project has not adopted the check rather than failed it. It
+        # warns loudly instead of passing quietly, because a silent skip is a
+        # hole and a pass would be a lie.
+        audit.warn(False, f"composition unchecked — no registry at {cameras}",
+                   "P58: density and unassigned-rate gates select for "
+                   "usability, not for representativeness. Nothing else "
+                   "compares the test split against the claimed domain.")
+        return
+    registry = CameraRegistry.load(cameras)
+    windows = Counter()
+    for row in rows:
+        if row.get("split") == "test":
+            windows[row["clip_id"]] += 1
+    if not windows:
+        return
+
+    undeclared = registry.missing(windows)
+    if undeclared:
+        detail = [f"{c[:60]} is not in data/cameras.json" for c in undeclared]
+        detail.append("A camera nobody has characterised cannot be checked "
+                      "against the claim.")
+        audit.check(False, "every test camera declares what it is",
+                    chr(10).join(detail))
+        return
+
+
+    composition = compose(registry, windows)
+    country, share = composition.dominant_country()
+    parts = ", ".join(f"{k} {v}" for k, v in
+                      sorted(composition.by_country.items(), key=lambda kv: -kv[1]))
+    audit.check(
+        composition.matches_claim,
+        f"the test split contains the claimed domain ({parts})",
+        f"target is {registry.target.get('country')} / "
+        f"{registry.target.get('traffic_type')}; the test split has "
+        f"{len(composition.off_target)} off-target and "
+        f"{len(composition.unknown)} undetermined camera(s), and none on "
+        f"target. A paper cannot claim a domain its test set does not contain.")
+
+    if share > 0.5 and country not in (registry.target.get("country") or []):
+        audit.warn(False, f"dominant test country: {country} at {share:.0%} of "
+                          f"windows",
+                   "One off-target camera supplying most of the evaluation "
+                   "makes it the result, whatever the other cameras show.")
+    if composition.unknown:
+        audit.warn(False,
+                   f"{len(composition.unknown)} test camera(s) undetermined",
+                   "Declared 'unknown' rather than guessed — but they count "
+                   "toward neither side, so the claim rests on fewer cameras "
+                   "than the fold count suggests.")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--corpus", type=Path, required=True)
+    parser.add_argument("--cameras", type=Path, default=Path("data/cameras.json"),
+                        help="declared per-camera country, viewpoint and "
+                             "traffic type (P58). The test split is checked "
+                             "against the claimed domain")
     parser.add_argument("--smooth-window", type=int, default=3,
                         help="must match what built the corpus (build_corpus "
                              "uses the default)")
@@ -300,6 +369,11 @@ def main(argv: list[str] | None = None) -> int:
         gates.insert(0, check_split_balance(records))
     for gate in gates:
         audit.warn(gate.passed, f"{gate.name}: {gate.detail}")
+
+    # P58. Density and unassigned-rate select for usability; neither asks what
+    # the camera IS. This is the only check that compares the EVALUATION set
+    # against what the paper claims to be about.
+    check_composition(audit, args.cameras, rows)
 
     print()
     if audit.failures:

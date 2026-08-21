@@ -115,3 +115,35 @@ def test_empty_input_refuses_rather_than_writing_an_empty_summary(tmp_path):
     path.write_text("config,fold,macro_f1\n", encoding="utf-8")
     with pytest.raises(SystemExit):
         summarise([path], tmp_path / "summary.csv")
+
+
+def test_restat_ignores_the_per_window_prediction_files(tmp_path):
+    """P59's predictions files match `fold*.csv` and carry `config`, `seed` and
+    `fold` columns of their own — so a bare glob ingests 140 rows per run as if
+    they were metrics, without erroring, into a summary that looks plausible."""
+    import csv as _csv
+
+    from scripts.run_loco import main
+
+    write_fold(tmp_path, 0, 0.50)
+    predictions = tmp_path / "fold0_seed42_G_G.predictions.csv"
+    with predictions.open("w", newline="", encoding="utf-8") as handle:
+        writer = _csv.DictWriter(
+            handle, fieldnames=["config", "seed", "fold", "lane", "true",
+                                "pred", "correct", "macro_f1"])
+        writer.writeheader()
+        for _ in range(140):
+            writer.writerow({"config": "G", "seed": 42, "fold": 0,
+                             "lane": "lane_0", "true": "LOW", "pred": "LOW",
+                             "correct": 1, "macro_f1": 0.0})
+
+    summary = tmp_path / "summary.csv"
+    main(["--corpus", str(tmp_path), "--clips", str(tmp_path),
+          "--cache", str(tmp_path), "--restat",
+          "--out", str(tmp_path), "--summary", str(summary)])
+    rows = list(_csv.DictReader(summary.open(encoding="utf-8")))
+    assert len(rows) == 1
+    assert int(rows[0]["n_runs"]) == 1, (
+        "the prediction rows were counted as runs; the summary describes 141 "
+        "runs that do not exist"
+    )

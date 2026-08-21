@@ -4936,3 +4936,72 @@ completed runs predate P59 and carry no predictions. Restarting at 8% complete
 to gain a consistent artifact set across all 160 runs is a better trade than
 carrying a split-format directory forward, and it removes ADR-022's 40 re-runs
 entirely.
+
+---
+
+## P61 — the corpus now has to declare what it is, and the audit checks it against the claim (2026-08-22)
+
+**Status: fixed.** `data/cameras.json`, `mfstnet/corpus/composition.py`,
+`scripts/audit_corpus.py`, `tests/test_composition.py`.
+
+[P58](#p58) found a British motorway supplying 41% of the evaluation corpus for
+a project about unstructured Indian traffic. It was found by *looking at the
+footage*, which is not a repeatable process and had already been skipped four
+times.
+
+The reason nothing caught it is structural: **P45's density gate and P17's
+unassigned-rate gate select for usability, and usability is not
+representativeness.** The M6 is long, clean and dense, so it passed both. Nobody
+chose it.
+
+### The check nothing else performs
+
+> The paper claims a domain. Does the **evaluation set** contain that domain?
+
+`audit_corpus.py` now **FAILS** — not warns — when no fold-eligible camera
+matches the declared target. A model tested only on cameras outside its claimed
+domain has not been evaluated on its claim, and no statistic computed downstream
+repairs that. Run against the four folds today it fails all four, which is the
+correct answer:
+
+```
+fold0  [ FAIL ] the test split contains the claimed domain (Bangladesh 1)
+fold1  [ FAIL ] the test split contains the claimed domain (United Kingdom 1)
+fold2  [ FAIL ] the test split contains the claimed domain (Bangladesh 1)
+fold3  [ FAIL ] the test split contains the claimed domain (Bangladesh 1)
+```
+
+It also warns when one off-target camera supplies more than half the evaluation
+**by window**, because counting cameras and counting windows answer different
+questions — three Bangladeshi cameras against one British one is three-to-one by
+camera and closer to even by window, and the second is what the model saw.
+
+### Declared, never inferred
+
+Nothing here can be read off a filename, so `data/cameras.json` declares country,
+city, viewpoint and traffic type per camera — and records **how each was
+determined**. `frame` means the footage was inspected; `filename` means it was
+not, and those entries are marked provisional. `video1` is `unknown` throughout
+rather than guessed: **an assumed attribution is worse than an absent one,
+because it would silently satisfy this check.**
+
+`is_on_target` returns a third answer, `None`, for exactly that case. An unknown
+camera is not evidence for the claim and not evidence against it, and folding it
+into either is the guess the module exists to prevent.
+
+### The escape hatch is a diff, not a flag
+
+There is no `--allow-domain-mismatch`, because a flag would be used. To make the
+check pass, either change the corpus or **change the declared claim** — and both
+are version-controlled and visible in review. If the guide re-frames the paper as
+*South Asian unstructured traffic*, widening `target_domain.country` to include
+Bangladesh makes three folds pass and **still fails the M6**, which is exactly
+right. That behaviour is pinned by a test.
+
+An **absent** registry is a different situation from a camera missing from one —
+the project has not adopted the check rather than failed it — so it warns loudly
+instead of passing quietly.
+
+Thirteen tests, plus three in the audit suite. Two of the existing audit tests
+broke on this and were fixed by giving their synthetic corpora a registry rather
+than by disabling the check, so they exercise the real path.
