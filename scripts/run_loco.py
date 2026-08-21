@@ -240,6 +240,20 @@ def main(argv: list[str] | None = None) -> int:
                 for config in configs:
                     target = (args.out /
                               f"fold{index}_seed{seed}_{config}.csv")
+                    # Resumable, because this suite has now died three times to
+                    # things outside it — twice to the machine sleeping, once to
+                    # P55. 160 runs is four hours, and starting from zero each
+                    # time is how a suite never finishes. A run counts as done
+                    # only when BOTH artifacts exist: a metrics row without its
+                    # per-window predictions is exactly the state P59 exists to
+                    # prevent, so a half-written run is redone rather than kept.
+                    predictions = target.with_name(
+                        f"{target.stem}_{config}.predictions.csv")
+                    if not args.force and target.exists() and predictions.exists():
+                        written.append(target)
+                        print(f"      fold {index} seed {seed} {config}  "
+                              f"already done")
+                        continue
                     command = [sys.executable, "-u",
                                "scripts/train_mfstnet.py",
                                "--corpus", str(view),

@@ -4855,3 +4855,84 @@ the same act as changing the ruler**:
 
 The guide will otherwise hear both as "you adjusted things until HIGH appeared",
 and only one of them is that.
+
+---
+
+## P59 — the finest-grain artifact is now written unconditionally (2026-08-22)
+
+**Status: fixed.** `scripts/train_mfstnet.py`, `scripts/discordance.py`,
+`tests/test_discordance.py`.
+
+[ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md)'s Q2 needs the
+per-window decisions behind each metrics row, and they were never written. **A
+metrics row is a view over those decisions and no aggregate can be
+un-aggregated** — the only route back is to retrain, which is measured in GPU
+hours against a file of a few hundred integers.
+
+Every run now writes `<stem>_<config>.predictions.csv`: one row per test
+lane-window carrying clip, start index, label index, lane, true, predicted and
+correct. **Not behind a flag.** A flag is a decision made before the question is
+known, and the question is never known in advance — Q2 was not a question when
+this suite was designed.
+
+The correspondence between the flat prediction list and the windows it names is
+**asserted, not assumed**: `evaluate_split` iterates with `shuffle=False`, so
+window `i` contributes `len(lanes)` consecutive entries in lane order, and a
+count mismatch refuses rather than writing a file that looks right and describes
+the wrong windows.
+
+### The reproduction check, which cannot be skipped
+
+Predictions may come from runs made after a metrics table was published. If
+seeding or determinism has drifted even slightly, Q1 and Q2 would describe
+**different models**, and a discordance count computed from them would not be
+about the published table.
+
+`discordance.py` therefore **re-scores every predictions file and compares it
+against the committed row** for the same config, fold and seed before computing
+anything. Any mismatch refuses the whole run and writes no output — a failed
+check must not leave a result behind, because a discordance count from
+unverified predictions is worse than none: it looks like evidence.
+
+Twelve tests. Two worth naming: the CLI must write **nothing** when
+verification fails, and a re-score differing by exactly one unit in the fourth
+decimal is **allowed** — the committed CSVs round to four places, so a guard
+that fired on that would fail on every honest reproduction.
+
+McNemar's `p` is emitted under the column name
+`mcnemar_p_INDEPENDENCE_VIOLATED`, tested as such. A `p`-value whose assumption
+is broken must not be reachable under a name that reads as ordinary.
+
+### What it changes about the plan
+
+ADR-022 costed Q2 at 40 re-runs of G and H. With predictions written by every
+run, **Q2 costs nothing extra** — it is computed from artifacts the suite
+already produces, for every config pair rather than one.
+
+## P60 — the suite died twice to the machine sleeping, and the second time was my fix being half a fix (2026-08-22)
+
+**Status: fixed.** `powercfg`, and `run_loco.py --resume` behaviour.
+
+The leave-one-camera-out suite has now been killed three times. Once by
+[P55](#p55). Twice by the machine suspending: the wall clock jumped 10:48 →
+18:06 the first time and 22:23 → 00:49 the second, and a suspend drops a local
+CUDA context and a TraCI socket exactly the way both failures presented.
+
+After the first, `powercfg /change standby-timeout-ac 0` was applied and
+recorded as the fix. **It was half a fix.** `Win32_Battery.BatteryStatus`
+reads 1 — discharging — so the laptop was on battery and `standby-timeout-dc`
+still applied. All four of `standby-timeout` and `hibernate-timeout`, on AC and
+DC, are now zero.
+
+The wider lesson is not about power settings. **A four-hour unattended job that
+starts from zero after any interruption will not finish on a laptop.** So
+`run_loco.py` now skips a run whose artifacts already exist, and a run counts as
+done only when **both** the metrics CSV and the predictions CSV are present — a
+metrics row without its per-window decisions is precisely the state P59 exists
+to prevent, so a half-written run is redone rather than kept.
+
+The suite was restarted from scratch rather than resumed, because the thirteen
+completed runs predate P59 and carry no predictions. Restarting at 8% complete
+to gain a consistent artifact set across all 160 runs is a better trade than
+carrying a split-format directory forward, and it removes ADR-022's 40 re-runs
+entirely.

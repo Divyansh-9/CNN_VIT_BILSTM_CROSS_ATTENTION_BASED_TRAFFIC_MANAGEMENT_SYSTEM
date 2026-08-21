@@ -169,6 +169,54 @@ def gate_stats(output) -> dict:
     }
 
 
+def write_predictions(out: Path, config: str, seed: int, manifest: dict,
+                      test_set, lane_names, true, pred) -> Path:
+    """One row per test lane-window: the decisions behind the metrics (P59).
+
+    `evaluate_split` iterates the test set with `shuffle=False`, so window `i`
+    contributes `len(lane_names)` consecutive entries to `true`/`pred`, in lane
+    order. That correspondence is asserted here rather than assumed — a silent
+    off-by-one would produce a file that looks right and describes the wrong
+    windows, which is worse than not having one.
+
+    Written beside the metrics CSV as `<stem>.predictions.csv`.
+    """
+    lanes = list(lane_names)
+    expected = len(test_set.rows) * len(lanes)
+    if len(true) != expected or len(pred) != expected:
+        raise SystemExit(
+            f"{config}: {len(true)} decisions for {len(test_set.rows)} windows "
+            f"x {len(lanes)} lanes = {expected}. The per-window file would not "
+            f"line up with the windows it names."
+        )
+
+    # Config is in the filename even when `--ablation` puts eight configs in one
+    # metrics CSV, so a predictions file is never ambiguous about which model
+    # produced it.
+    path = out.parent / f"{out.stem}_{config}.predictions.csv"
+    fold = manifest.get("fold", "")
+    records = []
+    for i, row in enumerate(test_set.rows):
+        for j, lane in enumerate(lanes):
+            k = i * len(lanes) + j
+            records.append({
+                "config": config, "seed": seed, "fold": fold,
+                "clip_id": row["clip_id"],
+                "start_index": row["start_index"],
+                "label_index": row.get("label_index", ""),
+                "lane": lane,
+                "true": CLASSES[true[k]],
+                "pred": CLASSES[pred[k]],
+                "correct": int(true[k] == pred[k]),
+            })
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(records[0]))
+        writer.writeheader()
+        writer.writerows(records)
+    return path
+
+
 def guard_results(out: Path, epochs: int, *, force: bool) -> None:
     """Refuse to overwrite results from a longer run than the one about to start.
 
@@ -223,7 +271,7 @@ def evaluate_split(model, dataset, size: int, lanes, device: str = "cpu"):
             last = out
             true.extend(y.reshape(-1).tolist())      # labels stay on the CPU
             pred.extend(out.logits.reshape(-1, len(CLASSES)).argmax(-1).tolist())
-    return evaluate(true, pred, CLASSES), last
+    return evaluate(true, pred, CLASSES), last, true, pred
 
 
 def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
@@ -323,7 +371,7 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
         total = total / max(batches_seen, 1)
         scheduler.step()
 
-        val_report, _ = evaluate_split(model, val_set, t["batch_size"], lanes,
+        val_report, _, _, _ = evaluate_split(model, val_set, t["batch_size"], lanes,
                                        device)
         # Early stopping on val LOSS proxy: 1 - macro F1. Accuracy would let a
         # model that predicts the majority class look like it is improving on an
@@ -341,7 +389,7 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    report, last = evaluate_split(model, test_set, t["batch_size"], lanes,
+    report, last, true, pred = evaluate_split(model, test_set, t["batch_size"], lanes,
                                   device)
 
     row = {
@@ -379,7 +427,7 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     for index, label in enumerate(CLASSES):
         row[f"train_count_{label.lower()}"] = counts[index]
     row.update(gate_stats(last))
-    return row, report
+    return row, report, true, pred
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -536,7 +584,7 @@ def main(argv: list[str] | None = None) -> int:
     rows = []
     for name, config in configs:
         print(f"\n  === config {name} ===")
-        row, report = train_one(
+        row, report, true, pred = train_one(
             name, config, device=device,
             train_set=split["train"], val_set=split["val"],
             test_set=split["test"], lanes=lanes, spec=spec,
@@ -553,6 +601,20 @@ def main(argv: list[str] | None = None) -> int:
         row["folds_total"] = manifest.get("folds_total", "")
         row["test_camera"] = manifest.get("fold_test_camera", "")
         rows.append(row)
+
+        # P59. The finest-grain artifact, written unconditionally.
+        #
+        # A metrics row is a VIEW over the per-window decisions, and no
+        # aggregate can be un-aggregated: the moment a question needs the
+        # decisions themselves — a discordance count between two configs
+        # (ADR-022 Q2), a per-class error analysis, a confusion by camera —
+        # the only way back is to retrain. That cost is measured in GPU hours;
+        # this file is a few hundred integers.
+        #
+        # So it is not conditional on a flag. A flag is a decision made before
+        # the question is known, and the question is never known in advance.
+        write_predictions(args.out, name, args.seed, manifest,
+                          split["test"], lane_names, true, pred)
         print(f"    macro-F1 {row['macro_f1']}  QWK {row['qwk']}  "
               f"gate std {row['gate_std'] or '—'}")
         for warning in report.warnings:
