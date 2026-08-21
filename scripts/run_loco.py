@@ -47,6 +47,9 @@ RESULTS = Path("experiments/results/loco")
 SUMMARY = Path("experiments/results/loco_summary.csv")
 AGGREGATED = ("macro_f1", "weighted_f1", "accuracy", "qwk", "ordinal_mae",
               "off_by_two_rate", "gate_mean", "gate_std")
+# PRD §14.4 specifies A-H across five seeds. 42 is the project seed (NFR-07);
+# the other four are fixed here rather than drawn, so a rerun is a rerun.
+DEFAULT_SEEDS = (42, 1, 7, 13, 21)
 
 
 def fold_count(corpus: Path, clips: Path, minimum: int) -> int:
@@ -83,8 +86,11 @@ def summarise(fold_files: list[Path], out: Path) -> list[dict]:
 
     summary = []
     for config, rows in sorted(by_config.items()):
-        entry = {"config": config, "n_folds": len(rows),
-                 "folds": " ".join(sorted(str(r.get("fold", "?")) for r in rows))}
+        folds = sorted({str(r.get("fold", "?")) for r in rows})
+        seeds = sorted({str(r.get("seed", "?")) for r in rows})
+        entry = {"config": config, "n_runs": len(rows), "n_folds": len(folds),
+                 "n_seeds": len(seeds), "folds": " ".join(folds),
+                 "seeds": " ".join(seeds)}
         for field in AGGREGATED:
             values = [float(r[field]) for r in rows
                       if r.get(field) not in (None, "", "None")]
@@ -96,12 +102,26 @@ def summarise(fold_files: list[Path], out: Path) -> list[dict]:
             entry[f"{field}_mean"] = round(mean, 4)
             entry[f"{field}_lo"] = round(low, 4)
             entry[f"{field}_hi"] = round(high, 4)
-        # Per-fold macro F1 in the summary too. A mean of 0.61 over folds of
+        # P54. How far this config moved on ONE fold when only the seed
+        # changed, averaged over folds. If it exceeds the distance between two
+        # configs, the ablation has not separated them and the table should say
+        # so rather than leaving a reader to rank rows that are noise apart.
+        spreads = []
+        for fold in folds:
+            same = [float(r["macro_f1"]) for r in rows
+                    if str(r.get("fold", "?")) == fold]
+            if len(same) > 1:
+                spreads.append(max(same) - min(same))
+        entry["macro_f1_seed_spread"] = (
+            round(sum(spreads) / len(spreads), 4) if spreads else "")
+
+        # Per-run macro F1 in the summary too. A mean of 0.61 over folds of
         # 0.83 and 0.39 is a different result from four folds of 0.61, and the
         # interval alone does not distinguish them at n=4.
-        entry["macro_f1_by_fold"] = " ".join(
-            f"{r.get('fold', '?')}:{r['macro_f1']}"
-            for r in sorted(rows, key=lambda r: str(r.get("fold"))))
+        entry["macro_f1_by_run"] = " ".join(
+            f"{r.get('fold', '?')}/{r.get('seed', '?')}:{r['macro_f1']}"
+            for r in sorted(rows,
+                            key=lambda r: (str(r.get("fold")), str(r.get("seed")))))
         summary.append(entry)
 
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +141,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ablation", action="store_true")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--epochs", type=int)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seeds", type=int, nargs="+", default=[42],
+                        help="PRD §14.4 asks for five: 42 1 7 13 21. Defaults "
+                             "to one so a quick look stays quick — but a "
+                             "one-seed table is not an ablation (P54)")
     parser.add_argument("--min-test-sequences", type=int,
                         default=MINIMUM_TEST_SEQUENCES)
     parser.add_argument("--views", type=Path, default=Path("data/corpus_loco"))
@@ -156,32 +179,54 @@ def main(argv: list[str] | None = None) -> int:
                  "--min-test-sequences", str(args.min_test_sequences)],
                 check=True,
             )
-            target = args.out / f"fold{index}.csv"
-            command = [sys.executable, "scripts/train_mfstnet.py",
-                       "--corpus", str(view), "--cache", str(args.cache),
-                       "--device", args.device, "--seed", str(args.seed),
-                       "--out", str(target)]
-            if args.ablation:
-                command.append("--ablation")
-            else:
-                command += ["--config", args.config]
-            if args.epochs:
-                command += ["--epochs", str(args.epochs)]
-            if args.force:
-                command.append("--force")
-            subprocess.run(command, check=True)
-            written.append(target)
+            for seed in args.seeds:
+                target = args.out / f"fold{index}_seed{seed}.csv"
+                command = [sys.executable, "-u", "scripts/train_mfstnet.py",
+                           "--corpus", str(view), "--cache", str(args.cache),
+                           "--device", args.device, "--seed", str(seed),
+                           "--out", str(target)]
+                if args.ablation:
+                    command.append("--ablation")
+                else:
+                    command += ["--config", args.config]
+                if args.epochs:
+                    command += ["--epochs", str(args.epochs)]
+                if args.force:
+                    command.append("--force")
+                subprocess.run(command, check=True)
+                written.append(target)
         summary = summarise(written, args.summary)
 
     print()
-    print("  {:<8}{:>8}{:>10}{:>20}{:>10}".format(
-        "config", "folds", "macroF1", "95% CI", "QWK"))
+    print("  {:<8}{:>6}{:>6}{:>10}{:>20}{:>13}".format(
+        "config", "folds", "seeds", "macroF1", "95% CI", "seed spread"))
     for entry in summary:
         interval = (f"[{entry['macro_f1_lo']}, {entry['macro_f1_hi']}]"
                     if entry["macro_f1_lo"] != "" else "-")
-        print("  {:<8}{:>8}{:>10}{:>20}{:>10}".format(
-            entry["config"], entry["n_folds"], entry["macro_f1_mean"],
-            interval, entry["qwk_mean"]))
+        print("  {:<8}{:>6}{:>6}{:>10}{:>20}{:>13}".format(
+            entry["config"], entry["n_folds"], entry["n_seeds"],
+            entry["macro_f1_mean"], interval,
+            entry["macro_f1_seed_spread"] or "-"))
+
+    # P54. Ranking rows that are noise apart is the failure this guards.
+    spreads = [e["macro_f1_seed_spread"] for e in summary
+               if e["macro_f1_seed_spread"] != ""]
+    means = sorted(e["macro_f1_mean"] for e in summary
+                   if e["macro_f1_mean"] != "")
+    if spreads and len(means) > 1:
+        closest = min(b - a for a, b in zip(means, means[1:]))
+        if max(spreads) > closest:
+            print()
+            print(f"  WARNING  largest seed spread {max(spreads):.4f} exceeds "
+                  f"the closest gap between")
+            print(f"           two configs, {closest:.4f}. Those two are not "
+                  f"separated by this table.")
+    elif not spreads:
+        print()
+        print("  WARNING  one seed per fold. Config differences on this corpus "
+              "have been")
+        print("           measured smaller than seed-to-seed movement (P54); "
+              "pass --seeds 42 1 7 13 21.")
     print()
     print(f"  wrote {args.summary}")
     print("  Every fold's test split is ONE camera. The interval is over folds,")

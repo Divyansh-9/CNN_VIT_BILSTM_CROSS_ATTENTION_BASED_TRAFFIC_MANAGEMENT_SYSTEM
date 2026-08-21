@@ -4388,3 +4388,73 @@ each other, so a difference there is an intended comparison, and the filename
 already carries which one ran. Twelve tests, pinning what the digest must
 *notice* rather than its literal value: a test asserting a fixed digest would be
 updated in the same commit as the mistake it exists to catch.
+
+---
+
+## P54 — the ablation was measuring the seed, not the architecture (2026-08-21)
+
+**Status: fixed.** `scripts/run_loco.py` gained `--seeds`, and the summary
+carries `macro_f1_seed_spread`.
+
+Fold 0 of the first leave-one-camera-out ablation returned configs **B** and
+**E** identical to four decimal places — same macro F1, same QWK, same accuracy,
+and on inspection the same confusion matrix, cell for cell:
+
+| | B (ViT-only) | E (bidir, no gate) |
+|---|---|---|
+| macro F1 | 0.4469 | 0.4469 |
+| trainable params | 922,883 | 1,973,763 |
+| epochs run | 25 | 21 |
+
+Two architectures of different size, trained for different numbers of epochs, in
+different wall-clock times, producing the same 140 predictions. That is either a
+config defect — E silently falling back to the ViT branch — or a coincidence.
+
+### It was a coincidence, and the check found something worse
+
+Re-running both at seeds 1 and 7 separated them immediately, so there is no
+config defect. But it exposed how little the seed-42 numbers were worth:
+
+| config | seed 42 | seed 1 | seed 7 | spread |
+|---|---|---|---|---|
+| B | 0.4469 | 0.4860 | 0.4777 | **0.039** |
+| E | 0.4469 | 0.2385 | 0.2046 | **0.242** |
+
+**Config E's spread across seeds is six times config B's, and larger than the
+distance between most pairs of configs in the table.** Its QWK is *exactly*
+0.0 at seeds 1 and 7 — the signature of a model that has collapsed to a
+constant predictor, which on a fold whose test camera contains no HIGH window
+(ADR-019) is an easy local minimum to fall into.
+
+A single-seed ablation over this corpus does not rank architectures. It ranks
+initialisations. PRD §14.4 has always specified **A–H across five seeds**;
+`run_loco.py` was written with `--seed 42` and would have produced a table that
+looked like a result.
+
+### The fix, and the part of it that matters
+
+`--seeds` now takes a list, defaulting to `[42]` so a quick look stays quick,
+with §14.4's five fixed as `42 1 7 13 21` — fixed rather than drawn, so a rerun
+is a rerun (NFR-07). Fold views are trained once per seed and the per-run CSVs
+are named `fold{k}_seed{s}.csv`.
+
+The reported column is the one that stops this recurring:
+**`macro_f1_seed_spread`** — how far a config moved on *one fold* when only the
+seed changed, averaged over folds. Fold-to-fold movement is a different
+quantity and is deliberately not folded into it. When the largest spread exceeds
+the closest gap between two configs, `run_loco.py` prints that those two are not
+separated by the table, rather than leaving a reader to rank rows that are noise
+apart.
+
+A single seed leaves the column **blank rather than 0.0**. One seed has not
+measured a spread of zero; it has not measured one at all, and `0.0` would read
+as "this config is stable".
+
+### Also, a self-inflicted crash worth recording
+
+The first four-fold run died after fold 0 with exit `3221225477`
+(`0xC0000005`, access violation) — because the B-versus-E seed check above was
+run on CUDA *while the ablation was running*, on a 6 GB card. Not
+[P42](#p42)'s `0xC0000409` cuDNN teardown abort, and not a defect in either
+script: two CUDA training processes on this GPU is one too many. Verification
+runs go on the CPU or wait.
