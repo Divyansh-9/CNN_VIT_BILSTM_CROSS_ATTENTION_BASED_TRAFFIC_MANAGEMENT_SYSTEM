@@ -127,6 +127,7 @@ python scripts/check_env.py          # BEFORE pip install -r requirements.txt
 python -m pytest                     # whole suite (config in pyproject.toml)
 python -m pytest tests/test_lanes.py::test_far_points_are_unassigned_not_snapped
 python scripts/check_docs.py         # link/claim integrity, stdlib only, runs in CI
+python scripts/check_build_log.py    # the status board against what is on disk
 python scripts/build_review_pptx.py --pdf   # review deck + PDF, from the committed CSVs
 ```
 
@@ -144,27 +145,49 @@ python scripts/corpus_yield.py                         # segments per step_s, th
 python scripts/build_corpus.py --clips "D:/traffic dataset"     --lanes-dir data/lanes_reviewed --step-s 2 --imgsz 992 --out data/corpus
 python scripts/relabel_corpus.py --corpus data/corpus --low-max 8 --med-max 20
 python scripts/audit_corpus.py --corpus data/corpus            # exits 1 if anything is wrong
-python scripts/build_cache.py --corpus data/corpus --cache data/cache
+python scripts/build_cache.py --corpus data/corpus --clips data/_corpus_clips --cache data/cache_corpus --device cuda
+python scripts/resplit_corpus.py --corpus data/corpus --clips data/_corpus_clips --fold 0 --out data/corpus_loco/fold0 --list
 ```
 
 `counts.csv` is threshold-independent, so `relabel_corpus.py` re-derives labels
 in seconds without re-running the detector. A threshold decision is a config
-change, never a reason to delay building the corpus.
+change, never a reason to delay building the corpus. The same holds for the
+**split**: it depends on which camera a window came from and on nothing the
+detector produced, so `resplit_corpus.py` re-cuts one in about a second.
+
+**The split is not 60/20/20 any more (ADR-019).** Seven cameras hashed into
+three buckets put a UK motorway alone in `test` and a camera with no HIGH
+window alone in `val`, and the assignment is a function of the filename.
+MFSTNet is evaluated by **leave-one-camera-out** over the cameras contributing
+at least 10 windows — four folds today — with the other three always in train.
+`--list` prints the fold table. Detection is unaffected and stays 70/15/15
+(FR-D05).
 
 ### Training and the ablation
 
 ```bash
 python scripts/overfit_check.py --all                  # plumbing: must reach ~0 loss
 python scripts/train_mfstnet.py --corpus data/corpus --cache data/cache --config G
-python scripts/train_mfstnet.py --corpus data/corpus --cache data/cache --ablation
+python scripts/train_mfstnet.py --corpus data/corpus_loco/fold0 --cache data/cache_corpus --ablation
+python scripts/run_loco.py --corpus data/corpus --clips data/_corpus_clips --cache data/cache_corpus --ablation --device cuda
+python scripts/run_loco.py --restat                    # rebuild the summary, retrain nothing
 # --device auto|cpu|cuda (default auto). Results record which one ran.
 python scripts/train_baselines.py --corpus data/corpus
 ```
 
+`run_loco.py` is the one to run for a reportable number: it trains every fold
+and writes `experiments/results/loco_summary.csv` — **mean and bootstrap 95% CI
+across folds**, generated from the per-fold CSVs by a committed script, never
+transcribed (NFR-09/10). Quote the fold mean, not a single fold, and quote
+`n_folds` beside it: an interval over four points is not an interval over
+thirty. Every fold's test split is one camera, which is the effective n.
+
 `--out` defaults to `experiments/results/ablation.csv`, a graded deliverable
 (NFR-09/10). A short run will refuse to overwrite results recorded from a
 longer one — send verification runs elsewhere with `--out`, or pass `--force`
-if replacing is what you mean.
+if replacing is what you mean. **PPO checkpoints have the same rule** (P47): a
+`--smoke` run will not overwrite a 500,000-step one, and every `.zip` carries a
+`.provenance.json` recording its length and device.
 
 ### Simulation and benchmark
 
