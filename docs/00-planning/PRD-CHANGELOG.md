@@ -4571,14 +4571,26 @@ the same fold and the same seed as the withdrawn table:
 | E | 0.4469 | 0.4469 | 0.0000 |
 | **F** | **0.4045** | **0.4992** | **+0.0947** |
 
-Five configs moved by less than 0.003 or not at all, and one moved by **0.095** —
-larger than the distance between most pairs of configs in the table, and enough
-to reorder them. That is what a use-after-free that mostly does not fault looks
-like from the outside: almost everything is fine, and there is no way to tell
-which reading was the exception without re-running it.
+One config moved by **0.095** — larger than the distance between most pairs of
+configs in the table, and enough to reorder them.
 
-Withdrawing all of them rather than the ones that looked wrong was therefore not
-caution. F is the config that would have been kept.
+**The right reading of this table is narrow.** It shows that the fault was
+material. It does **not** show that the other five numbers were sound, and the
+distinction is the whole point: a use-after-free is a property of a *run*, not
+of a config. Those five re-ran close to their old values because their reads
+happened to land on pages that were still intact — one scheduling accident away
+from having been the exception, and nothing in the artifact distinguishes the
+two cases.
+
+So the admissibility rule is not "withdraw the ones that moved". It is:
+
+> **No number measured between P35 and this fix is admissible, because the fault
+> is silent and run-dependent.**
+
+The deltas are evidence for that rule, not a shortlist of survivors. Stating it
+the other way round — five stable, one bad — invites the obvious question of why
+the five were not kept, and the answer would have to be that they cannot be
+shown to be sound either.
 
 ### What the clean numbers show so far
 
@@ -4613,3 +4625,56 @@ so the weighting is not ceremony.
 **Models are released between ablation configs**, and `run_loco.py` now runs one
 config per process. The second is what removes the failure mode; the first only
 makes it less likely.
+
+---
+
+## P56 — configs B and E agreed to four decimals, and it was not a dead flag (2026-08-22)
+
+**Status: not a defect. Guard added.** `tests/test_configs_are_distinct.py`.
+
+On fold 0 seed 42, config **B** (ViT only) and config **E** (bidirectional
+cross-attention, no gate) returned identical macro F1 (0.4469) and identical QWK
+(0.3429). Two architectures agreeing to four decimal places is not what "similar
+performance" looks like — floating-point noise alone should separate them in the
+third — so the obvious reading is a **dead flag**: `mode` or `use_gate` wired to
+nothing, or to a module that is a no-op under the other settings.
+
+That is the [P26](#p26) shape, where shapes agree, loss falls, and nothing
+raises. It would silently delete a row from the ablation: eight configs on the
+page, seven experiments behind it.
+
+### Checked statically, in minutes, rather than with five seeds
+
+The temptation was to run more seeds. Five seeds would have returned five
+identical pairs and an invitation to report equality as a finding. The question
+is about *computation*, and computation is checkable directly:
+
+| | B | E |
+|---|---|---|
+| `fusion.mode` | `none` | `bidirectional` |
+| `use_cnn` / `use_vit` | False / True | True / True |
+| trainable parameters | 922,883 | 1,973,763 |
+| logits on identical input | \multicolumn{2}{c}{**differ, max abs 0.055**} |
+
+**The flag is wired.** What coincides is the `argmax` — and every metric in the
+table is computed from the argmax. At initialisation both models are flat enough
+for the predicted class to agree on all 140 lane-windows while the logits behind
+them do not.
+
+### Why this needed a test rather than a note
+
+Comparing metrics cannot detect a dead flag, because metrics are exactly where a
+dead flag hides. The guard therefore compares **logits across every pair of the
+eight configs** on one input, and fails if any two are bitwise equal. Four tests,
+one of which pins the counter-intuitive part: matching metrics do not imply
+matching computation, so the metric-level coincidence stays legal and only the
+computation-level identity is an error.
+
+### What it leaves open
+
+Two architectures converging on the same decision function is still worth
+noticing. On fold 0 the test camera contributes no HIGH window (ADR-019), so the
+effective problem is two-class over 140 predictions, and a corpus that easy is
+one where architecture stops mattering. That is a statement about the corpus,
+not the code, and it belongs with the other three pointing the same way —
+see [ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md).

@@ -177,3 +177,35 @@ def test_latex_is_marked_as_generated():
 def test_every_row_has_a_cell_for_every_column():
     header, body, _ = ablation_table([ablation_rows(), ablation_rows(config="A")])
     assert all(len(record) == len(header) for record in body)
+
+
+# ------------------------------------------------------------- provenance --
+
+
+def test_a_table_carries_the_digest_of_its_source(tmp_path):
+    """A caption is a claim about a run and outlives it unless something ties
+    them together. This repository has already shipped one caption that said
+    'at saturation' over three regimes."""
+    from scripts.make_paper_tables import source_digest
+
+    path = write_csv(tmp_path / "src.csv", [ablation_rows()])
+    header, body, caption = ablation_table([ablation_rows()])
+    provenance = f"source: {path.as_posix()} sha256:{source_digest(path)}"
+    for rendered in (as_latex(header, body, caption, "ablation", provenance),
+                     as_markdown(header, body, caption, "ablation", provenance)):
+        assert source_digest(path) in rendered
+        assert "src.csv" in rendered
+
+
+def test_the_digest_changes_when_the_source_changes(tmp_path):
+    from scripts.make_paper_tables import source_digest
+
+    path = write_csv(tmp_path / "src.csv", [ablation_rows()])
+    before = source_digest(path)
+    write_csv(path, [ablation_rows(macro_f1_mean=0.51)])
+    assert source_digest(path) != before
+
+
+def test_provenance_is_optional_so_the_builders_stay_usable(tmp_path):
+    header, body, caption = ablation_table([ablation_rows()])
+    assert r"\begin{table}" in as_latex(header, body, caption, "ablation")
