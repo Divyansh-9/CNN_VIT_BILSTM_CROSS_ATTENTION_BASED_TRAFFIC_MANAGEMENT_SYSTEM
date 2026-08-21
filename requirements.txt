@@ -96,6 +96,16 @@ pytest==9.1.1
 # an entry in DISTRIBUTION_TO_MODULE in tests/test_requirements_complete.py.
 python-pptx==1.0.2
 
+# ---- ONNX export and server-side inference (S31, PRD 16) ----
+# scripts/export_onnx.py writes the fp32 graph and measures server-CPU latency.
+# onnxscript is not imported by our code: torch.onnx.export imports it, and
+# without it the export raises ModuleNotFoundError at the call. A dependency
+# whose absence breaks a documented command is ours to pin, wherever it is
+# imported from.
+onnx==1.22.0
+onnxruntime==1.29.0
+onnxscript==0.7.1
+
 # ---- NOT INSTALLED: subsystems that do not exist yet ----
 #
 # These are forward declarations, deliberately left un-pinned and un-installed.
@@ -104,7 +114,6 @@ python-pptx==1.0.2
 #
 # Add the pin in the same commit as the first import, as above.
 #
-#   onnx, onnxruntime      ONNX export and server-side inference (PRD §16)
 #   fastapi, uvicorn       the prediction server (PRD §17) — unbuilt
 #   paho-mqtt              the edge/server link (PRD §17.1) — unbuilt
 #   tensorboard, mlflow    experiment tracking (PRD §21) — not yet wired
