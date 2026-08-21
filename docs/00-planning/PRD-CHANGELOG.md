@@ -4761,3 +4761,97 @@ different direction, and it strengthens the case in the
 [Part B memo](MEMO-2026-08-22-part-b.md) — a decision about which dataset to
 build should be made knowing that the current one cannot express the class the
 system acts on.
+
+---
+
+## P58 — the MFSTNet evaluation contains no Indian camera, and a UK motorway dominates it (2026-08-22)
+
+**Status: open. This is the binding problem, and it outranks everything in
+[P57](#p57).**
+
+The four cameras eligible to be a leave-one-camera-out fold (ADR-019) were
+inspected by looking at their footage, rather than by reading their filenames:
+
+| fold | camera | country | viewpoint | lane-windows | HIGH |
+|---|---|---|---|---|---|
+| 0 | Dhaka Rampura (a) | Bangladesh | footbridge over a junction, mixed traffic | 140 | 0 |
+| 1 | **M6 Motorway** | **United Kingdom** | **bridge over a divided motorway** | **252** | **20** |
+| 2 | Pov, footover bridge | Bangladesh | footbridge over a divided highway, mixed | 44 | 9 |
+| 3 | Dhaka Rampura (b) | Bangladesh | footbridge over a boulevard, mixed | 136 | 1 |
+
+Across the whole corpus:
+
+| | fold-eligible cameras | sequences | lane-windows | HIGH |
+|---|---|---|---|---|
+| Bangladesh | 3 | 80 | 320 | 10 |
+| **United Kingdom** | **1** | 63 | **252 (41%)** | **20 (53%)** |
+| **India** | **0** | 9 | 36 (5.9%) | 7 |
+
+### The three things this says
+
+**There are no Indian cameras in the evaluation.** India's three clips — Mumbai
+Andheri, South Extension Delhi, and one unlabelled — contribute **9 sequences of
+153**, all below ADR-019's ten-window eligibility bar, so all three sit in
+`always_train` and none is ever tested. The project's premise is unstructured
+*Indian* traffic. The forecaster is evaluated on Bangladesh and Britain.
+
+**The dominant fold is the premise's counterexample.** The M6 is a divided
+motorway: enforced lane discipline, no junction, no auto-rickshaws, no mixed
+traffic, no pedestrians. It is 41% of the evaluation corpus and **53% of every
+HIGH label in the project**. A reader who reaches "M6 Motorway" in a table
+captioned as Indian traffic stops reading there, and every refinement downstream
+of it — the quantum, the aggregation order, McNemar, the ceiling column —
+becomes irrelevant at that moment.
+
+**It got in by a gate, not by a decision.** The M6 passed P45's density gate at
+23.4 detections per frame and P17's unassigned-rate gate, and nothing in the
+pipeline asks what country a camera is in or whether its traffic is structured.
+Both gates are correct and neither is sufficient. **Long and clean is not the
+same as representative**, which is the same lesson P45 learned about duration
+and is now repeating about geography.
+
+### The trade this creates, which the guide has to see
+
+Dropping the M6 for domain coherence costs **53% of the HIGH windows** and
+leaves exactly **three** eligible cameras — ADR-019's bare minimum, with no
+margin.
+
+**Domain coherence and HIGH support are in direct conflict, and the M6 is
+simultaneously the cause of the first problem and the source of the second.**
+That is not a trade an implementer should make quietly.
+
+### What was checked, and what it ruled out
+
+* **"Pov" is not a dashcam.** It is a *footover bridge* — a pedestrian
+  overbridge — looking down a divided highway with auto-rickshaws,
+  cycle-rickshaws, buses and trucks, with Bangladeshi signage. Elevated, mixed,
+  and the correct viewpoint. The abbreviation misleads; the footage does not.
+* **Dhaka-a and Dhaka-b are not the same camera.** Near-identical titles from
+  one uploader, but the frames show different scenes — a junction with a police
+  box, against a divided boulevard past South Point School. `group_cameras`
+  separated them correctly at 0.2457 similarity. They remain *correlated*: one
+  city, one road corridor, one uploader, and that is worth stating even though
+  it is not leakage.
+
+### Why this is not an implementation task
+
+No amount of statistics fixes a corpus whose evaluation set excludes the country
+in the project's title. The options — re-frame the claim as **South Asian
+unstructured traffic**, drop the M6 and accept three folds, or re-select clips
+for Indian footage — are all scope decisions, and the third changes what capture
+would be commissioned. It is added to the
+[Part B memo](MEMO-2026-08-22-part-b.md) **above** the HIGH finding, because it
+changes the framing question before the density question is even reached.
+
+### The distinction the memo must draw explicitly
+
+Refusing to move ADR-017's thresholds stands. But **changing the sample is not
+the same act as changing the ruler**:
+
+* selecting footage for the presence of congestion, or for geography, is
+  **sampling design**, declared in advance and reported;
+* moving thresholds until the class balance improves is **fitting labels to a
+  desired outcome**.
+
+The guide will otherwise hear both as "you adjusted things until HIGH appeared",
+and only one of them is that.

@@ -82,6 +82,48 @@ adding an artifact**: TrafficCAM's licence is unresolved and is currently our
 sole source of `e_rickshaw` boxes, so anything derived from it may not be
 releasable.
 
+## Read this section first: the evaluation has no Indian camera in it
+
+Found today by looking at the footage rather than the filenames. The four
+cameras eligible to be a leave-one-camera-out fold are:
+
+| fold | camera | country | lane-windows | HIGH |
+|---|---|---|---|---|
+| 0 | Dhaka Rampura (a) | Bangladesh | 140 | 0 |
+| 1 | **M6 Motorway** | **United Kingdom** | **252** | **20** |
+| 2 | Pov, footover bridge | Bangladesh | 44 | 9 |
+| 3 | Dhaka Rampura (b) | Bangladesh | 136 | 1 |
+
+India contributes **9 sequences of 153** — Mumbai Andheri, South Extension
+Delhi, and one unlabelled clip. All three fall below the ten-window eligibility
+bar, so **none of them is ever tested**. The forecaster's evaluation is
+Bangladesh and Britain.
+
+Worse, the **M6 is 41% of the evaluation corpus and 53% of every HIGH label in
+the project**. It is a divided motorway: enforced lane discipline, no junction,
+no auto-rickshaws, no mixed traffic. It is the canonical counterexample to the
+premise of the project, and it is our largest fold.
+
+It entered by passing the density and lane-assignment gates, which is to say
+**nobody chose it**. Both gates are correct; neither asks what country a camera
+is in.
+
+**The trade this creates.** Dropping the M6 for coherence costs 53% of the HIGH
+windows and leaves exactly three eligible cameras — the bare minimum the
+protocol allows. Domain coherence and HIGH support are in direct conflict, and
+the M6 causes the first problem while supplying the second.
+
+**Three options, all of them yours:**
+
+1. **Re-frame the claim** from "Indian" to **South Asian unstructured traffic**.
+   Honest, and Dhaka footage is genuinely representative of mixed traffic with
+   rickshaws and auto-rickshaws — but it changes the paper's title and its
+   positioning against the Indian-traffic literature.
+2. **Drop the M6**, accept three folds and 10 HIGH windows, and report a
+   coherent domain with almost no severity signal.
+3. **Re-select for Indian footage**, which changes what capture we would
+   commission and is the reason this memo is now about more than Part B.
+
 ## The finding that may change this conversation entirely
 
 Measured today, after the memo above was drafted. The MFSTNet corpus is built,
@@ -104,6 +146,27 @@ We are **not** recalibrating the ADR-017 thresholds to fix this. Adjusting
 thresholds until the class balance improves is fitting labels to a desired
 outcome, and P45 already established that per-camera percentile calibration
 manufactures a HIGH class out of an empty road.
+
+**One distinction, because these will otherwise sound identical.** Changing the
+*sample* and changing the *ruler* are different acts:
+
+* **Selecting footage for the presence of congestion — or for geography — is
+  sampling design.** Declared in advance, reported in the paper, and entirely
+  legitimate. It is what options 1–3 above amount to.
+* **Moving the thresholds until the balance looks better is fitting labels to a
+  desired outcome.** We will not do it, and we would have to disclose it if we
+  did.
+
+We are asking for the first and refusing the second. If a decision leans toward
+re-selection, it is sampling design and we will pre-register the selection rule
+before applying it.
+
+A third legitimate move, if HIGH cannot be made to exist: **a pre-registered
+collapse to binary — LOW versus MEDIUM+HIGH — triggered by class support, not by
+results.** Support is a property of the data and is known before any metric is
+computed, so declaring the rule now, with the table above as its justification,
+is defensible. Declaring it after the 160 runs land would not be. We would like
+your view on whether to fix that trigger now.
 
 **Why it belongs in this memo.** The recommendation above optimises for
 *viewpoint diversity*. If the corpus cannot express HIGH, the binding constraint
