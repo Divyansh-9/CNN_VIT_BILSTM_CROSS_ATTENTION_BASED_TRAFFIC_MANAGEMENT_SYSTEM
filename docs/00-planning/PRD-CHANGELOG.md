@@ -5005,3 +5005,93 @@ instead of passing quietly.
 Thirteen tests, plus three in the audit suite. Two of the existing audit tests
 broke on this and were fixed by giving their synthetic corpora a registry rather
 than by disabling the check, so they exercise the real path.
+
+---
+
+## P62 — three questions answered before writing any more code (2026-08-22)
+
+All three could have changed what code was worth writing, and all three were
+hours rather than days. They are recorded together because the answers only mean
+something jointly.
+
+### 1. Are Dhaka-a and Dhaka-b the same junction? — **No.**
+
+Near-identical titles from one uploader, and [P58](#p58) checked one mid-frame
+each. Checked again at several timestamps: **Dhaka-a is a junction** — an open
+crossing with a police box, a pink bus, buildings in red banners. **Dhaka-b is a
+divided boulevard** with a raised central median and lamp posts, past South
+Point School & College.
+
+Different road *geometry*, not one junction from two angles: a junction viewed
+from elsewhere is still a junction. They remain correlated — one city, one
+corridor, one uploader — which is a caveat, not leakage.
+
+**Why it was decisive.** If they were one camera, dropping the M6 would leave
+**two** eligible cameras and leave-one-camera-out would stop meaning anything.
+They are two, so option A below leaves three — ADR-019's bare minimum.
+
+### 2. Does BMD-45 ship sequences? — **No, and the arithmetic is not close.**
+
+BMD-45 is on-target in every respect that matters: Bengaluru CCTV, elevated,
+mixed Indian traffic, CC BY 4.0, faces already blurred, and **already in this
+project**. If it shipped continuous video the corpus problem would be solved
+with no capture, no institutional permission, no blurring pipeline, no DPDP
+exposure and no waiting on a decision. It was worth more than the remaining runs
+to check.
+
+It is **isolated still images**, and its authors sampled them for *"spatial and
+temporal diversity"* — the deliberate opposite of a sequence. No timestamps, no
+ordering, filenames are anonymised numeric IDs. Confirmed against the dataset
+card rather than the abstract, which matches what
+[ADR-016](decisions/ADR-016-two-phase-corpus.md) recorded from the Hub API.
+
+The arithmetic settles it independently of any of that: **45,986 images over
+3,679 cameras is about 12.5 frames per camera**, and A15 requires **90
+consecutive observations** — T=60 at 2 s spacing plus a 30-step horizon — for a
+single window. Even if every one of a camera's frames were consecutive, it is
+seven times short.
+
+**There is no free route to Indian sequences in data already held.**
+
+### 3. Are the domain problem and the class problem separable? — **No.**
+
+Fixing the domain means dropping the M6. Dropping the M6 removes 44% of the
+windows and 20 of 30 HIGH labels, leaving about **10 HIGH corpus-wide** — the
+three-class task then does not exist rather than being underpowered. Keeping
+HIGH estimable keeps a British motorway as the majority of the evaluation.
+
+And **dropping the M6 does not make the corpus Indian; it makes it
+Bangladeshi**, which collapses the options rather than expanding them:
+
+| option | folds | lane-windows | HIGH | domain |
+|---|---|---|---|---|
+| A — re-frame to South Asian, drop the M6 | 3 | 320 | 10 (3.1%) | coherent |
+| B — re-frame to South Asian, keep the M6 | 4 | 572 | 30 | still incoherent |
+| C — obtain Indian footage | — | — | — | the only route to the claim as written |
+
+Option B is not a middle ground: it keeps A's domain problem to buy C's class
+support. The memo now presents A and C together as one decision, because
+approving the domain fix this week and discovering the class collapse next week
+is the failure mode of presenting them in sequence.
+
+## P63 — a reversal, recorded as one (2026-08-22)
+
+[P59](#p59) argued against restarting the leave-one-camera-out suite: Q2 needed
+only G and H, so it cost 40 re-runs rather than 160, and restarting would
+discard runs already paid for.
+
+**Two hours later the suite was restarted from scratch**, discarding thirteen
+runs. Both statements are in the same day's history and the second contradicts
+the first, so the reason is written here rather than left to be inferred:
+
+* the suite had **died anyway** ([P60](#p60)), so there was no running job to
+  protect — the choice was what to restart with, not whether to restart;
+* per-run predictions had since been added, so a fresh run produces them for
+  **all 160 runs** rather than 40, making Q2 free and complete;
+* the thirteen completed runs predated that and carried none, so keeping them
+  meant a directory in two formats.
+
+The original argument was right when it was made and stopped being right when
+the job died. **A decision that flips gets written down as a flip**, with what
+changed — otherwise the record reads as drift, and the next reader cannot tell a
+reconsideration from a lapse.

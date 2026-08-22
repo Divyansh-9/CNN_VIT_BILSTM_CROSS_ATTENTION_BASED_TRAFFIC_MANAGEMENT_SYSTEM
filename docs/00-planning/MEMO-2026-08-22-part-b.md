@@ -113,16 +113,48 @@ windows and leaves exactly three eligible cameras — the bare minimum the
 protocol allows. Domain coherence and HIGH support are in direct conflict, and
 the M6 causes the first problem while supplying the second.
 
-**Three options, all of them yours:**
+## The two problems are one coupled decision
 
-1. **Re-frame the claim** from "Indian" to **South Asian unstructured traffic**.
-   Honest, and Dhaka footage is genuinely representative of mixed traffic with
-   rickshaws and auto-rickshaws — but it changes the paper's title and its
-   positioning against the Indian-traffic literature.
-2. **Drop the M6**, accept three folds and 10 HIGH windows, and report a
-   coherent domain with almost no severity signal.
-3. **Re-select for Indian footage**, which changes what capture we would
-   commission and is the reason this memo is now about more than Part B.
+Presented separately, the domain problem and the class problem each look
+solvable. They are the same problem and they pull in opposite directions:
+
+> **Fix the domain honestly and you drop the M6. Dropping the M6 removes 44% of
+> the windows and 20 of the 30 HIGH labels, leaving about 10 HIGH in the whole
+> corpus. The three-class task is then not underpowered — it does not exist.
+> Keep HIGH estimable and you keep a British motorway as the majority of the
+> evaluation.**
+
+The corpus we have cannot do both. Deciding them in sequence means approving the
+domain fix this week and discovering the class collapse next week, so they are
+put here together.
+
+**And dropping the M6 does not make the corpus Indian — it makes it
+Bangladeshi.** That is the part that collapses the options:
+
+| option | folds | lane-windows | HIGH | domain |
+|---|---|---|---|---|
+| **A** — re-frame to South Asian, drop the M6 | 3 (protocol minimum) | 320 | **10 (3.1%)** | coherent |
+| **B** — re-frame to South Asian, keep the M6 | 4 | 572 | 30 | **still incoherent** — the UK is not South Asia |
+| **C** — obtain Indian footage | depends | depends | depends | the only route to the claim as written |
+
+Option B is not a compromise between A and C; it is A's domain problem retained
+for C's class support. **We recommend A, and C in parallel**, with the paper's
+class claim reduced to binary under the pre-registered rule below.
+
+Verified today so that C is costed honestly:
+
+* **Dhaka-a and Dhaka-b are genuinely different cameras** — a junction with a
+  police box against a divided boulevard past South Point School, checked at
+  several timestamps. So option A really does leave three cameras, which is the
+  protocol's minimum, not two.
+* **BMD-45 cannot supply sequences.** It is on-target in every other way —
+  Bengaluru CCTV, elevated, mixed traffic, CC BY 4.0, already in the project —
+  and it is **isolated still images**, sampled by its authors for "spatial and
+  temporal diversity", with no timestamps or ordering. 45,986 images across
+  3,679 cameras is about **12.5 frames per camera**, against the **90
+  consecutive observations** A15 requires for one window. Confirmed against the
+  dataset card, not the abstract. **There is no free route to Indian sequences
+  in data we already hold.**
 
 ## The finding that may change this conversation entirely
 
