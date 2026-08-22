@@ -76,6 +76,30 @@ These are graded deliverables:
 
 Negative or marginal results get reported honestly and analyzed (§2.5.5) — never quietly dropped or cherry-picked.
 
+## What the paper claims is checked against what the corpus holds
+
+`docs/00-planning/CLAIMS.yaml` holds every scope claim **as the sentence it
+would appear as in the paper**, each with a machine-checkable assertion.
+`scripts/check_claims.py` runs them and exits 1 on any failing `asserted` claim.
+
+**Two currently fail** (P64), and that is the honest state, not a bug to work
+around:
+
+- **domain** — no fold-eligible camera is Indian. The four are three Bangladeshi
+  and one British motorway (P58).
+- **class_coverage** — HIGH is 0/20/9/1 across folds, and fold 2's MEDIUM is 8
+  (P57).
+
+`asserted` blocks, `aspirational` reports, and promoting one is a diff. There is
+no override flag: the only ways to make a failing assertion pass are to change
+the corpus or change the claim. Before writing anything that depends on a claim
+holding, run it.
+
+Camera properties are **declared** in `data/cameras.json`, never inferred from a
+filename, and each records how it was determined — `frame` means the footage was
+inspected, `filename` means it was not. Unknown is a third answer and counts
+toward nothing.
+
 ## Key specified values
 
 Take these from the PRD rather than re-deriving. MFSTNet (§8.2, §8.4): `d_model=256`, `T=60` timesteps at 5s intervals, prediction horizon 12 steps (60s), BiLSTM 2 layers hidden=128 bidirectional, temporal attn 2 layers / 4 heads, AdamW `lr=1e-4` `wd=1e-4`, CosineAnnealingLR, 100 epochs, patience 15, batch 32, CrossEntropyLoss with inverse-frequency class weights, backbones frozen until epoch 30, split 60/20/20. Note the dataset split for *detection* is 70/15/15 stratified (FR-D05) — different number, different purpose.
@@ -143,6 +167,7 @@ python -m pytest                     # whole suite (config in pyproject.toml)
 python -m pytest tests/test_lanes.py::test_far_points_are_unassigned_not_snapped
 python scripts/check_docs.py         # link/claim integrity, stdlib only, runs in CI
 python scripts/check_build_log.py    # the status board against what is on disk
+python scripts/check_claims.py       # every paper claim against the corpus
 python scripts/build_review_pptx.py --pdf   # review deck + PDF, from the committed CSVs
 ```
 
