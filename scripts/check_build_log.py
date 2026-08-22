@@ -33,6 +33,19 @@ import argparse
 import csv
 import re
 import sys
+
+# P50, applied inline rather than by importing scripts.console: these three run
+# BEFORE the environment is built (check_env) or in CI with nothing on the path,
+# so they must stay stdlib-only and self-contained. A status board full of
+# check marks is unprintable on a cp1252 console without this, and the script
+# dies describing work it just verified.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if _reconfigure is not None:
+        try:
+            _reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,8 +76,16 @@ ARTIFACTS: dict[str, tuple[str, callable]] = {
     "S27": ("mfstnet/cache.py", lambda: (ROOT / "mfstnet" / "cache.py").is_file()),
     "S27b": ("data/lanes_reviewed/*.json",
              lambda: files_matching("data/lanes_reviewed/*.json", 12)),
-    "S28": ("experiments/results/ablation.csv",
-            lambda: rows_with(ROOT / "experiments" / "results" / "ablation.csv")),
+    # ADR-019 moved MFSTNet evaluation from one 60/20/20 draw to
+    # leave-one-camera-out, so the artifact moved too: `run_loco.py` writes
+    # `loco_summary.csv` and per-fold CSVs, and `ablation.csv` is now only
+    # written by a single-corpus `train_mfstnet.py` run. Second time this map
+    # has been wrong rather than the board (the first was S36's path) — which
+    # is the argument for the map being checked rather than trusted.
+    "S28": ("experiments/results/loco_summary.csv",
+            lambda: rows_with(ROOT / "experiments" / "results" / "loco_summary.csv")),
+    "S29": ("experiments/results/gate_vs_probe.csv",
+            lambda: rows_with(ROOT / "experiments" / "results" / "gate_vs_probe.csv")),
     "S32": ("simulation/networks/intersection.net.xml",
             lambda: (ROOT / "simulation" / "networks" / "intersection.net.xml").is_file()),
     "S33": ("simulation/networks/vtypes.add.xml",

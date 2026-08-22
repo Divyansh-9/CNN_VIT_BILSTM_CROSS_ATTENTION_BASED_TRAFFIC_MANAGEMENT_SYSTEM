@@ -1,0 +1,2 @@
+a,b,n_folds,seeds_per_fold,folds,difference_per_fold,mean_difference,ci_low,ci_high,sd_of_fold_differences,minimum_detectable_difference,material_threshold,interval_excludes_zero,material,verdict
+G,H,4,5,0 1 2 3,0:+0.0237 1:-0.2163 2:+0.0796 3:+0.0313,-0.0204,-0.1544,0.0657,0.1329,0.2115,0.05,False,False,CANNOT DISTINGUISH

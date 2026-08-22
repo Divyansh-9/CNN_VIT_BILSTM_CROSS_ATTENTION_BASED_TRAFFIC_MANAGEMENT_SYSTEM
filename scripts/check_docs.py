@@ -17,6 +17,19 @@ from __future__ import annotations
 
 import re
 import sys
+
+# P50, applied inline rather than by importing scripts.console: these three run
+# BEFORE the environment is built (check_env) or in CI with nothing on the path,
+# so they must stay stdlib-only and self-contained. A status board full of
+# check marks is unprintable on a cp1252 console without this, and the script
+# dies describing work it just verified.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if _reconfigure is not None:
+        try:
+            _reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

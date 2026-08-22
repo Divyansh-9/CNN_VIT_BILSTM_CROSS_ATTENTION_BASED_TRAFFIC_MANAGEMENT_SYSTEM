@@ -5906,3 +5906,100 @@ archive in one line, and there is a test for it.
 Safety clamping stays in the runner. A wrapper that clamped here would hide from
 the results how often a learned policy asked for something out of range, which
 is a thing worth knowing about a learned policy.
+
+---
+
+## P81 — the ablation finished, and it says what ADR-022 predicted (2026-08-22)
+
+**Status: measured. 160 runs, 4 folds × 8 configs × 5 seeds, all with
+per-window predictions.**
+
+### The table
+
+| config | | macro F1 | 95% CI | QWK | seed spread |
+|---|---|---|---|---|---|
+| C | concat fusion | **0.4405** | [0.372, 0.512] | 0.445 | 0.192 |
+| **H** | **linear probe** | **0.4155** | [0.380, 0.449] | 0.477 | 0.165 |
+| E | bidir, no gate | 0.4123 | [0.333, 0.487] | 0.393 | 0.209 |
+| B | ViT only | 0.4059 | [0.361, 0.449] | 0.437 | 0.193 |
+| **G** | **full, gated** | **0.3950** | [0.323, 0.464] | 0.343 | 0.198 |
+| F | + temporal attn | 0.3900 | [0.308, 0.468] | 0.358 | 0.214 |
+| A | CNN only | 0.3596 | [0.314, 0.405] | 0.307 | 0.160 |
+| D | one-dir cross-attn | 0.2787 | [0.209, 0.348] | 0.190 | 0.125 |
+
+**The full gated architecture ranks fifth of eight, below the linear probe.**
+The ceiling is 0.9167, not 1.0 — one fold's test camera has no HIGH window
+([P57](#p57)).
+
+**Nothing in this table separates from anything else.** The largest seed spread
+is 0.214 and the closest gap between two configs is 0.0032, a factor of 67. The
+ordering is noise, and `run_loco.py` says so in its own output.
+
+### Q1, the pre-registered test
+
+```
+per fold          0:+0.0237  1:-0.2163  2:+0.0796  3:+0.0313
+mean difference   -0.0204
+95% CI            [-0.1544, +0.0657]
+min detectable     0.2115
+VERDICT: CANNOT DISTINGUISH
+```
+
+Exactly the outcome [ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md)
+wrote down in advance. The design could resolve 0.2115 and the observed
+difference is 0.0204 — **the experiment has no power**, which is a statement
+about the experiment.
+
+### Q2, the diagnostic
+
+```
+reproduction check passed for G and H
+20 run pairs, 2860 lane-windows
+different predictions: 951 (33.25%)
+G right / H wrong: 273
+H right / G wrong: 597
+```
+
+G and H are **not** decision-identical — they disagree on a third of all
+windows. And the disagreements are **asymmetric 2.19 : 1 in the probe's
+favour**. McNemar's `p` is 0.00000 and is reported with its independence
+assumption violated; it cannot support a generalisation claim.
+
+Q1 says the fold-level test cannot separate them. Q2 says they decide very
+differently and the probe is more often right. Those are the two different
+situations ADR-022 split the questions to distinguish, and both are needed.
+
+### The post-hoc analysis, labelled as post-hoc
+
+Fold 1 is where [P79](#p79) found config G predicting `HIGH` for all 252 windows
+— a collapse under inverse-frequency weighting on a 2.8% class, not an
+architecture result. Excluding it:
+
+| | folds | mean G − H | sd | MDD |
+|---|---|---|---|---|
+| pre-registered | 0, 1, 2, 3 | **−0.0204** | 0.133 | 0.212 |
+| post-hoc, fold 1 removed | 0, 2, 3 | **+0.0449** | 0.030 | 0.075 |
+
+**The sign flips.** On the three folds where neither model collapsed, G beats H
+on every one.
+
+**This is not the result, and it must never be reported as one.** ADR-022 fixed
+the analysis in advance precisely so that a fold could not be dropped after
+seeing which way it pushed the mean. The exclusion is *justifiable* — P79
+diagnosed the collapse mechanically, from predictions, before Q1 was run — and
+it is still a choice made with the numbers visible.
+
+It is recorded as a **sensitivity analysis** with its own MDD, and the headline
+stays `CANNOT DISTINGUISH` over four folds. What it earns is a pre-registered
+hypothesis for a future corpus: *once the class weighting no longer drives
+collapse, the fold-level comparison may separate.* That is a prediction, not a
+finding.
+
+### What this does not license
+
+It does not license "the gate adds nothing", "MFSTNet fails", or "the linear
+probe wins". At a minimum detectable difference of 0.212 over four camera-folds
+with a 0.9167 ceiling and a class that exists in one fold, **this corpus cannot
+rank these architectures**, and no amount of re-analysis changes that. It is
+[ADR-023](decisions/ADR-023-separate-the-two-claims.md)'s C2, and it lands where
+that ADR expected it to.

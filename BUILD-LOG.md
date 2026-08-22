@@ -118,8 +118,8 @@ as the project's only blocker for two weeks.
 | S27 | Feature cache + manifest assertion | ✅ | — | Hash raises, never warns. 23 tests |
 | S27b | **Reviewed lane geometry, 12 cameras** | ✅ | — | `data/lanes_reviewed/`. **P44**: one automatic centre was in the sky. Review is provisional — see S18b |
 | S27c | Corpus built + **leave-one-camera-out split (ADR-019)** | ✅ | — | 153 sequences, 7 cameras. Hash split put a UK motorway alone in `test`; 4 folds now, all audited |
-| S28 | Phase 1 full training → **M4** | 🟨 | R2 | Trains clean on the cached corpus after **P55** — every window was a dangling view into a released memory map |
-| S29 | Ablation A–H × 5 seeds → **M5** | 🟨 | R2 | 160 runs in flight (4 folds × 8 configs × 5 seeds), one process each. **Underpowered at 28 independent segments — P45**, and seed spread can exceed the gap between configs — P54 |
+| S28 | Phase 1 full training → **M4** | ✅ | — | 160 runs, all with per-window predictions. Trains clean after **P55** |
+| S29 | Ablation A–H × 5 seeds → **M5** | ✅ | — | Complete: 4 folds × 8 configs × 5 seeds. **Q1 CANNOT DISTINGUISH** at MDD 0.212 (ADR-022, pre-registered). Table cannot be reported — P58/P57 fail the claims gate (P67) |
 | S30 | Backbone arms BB-1/2/3 | ⬜ | R2 | S29 |
 | S31 | ONNX export + latency (GPU and CPU-only) | 🟨 | R2 | Graph exports for all 8 configs, parity 1e-7, 11 tests. **A-H latency run pending a quiet machine**; INT8 pending a trained checkpoint |
 
