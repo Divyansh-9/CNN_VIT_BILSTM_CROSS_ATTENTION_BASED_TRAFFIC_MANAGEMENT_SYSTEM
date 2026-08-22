@@ -269,3 +269,67 @@ def test_a_table_containing_a_learned_arm_drops_that_sentence():
     _, _, caption = control_table([control_row(method_a="ppo",
                                                method_b="webster")])
     assert "No learned controller" not in caption
+
+
+# -------------------------------------------------------------- baselines --
+
+
+def baseline_row(**overrides):
+    base = {"model": "gru_counts", "n_folds": 4, "n_seeds": 5,
+            "macro_f1_mean": 0.5663, "macro_f1_seed_spread": 0.0339,
+            "accuracy_mean": 0.62, "qwk_mean": 0.41,
+            "macro_f1_per_fold": "0:0.428 1:0.557 2:0.780 3:0.500"}
+    base.update(overrides)
+    return base
+
+
+def test_the_baselines_table_is_ordered_best_first():
+    from scripts.make_paper_tables import baselines_table
+
+    rows = [baseline_row(model="xgboost_counts", macro_f1_mean=0.4691),
+            baseline_row(model="gru_counts", macro_f1_mean=0.5663)]
+    _, body, _ = baselines_table(rows)
+    assert body[0][0].startswith("gru")
+
+
+def test_a_lead_smaller_than_its_own_seed_spread_is_named_in_the_caption():
+    """The finding, not the ordering. A leaderboard read of this table says
+    'GRU wins'; the honest read is that nothing separates from doing nothing."""
+    from scripts.make_paper_tables import baselines_table
+
+    rows = [baseline_row(model="gru_counts", macro_f1_mean=0.5663,
+                         macro_f1_seed_spread=0.0339),
+            baseline_row(model="naive_last_value", macro_f1_mean=0.5571,
+                         macro_f1_seed_spread=0.0)]
+    _, _, caption = baselines_table(rows)
+    assert "no learned model here separates from doing nothing" in caption
+
+
+def test_a_clear_lead_over_naive_does_not_get_that_sentence():
+    from scripts.make_paper_tables import baselines_table
+
+    rows = [baseline_row(model="gru_counts", macro_f1_mean=0.90,
+                         macro_f1_seed_spread=0.01),
+            baseline_row(model="naive_last_value", macro_f1_mean=0.50,
+                         macro_f1_seed_spread=0.0)]
+    _, _, caption = baselines_table(rows)
+    assert "separates from doing nothing" not in caption
+
+
+def test_the_caption_says_these_are_not_weak_baselines():
+    """A32: a count model observes the exact variable the label is computed
+    from. A reader who assumes 'baseline' means 'weak' misreads the whole
+    comparison."""
+    from scripts.make_paper_tables import baselines_table
+
+    _, _, caption = baselines_table([baseline_row()])
+    assert "not weak baselines" in caption
+
+
+def test_the_baselines_table_is_gated_like_the_ablation():
+    """Measured on the same corpus, so it inherits the same claims. ADR-023's
+    universality argument for counts is structural; this table is empirical and
+    cannot borrow it to escape the gate."""
+    from scripts.make_paper_tables import DEPENDS_ON_CLAIMS
+
+    assert DEPENDS_ON_CLAIMS["baselines"] == DEPENDS_ON_CLAIMS["ablation"]

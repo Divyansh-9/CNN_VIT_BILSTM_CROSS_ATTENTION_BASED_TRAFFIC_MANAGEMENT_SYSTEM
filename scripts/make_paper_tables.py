@@ -54,6 +54,11 @@ OUT_DIR = Path("docs/paper/tables")
 # rendered at all (P67).
 DEPENDS_ON_CLAIMS = {
     "ablation": ("domain", "class_coverage", "camera_count"),
+    # Measured on the same corpus as the ablation, so it inherits the same
+    # claims. ADR-023's universality argument for counts is STRUCTURAL — a
+    # count means the same thing everywhere — and this table is empirical, so
+    # it cannot borrow that argument to escape the gate.
+    "baselines": ("domain", "class_coverage", "camera_count"),
     "control": (),          # SUMO. No corpus claim bears on it.
 }
 
@@ -62,6 +67,9 @@ SOURCES = {
                  "python scripts/run_loco.py --corpus data/corpus "
                  "--clips data/_corpus_clips --cache data/cache_corpus "
                  "--ablation --seeds 42 1 7 13 21"),
+    "baselines": (RESULTS / "baselines_summary.csv",
+                  "python scripts/train_baselines.py --corpus data/corpus "
+                  "--restat experiments/results/baselines_loco"),
     "control": (RESULTS / "benchmark_stats.csv",
                 "python scripts/benchmark.py --seeds 30"),
 }
@@ -196,6 +204,49 @@ def ablation_table(rows: list[dict]) -> tuple[list[str], list[list[str]], str]:
     return header, body, caption
 
 
+def baselines_table(rows: list[dict]) -> tuple[list[str], list[list[str]], str]:
+    """PRD §14.3's count-sequence baselines — ADR-023's C1 evidence.
+
+    The naive last-value row is not a formality. Over a 60-second horizon on a
+    signal this autocorrelated, "the same as now" is the number a learned
+    forecaster has to clear, and on this corpus none of them does by more than
+    its own seed noise.
+    """
+    header = ["Model", "Macro F1", "Seed spread", "QWK", "Accuracy",
+              "Per fold (0/1/2/3)"]
+    ordered = sorted(rows, key=lambda r: -float(r["macro_f1_mean"]))
+    body = [[
+        row["model"].replace("_", " "),
+        number(row["macro_f1_mean"]),
+        number(row.get("macro_f1_seed_spread", ""), 3),
+        number(row.get("qwk_mean", "")),
+        number(row.get("accuracy_mean", "")),
+        row.get("macro_f1_per_fold", "").replace(":", "=").replace(" ", ", "),
+    ] for row in ordered]
+
+    folds = max((int(r["n_folds"]) for r in rows if r.get("n_folds")), default=0)
+    seeds = max((int(r["n_seeds"]) for r in rows if r.get("n_seeds")), default=0)
+    caption = (
+        f"Count-sequence baselines (PRD §14.3) over leave-one-camera-out folds, "
+        f"{folds} folds $\times$ {seeds} seeds. These observe the vehicle count, "
+        f"which is the variable the congestion label is computed from (A32), so "
+        f"they are not weak baselines."
+    )
+
+    best = ordered[0]
+    naive = next((r for r in rows if "naive" in r["model"]), None)
+    if naive is not None and best["model"] != naive["model"]:
+        lead = float(best["macro_f1_mean"]) - float(naive["macro_f1_mean"])
+        spread = float(best.get("macro_f1_seed_spread") or 0)
+        if spread and lead < spread:
+            caption += (
+                f" The best learned model leads the naive last-value baseline "
+                f"by {lead:.4f}, against its own seed spread of {spread:.4f}: "
+                f"**no learned model here separates from doing nothing.**"
+            )
+    return header, body, caption
+
+
 def control_table(rows: list[dict]) -> tuple[list[str], list[list[str]], str]:
     header = ["Comparison", "Regime", "$n$", "Mean A", "Mean B", "$\\Delta$",
               "$p$", "Cohen's $d$", "Status"]
@@ -300,13 +351,14 @@ def as_markdown(header, body, caption, label, provenance="") -> str:
     return "\n".join(lines) + "\n"
 
 
-BUILDERS = {"ablation": ablation_table, "control": control_table}
+BUILDERS = {"ablation": ablation_table, "baselines": baselines_table,
+            "control": control_table}
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--which", default="all",
-                        choices=("all", "ablation", "control"))
+                        choices=("all", "ablation", "baselines", "control"))
     parser.add_argument("--format", default="both",
                         choices=("both", "latex", "markdown"))
     parser.add_argument("--out", type=Path, default=OUT_DIR)

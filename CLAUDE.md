@@ -212,7 +212,9 @@ python scripts/train_mfstnet.py --corpus data/corpus_loco/fold0 --cache data/cac
 python scripts/run_loco.py --corpus data/corpus --clips data/_corpus_clips --cache data/cache_corpus --ablation --device cuda --seeds 42 1 7 13 21
 python scripts/run_loco.py --restat                    # rebuild the summary, retrain nothing
 # --device auto|cpu|cuda (default auto). Results record which one ran.
-python scripts/train_baselines.py --corpus data/corpus
+python scripts/train_baselines.py --corpus data/corpus_loco/fold0 --seed 42 --out experiments/results/baselines_loco/fold0_seed42.csv
+python scripts/train_baselines.py --corpus data/corpus --restat experiments/results/baselines_loco   # the aggregate
+python scripts/make_paper_tables.py --which all       # withheld while check_claims is red
 ```
 
 `run_loco.py` is the one to run for a reportable number: it trains every fold
