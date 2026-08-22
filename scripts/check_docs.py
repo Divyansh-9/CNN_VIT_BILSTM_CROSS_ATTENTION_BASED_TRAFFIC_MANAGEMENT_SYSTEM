@@ -196,12 +196,52 @@ def check_requirements_traceable(files: list[Path]) -> None:
             f"{RTM_PATH}, so it has no test or milestone behind it")
 
 
+AMENDS = re.compile(r"(?:Amends|Supersedes|Replaces).*PRD.*" + chr(167))
+
+
+def check_amendments_land(files: list[Path]) -> None:
+    """An ADR that amends a PRD section must be reachable FROM that section.
+
+    CLAUDE.md's rule is "amend the PRD and log it in PRD-CHANGELOG -- never work
+    around a PRD statement you believe is incorrect." The changelog half is easy
+    to remember because it is where the work happens. The PRD half is easy to
+    skip, and skipping it leaves the source of truth stating something two
+    decisions have since replaced.
+
+    That happened twice in one day: ADR-019 amended the split ratio and ADR-020
+    the state layout, and the PRD mentioned neither. A reader of PRD 8.4 had no
+    way to learn that leave-one-camera-out exists.
+
+    The check is deliberately weak -- it asks only that the ADR's identifier
+    appear somewhere in the PRD, not that the prose be correct. A stronger check
+    would need to understand the amendment, and a check nobody can satisfy is a
+    check that gets deleted.
+    """
+    prd = ROOT / "docs" / "00-planning" / "PRD.md"
+    if not prd.exists():
+        failures.append("missing  docs/00-planning/PRD.md")
+        return
+    text = prd.read_text(encoding="utf-8", errors="replace")
+    adr_dir = ROOT / "docs" / "00-planning" / "decisions"
+    for adr in sorted(adr_dir.glob("ADR-*.md")):
+        head = adr.read_text(encoding="utf-8", errors="replace").split(chr(10))[:12]
+        if not any(AMENDS.search(line) for line in head):
+            continue
+        identifier = adr.name[:7]
+        if identifier not in text:
+            failures.append(
+                f"unlanded amendment  {adr.name} says it amends a PRD section, "
+                f"but the PRD never mentions {identifier} -- a reader of that "
+                f"section cannot learn the amendment exists")
+
+
 def main() -> int:
     files = markdown_files()
     check_links(files)
     check_withdrawn(files)
     check_adrs_registered()
     check_requirements_traceable(files)
+    check_amendments_land(files)
 
     print(f"checked {len(files)} markdown files")
     if failures:
@@ -210,7 +250,8 @@ def main() -> int:
             print(f"  {f}")
         return 1
     print("links resolve, no withdrawn claims resurrected, all ADRs "
-          "registered, every requirement defined and traced")
+          "registered, every requirement defined and traced, "
+          "every PRD amendment reachable from the PRD")
     return 0
 
 

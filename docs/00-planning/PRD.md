@@ -691,7 +691,7 @@ Continuous recording session (own footage, retained offline only)
 | Label source | Fine-tuned YOLOv8 counts | Same detector as FR-D08; recorded per experiment |
 | Label rule | §14.1 count thresholds | No new thresholds introduced |
 | Split unit | **Source clip, never sequence** | Overlapping windows in both train and test would leak (§2.5.1) |
-| Split ratio | 60/20/20 (§8.4) | Applied over clips, then sequences inherit their clip's split |
+| Split ratio — *superseded, pending* | ~~60/20/20 (§8.4)~~ → **leave-one-camera-out**, [ADR-019](decisions/ADR-019-leave-one-camera-out-evaluation.md) (Proposed) | Seven cameras hashed into three buckets put a UK motorway alone in `test` and a camera with no HIGH window alone in `val`, and the assignment is a function of the filename. Detection is unaffected and stays 70/15/15 (FR-D05) |
 | Verification subset — *v1.2 A9, A18* | **Test split only: ~150 sequences stratified by density band, plus 25 double-counted.** Test-split density bands are re-derived from the **human** counts, not the detector's | Was "500 spread across the corpus" — 2,000 manual lane counts (~17 h) producing a number that changed no decision. Concentrating a smaller budget on the test split costs less and buys a **clean evaluation set**, which is what breaks the circularity in §14.5 A11. Train/val stay auto-labelled; the double-count yields inter-rater agreement |
 
 **Label noise is a known property of this corpus, not a defect to be hidden.** Detection error
@@ -951,7 +951,7 @@ state = np.array([
 ])
 ```
 
-> **A16 — `mfst_gate_mean` removed; 17 → 16 dimensions.** The gate is a property of visual fusion and
+> **A16 — `mfst_gate_mean` removed; 17 → 16 dimensions.** *A further change to this layout is proposed but **not** applied here: [ADR-020](decisions/ADR-020-forecast-staleness-channel.md) would add a forecast-age channel and reserve zero for "absent", taking the vector to 17 dimensions again. It is Proposed and awaiting the guide; this section still describes the 16-dim contract that `mfstnet/configs/spec.yaml` implements.* The gate is a property of visual fusion and
 > has **no analogue in SUMO**, so it would be constant throughout the 500K training steps — a dead
 > input that consumes parameters and receives no gradient. Removing it is free now because no PPO
 > checkpoint exists; it stops being free the moment one is written. The gate remains a research

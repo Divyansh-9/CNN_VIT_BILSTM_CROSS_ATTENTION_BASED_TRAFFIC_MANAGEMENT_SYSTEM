@@ -248,7 +248,7 @@ CSVs, never hand-entered — a summary that cannot be recomputed from raw data i
 | Model weights | `.pt`, `.onnx`, PPO `.zip` | Permanent | Git LFS |
 | Experiment results | Per-run CSVs | Permanent | Plain git, explicitly un-ignored (NFR-09, NFR-10) |
 
-**Split discipline.** Detection uses 70/15/15 stratified (FR-D05). MFSTNet uses 60/20/20 (PRD §8.4)
+**Split discipline.** Detection uses 70/15/15 stratified (FR-D05). MFSTNet's 60/20/20 (PRD §8.4) is superseded by leave-one-camera-out — [ADR-019](../00-planning/decisions/ADR-019-leave-one-camera-out-evaluation.md), Proposed
 **cut by source clip, not by sequence** — overlapping windows from one clip appearing in both train
 and test would leak, and PRD §2.5.1 lists exactly this as a Week 11–12 failure. Different numbers,
 different units, different purposes. Confusing them silently corrupts every reported result.

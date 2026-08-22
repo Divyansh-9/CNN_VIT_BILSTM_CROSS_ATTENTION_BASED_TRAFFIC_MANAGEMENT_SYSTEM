@@ -5652,3 +5652,58 @@ help once the byte is wrong. It is the same shell-escaping mangling that has
 bitten this session repeatedly, and it is the reason the first run of a new
 check must be read rather than trusted: **a checker that finds nothing looks
 exactly like a repository with no problems.**
+
+---
+
+## P77 — two amendments were logged and never landed in the PRD (2026-08-22)
+
+**Status: fixed, and made checkable.** `scripts/check_docs.py`, PRD §8.4 and
+§13.1, `docs/01-requirements/SRS.md`.
+
+CLAUDE.md's rule is:
+
+> When implementation reveals the PRD is wrong, amend the PRD and log it in
+> PRD-CHANGELOG — **never work around a PRD statement you believe is
+> incorrect.**
+
+The changelog half is easy to remember, because it is where the work happens.
+**The PRD half was skipped twice in one day, by me.**
+
+* [ADR-019](decisions/ADR-019-leave-one-camera-out-evaluation.md) declares it
+  amends **PRD §8.4**. §8.4 still read `Split ratio | 60/20/20` with no note. A
+  reader of the source of truth had no way to learn leave-one-camera-out exists.
+* [ADR-020](decisions/ADR-020-forecast-staleness-channel.md) declares it amends
+  **PRD §13.1**. §13.1 never mentioned it.
+* `SRS.md` restated `MFSTNet uses 60/20/20 (PRD §8.4)` as current.
+
+### What was written, and what deliberately was not
+
+Both ADRs are **Proposed**. So the PRD now **points at** each proposal rather
+than applying it: §8.4 marks the ratio superseded-pending and links ADR-019,
+§13.1 says a 17-dimension change is proposed and *not* applied, and that the
+section still describes the 16-dim contract `spec.yaml` implements.
+
+Pre-applying a proposed amendment would be worse than not landing it: it would
+put a decision in the source of truth that the guide has not made.
+
+### The check
+
+`check_docs.py` now fails when an ADR's header declares it amends a PRD section
+and **the PRD never mentions that ADR**. Verified to fail by removing the
+identifier from the PRD and watching it fire, then restoring — because
+[P76](#p76) had just demonstrated that a new check which finds nothing looks
+exactly like a repository with no problems.
+
+It is deliberately **weak**: it asks only that the identifier appear somewhere
+in the PRD, not that the surrounding prose be right. A stronger check would have
+to understand the amendment, and a check nobody can satisfy is a check that gets
+deleted.
+
+### The same escaping bug, twice more
+
+The pattern was first written with `\n` inside a character class and reached the
+file as a real newline, breaking the string literal outright. Rewritten to match
+**per line**, which needs no escape at all. Combined with P76's backspace bytes,
+that is three regexes mangled by shell escaping in one session — the reliable
+workaround is to build patterns without backslash escapes, using `chr()` where a
+literal is unavoidable.
