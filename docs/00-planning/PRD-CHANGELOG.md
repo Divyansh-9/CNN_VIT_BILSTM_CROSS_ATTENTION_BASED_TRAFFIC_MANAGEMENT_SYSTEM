@@ -6003,3 +6003,68 @@ with a 0.9167 ceiling and a class that exists in one fold, **this corpus cannot
 rank these architectures**, and no amount of re-analysis changes that. It is
 [ADR-023](decisions/ADR-023-separate-the-two-claims.md)'s C2, and it lands where
 that ADR expected it to.
+
+---
+
+## P82 — the first real control result, and it beats the baseline that counts (2026-08-22)
+
+**Status: measured.** `experiments/results/benchmark_ppo/`, 120 runs.
+
+The 30-seed benchmark, saturated regime, now with a PPO arm that
+[P80](#p80) made runnable. Mean per-vehicle wait, lower is better:
+
+| method | n | mean wait | sd |
+|---|---|---|---|
+| **PPO, no-forecast, 500k** | 30 | **11.33 s** | 1.69 |
+| Webster | 30 | 14.05 s | 1.86 |
+| fixed | 30 | 26.18 s | 3.73 |
+| longest queue | 30 | 26.92 s | 6.82 |
+
+Paired over seeds:
+
+| comparison | difference | 95% CI | p | Cohen's d |
+|---|---|---|---|---|
+| **PPO vs Webster** | **−2.72 s (19.4%)** | [−3.41, −1.98] | < 0.00001 | **−1.34** |
+| PPO vs fixed | −14.85 s | [−16.04, −13.66] | < 0.00001 | −4.43 |
+| PPO vs longest queue | −15.58 s | [−17.87, −12.72] | < 0.00001 | −2.12 |
+
+### Why the Webster row is the one that matters
+
+`benchmark.py` says it in its own docstring, written long before this number
+existed:
+
+> `fixed` is deliberately untuned... it stands for the status-quo signal this
+> project claims to improve on. `webster` is the tuned-offline baseline — what a
+> competent traffic engineer would deploy. **Beating `fixed` shows the problem
+> is real; beating `webster` shows the method is worth having. Only the second
+> is a result.**
+
+**PPO beats Webster by 19.4%, paired over 30 seeds, at d = −1.34.** That is a
+large effect against the baseline the project itself nominated as the real test,
+and it is the first headline number this project has produced that is not
+qualified into meaninglessness by its corpus.
+
+### Where it sits, honestly
+
+* **This is [ADR-023](decisions/ADR-023-separate-the-two-claims.md)'s C1**, and
+  C1 is the half that needs no video corpus. The result stands whatever the
+  guide decides about Part B, the domain, or the licence.
+* **It is one arm.** `surrogate` does not exist ([P52](#p52)) and `mfstnet`
+  needs a trained forecaster, so this measures *the controller*, not the
+  forecast's contribution to it. The question "does a forecast help?" is
+  untouched by this and remains ADR-021's.
+* **One regime.** Saturated only. ADR-012's disqualification rules apply at the
+  other two and none of these rows is marked disqualified.
+* **One seed of training.** The policy is `seed 42`; PRD §14.4's five-seed rule
+  is about *training* seeds, and this is thirty *evaluation* seeds against one
+  trained policy. That is a real limitation and the next runs are seeds 1, 7, 13
+  and 21.
+
+### A mistake in the invocation, recorded because the output was misleading
+
+`benchmark.py --out` is a **directory**, not a file. It was given
+`experiments/results/benchmark_ppo_runs.csv`, so it created a *directory* of
+that name containing `benchmark_runs.csv` and `benchmark_stats.csv`. The run was
+correct and the path was nonsense — a directory called `something.csv` is the
+kind of artifact that gets mistaken for a file by the next script that touches
+it. Moved to `experiments/results/benchmark_ppo/`.
