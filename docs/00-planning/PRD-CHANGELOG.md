@@ -6068,3 +6068,63 @@ that name containing `benchmark_runs.csv` and `benchmark_stats.csv`. The run was
 correct and the path was nonsense — a directory called `something.csv` is the
 kind of artifact that gets mistaken for a file by the next script that touches
 it. Moved to `experiments/results/benchmark_ppo/`.
+
+---
+
+## P83 — the control server, and a default bound at import time (2026-08-22)
+
+**Status: S41 done.** `server/safety.py`, `server/app.py`, 35 tests.
+
+Phase 6 was 1 of 6 and needed nothing that is blocked — the detector exists, the
+MQTT contract exists, and none of it touches the corpus, the guide or a licence.
+
+### The shape, and why
+
+**Every rule that matters is in `server/safety.py`, which has no HTTP in it.**
+FR-A03 (10 s / 90 s green), FR-A04 (all-red ≥ 3 s), FR-A05 (emergency
+preemption) and FR-A06 (Webster fallback within 10 s) are requirements about
+*actuation*, and `simulation/controllers.py` already states the principle for
+the simulator: safety clamping lives outside the controller so that **no
+controller, learned or otherwise, can produce an unsafe program**. A PPO policy
+is exactly the component that will one day request a 2-second green because a
+reward surface said so.
+
+The rule **order** is the requirement order and is tested as such: emergency
+outranks minimum green — a minimum-green rule that delays an ambulance is a rule
+applied to the wrong thing — and outranks the MQTT fallback. Webster's own
+output is still clamped, because it is a formula and not a trusted oracle.
+
+**NFR-13 is structural, not a rule to remember.** The request model has no field
+that could carry a frame and no stored column could hold one, and both are
+asserted. A privacy guarantee implemented as a check somewhere is a guarantee
+that survives until someone adds an endpoint.
+
+**FR-A06's clock is the server's.** The edge reports when it last spoke; the
+server judges whether that is too long ago. **A device that has crashed cannot
+report that it has crashed**, so a timeout measured on the sender would never
+fire in the one case it exists for. There is a test named after that.
+
+### The defect, which looked like something else
+
+`def connect(path: Path = DATABASE)` binds the default **when the module is
+imported**. The tests pointed `DATABASE` at a temporary file, every call ignored
+them, and three tests shared one database — the real one, in `data/server/`.
+
+It surfaced as `assert 9 == 3` on a history query, which reads as a query bug.
+It was a scoping bug, and the give-away was that 9 is exactly 3 tests × 3 posts.
+`connect` now resolves the default at call time.
+
+Worth recording because **the test isolation was fake in a way the tests
+passed through**: eleven of twelve assertions held anyway, and only the one that
+counted rows noticed.
+
+### Also
+
+`requirements.txt` gained `fastapi`, `pydantic`, `uvicorn` and `httpx` — caught
+by `test_every_imported_package_is_pinned`, which is the repo's own rule
+enforcing itself in the same commit as the first import. `httpx` is not imported
+by server code; `fastapi.testclient` requires it, and a test dependency whose
+absence breaks the suite is still a dependency.
+
+ADR-008's SQLite choice means there is no database driver in that list and no
+container to run.

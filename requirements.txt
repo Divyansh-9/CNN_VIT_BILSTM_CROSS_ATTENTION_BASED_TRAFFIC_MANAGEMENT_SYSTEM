@@ -106,6 +106,16 @@ onnx==1.22.0
 onnxruntime==1.29.0
 onnxscript==0.7.1
 
+# ---- the control server (S41, PRD 17, ADR-008) ----
+# ADR-008 replaced PostgreSQL + TimescaleDB with SQLite, which is stdlib, so
+# there is no database driver here and no container to run. `httpx` is not
+# imported by server code — `fastapi.testclient` requires it, and a test
+# dependency whose absence breaks the suite is still a dependency.
+fastapi==0.141.1
+pydantic==2.13.4
+uvicorn==0.52.4
+httpx==0.28.1
+
 # ---- NOT INSTALLED: subsystems that do not exist yet ----
 #
 # These are forward declarations, deliberately left un-pinned and un-installed.
@@ -114,7 +124,6 @@ onnxscript==0.7.1
 #
 # Add the pin in the same commit as the first import, as above.
 #
-#   fastapi, uvicorn       the prediction server (PRD §17) — unbuilt
 #   paho-mqtt              the edge/server link (PRD §17.1) — unbuilt
 #   tensorboard, mlflow    experiment tracking (PRD §21) — not yet wired
 #   peft                   LoRA, if ADR-007's adapter path is taken

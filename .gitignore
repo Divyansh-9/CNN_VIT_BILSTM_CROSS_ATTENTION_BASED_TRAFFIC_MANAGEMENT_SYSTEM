@@ -120,3 +120,6 @@ data/corpus_loco/
 
 # Run logs. Useful while a job is in flight, not afterwards.
 logs/
+
+# Server runtime store (ADR-008 SQLite). Regenerated on first request.
+data/server/
