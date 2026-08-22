@@ -18,6 +18,14 @@
 # `scripts/check_claims.py` runs them all and exits 1 on any failure. The value
 # of the pattern is that the fifth skip costs nothing.
 #
+# NOT wired into CI, deliberately and temporarily. Two asserted claims fail
+# today and both are blocked on a guide decision (see MEMO-2026-08-22-part-b).
+# A CI job that is red for a known, documented, decision-pending reason trains
+# people to ignore CI, which costs more than the check gains. It is wired in as
+# soon as the decision lands, whichever way it lands: if the claim is narrowed,
+# the assertions change and pass; if the corpus is changed, they pass on the new
+# corpus. Recorded here so a later reader can tell a deferral from an oversight.
+#
 # status:
 #   asserted  - the paper will say this, and the check must pass
 #   aspirational - intended, not yet true. Reported, never blocking, and it
