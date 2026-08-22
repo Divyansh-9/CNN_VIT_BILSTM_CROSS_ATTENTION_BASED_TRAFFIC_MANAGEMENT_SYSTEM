@@ -149,8 +149,42 @@ Bangladeshi.** That is the part that collapses the options:
 | **C** — obtain Indian footage | depends | depends | depends | the only route to the claim as written |
 
 Option B is not a compromise between A and C; it is A's domain problem retained
-for C's class support. **We recommend A, and C in parallel**, with the paper's
-class claim reduced to binary under the pre-registered rule below.
+for C's class support.
+
+### Option D — and it is the cheapest thing on this board
+
+Every problem in this memo is a problem about **video**. None of it touches the
+controller, and that is not a coincidence: **there are two claims here and they
+have been carried as one** ([ADR-023](decisions/ADR-023-separate-the-two-claims.md)).
+
+The chain `camera → detector → per-lane counts → label → PPO → signal` is
+junction-invariant. A count of 23 vehicles means the same thing everywhere, and
+the PPO state already runs on counts. The residual per-junction cost is lane
+geometry plus **one capacity scalar per lane** — an install-time calibration,
+not weeks of retraining. (Counts are dimensionally invariant; their *thresholds*
+depend on lane capacity, and we would rather state that than imply it away.)
+
+MFSTNet is the half that breaks, because it consumes **pixels** — which encode
+facades, camera angle and lighting, i.e. junction *identity* rather than traffic
+*state*. That is the mechanism behind 0.8941 → 0.3500.
+
+| | claim | data needed | status |
+|---|---|---|---|
+| **C1** | universal count-based forecaster + RL signal control | count time series — SUMO, open city data: **abundant** | mostly built |
+| **C2** | vision beats counts, so it transfers to unseen junctions | continuous elevated video: **scarce** | unsupported |
+
+**Every problem above belongs to C2 alone.** Separating them yields a working
+universal controller **plus** an honest measured finding about when vision adds
+to it — a stronger position than a narrowed scope, and it waits on no capture
+and no reply.
+
+We ran §14.3's count baselines across all four folds for this decision. **Naive
+last-value scores 0.5571 mean, and 0.692 on the M6 fold** — the best single
+number in the table. Any learned forecaster must clear "the same as now", which
+PRD §14.3 predicted and which is now measured rather than assumed.
+
+**We recommend D, with A as the framing for C2, and C in parallel** — the class
+claim reduced to binary under the pre-registered support rule below.
 
 ### There is a third coupling, and it changes the economics
 

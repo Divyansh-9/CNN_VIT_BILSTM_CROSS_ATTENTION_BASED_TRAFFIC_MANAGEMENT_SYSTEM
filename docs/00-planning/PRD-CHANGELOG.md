@@ -5449,3 +5449,56 @@ preparation.
 Recorded as a defect rather than a task because the omission has a shape:
 **every constraint in this project was treated as fixed until it was measured,
 and this one was never even asked about.**
+
+---
+
+## P73 — the count baselines, measured across all four folds (2026-08-22)
+
+**Status: measured.** `experiments/results/baselines_loco/`.
+
+PRD §14.3's count-sequence baselines existed as a script and had never been run
+against the leave-one-camera-out folds. They are the number MFSTNet has to beat,
+and they are **not blocked by anything in [P57](#p57), [P58](#p58) or
+[P68](#p68)** — counts are junction-invariant, which is the observation
+[ADR-023](decisions/ADR-023-separate-the-two-claims.md) is built on.
+
+Four folds, seed 42, macro F1:
+
+| count model | mean | fold 0 | fold 1 | fold 2 | fold 3 |
+|---|---|---|---|---|---|
+| GRU | **0.5682** | 0.437 | 0.551 | 0.780 | 0.505 |
+| **naive last-value** | **0.5571** | 0.449 | **0.692** | 0.673 | 0.414 |
+| LSTM | 0.5385 | 0.405 | 0.579 | 0.780 | 0.390 |
+| XGBoost | 0.4691 | 0.433 | 0.574 | 0.461 | 0.408 |
+
+### The naive baseline is the story
+
+**"The same as now" is the second-best model in the table and holds the best
+single number in it** — 0.692 on the M6 fold. PRD §14.3 predicted this: over a
+60-second horizon on a signal this autocorrelated, last-value is strong. It is
+now measured rather than assumed, and **any claim about a learned forecaster has
+to clear 0.557**, not zero.
+
+A learned GRU beats it by 0.011 on the mean, which is inside the seed spread.
+
+### What must not be read from this yet
+
+On fold 0 seed 42, MFSTNet's config G scores **0.4977** against the best count
+model's **0.449** — MFSTNet ahead. That is tempting and it is not evidence:
+
+* one fold, one seed;
+* it is the fold whose test camera has **no HIGH window**, so it is a two-class
+  problem — precisely where the count models' structural advantage has least
+  room to show. A32: on auto-labelled data a count model observes the exact
+  variable the label is computed from, so it should win *by construction*, and a
+  fold where it does not is a fold where that construction is weakest;
+* the comparable numbers arrive when the suite finishes all four folds.
+
+Recorded because a run produced it. Not reported as a finding.
+
+### Why this was worth running today
+
+It is **C1's evidence** under ADR-023, and C1 is the half of the project that is
+not waiting on a corpus, a licence or a decision. Running it converted "the
+controller half is fine" from an assumption into four folds of numbers, while
+the vision half waits.
