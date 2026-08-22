@@ -5213,3 +5213,50 @@ That is the real lesson from the sequence, and it is not about power settings.
 **On hardware that dies unpredictably, resumability is worth more than any
 individual fix for any individual cause of death** — each cause was different,
 each fix was correct, and none of them would have prevented the next one.
+
+---
+
+## P66 — the Q2 path verified on real artifacts, and what it says so far (2026-08-22)
+
+**Status: tool verified. The numbers below are partial and are not a result.**
+
+`discordance.py` had only ever run on synthetic fixtures. Run against the real
+committed artifacts for configs G and H:
+
+```
+  reproduction check passed for G and H
+  G vs H over 2 run pair(s), 280 lane-windows
+  different predictions: 26 (9.29%)
+  G right / H wrong: 15
+  H right / G wrong: 4
+  McNemar exact p = 0.01921   <- INDEPENDENCE VIOLATED
+```
+
+**The reproduction check passing is the part that matters here.** Every
+predictions file re-scored to the macro F1, accuracy and QWK in its committed
+metrics row, so the per-window decisions describe the same models the table
+describes. That was the [P59](#p59) guard's whole purpose and it had never been
+exercised on anything but fixtures.
+
+### What the numbers are, and what they are not
+
+**Fold 0 only, two of five seeds, one camera — the one with no HIGH window at
+all.** They are recorded because a verification run produced them and hiding a
+number a tool printed is the habit this changelog exists against, not because
+they support anything.
+
+What they do show is that **G and H are not decision-identical**: they disagree
+on 26 of 280 lane-windows, and the disagreements are asymmetric — G right where
+H is wrong 15 times against 4 the other way.
+
+That is precisely the situation [ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md)
+split Q1 from Q2 to detect. Q1 over four fold means is expected to return
+"cannot distinguish"; Q2 already shows the two models decide differently. Had
+they been named primary and fallback, the temptation would be to report Q2's
+`p = 0.019` and stop. **They answer different questions, and Q2's `p` still
+cannot support a generalisation claim** — 280 windows from one camera, sharing
+54 of 60 frames with their neighbours, are nothing like 280 independent
+observations.
+
+The number that bears on the architecture is Q1, over four cameras, and it does
+not exist yet.
