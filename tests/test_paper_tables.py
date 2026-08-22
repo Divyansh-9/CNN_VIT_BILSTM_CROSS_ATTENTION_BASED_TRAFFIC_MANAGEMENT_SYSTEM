@@ -209,3 +209,48 @@ def test_the_digest_changes_when_the_source_changes(tmp_path):
 def test_provenance_is_optional_so_the_builders_stay_usable(tmp_path):
     header, body, caption = ablation_table([ablation_rows()])
     assert r"\begin{table}" in as_latex(header, body, caption, "ablation")
+
+
+# ------------------------------------------------ gated on the claims file --
+
+
+def test_the_ablation_table_declares_the_claims_it_depends_on():
+    """P67. Numbers from a corpus that fails its own claims gate are a real
+    measurement of something other than what the paper reports."""
+    from scripts.make_paper_tables import DEPENDS_ON_CLAIMS
+
+    assert "domain" in DEPENDS_ON_CLAIMS["ablation"]
+    assert "class_coverage" in DEPENDS_ON_CLAIMS["ablation"]
+
+
+def test_the_control_table_depends_on_no_corpus_claim():
+    """SUMO. No camera, no domain, no class support — gating it on the corpus
+    would be a guard that cries wolf."""
+    from scripts.make_paper_tables import DEPENDS_ON_CLAIMS
+
+    assert DEPENDS_ON_CLAIMS["control"] == ()
+
+
+def test_a_table_is_withheld_while_its_claims_fail(tmp_path, monkeypatch, capsys):
+    """Not captioned — withheld. A caption cannot stop numbers being pasted
+    into a draft three weeks later with the caveats stripped."""
+    from scripts import make_paper_tables
+
+    monkeypatch.setattr(make_paper_tables, "failing_claims",
+                        lambda table: ([{"id": "domain", "detail": "no on-target camera"}]
+                                       if table == "ablation" else []))
+    out = tmp_path / "tables"
+    assert make_paper_tables.main(
+        ["--which", "ablation", "--out", str(out)]) == 1
+    assert "NOT RENDERED" in capsys.readouterr().out
+    assert not list(out.glob("ablation.*")), (
+        "a withheld table must leave no file behind")
+
+
+def test_a_table_renders_when_its_claims_hold(tmp_path, monkeypatch):
+    from scripts import make_paper_tables
+
+    monkeypatch.setattr(make_paper_tables, "failing_claims", lambda table: [])
+    out = tmp_path / "tables"
+    assert make_paper_tables.main(["--which", "control", "--out", str(out)]) == 0
+    assert (out / "control.tex").is_file()

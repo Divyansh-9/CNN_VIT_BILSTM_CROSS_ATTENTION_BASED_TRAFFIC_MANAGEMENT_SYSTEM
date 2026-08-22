@@ -5260,3 +5260,90 @@ observations.
 
 The number that bears on the architecture is Q1, over four cameras, and it does
 not exist yet.
+
+---
+
+## P67 — the ablation table is withheld, not captioned, while the corpus fails its claims (2026-08-22)
+
+**Status: fixed.** `scripts/make_paper_tables.py`, `tests/test_paper_tables.py`.
+
+The leave-one-camera-out ablation is running to completion and its numbers
+**cannot enter the paper**, whatever they say: [P58](#p58) leaves no on-target
+camera in any fold and [P57](#p57) leaves HIGH at 0/20/9/1. They are a real
+measurement of something. They are not the measurement the paper claims to
+report.
+
+A caption saying so is not enough. **Eight numbers in a rendered table get
+pasted into a draft three weeks later with the caveats stripped**, and the
+caption is the first thing to go.
+
+So `make_paper_tables.py` now declares which claims each table depends on and
+**does not render** one whose claims fail:
+
+```
+  ablation   NOT RENDERED — the corpus fails 2 asserted claim(s):
+             domain: 4 of 4 fold(s) have no on-target camera in test
+             class_coverage: fold0:HIGH=0, fold2:MEDIUM=8, fold2:HIGH=9, fold3:HIGH=1
+             A caption cannot stop these numbers being pasted into a draft.
+```
+
+The control table still renders. It is SUMO — no camera, no domain, no class
+support — so gating it on the corpus would be a guard that cries wolf, and that
+is pinned by a test.
+
+Exit 1 when any table is withheld, so a paper build cannot step over it.
+
+## P68 — a third coupling: the domain problem and the licence problem have one solution (2026-08-22)
+
+**Status: open. It is the guide's decision and it changes the arithmetic.**
+
+[P62](#p62) coupled two problems: fixing the domain drops the M6, which destroys
+the HIGH class. There is a third, and it was recorded in
+[P64](#p64)'s registry before its consequence was drawn.
+
+**Every camera in the corpus carries an unresolved licence** — twelve
+third-party uploads with nothing declared — and the detector that counted them
+is ITD v1.2, **CC BY-NC 4.0**. Nothing derived from this corpus is releasable.
+That was true before P58 and is independent of it.
+
+**So the domain problem and the licence problem have the same solution and the
+same cost: the corpus has to be re-sourced either way.** Re-sourcing was one
+option among three. It is now the only one that fixes both, which changes what
+capture is worth and therefore changes the recommendation in the
+[Part B memo](MEMO-2026-08-22-part-b.md).
+
+### A reversal, recorded as one
+
+The memo previously recommended **cutting Part B** as the cheapest thing to
+drop. That was right when the alternative was eleven usable cameras. With
+**zero** on-domain fold-eligible cameras it is not, and the memo now says so in
+its own text rather than leaving the guide to reconcile two recommendations.
+
+The recommendation that survives is still the other branch — **change the claim,
+not the corpus** — because with placements running, re-sourcing is weeks that do
+not exist. What is defensible today is the benchmark, the protocol, and the
+audit apparatus; those are not blocked on data nobody has.
+
+## P69 — closed: Dhaka-a and Dhaka-b are not the same camera (2026-08-22)
+
+Asked three times, answered twice, so it is recorded as **closed** with the
+evidence rather than re-examined a fourth time.
+
+Frames were inspected at 15% and 85% of each clip, not one mid-frame:
+
+| | Dhaka-a | Dhaka-b |
+|---|---|---|
+| road form | open junction, vehicles crossing | divided boulevard, raised central median |
+| landmarks | police-box sign, pink bus, red-bannered buildings | South Point School & College, WALTON signage |
+| resolution | 1920×1080 | 3840×2160 |
+
+Different road **geometry**, which is the part a viewing angle cannot change: a
+junction seen from elsewhere is still a junction. `group_cameras` separated them
+at 0.2457 similarity against a 0.80 threshold.
+
+They remain correlated — one city, one corridor, one uploader — and that is
+stated as a caveat, not called leakage.
+
+**Consequence, which is why it kept being asked:** dropping the M6 leaves
+**three** eligible cameras, not two, so leave-one-camera-out remains a protocol
+at ADR-019's minimum rather than collapsing.

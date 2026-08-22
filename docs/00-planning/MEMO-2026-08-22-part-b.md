@@ -141,6 +141,48 @@ Option B is not a compromise between A and C; it is A's domain problem retained
 for C's class support. **We recommend A, and C in parallel**, with the paper's
 class claim reduced to binary under the pre-registered rule below.
 
+### There is a third coupling, and it changes the economics
+
+The footage that supplies our training sequences is **twelve third-party
+uploads with no licence declared**. That was already a publication blocker
+before any of the above — nothing derived from them is releasable, and the
+detector that counted them is ITD v1.2, CC BY-NC 4.0.
+
+**So the domain problem and the licence problem have the same solution and the
+same cost: the corpus has to be re-sourced either way.** Re-sourcing was
+previously one option among three; it is now the only route that fixes both, and
+that changes what the capture in option C is worth.
+
+### A recommendation we are reversing, stated as a reversal
+
+Earlier in this memo's drafting we recommended **cutting Part B** as the
+cheapest thing to drop. That was correct when the alternative was eleven usable
+cameras. **It is not correct now that the number of on-domain fold-eligible
+cameras is zero.**
+
+Capture may be the only route to a corpus that can carry the paper's stated
+claim — with **this memo's spec** (few viewpoints, chosen for congestion, at
+peak, 15–20 minutes continuous), **not** ADR-006's campus-frames spec. We are
+flagging the reversal explicitly so the two recommendations are not read as
+inconsistent.
+
+### And the recommendation is still the other branch
+
+With placements running, re-sourcing is weeks that are not available. Three
+Dhaka cameras and about ten HIGH windows cannot support a three-class Indian
+forecasting claim, and no amount of statistical care fixes that.
+
+What **is** measured and defensible today is the harmonised benchmark, the
+leave-one-camera-out protocol, and the audit apparatus itself: sixty-plus
+recorded defects with causes, a composition gate that fails honestly, paper
+claims as machine-checkable assertions, contract hashing, and pre-registration
+committed before results existed. That is an unusual contribution and it is the
+only part of this project not blocked on data we do not have.
+
+**Our recommendation: lead the thesis with the benchmark, the protocol and the
+methodology, and report MFSTNet as measured and not separable from its floor.**
+File the permission request and keep C open, but do not plan on it.
+
 Verified today so that C is costed honestly:
 
 * **Dhaka-a and Dhaka-b are genuinely different cameras** — a junction with a

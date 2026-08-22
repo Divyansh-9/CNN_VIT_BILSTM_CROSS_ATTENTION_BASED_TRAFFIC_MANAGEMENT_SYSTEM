@@ -49,6 +49,14 @@ use_utf8()
 RESULTS = Path("experiments/results")
 OUT_DIR = Path("docs/paper/tables")
 
+# Which claims a table depends on. A table whose corpus fails its own claims
+# gate cannot enter the paper whatever its numbers say, so the table is not
+# rendered at all (P67).
+DEPENDS_ON_CLAIMS = {
+    "ablation": ("domain", "class_coverage", "camera_count"),
+    "control": (),          # SUMO. No corpus claim bears on it.
+}
+
 SOURCES = {
     "ablation": (RESULTS / "loco_summary.csv",
                  "python scripts/run_loco.py --corpus data/corpus "
@@ -70,6 +78,39 @@ CONFIG_LABELS = {
     "G": "Full (gated, attention pooled)",
     "H": "Linear probe",
 }
+
+
+def failing_claims(table: str) -> list[dict]:
+    """Asserted claims this table depends on that do not currently hold.
+
+    The ablation's eight numbers describe a corpus with no on-target camera in
+    any fold and a HIGH class of 0/20/9/1. They are a real measurement of
+    something, and they are not the measurement the paper claims to report — so
+    rendering them at all is how they end up pasted into a draft three weeks
+    later, caption and caveats stripped.
+
+    A caption is not enough. The table is not produced.
+    """
+    wanted = DEPENDS_ON_CLAIMS.get(table, ())
+    if not wanted:
+        return []
+    try:
+        import yaml
+
+        from mfstnet.corpus.composition import CameraRegistry
+        from scripts.check_claims import CLAIMS, FOLDS, fold_rows, run
+    except ImportError:                                   # pragma: no cover
+        return []
+    if not CLAIMS.is_file():
+        return []
+    claims = [c for c in yaml.safe_load(CLAIMS.read_text(encoding="utf-8"))["claims"]
+              if c["id"] in wanted]
+    folds = fold_rows(FOLDS)
+    if not folds:
+        return []
+    results = run(claims, CameraRegistry.load(), folds)
+    return [r for r in results
+            if r["status"] == "asserted" and not r["passed"]]
 
 
 def read_rows(path: Path, how: str) -> list[dict]:
@@ -263,7 +304,20 @@ def main(argv: list[str] | None = None) -> int:
                else [args.format])
 
     args.out.mkdir(parents=True, exist_ok=True)
+    blocked = 0
     for name in wanted:
+        failing = failing_claims(name)
+        if failing:
+            blocked += 1
+            print(f"  {name:<10} NOT RENDERED — the corpus fails "
+                  f"{len(failing)} asserted claim(s) this table depends on:")
+            for result in failing:
+                print(f"               {result['id']}: {result['detail']}")
+            print(f"               A caption cannot stop these numbers being "
+                  f"pasted into a draft.")
+            print(f"               Fix the corpus or change the claim "
+                  f"(scripts/check_claims.py).")
+            continue
         path, how = SOURCES[name]
         header, body, caption = BUILDERS[name](read_rows(path, how))
         provenance = f"source: {path.as_posix()} sha256:{source_digest(path)}"
@@ -278,6 +332,9 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print("  Generated, not transcribed (NFR-10). Regenerate after every run;")
     print("  a table that disagrees with its CSV is the CSV that is right.")
+    if blocked:
+        print(f"  {blocked} table(s) withheld on a failing claim.")
+        return 1
     return 0
 
 
