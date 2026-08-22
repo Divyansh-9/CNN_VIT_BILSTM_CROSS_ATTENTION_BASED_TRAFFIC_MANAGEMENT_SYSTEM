@@ -5707,3 +5707,59 @@ file as a real newline, breaking the string literal outright. Rewritten to match
 that is three regexes mangled by shell escaping in one session — the reliable
 workaround is to build patterns without backslash escapes, using `chr()` where a
 literal is unavoidable.
+
+---
+
+## P78 — the pre-registered test, written before the data (2026-08-22)
+
+**Status: built and tested against synthetic folds. Not yet run for record.**
+`scripts/gate_vs_probe.py`, `tests/test_gate_vs_probe.py`.
+
+[ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md) fixed Q1's test, its
+aggregation order, its power calculation and its material threshold before the
+suite completed. **A pre-registration that leaves the analysis to be written
+afterwards has left the analysis free**, so the code is now committed before the
+data too — the commit that adds it precedes the commit that adds
+`loco_summary.csv`, checkable in `git log`.
+
+Eleven tests pin the three things that were fixed in advance:
+
+* the **aggregation order** — seeds averaged within a fold, *then* differenced,
+  *then* combined across folds. Differencing per seed and pooling gives the same
+  mean and a different variance, which is the whole reason ADR-022 named an
+  order;
+* the **power calculation** — asserted against the figures ADR-022 quotes,
+  1.591 × sd at n=4 and 2.484 × sd at n=3, so the document and the code cannot
+  drift apart;
+* the **verdicts**, including the one that exists to be refused: a null result
+  prints `CANNOT DISTINGUISH` with the minimum detectable difference beside it,
+  never "equivalent".
+
+There is also a `SEPARATED BUT NOT MATERIAL` verdict, tested on a tiny but
+consistent gap. At this n a significant result on a 0.02 difference is a
+small-sample artifact before it is a finding, and the threshold exists so that
+case has somewhere to go other than into the abstract.
+
+### A dry run on the partial suite, which is not a result
+
+Three of four folds, four of five seeds:
+
+```
+per fold             0:+0.0237  1:-0.2163  2:+0.0417
+mean difference      -0.0503
+min detectable diff   0.3579
+VERDICT: CANNOT DISTINGUISH
+```
+
+**ADR-022's prediction holds so far**, which is the least surprising possible
+outcome and was written down in advance for exactly that reason.
+
+Two things worth noticing and not concluding from. The mean difference is
+**negative** — the linear probe ahead of the full architecture across these
+three folds — which is the opposite of the fold-0-only reading recorded in
+[P73](#p73), and is why one fold was explicitly not treated as evidence there.
+And **fold 1 alone swings −0.2163**: the M6, the fold that is 41% of the corpus
+and a British motorway.
+
+The suite is incomplete, so these are recorded as a tool check rather than a
+finding. The number for record is produced once, on the finished suite.
