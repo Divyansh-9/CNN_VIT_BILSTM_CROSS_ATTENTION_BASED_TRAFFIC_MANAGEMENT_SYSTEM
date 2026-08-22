@@ -254,3 +254,18 @@ def test_a_table_renders_when_its_claims_hold(tmp_path, monkeypatch):
     out = tmp_path / "tables"
     assert make_paper_tables.main(["--which", "control", "--out", str(out)]) == 0
     assert (out / "control.tex").is_file()
+
+
+def test_a_baselines_only_control_table_says_so(tmp_path):
+    """Rendering is not meaning. A green table with no learned method in it
+    reads as 'control is done' to anyone who does not count the rows."""
+    _, _, caption = control_table([control_row(method_a="fixed",
+                                               method_b="webster")])
+    assert "No learned controller" in caption
+    assert "P52" in caption
+
+
+def test_a_table_containing_a_learned_arm_drops_that_sentence():
+    _, _, caption = control_table([control_row(method_a="ppo",
+                                               method_b="webster")])
+    assert "No learned controller" not in caption

@@ -51,6 +51,17 @@ need continuous footage, so sparse frames can never make a camera fold-eligible.
 Keeping the clip costs disk and preserves the option; discarding it forecloses
 the far more valuable artifact.
 
+### Pilot one site before committing the rest
+
+**Film 20 minutes at one candidate location, run the detector, and check the
+count distribution against ADR-017's thresholds before scheduling anything
+else.** An evening.
+
+Without it, a capture week can end in a corpus that still cannot express HIGH —
+which is exactly the failure documented above, repeated with our own footage and
+a week spent. **Dehradun peak density is an open question, not a given**, and
+the pilot answers it before the cost is sunk.
+
 ### Labelling, and the circularity it would otherwise inherit
 
 Boxes seeded by our own detector and human-corrected are **not independent of
@@ -165,6 +176,40 @@ claim — with **this memo's spec** (few viewpoints, chosen for congestion, at
 peak, 15–20 minutes continuous), **not** ADR-006's campus-frames spec. We are
 flagging the reversal explicitly so the two recommendations are not read as
 inconsistent.
+
+### What option A actually leaves, as figures
+
+Dropping the M6 leaves three Bangladeshi cameras, ~320 lane-windows, and **10
+HIGH windows — nine of them inside Pov's 44-window fold.** HIGH would exist in
+one fold of three.
+
+Two consequences follow as numbers, not directions:
+
+**The three-class task is gone, not underpowered.** A class present in one fold
+of three is not estimable. The collapse to **binary — LOW versus MEDIUM+HIGH —
+becomes forced by support**, and we are declaring the trigger now, before the
+suite lands, on support grounds: *if any class has fewer than 10 test windows in
+more than one fold, the reported task is binary.* It already fires.
+
+**The statistical test loses what little power it had.** At three folds the
+paired *t*-test has df=2 and needs a **56% larger difference** to detect
+anything:
+
+| | n = 4 | n = 3 |
+|---|---|---|
+| minimum detectable difference | 1.591 × sd | **2.484 × sd** |
+| at the measured seed spread (0.185) | 0.294 | **0.460** |
+
+**0.460 exceeds the entire span of the config table (0.288).** The test would be
+unable to separate the best architecture from the worst. At n=4 it is already
+0.294 — the whole span — so this is a powerless test becoming more so, not a
+cliff.
+
+**So the honest description of option A is:** three cameras, one country, two
+classes, a test with no power, and a negative result reported as a negative
+result. That is defensible and publishable as a **benchmark-and-protocol**
+paper. **It is not a forecasting contribution**, and we would rather you saw it
+in those terms than as "we narrowed the scope".
 
 ### And the recommendation is still the other branch
 

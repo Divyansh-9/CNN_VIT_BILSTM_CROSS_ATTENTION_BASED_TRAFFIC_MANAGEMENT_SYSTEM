@@ -5347,3 +5347,105 @@ stated as a caveat, not called leakage.
 **Consequence, which is why it kept being asked:** dropping the M6 leaves
 **three** eligible cameras, not two, so leave-one-camera-out remains a protocol
 at ADR-019's minimum rather than collapsing.
+
+---
+
+## P70 — dropping the M6 makes an already-powerless test resolve nothing (2026-08-22)
+
+**Status: quantified and pre-registered.**
+[ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md) amended.
+
+[P62](#p62) said dropping the M6 costs the HIGH class. Two consequences were
+stated as directions rather than figures, so they are computed here.
+
+### The class is gone, not thinned
+
+Dropping the M6 leaves three Bangladeshi cameras, ~320 lane-windows and **10
+HIGH — nine of them inside Pov's 44-window fold.** HIGH would exist in **one
+fold of three**. A class present in one fold is not estimable, so the collapse
+to **binary (LOW vs MEDIUM+HIGH)** stops being an option and becomes forced.
+
+The trigger is declared now, before the suite lands, on **support** grounds —
+support is a property of the data, known before any metric — and it already
+fires: *if any class has fewer than 10 test windows in more than one fold, the
+reported task is binary.*
+
+### The test loses what little power it had
+
+| | n = 4 | n = 3 |
+|---|---|---|
+| `t_crit` two-sided 0.05 | 3.182 (df 3) | 4.303 (df 2) |
+| minimum detectable difference | 1.591 × sd | **2.484 × sd** — 56% larger |
+| at the measured seed spread 0.185 | 0.294 | **0.460** |
+
+**0.460 is larger than the entire config table span**, which runs 0.211 to 0.499
+on fold 0 — a range of 0.288. The test could not separate the best architecture
+from the worst.
+
+At n=4 it is already 0.294, which *is* the span. This is not a cliff at three
+cameras; **the fold-level test resolves essentially nothing at four**, and
+dropping the M6 makes it 56% weaker still.
+
+### The honest description of the surviving branch
+
+> Three cameras, one country, two classes, a test with no power, and a negative
+> result reported as a negative result.
+
+Defensible and publishable as a **benchmark-and-protocol** paper. **Not a
+forecasting contribution.** The guide is shown it in those terms in the memo,
+rather than as "we narrowed the scope", because those are different things and
+only one of them is true.
+
+## P71 — the control table renders, and its central comparison does not exist (2026-08-22)
+
+**Status: fixed in the caption.**
+
+[P67](#p67) correctly left the control table ungated: it is SUMO, so no corpus
+claim bears on it. But **rendering is not meaning.** The table compares
+`fixed`, `longest_queue` and `webster` — and contains **no learned controller at
+all**, because [P52](#p52) leaves the surrogate arm unimplemented and
+[ADR-021](decisions/ADR-021-forecast-quality-as-a-swept-variable.md)'s oracle run
+has not gone.
+
+A green table beside a withheld one reads as *"control is done, vision is not"*
+to anyone who does not count the rows. The caption now says the opposite in the
+table's own words, generated from its contents rather than remembered:
+
+> No learned controller appears in this table: it compares the fixed-time
+> baselines only. The PPO arms are unimplemented (P52) and the oracle bound of
+> ADR-021 has not been run, so the comparison this table exists for is not yet
+> answered.
+
+The sentence disappears automatically once any learned arm appears in the CSV,
+which is pinned by a test — a caveat that has to be removed by hand is a caveat
+that outlives its reason.
+
+## P72 — the outreach that should have been sent a week ago (2026-08-22)
+
+**Status: drafted, not sent.** `docs/00-planning/OUTREACH-2026-08-22.md`.
+
+[P62](#p62) established there is no route to an on-domain corpus from data
+already held. It did not follow the obvious next step: **BMD-45's stills were
+sampled from continuous recordings, and somebody has those recordings.**
+
+BMD-45 is on-domain in every respect — Bengaluru Safe City CCTV, elevated fixed
+viewpoint, mixed Indian traffic, CC BY 4.0, faces blurred, already cited here.
+The *only* barrier is ~12.5 frames per camera against the 90 consecutive
+observations a window needs. If even five or six cameras' worth of 15–20 minute
+clips can be released, that closes **both** [P58](#p58)'s domain problem and
+[P68](#p68)'s licence problem at once, with no capture, no permission chain, no
+blurring pipeline and no DPDP exposure.
+
+Two emails, batched with the TrafficCAM licence request that has been owed since
+that dataset was assessed — and both asked the same third question: *any pointer
+to continuous elevated Indian footage.*
+
+**Timing is the whole point.** Replies take days. A mail sent today can inform
+the guide's 29 August decision; a mail sent after it can only reopen a decision
+already made. This is twenty minutes of work with a chance of removing the
+project's binding constraint entirely, and it does not compete with placement
+preparation.
+
+Recorded as a defect rather than a task because the omission has a shape:
+**every constraint in this project was treated as fixed until it was measured,
+and this one was never even asked about.**

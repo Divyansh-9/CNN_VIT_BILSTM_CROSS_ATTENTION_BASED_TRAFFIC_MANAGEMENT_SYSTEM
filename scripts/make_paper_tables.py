@@ -234,6 +234,19 @@ def control_table(rows: list[dict]) -> tuple[list[str], list[list[str]], str]:
             f"ADR-012 and are reported with the disqualification attached, not "
             f"omitted."
         )
+    # Rendering is not meaning. This table's central comparison — a learned
+    # controller against the fixed-time baselines — does not exist yet: P52
+    # leaves the surrogate arm unimplemented and ADR-021's oracle run has not
+    # gone. A green table with no learned method in it reads as "control is
+    # done" to anyone who does not count the rows.
+    methods = {row["method_a"] for row in rows} | {row["method_b"] for row in rows}
+    if not (methods & {"ppo", "mfstnet", "surrogate", "oracle", "no-forecast"}):
+        caption += (
+            " No learned controller appears in this table: it compares the "
+            "fixed-time baselines only. The PPO arms are unimplemented "
+            "(P52) and the oracle bound of ADR-021 has not been run, so the "
+            "comparison this table exists for is not yet answered."
+        )
     return header, body, caption
 
 

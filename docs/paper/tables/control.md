@@ -13,4 +13,4 @@
 | fixed vs webster | light | 30 | 11.92 | 6.59 | 5.33 | 0.0000 | 15.99 | disqualified: webster |
 | longest_queue vs webster | light | 30 | 6.28 | 6.59 | -0.31 | 0.0000 | -1.08 | disqualified: webster |
 
-Signal control across light, oversaturated, saturated demand, paired over seeds. Paired t-test at alpha = 0.05 with bootstrap intervals (10,000 resamples). 5 comparison(s) involve a method disqualified under ADR-012 and are reported with the disqualification attached, not omitted.
+Signal control across light, oversaturated, saturated demand, paired over seeds. Paired t-test at alpha = 0.05 with bootstrap intervals (10,000 resamples). 5 comparison(s) involve a method disqualified under ADR-012 and are reported with the disqualification attached, not omitted. No learned controller appears in this table: it compares the fixed-time baselines only. The PPO arms are unimplemented (P52) and the oracle bound of ADR-021 has not been run, so the comparison this table exists for is not yet answered.

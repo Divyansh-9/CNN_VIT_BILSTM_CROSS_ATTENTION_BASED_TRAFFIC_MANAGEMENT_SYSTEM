@@ -152,6 +152,55 @@ Re-measuring it was the first thing the clean suite was asked for, because it is
 the number that decides whether five seeds was ever enough — and on this
 evidence it is not.
 
+### If the M6 is dropped, this test resolves nothing at all
+
+The domain fix in [P58](../PRD-CHANGELOG.md) removes the M6 and leaves **three**
+eligible cameras. That is not a small change to the power calculation:
+
+| | n = 4 | n = 3 |
+|---|---|---|
+| `t_crit` (two-sided, 0.05) | 3.182 (df 3) | 4.303 (df 2) |
+| minimum detectable difference | **1.591 x sd** | **2.484 x sd** |
+| at the measured sd of 0.185 | 0.294 | **0.460** |
+
+**0.460 is larger than the entire span of the config table** — fold 0 runs from
+0.211 (C) to 0.499 (F), a range of 0.288. The test would be unable to separate
+the best architecture from the worst, let alone G from H.
+
+At n=4 it is already 0.294, which *is* the span. So this is not a cliff at
+n=3 — the fold-level test resolves essentially nothing either way, and dropping
+the M6 makes an already-powerless test 56% weaker.
+
+### The binary collapse is now forced, not optional
+
+Dropping the M6 also leaves **10 HIGH windows in the whole corpus, nine of them
+in Pov's 44-window fold**. HIGH would exist in one fold of three.
+
+A three-class claim is then not underpowered; it is **not estimable**. So the
+collapse to binary — **LOW versus MEDIUM+HIGH** — stops being an option and
+becomes forced by support:
+
+> **Trigger, declared now on support grounds and before the suite lands:** if
+> any class has fewer than 10 test windows in more than one fold, the reported
+> task collapses to binary (LOW vs elevated) and the three-class table is
+> reported as a supplementary diagnostic, never as the headline.
+
+Support is a property of the data and is known before any metric is computed,
+which is what makes declaring this now legitimate and declaring it after the
+160 runs land cherry-picking. The trigger **already fires** on the current
+corpus: HIGH is below 10 in folds 0, 2 and 3.
+
+### The honest characterisation of the "change the claim" branch
+
+Stated plainly so it is not read as a scope trim:
+
+> **Three cameras, one country, two classes, a test with no power, and a
+> negative result reported as a negative result.**
+
+That is defensible — and publishable — as a **benchmark-and-protocol** paper. It
+is **not a forecasting contribution**, and the guide should be shown it in those
+terms rather than as "we narrowed the scope".
+
 ### What "cannot distinguish" means, and what it does not
 
 A non-significant result at n=4 is **not evidence of equivalence**. It will be
