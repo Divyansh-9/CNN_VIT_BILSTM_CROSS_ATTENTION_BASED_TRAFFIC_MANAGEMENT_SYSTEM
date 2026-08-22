@@ -5502,3 +5502,42 @@ It is **C1's evidence** under ADR-023, and C1 is the half of the project that is
 not waiting on a corpus, a licence or a decision. Running it converted "the
 controller half is fine" from an assumption into four folds of numbers, while
 the vision half waits.
+
+---
+
+## P74 — twelve checkpoints of unknown length were sitting where the benchmark looks (2026-08-22)
+
+**Status: fixed by archiving, not deleting.** `models/ppo/_pre_p47/`.
+
+[P47](#p47) added provenance sidecars to PPO checkpoints. Twelve checkpoints
+predate it, and **none records how many timesteps it trained for** — a `.zip`
+stores weights, not training length.
+
+They were still in `models/ppo/`, which is where `screen_action_space.py` and the
+30-seed benchmark load from. A checkpoint of unknown length silently scoring a
+benchmark is precisely the failure P47 exists to prevent, and the one that nearly
+had a 16-August file reported as a 21-August result.
+
+Moved to `models/ppo/_pre_p47/` with a README stating why. **Archived rather
+than deleted** because they are the only artifacts of several days of runs;
+**moved rather than left** because a guard that refuses them is worth less than
+their not being in the path at all.
+
+`assert_compatible` already refuses them on two counts — no recorded timesteps,
+and no observation-contract digest — so this is defence in depth rather than the
+only line. To use one, retrain it: cheaper than establishing what it is.
+
+### And the run that should have happened days ago
+
+With the archive clear, the **500,000-step `no-forecast` arm** is training. It
+had died three times ([P60](#p60), [P65](#p65)) and its checkpoint on disk was
+still dated 16 August.
+
+It runs on the **CPU** by [P38](#p38)'s deliberate pinning, so it does not
+contend with the ablation on the GPU — measured at 74% utilisation with both
+running. That is the practical value of P38's decision, which was made for
+comparability rather than for scheduling: **the RL half and the vision half can
+progress at once.**
+
+Under [ADR-023](decisions/ADR-023-separate-the-two-claims.md) this is C1's
+evidence, and C1 is the half not waiting on a corpus, a licence or a decision.

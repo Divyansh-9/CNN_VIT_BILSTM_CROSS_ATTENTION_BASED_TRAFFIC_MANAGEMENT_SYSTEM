@@ -132,7 +132,7 @@ as the project's only blocker for two weeks.
 | S34 | Fixed / Random / Webster baselines | ✅ | — | 270 rows in `benchmark_runs.csv` — 30 seeds x 3 controllers x 3 regimes |
 | S35 | Webster saturation-flow sweep (ADR-012) → **M3** | ✅ | — | 21 runs. **Broke ADR-012's selection rule** |
 | S36 | Gym environment, `check_env` clean | ✅ | — | check_env clean. 16-dim contract read from spec |
-| S37 | PPO training, three arms → **M6** | 🟨 | R3 | Harness + config done, smoke run trains. Full 500k pending |
+| S37 | PPO training, three arms → **M6** | 🟨 | R3 | `no-forecast` 500k **training now** on CPU. 12 pre-P47 checkpoints archived — unknown length (P74). `surrogate` unimplemented (P52); `mfstnet` is Phase 3 |
 | S38 | 30-seed benchmark + statistics → **M7** | 🟨 | R3 | Stats + harness done, baselines benchmarked. PPO arms pending |
 
 ### Phase 6 — System · Weeks 4–19 → **M8, M9, M10**
