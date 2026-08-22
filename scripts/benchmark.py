@@ -65,11 +65,30 @@ def controllers() -> dict[str, callable]:
     Stated here because an untuned fixed-time arm reads as a straw man when
     nothing says it was chosen to be untuned.
     """
-    return {
+    found = {
         "fixed": lambda: Fixed(green_s=30),
         "longest_queue": lambda: LongestQueue(),
         "webster": lambda: Webster(saturation_flow_per_metre=WEBSTER_SATURATION),
     }
+
+    # The line above this function has always claimed "PPO arms appear here
+    # automatically once checkpoints exist under models/ppo/". Until now they
+    # did not, which is the P52 shape: a comment asserting a capability is
+    # indistinguishable from the capability until someone runs it.
+    #
+    # Each checkpoint is loaded through `assert_compatible`, so one whose
+    # observation contract does not match the current spec — or which records
+    # none — refuses rather than quietly scoring. `discover_checkpoints` is not
+    # recursive, so P74's archive of unknown-length checkpoints stays out.
+    from simulation.ppo_controller import PPOController, discover_checkpoints
+
+    for checkpoint in discover_checkpoints():
+        stem = checkpoint.stem
+        space = "keep_or_switch" if "keep_or_switch" in stem else "phase_duration"
+        name = stem.replace("ppo_", "").replace(f"_{space}", "")
+        found[name] = (lambda c=checkpoint, s=space:
+                       PPOController(c, action_space=s))
+    return found
 
 
 def run_benchmark(

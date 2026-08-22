@@ -5849,3 +5849,60 @@ read "G scored 0.049 on fold 1", and the natural conclusion would have been that
 the architecture generalises badly. The actual conclusion — that it emitted one
 class 252 times — is a different problem with a different fix, and no metric in
 the results CSV could have shown it.
+
+---
+
+## P80 — the benchmark promised PPO arms it could not run (2026-08-22)
+
+**Status: fixed.** `simulation/ppo_controller.py`, `scripts/benchmark.py`,
+`tests/test_ppo_controller.py`.
+
+`benchmark.py` has said since it was written:
+
+> PPO arms appear here automatically once checkpoints exist under `models/ppo/`.
+
+They did not. `controllers()` returned `fixed`, `longest_queue` and `webster`
+and nothing else. **This is the [P52](#p52) shape** — `ppo_config.yaml`
+describing a surrogate arm that was never implemented — and it is worth naming
+as a class: *a comment asserting a capability is indistinguishable from the
+capability until someone runs it.*
+
+Fixed now that a verifiable checkpoint exists: the first 500,000-step run with
+a P47 sidecar (`timesteps: 500000`, `smoke: false`, contract digest
+`24ad1c994e844238`, git commit recorded). Every prior checkpoint was unknowable
+and is archived under P74.
+
+### Two defects caught while writing the adapter, both silent
+
+**The action decoding was wrong.** `keep_or_switch` is `Discrete(2)` — action 1
+requests a switch, 0 keeps, and the green is the fixed `decision_interval_s`.
+**The duration is not part of the action at all.** The first version here
+decoded a green from `action // 2`, which on a two-action space is always 0, so
+every green would have been the ladder's smallest while the environment used its
+decision interval.
+
+The policy would have been benchmarked under rules it never trained under, the
+episodes would have run, the CSV would have filled, and **every number would
+have been about a different experiment.** Nothing raises.
+
+**A config value silently fell back to a literal.** The spec key is
+`signal.green_durations_s`; the first version read `signal.green_durations` with
+a default of `[10, 20, 30, 45, 60, 90]`. The default happened to match, so it
+worked — and would have kept working, unchanged, after any edit to the real
+value. That is exactly what NFR-16 prohibits. It now raises if the key is
+absent, because a default here is a second copy of a config value.
+
+### What is verified rather than trusted
+
+`assert_compatible` refuses a checkpoint whose observation-contract digest does
+not match the current `spec.yaml`, and one that records no digest. The 30-seed
+benchmark is precisely where an unverified policy's numbers would end up being
+reported from.
+
+`discover_checkpoints` is **deliberately not recursive**, so P74's archive of
+unknown-length checkpoints cannot be picked up. Recursing would undo that
+archive in one line, and there is a test for it.
+
+Safety clamping stays in the runner. A wrapper that clamped here would hide from
+the results how often a learned policy asked for something out of range, which
+is a thing worth knowing about a learned policy.
