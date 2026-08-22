@@ -140,10 +140,10 @@ as the project's only blocker for two weeks.
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
 | S39 | MQTT contract + cross-topic test | ✅ | — | 31 assertions. P7 and TRIAGE-001 closed |
-| S40 | Edge node: capture → count → publish | ⬜ | R4 | S11, S39 |
+| S40 | Edge node: capture → count → publish | ✅ | — | `edge/node.py`. FR-A06 fallback decided **on the edge**, tested without a broker. 14 tests |
 | S41 | FastAPI + store | ✅ | — | `server/safety.py` (FR-A03..A06, no HTTP in it) + `server/app.py` (SQLite per ADR-008). **35 tests**, most without starting a server |
 | S42 | Dashboard (2 pages if ADR-008 approved) | ⬜ | R4 | S41 |
-| S43 | Both fallbacks + fault injection — **pull to W17** | ⬜ | R4 | S40, S41 |
+| S43 | Both fallbacks + fault injection — **pull to W17** | 🟨 | R4 | Both fallbacks **implemented and tested**: server-side FR-A06 in `server/safety.py`, edge-side in `edge/node.py`. Fault injection across a real broker still owed |
 | S44 | Integration → **M8, M9, M10** | ⬜ | All | S42, S43 |
 
 ### Phase 7 — Research output · Weeks 15–20 → **M11**

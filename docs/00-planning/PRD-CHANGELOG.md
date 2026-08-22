@@ -6128,3 +6128,55 @@ absence breaks the suite is still a dependency.
 
 ADR-008's SQLite choice means there is no database driver in that list and no
 container to run.
+
+---
+
+## P84 — the edge node, and both fallbacks now exist (2026-08-22)
+
+**Status: S40 done, S43 half done.** `edge/node.py`, 14 tests.
+
+**FR-A06 is decided on the edge, and that is the whole point of it.** When the
+link to the server drops, the node stops waiting for commands and runs a locally
+embedded cycle. It cannot ask the server whether the server is reachable.
+
+That mirrors the server-side rule from [P83](#p83): the server measures the
+timeout because *a device that has crashed cannot report that it has crashed*.
+Both ends measure what they can observe, and neither trusts the other to tell
+it. **Both fallbacks now exist and are tested**, which is most of S43.
+
+### The transport is an interface, not a broker
+
+`Transport` has two methods and `RecordingTransport` implements them into a
+list, so the link is dropped by setting a flag. That is not a test double added
+afterwards — it is the only reason the fallback is testable at all. **A fallback
+that can only be exercised by unplugging something is a fallback nobody
+exercises**, and this one has a test for the 10-second boundary in both
+directions, for recovery, and for the case where nothing gets through and
+`last_ack` correctly does not move.
+
+### The contract is constructed, not described
+
+The node builds `VehicleCount` and `Heartbeat` from `contracts/mqtt.py` rather
+than assembling dictionaries, so a per-class breakdown that does not sum to the
+total raises **at the edge** rather than reaching a consumer that cannot tell
+which number to trust. Topics and QoS come from `Topic`, which binds them
+together — the node cannot publish emergency at QoS 0 by choosing wrongly.
+
+Three contract violations were caught while writing it, each in seconds because
+the type refused: `Topic.format` does not exist (it is `render`), `Heartbeat`
+takes `edge_status`/`mfstnet_active`/`ppo_active` rather than an uptime, and
+`edge_status` accepts only `online` or `degraded` — not `ok`. **A contract that
+refuses at construction is worth more than a schema nobody validates against.**
+
+### NFR-13 stated as a test rather than a comment
+
+The published topics are the node's entire outward surface, so the check is to
+list them and assert every one ends in `vehicle_count` or `heartbeat`, and that
+no payload body contains an image-shaped key. Frames are read, counted and
+dropped.
+
+### `Mode.LOCAL`, not a new name
+
+The first version invented `Mode.FALLBACK`. The contract already defines
+`LOCAL`, and a second name for one state is how a dashboard ends up with a
+branch that never fires.

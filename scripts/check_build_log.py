@@ -100,6 +100,7 @@ ARTIFACTS: dict[str, tuple[str, callable]] = {
     "S38": ("experiments/results/benchmark_stats.csv",
             lambda: rows_with(ROOT / "experiments" / "results" / "benchmark_stats.csv")),
     "S31": ("models/*.onnx", lambda: files_matching("models/**/*.onnx")),
+    "S40": ("edge/node.py", lambda: (ROOT / "edge" / "node.py").is_file()),
     "S41": ("server/app.py", lambda: (ROOT / "server" / "app.py").is_file()),
 }
 
