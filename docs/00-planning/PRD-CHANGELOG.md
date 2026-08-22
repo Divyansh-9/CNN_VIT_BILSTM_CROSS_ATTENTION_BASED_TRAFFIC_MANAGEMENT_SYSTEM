@@ -5166,3 +5166,50 @@ module made **pytest collect it as a test**, which then errored on a missing
 fixture. A production function with a `test_` prefix hijacks the collector the
 moment anything imports the module. Renamed to `windows_in_test_split`, with the
 reason in its docstring so it is not renamed back.
+
+---
+
+## P65 — the fourth death was the battery, not the sleep timer (2026-08-22)
+
+**Status: mitigated, and partly not fixable from here.**
+
+The leave-one-camera-out suite has now been killed four times. [P55](#p55) once,
+idle suspend twice ([P60](#p60)), and this:
+
+```
+22-08-2026 01:17:39   Id 109   The kernel power manager has initiated a shutdown transition
+22-08-2026 06:00:45            Hypervisor successfully started
+```
+
+All four idle timeouts were already zero, on AC and DC, and `powercfg /lastwake`
+reports no wake event. The machine did not idle-sleep — it **shut down at
+01:17**, and `Win32_Battery.BatteryStatus` was 1 (discharging) at the time and
+is 2 (on AC) now. **The battery ran out.** Nothing in P60's fix addressed that,
+because P60's fix was about idleness and this was about power.
+
+### What was changed, and what deliberately was not
+
+Lid-close on AC is now *do nothing*, which removes one more way to lose a run
+while plugged in.
+
+**The critical-battery action is left alone.** Setting it to "do nothing" would
+let the machine run to a hard power cut with a training process holding open
+files, and losing an unattended run is a far cheaper failure than losing a
+filesystem. It stays at hibernate.
+
+So this one is not fixable from inside the repository: **an unattended
+multi-hour run needs the laptop on mains.** That is an operating instruction,
+not a code change, and it is written here because three of the four deaths were
+diagnosed as something more interesting than they were.
+
+### The change that did survive it
+
+P60 added resume. This is the first death where that mattered: eleven completed
+runs, both artifacts each, are skipped on restart rather than repeated. The
+suite picks up where it stopped instead of returning to zero for the fourth
+time.
+
+That is the real lesson from the sequence, and it is not about power settings.
+**On hardware that dies unpredictably, resumability is worth more than any
+individual fix for any individual cause of death** — each cause was different,
+each fix was correct, and none of them would have prevented the next one.
