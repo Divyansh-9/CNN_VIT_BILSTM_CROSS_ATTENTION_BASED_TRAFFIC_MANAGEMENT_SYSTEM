@@ -124,11 +124,84 @@ def check_adrs_registered() -> None:
             failures.append(f"unregistered ADR  {adr.name} absent from DOCUMENT-REGISTER.md")
 
 
+# Where each requirement family is DEFINED. Not one place, and CLAUDE.md said
+# it was: NFR-14 to NFR-16 are introduced by NFR.md itself, which states as
+# much, because they are constraints the PRD implies without ever writing down
+# as verifiable requirements. A rule that does not match the repository is
+# worse than no rule -- it invites a defect report against the documents.
+DEFINITIONS = {
+    "BR": ["docs/00-planning/BRD.md", "docs/01-requirements/BRS.md"],
+    "FR": ["docs/00-planning/PRD.md", "docs/01-requirements/SRS.md"],
+    "NFR": ["docs/00-planning/PRD.md", "docs/01-requirements/NFR.md"],
+}
+RTM_PATH = "docs/01-requirements/RTM.md"
+REQUIREMENT = re.compile(r"\b((?:BR|NFR|FR)-[A-Z]?[0-9]{2})\b")
+
+
+def defined_requirements() -> dict:
+    """Every requirement id that some definition document actually declares."""
+    found = {}
+    for family, sources in DEFINITIONS.items():
+        ids = set()
+        for relative in sources:
+            path = ROOT / relative
+            if path.exists():
+                ids |= {i for i in REQUIREMENT.findall(
+                    path.read_text(encoding="utf-8", errors="replace"))
+                    if i.startswith(family + "-")}
+        found[family] = ids
+    return found
+
+
+def check_requirements_traceable(files: list[Path]) -> None:
+    """Two directions, both of which have gone wrong in this repository.
+
+    **Cited but undefined** is the one that bites a reader: a document leans on
+    `NFR-16` and there is nowhere to look it up. It is also how a requirement
+    gets invented in prose and then treated as governing.
+
+    **Defined but absent from the RTM** is the one that bites the project: the
+    RTM is the join table (BR -> FR/NFR -> DES -> TC -> M) and a requirement
+    missing from it has no traceable test or milestone. It is a graded
+    deliverable, and it went 12 days without an update while 15 ADRs landed.
+    """
+    defined = defined_requirements()
+    every = set().union(*defined.values())
+    if not every:
+        failures.append("no requirement ids found in any definition document")
+        return
+
+    cited = {}
+    for path in files:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for identifier in REQUIREMENT.findall(text):
+            cited.setdefault(identifier, set()).add(
+                path.relative_to(ROOT).as_posix())
+
+    for identifier in sorted(set(cited) - every):
+        where = sorted(cited[identifier])[:2]
+        failures.append(
+            f"undefined requirement  {identifier} is cited in "
+            f"{', '.join(where)} but no definition document declares it")
+
+    rtm = ROOT / RTM_PATH
+    if not rtm.exists():
+        failures.append(f"missing  {RTM_PATH}")
+        return
+    traced = set(REQUIREMENT.findall(
+        rtm.read_text(encoding="utf-8", errors="replace")))
+    for identifier in sorted(every - traced):
+        failures.append(
+            f"untraced requirement  {identifier} is defined but absent from "
+            f"{RTM_PATH}, so it has no test or milestone behind it")
+
+
 def main() -> int:
     files = markdown_files()
     check_links(files)
     check_withdrawn(files)
     check_adrs_registered()
+    check_requirements_traceable(files)
 
     print(f"checked {len(files)} markdown files")
     if failures:
@@ -136,7 +209,8 @@ def main() -> int:
         for f in failures:
             print(f"  {f}")
         return 1
-    print("links resolve, no withdrawn claims resurrected, all ADRs registered")
+    print("links resolve, no withdrawn claims resurrected, all ADRs "
+          "registered, every requirement defined and traced")
     return 0
 
 

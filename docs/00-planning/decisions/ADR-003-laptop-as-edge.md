@@ -5,7 +5,7 @@
 | **Status** | Accepted |
 | **Date** | 2026-08-07 |
 | **Deciders** | Project team |
-| **Affects** | PRD §15, FR-E01..FR-E06, NFR-01, M8, R8 |
+| **Affects** | PRD §15, FR-P01..FR-P04, FR-A02, NFR-01, M8, R8 *(corrected 2026-08-22: this row cited an `FR-E` range that no document defines — the prototype requirements are `FR-P`. Found by `check_docs.py`'s traceability check, P76. The bad identifiers are not repeated here, because the check cannot tell a citation from a historical mention and neither can a reader copying from this row.)* |
 
 ## Context
 

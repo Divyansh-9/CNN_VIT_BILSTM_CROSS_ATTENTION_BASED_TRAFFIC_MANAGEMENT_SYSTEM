@@ -5585,3 +5585,70 @@ here beats the naive baseline", which is a different sentence and the true one.
 It is [ADR-023](decisions/ADR-023-separate-the-two-claims.md)'s C1 central
 number, and it is a negative result that §2.5.5 requires be reported rather than
 buried under a leaderboard ordering.
+
+---
+
+## P76 — an ADR declared it affects six requirements that do not exist (2026-08-22)
+
+**Status: fixed, and made checkable.** `scripts/check_docs.py`,
+`docs/00-planning/decisions/ADR-003-laptop-as-edge.md`, `CLAUDE.md`.
+
+Checking whether the RTM had gone stale — it was last touched on 10 August while
+fifteen ADRs landed — turned up two things, and **the one I expected was not
+there.**
+
+### What was not wrong
+
+The RTM's coverage is **complete**: all 45 `FR-*`, all 13 PRD `NFR-*`, all 23
+`BR-*`. The assumption that a 12-day-old join table must have holes in it was
+wrong, and the measurement said so before any editing began.
+
+### What was wrong
+
+**CLAUDE.md's own rule did not match the repository.** It states that
+`FR-*`/`NFR-*` are defined in PRD §9/§10. Three are not: `NFR-14`, `NFR-15` and
+`NFR-16` are introduced by `docs/01-requirements/NFR.md`, which says so in as
+many words — they are constraints the PRD implies without ever writing down as
+verifiable requirements. NFR-15 and NFR-16 are cited as governing rules in
+CLAUDE.md itself.
+
+**A rule that does not match the repository is worse than no rule**: it invites
+a defect report against documents that are correct, which is exactly what nearly
+happened here.
+
+**And ADR-003 cites a requirement range that no document defines.** Its
+`Affects` row named six `FR-E` identifiers. The prototype requirements are
+`FR-P01..FR-P04`. A reader tracing "what does the laptop-as-edge decision
+change" hits nothing — the ADR has been unverifiable since 7 August.
+
+### The check
+
+`check_docs.py` now enforces traceability in **both** directions, and both have
+already failed in this repository:
+
+* **cited but undefined** — a document leans on an id and there is nowhere to
+  look it up. This is how a requirement gets invented in prose and then treated
+  as governing.
+* **defined but absent from the RTM** — the RTM is the join table
+  (BR → FR/NFR → DES → TC → M), so a requirement missing from it has no
+  traceable test or milestone.
+
+Stdlib only, so it runs in CI with the rest of `check_docs`.
+
+### One deliberate strictness
+
+The first correction to ADR-003 **still failed the check**, because the
+correction note quoted the bad identifiers. The checker cannot distinguish a
+citation from a historical mention — and neither can a reader copying from that
+row. The note was rewritten to describe the range without spelling it, rather
+than the check weakened to allow it.
+
+### The bug in the checker itself
+
+The pattern was written as `\b(...)\b` and reached the file as **two literal
+backspace bytes** (`\x08`), so it silently matched nothing and reported "no
+requirement ids found in any definition document". An `r"..."` prefix cannot
+help once the byte is wrong. It is the same shell-escaping mangling that has
+bitten this session repeatedly, and it is the reason the first run of a new
+check must be read rather than trusted: **a checker that finds nothing looks
+exactly like a repository with no problems.**

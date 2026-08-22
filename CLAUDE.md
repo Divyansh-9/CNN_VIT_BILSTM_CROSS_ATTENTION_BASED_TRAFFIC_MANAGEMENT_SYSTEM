@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The PRD ([docs/00-planning/PRD.md](docs/00-planning/PRD.md), now v1.1) remains the single source of truth for architecture, requirements (IDs `FR-*`, `NFR-*`), milestones, and acceptance criteria. Before implementing anything, find the governing requirement ID and honor its exact numbers rather than inventing values. When implementation reveals the PRD is wrong, amend the PRD and log it in [PRD-CHANGELOG](docs/00-planning/PRD-CHANGELOG.md) — never work around a PRD statement you believe is incorrect.
 
-Requirement IDs are defined **once**: `BR-*` in the BRD, `FR-*`/`NFR-*` in PRD §9/§10. Every other document cites IDs and never restates requirements in prose. [RTM](docs/01-requirements/RTM.md) is the join table (BR → FR/NFR → DES → TC → M); update it when requirements change.
+Requirement IDs are defined **once**, but not all in one file: `BR-*` in the BRD, `FR-*` and `NFR-01..13` in PRD §9/§10, and **`NFR-14..16` in [docs/01-requirements/NFR.md](docs/01-requirements/NFR.md)**, which introduces them as constraints the PRD implies without ever writing down as verifiable requirements. Every other document cites IDs and never restates requirements in prose. `scripts/check_docs.py` enforces both directions — an id cited nowhere-defined fails, and an id defined but absent from the RTM fails (P76). [RTM](docs/01-requirements/RTM.md) is the join table (BR → FR/NFR → DES → TC → M); update it when requirements change.
 
 Documents are delivered in waves (ADR-004). Wave 1 (planning + requirements + manual) is done; SAD/HLD/LLD are due Week 5, STP/STD/UAT Week 11, STR/TIM/SOP Week 16. Missing later-wave documents are scheduled, not overlooked.
 
