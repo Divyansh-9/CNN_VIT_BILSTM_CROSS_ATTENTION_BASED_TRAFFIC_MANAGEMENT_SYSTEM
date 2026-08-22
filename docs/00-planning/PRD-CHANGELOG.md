@@ -5541,3 +5541,47 @@ progress at once.**
 
 Under [ADR-023](decisions/ADR-023-separate-the-two-claims.md) this is C1's
 evidence, and C1 is the half not waiting on a corpus, a licence or a decision.
+
+---
+
+## P75 — I ran the count baselines at one seed, one document after saying not to (2026-08-22)
+
+**Status: fixed.** `experiments/results/baselines_loco/` now holds 4 folds × 5
+seeds.
+
+[P54](#p54) established that a one-seed table ranks initialisations rather than
+architectures, and put `--seeds 42 1 7 13 21` in `run_loco.py`, in CLAUDE.md and
+in PRD §14.4's own words. [P73](#p73) then reported the count baselines from
+**one seed**, and quoted their means as if they were stable.
+
+The mistake is not the numbers — they barely moved. It is that the standard was
+written down and then not applied to the next thing measured, which is how a
+standard becomes decoration.
+
+### What five seeds say
+
+| count model | mean | seed spread | fold 0 | fold 1 | fold 2 | fold 3 |
+|---|---|---|---|---|---|---|
+| GRU | **0.5663** | 0.034 | 0.428 | 0.557 | 0.780 | 0.500 |
+| **naive last-value** | **0.5571** | **0.000** | 0.449 | **0.692** | 0.673 | 0.414 |
+| LSTM | 0.5405 | 0.063 | 0.434 | 0.575 | 0.780 | 0.373 |
+| XGBoost | 0.4691 | 0.000 | 0.433 | 0.574 | 0.461 | 0.408 |
+
+**Naive and XGBoost show a spread of exactly 0.000.** Neither trains
+stochastically, so that is the check that the seeding is real rather than
+nominal — a five-seed table where *everything* moved would have meant the seed
+was not reaching the model.
+
+### The finding the extra seeds sharpen
+
+**No learned count model reliably beats "the same as now."** The GRU leads naive
+by **0.0092** against its own seed spread of **0.034** — the best learned
+model's margin over doing nothing is **a third of the noise from re-running
+it**.
+
+At one seed that read as "GRU is best by 0.011". At five it reads as "nothing
+here beats the naive baseline", which is a different sentence and the true one.
+
+It is [ADR-023](decisions/ADR-023-separate-the-two-claims.md)'s C1 central
+number, and it is a negative result that §2.5.5 requires be reported rather than
+buried under a leaderboard ordering.

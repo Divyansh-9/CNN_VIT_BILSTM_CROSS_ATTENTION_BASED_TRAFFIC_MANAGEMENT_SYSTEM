@@ -84,14 +84,22 @@ does not add to it.**
 
 ## What the count baselines say, measured for this decision
 
-Four folds, seed 42, macro F1 (three-class-with-zeros, ADR-019):
+Four folds x **five seeds** (42, 1, 7, 13, 21), macro F1
+(three-class-with-zeros, ADR-019):
 
-| count model | mean | fold 0 | fold 1 | fold 2 | fold 3 |
-|---|---|---|---|---|---|
-| GRU | **0.5682** | 0.437 | 0.551 | 0.780 | 0.505 |
-| **naive last-value** | **0.5571** | 0.449 | **0.692** | 0.673 | 0.414 |
-| LSTM | 0.5385 | 0.405 | 0.579 | 0.780 | 0.390 |
-| XGBoost | 0.4691 | 0.433 | 0.574 | 0.461 | 0.408 |
+| count model | mean | seed spread | fold 0 | fold 1 | fold 2 | fold 3 |
+|---|---|---|---|---|---|---|
+| GRU | **0.5663** | 0.034 | 0.428 | 0.557 | 0.780 | 0.500 |
+| **naive last-value** | **0.5571** | **0.000** | 0.449 | **0.692** | 0.673 | 0.414 |
+| LSTM | 0.5405 | 0.063 | 0.434 | 0.575 | 0.780 | 0.373 |
+| XGBoost | 0.4691 | 0.000 | 0.433 | 0.574 | 0.461 | 0.408 |
+
+Five seeds because [P54](../PRD-CHANGELOG.md) established that a one-seed table
+ranks initialisations. The first version of this table was run at one seed,
+which was the same mistake one document later.
+
+Naive and XGBoost show a seed spread of exactly **0.000** — neither has
+stochastic training, which is the sanity check that the seeding is real.
 
 Two things to read carefully, and one not to.
 
@@ -100,6 +108,12 @@ best single number anywhere in it (0.692 on the M6). PRD §14.3 warned that over
 60-second horizon "the same as now" would be strong on a signal this
 autocorrelated. It is. Any claim about a learned forecaster has to clear 0.557,
 not 0.
+
+**And no learned count model reliably clears it.** The GRU leads naive by
+**0.0092** — against its own seed spread of **0.034**. The best learned model's
+margin over doing nothing is **a third of the noise from re-running it**. That
+is the honest state of the count forecaster today, and it is C1's central number
+rather than a footnote to it.
 
 **Do not read the MFSTNet comparison from this yet.** On fold 0 seed 42, G scores
 0.4977 against the best count model's 0.449 — MFSTNet *ahead*. That is one fold,
