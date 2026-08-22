@@ -5095,3 +5095,74 @@ The original argument was right when it was made and stopped being right when
 the job died. **A decision that flips gets written down as a flip**, with what
 changed — otherwise the record reads as drift, and the next reader cannot tell a
 reconsideration from a lapse.
+
+---
+
+## P64 — every scope claim is now an assertion the paper cannot be built over (2026-08-22)
+
+**Status: fixed, and two asserted claims currently fail.**
+`docs/00-planning/CLAIMS.yaml`, `scripts/check_claims.py`,
+`tests/test_claims.py`.
+
+[P61](#p61) turned one question into a gate: *the paper claims a domain — does
+the evaluation contain it?* The question is not specific to geography. Viewpoint,
+traffic type, class coverage, camera count and licence releasability are each a
+sentence a reviewer can check, each a place the project can be caught, and each
+checkable against artifacts already on disk.
+
+So each is written in `CLAIMS.yaml` **as the sentence it would appear as in the
+paper**, with the assertion that decides whether it is true. What is being
+claimed is legible without reading any code, which is the property that makes
+the file worth keeping honest.
+
+### What it says today
+
+```
+[ FAIL ] domain: We evaluate on unstructured Indian traffic.
+         4 of 4 fold(s) have no on-target camera in test.
+[  ok  ] viewpoint: All footage is from a fixed elevated viewpoint.
+         no camera is known to be non-elevated, but 3 have an undetermined
+         viewpoint — the claim rests on fewer cameras than it appears to
+[ FAIL ] class_coverage: We report three-class congestion per lane.
+         below 10 support in test: fold0:HIGH=0, fold2:MEDIUM=8,
+         fold2:HIGH=9, fold3:HIGH=1
+[  ok  ] camera_count: The evaluation covers at least four independent cameras.
+[ note ] releasable: The corpus and everything derived from it can be released.
+         7 of 7 camera(s) carry a licence that does not permit release
+```
+
+Three things in that output were not known before it ran.
+
+**`fold2:MEDIUM=8`.** [P57](#p57) established that HIGH was thin. It is not only
+HIGH — fold 2's *MEDIUM* class has eight windows. A generic check found what a
+question aimed at one class did not.
+
+**`camera_count` passes at exactly four**, so dropping the M6 for the domain
+claim flips it to failing. The coupling [P62](#p62) describes in prose is now
+mechanical: the two claims cannot both hold on this corpus, and the registry
+says so without anyone remembering to.
+
+**Every camera's licence is unresolved.** The corpus is built from third-party
+YouTube uploads, and ITD v1.2 — which supplies the detector that counted them —
+is CC BY-NC 4.0. Nothing derived is releasable until that is settled. It is
+recorded as **aspirational** rather than asserted, which is the honest status
+and keeps it visible without blocking work that does not depend on it.
+
+### Asserted blocks, aspirational reports, and promotion is a diff
+
+A claim cannot drift from intended to stated without someone editing the file,
+and the edit is reviewable. That is the whole mechanism: there is no flag, and
+the only way to make a failing assertion pass is to change the corpus or change
+the claim.
+
+**An unknown checker fails rather than being skipped.** A claim naming a
+function that does not exist would otherwise pass by default, which is the
+quietest way for an assertion to stop asserting.
+
+### A defect found by its own tests
+
+`check_claims.py` had a helper named `test_windows`. Importing it into a test
+module made **pytest collect it as a test**, which then errored on a missing
+fixture. A production function with a `test_` prefix hijacks the collector the
+moment anything imports the module. Renamed to `windows_in_test_split`, with the
+reason in its docstring so it is not renamed back.

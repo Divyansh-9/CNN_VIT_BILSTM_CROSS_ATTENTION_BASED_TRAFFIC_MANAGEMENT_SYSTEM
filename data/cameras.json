@@ -15,12 +15,20 @@
     "`target_domain` is what the PRD claims the project is about.",
     "scripts/audit_corpus.py checks the evaluation against it and FAILS when no",
     "fold-eligible camera matches, because a paper cannot claim a domain its",
-    "test set does not contain."
+    "test set does not contain.",
+    "",
+    "`licence` is recorded per camera because the releasable claim in docs/00-planning/CLAIMS.yaml depends on it. Every entry is currently unresolved: the corpus is built from third-party YouTube uploads, and nothing derived from them is releasable until that is settled."
   ],
   "target_domain": {
-    "country": ["India"],
-    "traffic_type": ["mixed"],
-    "viewpoint": ["elevated"],
+    "country": [
+      "India"
+    ],
+    "traffic_type": [
+      "mixed"
+    ],
+    "viewpoint": [
+      "elevated"
+    ],
     "note": "PRD §1: unstructured Indian traffic, camera-only, elevated view."
   },
   "cameras": {
@@ -30,7 +38,8 @@
       "viewpoint": "elevated",
       "traffic_type": "structured",
       "determined_by": "frame",
-      "note": "Divided motorway, enforced lane discipline, no junction, no mixed traffic, no pedestrians. The premise's counterexample."
+      "note": "Divided motorway, enforced lane discipline, no junction, no mixed traffic, no pedestrians. The premise's counterexample.",
+      "licence": "unresolved (third-party YouTube upload)"
     },
     "Incredible traffic Sound in Dhaka, Bangladesh। Rampura  [4K ASMR] #TheSoundofDhaka": {
       "country": "Bangladesh",
@@ -38,7 +47,8 @@
       "viewpoint": "elevated",
       "traffic_type": "mixed",
       "determined_by": "frame",
-      "note": "Footbridge over a junction. Rickshaws, auto-rickshaws, motorcycles, pedestrians in the carriageway."
+      "note": "Footbridge over a junction. Rickshaws, auto-rickshaws, motorcycles, pedestrians in the carriageway.",
+      "licence": "unresolved (third-party YouTube upload)"
     },
     "🎧 Incredible traffic Sound in Dhaka, Bangladesh। Rampura [4K ASMR] #TheSoundOfDhaka": {
       "country": "Bangladesh",
@@ -46,7 +56,8 @@
       "viewpoint": "elevated",
       "traffic_type": "mixed",
       "determined_by": "frame",
-      "note": "Footbridge over a divided boulevard past South Point School. A DIFFERENT scene from the clip above despite the near-identical title; correlated by city, corridor and uploader."
+      "note": "Footbridge over a divided boulevard past South Point School. A DIFFERENT scene from the clip above despite the near-identical title; correlated by city, corridor and uploader.",
+      "licence": "unresolved (third-party YouTube upload)"
     },
     "Pov_Thursday Traffic From Footover bridge। Cloudy Seen।": {
       "country": "Bangladesh",
@@ -54,7 +65,8 @@
       "viewpoint": "elevated",
       "traffic_type": "mixed",
       "determined_by": "frame",
-      "note": "'Pov' is misleading — this is a pedestrian footover bridge, not a dashcam. BSRM and Salam Steel signage."
+      "note": "'Pov' is misleading — this is a pedestrian footover bridge, not a dashcam. BSRM and Salam Steel signage.",
+      "licence": "unresolved (third-party YouTube upload)"
     },
     "Mumbai Traffic Chaos - Near Andheri Station": {
       "country": "India",
@@ -62,7 +74,8 @@
       "viewpoint": "unknown",
       "traffic_type": "mixed",
       "determined_by": "filename",
-      "note": "PROVISIONAL — frames not inspected. Only 6 lane-windows, below ADR-019 eligibility."
+      "note": "PROVISIONAL — frames not inspected. Only 6 lane-windows, below ADR-019 eligibility.",
+      "licence": "unresolved (third-party YouTube upload)"
     },
     "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos": {
       "country": "India",
@@ -70,7 +83,8 @@
       "viewpoint": "unknown",
       "traffic_type": "mixed",
       "determined_by": "filename",
-      "note": "PROVISIONAL — frames not inspected. Only 3 lane-windows, below ADR-019 eligibility."
+      "note": "PROVISIONAL — frames not inspected. Only 3 lane-windows, below ADR-019 eligibility.",
+      "licence": "unresolved (third-party YouTube upload)"
     },
     "video1": {
       "country": "unknown",
@@ -78,7 +92,8 @@
       "viewpoint": "unknown",
       "traffic_type": "unknown",
       "determined_by": "none",
-      "note": "Nothing is known about this clip. Recorded as unknown rather than guessed: an assumed country is worse than an absent one, because it would count toward the target domain."
+      "note": "Nothing is known about this clip. Recorded as unknown rather than guessed: an assumed country is worse than an absent one, because it would count toward the target domain.",
+      "licence": "unresolved (provenance unknown)"
     }
   }
 }
