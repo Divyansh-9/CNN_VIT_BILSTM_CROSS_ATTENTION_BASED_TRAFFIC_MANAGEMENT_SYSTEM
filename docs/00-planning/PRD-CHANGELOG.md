@@ -5763,3 +5763,89 @@ and a British motorway.
 
 The suite is incomplete, so these are recorded as a tool check rather than a
 finding. The number for record is produced once, on the finished suite.
+
+---
+
+## P79 — the ablation on fold 1 measures which model collapses hardest, not which generalises (2026-08-22)
+
+**Status: open. This is a training-recipe defect, and it changes how the whole
+ablation must be read.**
+
+[P78](#p78)'s dry run showed fold 1 swinging **−0.2163** — the linear probe far
+ahead of the full architecture. Rather than record the delta and move on, the
+per-window predictions [P59](#p59) now writes were read.
+
+**Config G predicts `HIGH` for all 252 windows of fold 1 at seed 1.**
+
+```
+fold1 seed1  G   predicted {HIGH: 252}
+             H   predicted {HIGH: 138, LOW: 114}
+true             {LOW: 150, MEDIUM: 82, HIGH: 20}
+```
+
+`20/252 = 0.0794`, which is exactly the accuracy recorded. At seed 42 G predicts
+`{HIGH: 189, LOW: 63}`. **Neither model ever predicts MEDIUM on this fold at
+all**, at any seed.
+
+That is not an architecture comparison. It is a **collapse to a constant or
+near-constant class**, and G collapses harder than H because it has the capacity
+to fit the loss it is being given.
+
+### The loss it is being given
+
+PRD §8.4 specifies `CrossEntropyLoss` with **inverse-frequency class weights**.
+Computed per fold from the training split:
+
+| fold | train LOW/MED/HIGH | w_LOW | w_MED | w_HIGH | HIGH : MED |
+|---|---|---|---|---|---|
+| 0 | 84 / 118 / 18 | 0.87 | 0.62 | 4.07 | 6.6× |
+| **1** | **119 / 188 / 9** | 0.89 | 0.56 | **11.70** | **20.9×** |
+| 2 | 220 / 184 / 28 | 0.65 | 0.78 | 5.14 | 6.6× |
+| 3 | 185 / 114 / 37 | 0.61 | 0.98 | 3.03 | 3.1× |
+
+**On fold 1, nine HIGH windows carry 21× the per-sample weight of MEDIUM,
+across a training split of 79 sequences.** The loss is dominated by nine
+examples. Predicting HIGH everywhere is close to the weighted optimum, and the
+model finds it.
+
+The recipe is not wrong in general — inverse frequency is standard, and PRD §8.4
+specified it before anyone knew the class balance this corpus would have. It is
+pathological *at this balance and this training-set size*, which is a fact about
+[P57](#p57)'s corpus meeting §8.4's recipe, not about either alone.
+
+### What it means for the ablation
+
+**The eight-config table on fold 1 ranks models by how completely they collapse.**
+A model that collapses to a single class scores whatever that class's prevalence
+is; a model that collapses partially scores a little better. Neither number is
+about generalisation to an unseen camera.
+
+It also explains [P54](#p54): the enormous seed spreads are models flipping
+between *which* class they collapse to. Config E's 0.4469 / 0.2385 / 0.2046 is
+that, not instability in any interesting sense.
+
+**And it is the second time the same corpus fact has produced a fake result.**
+[P57](#p57) found HIGH too sparse to estimate. This is the same sparsity coming
+back through the loss function rather than through the metric.
+
+### Not being fixed on the running suite
+
+Changing the class weighting now would be changing the recipe after seeing which
+results it produced. §8.4 is the specification, the run is in flight, and the
+honest move is to **finish it and report what it measured** — including that on
+at least one fold it measured collapse.
+
+The fix belongs in an amendment with the arm definitions, alongside
+[ADR-022](decisions/ADR-022-preregistered-gate-vs-probe.md)'s binary-collapse
+trigger, which fires on the same underlying fact. Options a reviewer would
+expect to see weighed: capping the weight ratio, square-root inverse frequency,
+focal loss, or — most consistent with what this corpus can support — training
+the binary task ADR-022 already pre-registered.
+
+### The finding this validates
+
+**P59 paid for itself here.** Without per-window predictions the record would
+read "G scored 0.049 on fold 1", and the natural conclusion would have been that
+the architecture generalises badly. The actual conclusion — that it emitted one
+class 252 times — is a different problem with a different fix, and no metric in
+the results CSV could have shown it.
