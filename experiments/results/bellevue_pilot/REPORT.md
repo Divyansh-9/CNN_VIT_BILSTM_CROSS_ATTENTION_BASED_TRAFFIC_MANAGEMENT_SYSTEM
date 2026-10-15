@@ -196,3 +196,11 @@ an `autorickshaw` changes no label. What changes a count:
 
 Not distinguishable on either target. All point estimates favour the models,
 and the test windows (25–29) are too few to resolve them.
+
+## Label-quality audit (P95)
+
+A blind hand count of 20 frames. The detector undercounts west by 15%, north by
+39% and east by 45%; it ranks frames well on those three lanes (correlation
+0.77–0.84) but compresses busy ones. The south lane is close to noise
+(correlation 0.41). The painted symbol was reported as a bicycle in 6 of 20
+frames.

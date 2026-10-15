@@ -6655,3 +6655,36 @@ convincingly, so the honest result stands and the labels are investigated
 before the dataset is expanded. The power calculation above is the evidence
 that expansion will eventually be needed to settle the question.
 
+## P95 — the detector undercounts Bellevue by 15–45%, more as traffic grows (2026-10-15)
+
+**Measured** by a blind hand count of 20 systematically chosen frames, under
+`experiments/results/bellevue_pilot/AUDIT_PROTOCOL.md`, all fixed before
+counting. The counts are in `audit_manual.json`, the comparison in
+`audit_comparison.json`. This is a **pilot**: twenty correlated frames from one
+camera.
+
+| lane | hand mean | detector mean | MAE | bias (detector − hand) | relative | Pearson / Spearman | detected share, quiet half → busy half |
+|---|---|---|---|---|---|---|---|
+| west | 8.20 | 6.95 | 1.75 | −1.25 | −15% | 0.84 / 0.82 | 94% → 80% |
+| north | 13.05 | 7.95 | 5.10 | −5.10 | **−39%** | 0.82 / 0.84 | 66% → 59% |
+| south | 1.80 | 0.35 | 1.45 | −1.45 | −81% | **0.41 / 0.39** | 33% → 15% |
+| east | 10.50 | 5.75 | 4.75 | −4.75 | **−45%** | 0.78 / 0.77 | 64% → 52% |
+
+The painted bicycle symbol was reported as a bicycle in **6 of 20 frames**.
+
+- **What it means for the labels.** On west, north and east the detector's count
+  **orders** frames much as a person does (correlations 0.77–0.84), so relative
+  labels carry real signal there. But the undercount **grows with traffic**:
+  busy frames are compressed, which blurs exactly the HIGH class. The south
+  lane is close to noise.
+- **What it means for P92–P94.** Label noise of this size caps the accuracy any
+  model *or* baseline can reach, and narrows the room between them. It is a
+  plausible part of why nothing has been distinguishable.
+- **What it revises.** The "roughly 75–85%" recall in P91 was an estimate by eye
+  and was optimistic for north and east.
+
+**Not changed, as pre-registered.** No threshold or label moves on a pilot.
+The protocol's rule for material error is to expand the annotation sample
+first. Whether to drop the south lane from the labels is a separate decision,
+and changes the model's lane count.
+
