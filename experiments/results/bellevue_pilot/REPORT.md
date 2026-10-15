@@ -186,3 +186,13 @@ an `autorickshaw` changes no label. What changes a count:
   samples;
 - each `two wheeler` detection is one vehicle;
 - the far queue is under-counted.
+
+## P94 — sustained-level targets (see PRD-CHANGELOG P94)
+
+| target | selected | test F1 | baseline F1 | difference [95% CI] |
+|---|---|---|---|---|
+| 60 s sustained | G seed 13 | 0.7167 | 0.6470 | +0.070 [−0.017, +0.156] |
+| 120 s sustained | H seed 42 (validation tie) | 0.7718 | 0.7139 | +0.058 [−0.027, +0.147] |
+
+Not distinguishable on either target. All point estimates favour the models,
+and the test windows (25–29) are too few to resolve them.

@@ -6611,3 +6611,47 @@ vehicles. The detection errors that do matter are the ones that change a
 `two wheeler`, which the PCU table lacks. It changes every label, so it is a
 decision, not a fix.
 
+## P94 — sustained targets: every model is ahead of its baseline, none distinguishably (2026-10-15)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P94.md`.
+Selections were frozen and committed (`20bd1c1`) before the test was read.
+
+| target | model | test F1 | previous-window mean | model − baseline [95% CI] |
+|---|---|---|---|---|
+| 60 s sustained | **G (selected)** | 0.7167 | 0.6470 | +0.070 [−0.017, +0.156] |
+| 60 s sustained | H | 0.6829 | 0.6470 | +0.036 [−0.053, +0.126] |
+| 120 s sustained | G | 0.8036 | 0.7139 | +0.090 [−0.001, +0.189] |
+| 120 s sustained | **H (selected)** | 0.7718 | 0.7139 | +0.058 [−0.027, +0.147] |
+
+**By the pre-registered definition, no model beats its baseline.** Every
+interval contains zero.
+
+**What did change, reported without over-reading it.**
+
+- **All four point estimates are positive.** At the instantaneous 60 s target
+  they were −0.023 and +0.032.
+- **Absolute scores rose from about 0.56–0.62 to 0.68–0.80.** The sustained
+  targets are far more learnable — and so is the baseline.
+
+**Per-lane, where P93 said a model could gain.** At 60 s, on the north lane
+(the strong signal-cycle lane), G is right on **16 of 29** windows against the
+baseline's **11**, and on the east lane 18 against 12. It loses on the west
+lane, 19 against 25. At 120 s, averaging over a whole cycle removes the phase,
+and the north lane shows no gain: 11 against 12. That is consistent with the
+P93 mechanism. It is one camera and a handful of windows, and is not
+established by it.
+
+**Selection, as fixed.** At 120 s, G and H tied exactly on validation (0.8914),
+so the rule chose H. G later scored higher on test. The selection is **not**
+revised after seeing the test.
+
+**Why nothing resolves: power.** The intervals are about 0.17–0.19 wide on 25–29
+test windows. Resolving an effect of +0.07 to +0.09 needs an interval roughly
+half that width, or about **four times the test windows**. That is around 100,
+which means several more hours of footage or more cameras.
+
+**Decision, as pre-registered.** Neither model beats its baseline
+convincingly, so the honest result stands and the labels are investigated
+before the dataset is expanded. The power calculation above is the evidence
+that expansion will eventually be needed to settle the question.
+
