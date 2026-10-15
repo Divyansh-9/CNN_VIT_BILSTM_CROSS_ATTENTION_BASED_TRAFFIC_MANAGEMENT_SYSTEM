@@ -276,7 +276,8 @@ def evaluate_split(model, dataset, size: int, lanes, device: str = "cpu"):
 
 def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
               epochs: int, seed: int, device: str = "cpu",
-              micro_batch: int | None = None, init_state: dict | None = None):
+              micro_batch: int | None = None, init_state: dict | None = None,
+              weighting: str = "inverse"):
     """`config.n_lanes` comes from the CORPUS, not from the ablation default.
 
     A junction has four approaches and a motorway two; the lane count is a
@@ -330,6 +331,11 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, T_max=epochs)
 
     weights, counts = class_weights(train_set.labels(), len(CLASSES))
+    if weighting == "none":
+        # The documented control for P99: plain cross-entropy. The counts are
+        # still recorded, because they are a property of the data, not of the
+        # objective.
+        weights = torch.ones(len(CLASSES), dtype=torch.float32)
     criterion = torch.nn.CrossEntropyLoss(weight=weights.to(device))
 
     generator = torch.Generator().manual_seed(seed)
@@ -404,8 +410,12 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    report, last, true, pred = evaluate_split(model, test_set, t["batch_size"], lanes,
-                                  device)
+    # `test_set` is None under --no-test: the scored split is then validation,
+    # and the sidecar says so. Test is read later, by a frozen evaluator, from
+    # checkpoints selected without it.
+    report, last, true, pred = evaluate_split(
+        model, test_set if test_set is not None else val_set, t["batch_size"],
+        lanes, device)
 
     row = {
         "config": name,
@@ -471,6 +481,8 @@ def save_checkpoint(args, name, state, row, manifest, preprocessing_hash,
 
     from experiments.provenance import write_sidecar
 
+    # Callers built before --no-test and --class-weights pass neither.
+    no_test = getattr(args, "no_test", False)
     fold = manifest.get("fold", "")
     stem = f"mfstnet_{name}_seed{args.seed}" + (f"_fold{fold}" if fold != "" else "")
     path = args.save_checkpoint / f"{stem}.pt"
@@ -491,7 +503,9 @@ def save_checkpoint(args, name, state, row, manifest, preprocessing_hash,
         "corpus": str(args.corpus),
         "preprocessing_hash": preprocessing_hash,
         "lane_names": list(lane_names),
-        "test_macro_f1": row["macro_f1"],
+        "test_macro_f1": "" if no_test else row["macro_f1"],
+        "evaluated_on": "val" if no_test else "test",
+        "class_weights": getattr(args, "class_weights", "inverse"),
     }
     if args.init_from is not None:
         digest = hashlib.sha256(args.init_from.read_bytes()).hexdigest()
@@ -541,6 +555,18 @@ def main(argv: list[str] | None = None) -> int:
         "--init-from", type=Path, default=None, metavar="PT",
         help="start from this checkpoint instead of from scratch (fine-tuning, "
              "ADR-025 mode 2). Single config only")
+    parser.add_argument(
+        "--class-weights", choices=("inverse", "none"), default="inverse",
+        help="the loss's class weighting. 'inverse' is PRD §8.4's inverse "
+             "frequency; 'none' is unweighted cross-entropy, the control P99 "
+             "compares it against. Recorded in the sidecar")
+    parser.add_argument(
+        "--no-test", action="store_true",
+        help="train and select without a test split at all. The corpus must "
+             "hold NO test window, and every metric, prediction file and "
+             "checkpoint record is then about VALIDATION, as the sidecar "
+             "states. For protocols that read test only from frozen, already "
+             "selected checkpoints (P99)")
     args = parser.parse_args(argv)
 
     if args.init_from is not None and args.ablation:
@@ -664,8 +690,16 @@ def main(argv: list[str] | None = None) -> int:
                       masks_by_clip=masks_by_clip)
         for name in ("train", "val", "test")
     }
+    if args.no_test:
+        if len(split["test"]):
+            raise SystemExit(
+                f"--no-test, but the corpus holds {len(split['test'])} test "
+                f"window(s). Under --no-test the test windows must not be on "
+                f"the training side at all; build a train/val-only corpus.")
+        split["test"] = None
+        print("  --no-test: no test split; every score below is VALIDATION")
     for name, dataset in split.items():
-        if not len(dataset):
+        if dataset is not None and not len(dataset):
             raise SystemExit(f"the {name} split is empty — refusing to train")
 
     # iter_ablation_configs yields MFSTNetConfig, which carries its own name —
@@ -705,7 +739,7 @@ def main(argv: list[str] | None = None) -> int:
             train_set=split["train"], val_set=split["val"],
             test_set=split["test"], lanes=lanes, spec=spec,
             epochs=epochs, seed=args.seed, micro_batch=args.micro_batch,
-            init_state=init_state,
+            init_state=init_state, weighting=args.class_weights,
         )
         if args.save_checkpoint is not None:
             save_checkpoint(args, name, state, row, manifest, cache.spec.hash,
@@ -734,7 +768,8 @@ def main(argv: list[str] | None = None) -> int:
         # So it is not conditional on a flag. A flag is a decision made before
         # the question is known, and the question is never known in advance.
         write_predictions(args.out, name, args.seed, manifest,
-                          split["test"], lane_names, true, pred)
+                          split["test"] if split["test"] is not None
+                          else split["val"], lane_names, true, pred)
         print(f"    macro-F1 {row['macro_f1']}  QWK {row['qwk']}  "
               f"gate std {row['gate_std'] or '—'}")
         for warning in report.warnings:
@@ -773,7 +808,9 @@ def main(argv: list[str] | None = None) -> int:
     from experiments.provenance import write_sidecar
 
     write_sidecar(args.out, device=device, corpus=str(args.corpus),
-                  cache=str(args.cache), auto_labelled=auto)
+                  cache=str(args.cache), auto_labelled=auto,
+                  class_weights=args.class_weights,
+                  evaluated_on="val" if args.no_test else "test")
     print(f"\n  wrote {args.out}")
     if auto:
         print("  AUTO-LABELLED (A32): count-sequence baselines observe the "

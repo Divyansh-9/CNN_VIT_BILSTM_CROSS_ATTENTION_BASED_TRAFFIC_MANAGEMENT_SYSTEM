@@ -76,3 +76,21 @@ def test_an_existing_checkpoint_is_not_overwritten_without_force(tmp_path):
     with pytest.raises(SystemExit, match="evidence"):
         save(tmp_path)
     save(tmp_path, force=True)
+
+
+def test_a_no_test_checkpoint_never_claims_a_test_score(tmp_path):
+    # P99: under --no-test the scored split is validation. A checkpoint that
+    # stored that score as `test_macro_f1` would read as a test result.
+    run = args(tmp_path)
+    run.no_test, run.class_weights = True, "none"
+    path = save_checkpoint(run, "H", STATE, ROW, MANIFEST, "hash123",
+                           ["l0", "l1"], "cpu")
+    meta = torch.load(path, weights_only=True)["meta"]
+    assert meta["test_macro_f1"] == ""
+    assert (meta["evaluated_on"], meta["class_weights"]) == ("val", "none")
+
+
+def test_an_older_caller_still_records_test_and_inverse(tmp_path):
+    meta = torch.load(save(tmp_path), weights_only=True)["meta"]
+    assert meta["test_macro_f1"] == 0.5
+    assert (meta["evaluated_on"], meta["class_weights"]) == ("test", "inverse")

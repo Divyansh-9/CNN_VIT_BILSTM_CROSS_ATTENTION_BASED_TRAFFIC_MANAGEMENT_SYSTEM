@@ -157,3 +157,56 @@ decision.
 ## Licence
 
 Unresolved: research use only, internal engineering, not publishable (S63).
+
+## Amendment 1 — the owner's three locks, fixed before any training
+
+Written after the corpus build and the pre-training checks, and **before any
+P99 run trained**. Nothing here was chosen with knowledge of a P99 score,
+because none exists.
+
+**Lock 1, support and containment.** These are checked and passed by
+`scripts/p99_corpus.py`, which stops on any failure before writing:
+
+- support per split equals the table above exactly: 165/1139/412, 27/416/142
+  and 83/824/263;
+- every window's 90-sample span lies inside its block;
+- **0 of 23,205 spanned samples are shared between splits**.
+
+**Lock 2, the shortcut baseline, frozen:**
+
+- **The hour prior.** For each hour and each lane, it predicts the class that
+  is most frequent among that hour's **training** windows. A tie goes to the
+  class more frequent in the whole training split for that lane, then to the
+  lower ordinal. It is scored with the primary's metric and method, macro-F1
+  with the 10-minute block bootstrap, on the **same test windows** as every
+  model.
+- Every selected model (G and H × both objectives) is reported against the
+  baseline and against the hour prior on those same windows. **Both objectives
+  are reported whichever wins.**
+
+**Lock 3, selection without test, made structural:**
+
+- Training uses `data/corpus_p99_trainval`, which **holds no test window**.
+- `train_mfstnet.py --no-test` refuses any corpus that contains one. Under
+  `--no-test`, every metric, prediction file and checkpoint record is labelled
+  `evaluated_on: val`, and a checkpoint's `test_macro_f1` is empty.
+- `scripts/p99_eval.py select` reads validation scores only and writes
+  `selection_P99.json` with each selected checkpoint's SHA-256.
+- `scripts/p99_eval.py test` **refuses unless that file is committed and
+  unchanged**, and refuses if any checkpoint's hash has changed.
+- The evaluator is committed with this amendment, before training.
+
+**Phase 2 is conjunctive.** All four conditions must hold, and none
+compensates for another. Every lane and period ablation is reported, never
+only the best. Condition 4 (ONNX parity and the full test suite) runs as a
+separate step after the test read.
+
+**Two distinctions recorded.**
+
+- P99b's 84.5% LOW agreement supports using these labels. It does not make
+  every morning LOW label correct.
+- P99's within-day split measures generalisation across blocks. It does not
+  replace a held-out-day or held-out-camera evaluation.
+
+**Annotator for P99b:** still "unrecorded". It is not to be filled in without
+the project owner's confirmation of who counted.
