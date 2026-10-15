@@ -6876,3 +6876,48 @@ but eight hours cannot separate those three.
 **Unchanged:** the protocol, the model, the thresholds, the lanes and the P97
 record. The licence remains unresolved (internal engineering only), and the
 P96 undercount (14% / 27% / 41%) applies to every label here.
+
+## P99a — a pretrained COCO YOLOv8m counts this camera better than ITD-xl in the afternoon (2026-10-15)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P99a.md`
+(`d67ea67`), committed before any candidate ran on Bellevue footage. The 60
+blind hand-counted frames of P95/P96 were scored under their own four regions.
+**Harness check passed:** ITD-xl, run through the benchmark, reproduces
+`data/corpus_bellevue/counts.csv` exactly on all 60 frames and all 4 lanes.
+
+| candidate | 3-lane MAE (W/N/E) | − ITD-xl [95% CI, frame bootstrap] | verdict |
+|---|---|---|---|
+| ITD-xl, 992, conf 0.45 (reference) | 2.989 | — | — |
+| YOLOv8s 640 | 4.644 | +1.656 [+1.367, +1.950] | worse |
+| YOLOv8m 640 | 3.472 | +0.483 [+0.228, +0.733] | worse |
+| YOLOv8x 640 | 3.067 | +0.078 [−0.200, +0.350] | not shown |
+| YOLOv8s 1280 | 3.672 | +0.683 [+0.406, +0.956] | worse |
+| **YOLOv8m 1280** | **2.400** | **−0.589 [−0.883, −0.306]** | **improves, selected** |
+| YOLOv8x 1280 | 2.494 | −0.494 [−0.817, −0.172] | improves |
+
+All COCO candidates ran at conf 0.25 and counted bicycle, car, motorcycle, bus
+and truck.
+
+**Where M1280 differs from ITD-xl:**
+
+| lane | undercount, ITD-xl | undercount, M1280 | busy MAE, ITD-xl | busy MAE, M1280 |
+|---|---|---|---|---|
+| west | 14% | 14% | 2.1 | 2.5 |
+| north | 27% | 15% | 5.1 | 4.6 |
+| east | 41% | 15% | 7.1 | 3.6 |
+
+- **The painted bicycle symbol** is reported as a bicycle in 13 of 60 frames
+  by ITD-xl, and in 1 of 60 by M1280.
+- **Costs, not only gains:**
+  - Pearson correlation falls on west (0.82 → 0.76) and north (0.80 → 0.74).
+  - On north in the quiet half, M1280 **overcounts by 15%**.
+- **Still undercounts** on every lane.
+- **Speed:** about 60 ms per frame on this laptop's RTX 4050, a proxy host
+  (ADR-003).
+
+**Not adopted.** The 60 frames are all from the busy afternoon. The protocol
+selects, it does not adopt. Adoption waits on P99b, a blind count of 60
+dawn, glare and dusk frames: that set also tests whether the morning LOW labels
+are real. **87% of the corpus's LOW (297 of 343) comes from 06:08–08:08**, and
+neither detector has been measured there. Nothing is rebuilt. P97 and P98
+stand under ITD-xl.

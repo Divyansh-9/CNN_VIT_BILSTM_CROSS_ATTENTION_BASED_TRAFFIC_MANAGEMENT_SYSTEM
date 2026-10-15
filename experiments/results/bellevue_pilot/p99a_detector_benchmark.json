@@ -1,0 +1,782 @@
+{
+  "protocol": "PREREGISTRATION_P99a.md",
+  "frames": 60,
+  "device": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "host": "laptop RTX 4050 (proxy, ADR-003)",
+  "candidates": {
+    "R": {
+      "weights": "best_xl_ITD_v1.2.pt",
+      "sha256": "06006ecb5fe52a348ceed805bf0aa6b32af7e24e689d09a6582f6d53159d6b00",
+      "imgsz": 992,
+      "conf": 0.45,
+      "mae3": 2.989,
+      "ms_per_frame": 101.9,
+      "symbol_as_bicycle": 13,
+      "per_lane": {
+        "west": {
+          "mae": 1.6,
+          "signed": -1.167,
+          "undercount": 0.139,
+          "exact": 0.25,
+          "pearson": 0.819,
+          "quiet": {
+            "n": 36,
+            "mae": 1.278,
+            "signed": -0.556,
+            "undercount": 0.084,
+            "exact": 0.333,
+            "pearson": 0.771
+          },
+          "busy": {
+            "n": 24,
+            "mae": 2.083,
+            "signed": -2.083,
+            "undercount": 0.189,
+            "exact": 0.125,
+            "pearson": 0.644
+          }
+        },
+        "north": {
+          "mae": 3.2,
+          "signed": -2.8,
+          "undercount": 0.269,
+          "exact": 0.183,
+          "pearson": 0.802,
+          "quiet": {
+            "n": 31,
+            "mae": 1.387,
+            "signed": -1.194,
+            "undercount": 0.2,
+            "exact": 0.323,
+            "pearson": 0.823
+          },
+          "busy": {
+            "n": 29,
+            "mae": 5.138,
+            "signed": -4.517,
+            "undercount": 0.298,
+            "exact": 0.034,
+            "pearson": 0.388
+          }
+        },
+        "south": {
+          "mae": 1.083,
+          "signed": -1.05,
+          "undercount": 0.787,
+          "exact": 0.483,
+          "pearson": 0.159,
+          "quiet": {
+            "n": 37,
+            "mae": 0.243,
+            "signed": -0.189,
+            "undercount": 0.5,
+            "exact": 0.757,
+            "pearson": 0.477
+          },
+          "busy": {
+            "n": 23,
+            "mae": 2.435,
+            "signed": -2.435,
+            "undercount": 0.848,
+            "exact": 0.043,
+            "pearson": -0.136
+          }
+        },
+        "east": {
+          "mae": 4.167,
+          "signed": -3.967,
+          "undercount": 0.406,
+          "exact": 0.117,
+          "pearson": 0.713,
+          "quiet": {
+            "n": 34,
+            "mae": 1.912,
+            "signed": -1.559,
+            "undercount": 0.275,
+            "exact": 0.206,
+            "pearson": 0.831
+          },
+          "busy": {
+            "n": 26,
+            "mae": 7.115,
+            "signed": -7.115,
+            "undercount": 0.471,
+            "exact": 0.0,
+            "pearson": -0.047
+          }
+        }
+      }
+    },
+    "S640": {
+      "weights": "yolov8s.pt",
+      "sha256": "1f47a78bf100391c2a140b7ac73a1caae18c32779be7d310658112f7ac9aa78a",
+      "imgsz": 640,
+      "conf": 0.25,
+      "mae3": 4.644,
+      "ms_per_frame": 54.5,
+      "symbol_as_bicycle": 1,
+      "per_lane": {
+        "west": {
+          "mae": 3.15,
+          "signed": -3.117,
+          "undercount": 0.372,
+          "exact": 0.083,
+          "pearson": 0.711,
+          "quiet": {
+            "n": 36,
+            "mae": 2.389,
+            "signed": -2.333,
+            "undercount": 0.353,
+            "exact": 0.111,
+            "pearson": 0.707
+          },
+          "busy": {
+            "n": 24,
+            "mae": 4.292,
+            "signed": -4.292,
+            "undercount": 0.389,
+            "exact": 0.042,
+            "pearson": 0.496
+          }
+        },
+        "north": {
+          "mae": 5.583,
+          "signed": -5.05,
+          "undercount": 0.485,
+          "exact": 0.05,
+          "pearson": 0.401,
+          "quiet": {
+            "n": 31,
+            "mae": 2.226,
+            "signed": -1.258,
+            "undercount": 0.211,
+            "exact": 0.097,
+            "pearson": 0.577
+          },
+          "busy": {
+            "n": 29,
+            "mae": 9.172,
+            "signed": -9.103,
+            "undercount": 0.6,
+            "exact": 0.0,
+            "pearson": 0.047
+          }
+        },
+        "south": {
+          "mae": 1.017,
+          "signed": -0.917,
+          "undercount": 0.688,
+          "exact": 0.483,
+          "pearson": 0.205,
+          "quiet": {
+            "n": 37,
+            "mae": 0.27,
+            "signed": -0.162,
+            "undercount": 0.429,
+            "exact": 0.73,
+            "pearson": 0.402
+          },
+          "busy": {
+            "n": 23,
+            "mae": 2.217,
+            "signed": -2.13,
+            "undercount": 0.742,
+            "exact": 0.087,
+            "pearson": -0.17
+          }
+        },
+        "east": {
+          "mae": 5.2,
+          "signed": -5.033,
+          "undercount": 0.515,
+          "exact": 0.117,
+          "pearson": 0.624,
+          "quiet": {
+            "n": 34,
+            "mae": 2.294,
+            "signed": -2,
+            "undercount": 0.352,
+            "exact": 0.206,
+            "pearson": 0.779
+          },
+          "busy": {
+            "n": 26,
+            "mae": 9,
+            "signed": -9,
+            "undercount": 0.595,
+            "exact": 0.0,
+            "pearson": -0.191
+          }
+        }
+      },
+      "vs_R": {
+        "point": 1.656,
+        "ci95": [
+          1.367,
+          1.95
+        ],
+        "improves": false
+      }
+    },
+    "M640": {
+      "weights": "yolov8m.pt",
+      "sha256": "5d4a90cdc7a21786cc59cd19778e9eafff836df9e2da32524737c7ee6efe4fe5",
+      "imgsz": 640,
+      "conf": 0.25,
+      "mae3": 3.472,
+      "ms_per_frame": 41.7,
+      "symbol_as_bicycle": 3,
+      "per_lane": {
+        "west": {
+          "mae": 1.917,
+          "signed": -1.75,
+          "undercount": 0.209,
+          "exact": 0.183,
+          "pearson": 0.827,
+          "quiet": {
+            "n": 36,
+            "mae": 1.306,
+            "signed": -1.028,
+            "undercount": 0.155,
+            "exact": 0.278,
+            "pearson": 0.863
+          },
+          "busy": {
+            "n": 24,
+            "mae": 2.833,
+            "signed": -2.833,
+            "undercount": 0.257,
+            "exact": 0.042,
+            "pearson": 0.497
+          }
+        },
+        "north": {
+          "mae": 4.483,
+          "signed": -4.25,
+          "undercount": 0.408,
+          "exact": 0.15,
+          "pearson": 0.665,
+          "quiet": {
+            "n": 31,
+            "mae": 1.806,
+            "signed": -1.355,
+            "undercount": 0.227,
+            "exact": 0.258,
+            "pearson": 0.665
+          },
+          "busy": {
+            "n": 29,
+            "mae": 7.345,
+            "signed": -7.345,
+            "undercount": 0.484,
+            "exact": 0.034,
+            "pearson": 0.215
+          }
+        },
+        "south": {
+          "mae": 0.983,
+          "signed": -0.95,
+          "undercount": 0.713,
+          "exact": 0.483,
+          "pearson": 0.312,
+          "quiet": {
+            "n": 37,
+            "mae": 0.216,
+            "signed": -0.216,
+            "undercount": 0.571,
+            "exact": 0.784,
+            "pearson": 0.564
+          },
+          "busy": {
+            "n": 23,
+            "mae": 2.217,
+            "signed": -2.13,
+            "undercount": 0.742,
+            "exact": 0.0,
+            "pearson": -0.075
+          }
+        },
+        "east": {
+          "mae": 4.017,
+          "signed": -3.583,
+          "undercount": 0.367,
+          "exact": 0.133,
+          "pearson": 0.785,
+          "quiet": {
+            "n": 34,
+            "mae": 1.912,
+            "signed": -1.206,
+            "undercount": 0.212,
+            "exact": 0.235,
+            "pearson": 0.701
+          },
+          "busy": {
+            "n": 26,
+            "mae": 6.769,
+            "signed": -6.692,
+            "undercount": 0.443,
+            "exact": 0.0,
+            "pearson": 0.092
+          }
+        }
+      },
+      "vs_R": {
+        "point": 0.483,
+        "ci95": [
+          0.228,
+          0.733
+        ],
+        "improves": false
+      }
+    },
+    "X640": {
+      "weights": "yolov8x.pt",
+      "sha256": "3df4ada6b4dad6d657868f2fdf7faecfb34dcfccf3a25c4b82079064718524c8",
+      "imgsz": 640,
+      "conf": 0.25,
+      "mae3": 3.067,
+      "ms_per_frame": 54.2,
+      "symbol_as_bicycle": 8,
+      "per_lane": {
+        "west": {
+          "mae": 1.383,
+          "signed": -0.983,
+          "undercount": 0.117,
+          "exact": 0.2,
+          "pearson": 0.877,
+          "quiet": {
+            "n": 36,
+            "mae": 1.083,
+            "signed": -0.528,
+            "undercount": 0.08,
+            "exact": 0.306,
+            "pearson": 0.885
+          },
+          "busy": {
+            "n": 24,
+            "mae": 1.833,
+            "signed": -1.667,
+            "undercount": 0.151,
+            "exact": 0.042,
+            "pearson": 0.641
+          }
+        },
+        "north": {
+          "mae": 3.767,
+          "signed": -2.333,
+          "undercount": 0.224,
+          "exact": 0.083,
+          "pearson": 0.632,
+          "quiet": {
+            "n": 31,
+            "mae": 1.871,
+            "signed": 0.71,
+            "undercount": -0.119,
+            "exact": 0.129,
+            "pearson": 0.64
+          },
+          "busy": {
+            "n": 29,
+            "mae": 5.793,
+            "signed": -5.586,
+            "undercount": 0.368,
+            "exact": 0.034,
+            "pearson": 0.37
+          }
+        },
+        "south": {
+          "mae": 0.933,
+          "signed": -0.9,
+          "undercount": 0.675,
+          "exact": 0.517,
+          "pearson": 0.3,
+          "quiet": {
+            "n": 37,
+            "mae": 0.189,
+            "signed": -0.189,
+            "undercount": 0.5,
+            "exact": 0.811,
+            "pearson": 0.619
+          },
+          "busy": {
+            "n": 23,
+            "mae": 2.13,
+            "signed": -2.043,
+            "undercount": 0.712,
+            "exact": 0.043,
+            "pearson": -0.111
+          }
+        },
+        "east": {
+          "mae": 4.05,
+          "signed": -3.617,
+          "undercount": 0.37,
+          "exact": 0.15,
+          "pearson": 0.686,
+          "quiet": {
+            "n": 34,
+            "mae": 2,
+            "signed": -1.353,
+            "undercount": 0.238,
+            "exact": 0.265,
+            "pearson": 0.696
+          },
+          "busy": {
+            "n": 26,
+            "mae": 6.731,
+            "signed": -6.577,
+            "undercount": 0.435,
+            "exact": 0.0,
+            "pearson": -0.157
+          }
+        }
+      },
+      "vs_R": {
+        "point": 0.078,
+        "ci95": [
+          -0.2,
+          0.35
+        ],
+        "improves": false
+      }
+    },
+    "S1280": {
+      "weights": "yolov8s.pt",
+      "sha256": "1f47a78bf100391c2a140b7ac73a1caae18c32779be7d310658112f7ac9aa78a",
+      "imgsz": 1280,
+      "conf": 0.25,
+      "mae3": 3.672,
+      "ms_per_frame": 28.7,
+      "symbol_as_bicycle": 1,
+      "per_lane": {
+        "west": {
+          "mae": 3.867,
+          "signed": -3.833,
+          "undercount": 0.457,
+          "exact": 0.117,
+          "pearson": 0.51,
+          "quiet": {
+            "n": 36,
+            "mae": 2.833,
+            "signed": -2.778,
+            "undercount": 0.42,
+            "exact": 0.194,
+            "pearson": 0.538
+          },
+          "busy": {
+            "n": 24,
+            "mae": 5.417,
+            "signed": -5.417,
+            "undercount": 0.491,
+            "exact": 0.0,
+            "pearson": 0.341
+          }
+        },
+        "north": {
+          "mae": 3.45,
+          "signed": -1.95,
+          "undercount": 0.187,
+          "exact": 0.117,
+          "pearson": 0.664,
+          "quiet": {
+            "n": 31,
+            "mae": 1.742,
+            "signed": 0.774,
+            "undercount": -0.13,
+            "exact": 0.129,
+            "pearson": 0.756
+          },
+          "busy": {
+            "n": 29,
+            "mae": 5.276,
+            "signed": -4.862,
+            "undercount": 0.32,
+            "exact": 0.103,
+            "pearson": 0.187
+          }
+        },
+        "south": {
+          "mae": 1.1,
+          "signed": -1.1,
+          "undercount": 0.825,
+          "exact": 0.45,
+          "pearson": 0.249,
+          "quiet": {
+            "n": 37,
+            "mae": 0.27,
+            "signed": -0.27,
+            "undercount": 0.714,
+            "exact": 0.73,
+            "pearson": 0.446
+          },
+          "busy": {
+            "n": 23,
+            "mae": 2.435,
+            "signed": -2.435,
+            "undercount": 0.848,
+            "exact": 0.0,
+            "pearson": -0.115
+          }
+        },
+        "east": {
+          "mae": 3.7,
+          "signed": -3.233,
+          "undercount": 0.331,
+          "exact": 0.117,
+          "pearson": 0.728,
+          "quiet": {
+            "n": 34,
+            "mae": 1.824,
+            "signed": -1.059,
+            "undercount": 0.187,
+            "exact": 0.206,
+            "pearson": 0.765
+          },
+          "busy": {
+            "n": 26,
+            "mae": 6.154,
+            "signed": -6.077,
+            "undercount": 0.402,
+            "exact": 0.0,
+            "pearson": -0.237
+          }
+        }
+      },
+      "vs_R": {
+        "point": 0.683,
+        "ci95": [
+          0.406,
+          0.956
+        ],
+        "improves": false
+      }
+    },
+    "M1280": {
+      "weights": "yolov8m.pt",
+      "sha256": "5d4a90cdc7a21786cc59cd19778e9eafff836df9e2da32524737c7ee6efe4fe5",
+      "imgsz": 1280,
+      "conf": 0.25,
+      "mae3": 2.4,
+      "ms_per_frame": 59.1,
+      "symbol_as_bicycle": 1,
+      "per_lane": {
+        "west": {
+          "mae": 1.85,
+          "signed": -1.183,
+          "undercount": 0.141,
+          "exact": 0.217,
+          "pearson": 0.76,
+          "quiet": {
+            "n": 36,
+            "mae": 1.389,
+            "signed": -0.556,
+            "undercount": 0.084,
+            "exact": 0.278,
+            "pearson": 0.841
+          },
+          "busy": {
+            "n": 24,
+            "mae": 2.542,
+            "signed": -2.125,
+            "undercount": 0.192,
+            "exact": 0.125,
+            "pearson": 0.182
+          }
+        },
+        "north": {
+          "mae": 2.967,
+          "signed": -1.567,
+          "undercount": 0.15,
+          "exact": 0.1,
+          "pearson": 0.741,
+          "quiet": {
+            "n": 31,
+            "mae": 1.419,
+            "signed": 0.903,
+            "undercount": -0.151,
+            "exact": 0.129,
+            "pearson": 0.85
+          },
+          "busy": {
+            "n": 29,
+            "mae": 4.621,
+            "signed": -4.207,
+            "undercount": 0.277,
+            "exact": 0.069,
+            "pearson": 0.254
+          }
+        },
+        "south": {
+          "mae": 1.033,
+          "signed": -1,
+          "undercount": 0.75,
+          "exact": 0.467,
+          "pearson": 0.251,
+          "quiet": {
+            "n": 37,
+            "mae": 0.27,
+            "signed": -0.216,
+            "undercount": 0.571,
+            "exact": 0.73,
+            "pearson": 0.413
+          },
+          "busy": {
+            "n": 23,
+            "mae": 2.261,
+            "signed": -2.261,
+            "undercount": 0.788,
+            "exact": 0.043,
+            "pearson": -0.095
+          }
+        },
+        "east": {
+          "mae": 2.383,
+          "signed": -1.483,
+          "undercount": 0.152,
+          "exact": 0.2,
+          "pearson": 0.825,
+          "quiet": {
+            "n": 34,
+            "mae": 1.441,
+            "signed": -0.147,
+            "undercount": 0.026,
+            "exact": 0.265,
+            "pearson": 0.719
+          },
+          "busy": {
+            "n": 26,
+            "mae": 3.615,
+            "signed": -3.231,
+            "undercount": 0.214,
+            "exact": 0.115,
+            "pearson": 0.1
+          }
+        }
+      },
+      "vs_R": {
+        "point": -0.589,
+        "ci95": [
+          -0.883,
+          -0.306
+        ],
+        "improves": true
+      }
+    },
+    "X1280": {
+      "weights": "yolov8x.pt",
+      "sha256": "3df4ada6b4dad6d657868f2fdf7faecfb34dcfccf3a25c4b82079064718524c8",
+      "imgsz": 1280,
+      "conf": 0.25,
+      "mae3": 2.494,
+      "ms_per_frame": 99.8,
+      "symbol_as_bicycle": 1,
+      "per_lane": {
+        "west": {
+          "mae": 1.667,
+          "signed": -0.833,
+          "undercount": 0.099,
+          "exact": 0.3,
+          "pearson": 0.781,
+          "quiet": {
+            "n": 36,
+            "mae": 1.389,
+            "signed": -0.611,
+            "undercount": 0.092,
+            "exact": 0.333,
+            "pearson": 0.831
+          },
+          "busy": {
+            "n": 24,
+            "mae": 2.083,
+            "signed": -1.167,
+            "undercount": 0.106,
+            "exact": 0.25,
+            "pearson": 0.144
+          }
+        },
+        "north": {
+          "mae": 3.35,
+          "signed": -1.017,
+          "undercount": 0.098,
+          "exact": 0.05,
+          "pearson": 0.689,
+          "quiet": {
+            "n": 31,
+            "mae": 2.097,
+            "signed": 1.581,
+            "undercount": -0.265,
+            "exact": 0.097,
+            "pearson": 0.687
+          },
+          "busy": {
+            "n": 29,
+            "mae": 4.69,
+            "signed": -3.793,
+            "undercount": 0.25,
+            "exact": 0.0,
+            "pearson": 0.207
+          }
+        },
+        "south": {
+          "mae": 1.017,
+          "signed": -0.983,
+          "undercount": 0.738,
+          "exact": 0.483,
+          "pearson": 0.247,
+          "quiet": {
+            "n": 37,
+            "mae": 0.216,
+            "signed": -0.216,
+            "undercount": 0.571,
+            "exact": 0.784,
+            "pearson": 0.564
+          },
+          "busy": {
+            "n": 23,
+            "mae": 2.304,
+            "signed": -2.217,
+            "undercount": 0.773,
+            "exact": 0.0,
+            "pearson": -0.141
+          }
+        },
+        "east": {
+          "mae": 2.467,
+          "signed": -1.133,
+          "undercount": 0.116,
+          "exact": 0.233,
+          "pearson": 0.804,
+          "quiet": {
+            "n": 34,
+            "mae": 1.559,
+            "signed": 0.088,
+            "undercount": -0.016,
+            "exact": 0.324,
+            "pearson": 0.683
+          },
+          "busy": {
+            "n": 26,
+            "mae": 3.654,
+            "signed": -2.731,
+            "undercount": 0.181,
+            "exact": 0.115,
+            "pearson": 0.207
+          }
+        }
+      },
+      "vs_R": {
+        "point": -0.494,
+        "ci95": [
+          -0.817,
+          -0.172
+        ],
+        "improves": true
+      }
+    }
+  },
+  "improving": [
+    "M1280",
+    "X1280"
+  ],
+  "selected": "M1280"
+}

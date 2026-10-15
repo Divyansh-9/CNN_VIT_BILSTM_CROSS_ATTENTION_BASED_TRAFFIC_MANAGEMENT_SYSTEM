@@ -249,3 +249,14 @@ The run was interrupted after 6 of 20 trainings and resumed unchanged (P97).
 - Every file is continuous, and none was excluded. Mon 13:08 is 53.5 min long
   at the source and is kept. The camera is fixed: median shift ≤ 0.0063 of
   frame width (`P98_PROVENANCE.md`).
+
+## P99a — pretrained-detector benchmark on the 60 afternoon hand counts
+
+ITD-xl 3-lane MAE 2.989. **COCO YOLOv8m at 1280: 2.400, a difference of −0.589
+[−0.883, −0.306].** Selected, not adopted. Undercount: north 27% → 15%, east
+41% → 15%, west unchanged at 14%. The painted symbol is a false bicycle in 1
+frame of 60, against 13. YOLOv8x at 1280 also improves; nothing at 640 does.
+
+The cost: correlation falls on west and north, and M1280 overcounts north by
+15% when traffic is quiet. Adoption needs P99b, blind counts from 06:08,
+07:08, 08:08 and Sun 19:08, the hours that hold 87% of the LOW labels.
