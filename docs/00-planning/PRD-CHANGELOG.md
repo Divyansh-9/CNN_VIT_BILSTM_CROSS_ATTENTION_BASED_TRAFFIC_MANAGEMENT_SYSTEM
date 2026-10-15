@@ -6805,3 +6805,74 @@ from the baseline and well below G (accuracy 0.552 against 0.724).
 **Not compared with P94** as if it were the same task, as the
 pre-registration requires.
 
+
+## P98 — the P97 result does not replicate on other hours of the same camera (2026-10-15)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P98.md`
+(`3f5fd13`), which was written before any of the new footage was on disk. The
+provenance and the eligibility counts were committed (`c252402`) before the
+frozen model was run. Nothing was trained or reselected. The 60 s model is P97's
+G seed 13 and the 120 s model is P97's H seed 42. Both match their sidecar
+SHA-256, and both carry preprocessing hash `a4142d1ab333226b`, the same as the
+new cache.
+
+**Footage.** Eleven hourly NE 8th files, all continuous by the burnt-in clock,
+with none excluded. Mon 13:08 is 53.5 minutes long in the source itself; it is
+byte-identical to the project owner's copy and was kept at its actual length
+(102 windows: five 10-minute blocks of 20 and one of 2). Mon 14:08 carries the
+protocol's 149-sample buffer against P97's training. The camera is fixed across
+all eleven files: the median lane-centre shift is at most 0.0063 of frame
+width. Details are in `P98_PROVENANCE.md`.
+
+| comparison | model − previous-window mean | 95% CI (10-min block bootstrap) | blocks / windows | verdict |
+|---|---|---|---|---|
+| **primary: Mon 07:08–15:08, 60 s, macro-F1** | **0.4268 − 0.4895 = −0.063** | **[−0.107, −0.009]** | 48 / 897 | **does not replicate; the model is worse** |
+
+The secondaries, Holm-corrected as one family. None can rescue the primary.
+
+| secondary | difference | 95% CI | p | Holm |
+|---|---|---|---|---|
+| west, 60 s | −0.084 | [−0.141, −0.000] | 0.049 | n.s. |
+| north, 60 s | −0.090 | [−0.161, −0.006] | 0.036 | n.s. |
+| east, 60 s | −0.018 | [−0.052, +0.010] | 0.29 | n.s. |
+| dawn/dusk, 60 s | −0.254 | [−0.334, −0.130] | < 0.0001 | **significant, the model is worse** |
+| Sunday daylight, 60 s | −0.015 | [−0.079, +0.062] | 0.78 | n.s. |
+| 120 s, H | −0.294 | [−0.342, −0.231] | < 0.0001 | **significant, the model is worse** |
+| accuracy, primary | **+0.094** | [+0.061, +0.128] | < 0.0001 | **significant, the model is better** |
+| QWK, primary | −0.008 | [−0.127, +0.112] | 0.94 | n.s. |
+
+The step-down stops at north: p 0.036 against a threshold of 0.010.
+
+**Why: the model has never seen LOW.** On the primary stratum it predicts LOW
+in **0 of 2,691** lane-decisions, against 129 true LOW. Its LOW F1 is 0, where
+the baseline's is 0.288. The other two classes go the other way. MEDIUM F1 is
+0.832 for the model against 0.744 for the baseline, and HIGH is 0.448 against
+0.437. Accuracy rises because the model leans on MEDIUM, which is 69% of the
+targets. Macro-F1 falls because it weights the missing class equally. P97's
+training split held **1 LOW in 381** lane-decisions, and its validation split
+held none, because the two training hours (Mon 15:08–17:08) were the afternoon
+peak. P97's test held 1 LOW in 87. So P97's win was a win on MEDIUM and HIGH,
+which its post-hoc MEDIUM/HIGH interval already said. This is the first test
+with enough LOW to show that the model cannot produce the class.
+
+**Exploratory, not pre-registered, and no rescue.** By hour, the model's
+macro-F1 exceeds the baseline's at 10:08, 11:08, 13:08 and 14:08, the hours
+closest to the training period. It falls below at 07:08, 08:08, 09:08 and
+12:08, and the 07:08 and 08:08 files carry heavy low-sun glare. That pattern
+fits drift in time of day, lighting or traffic away from two afternoon hours,
+but eight hours cannot separate those three.
+
+**What this establishes.**
+
+- The P97 60 s result does **not** generalise across the day on the same
+  camera, under the pre-registered metric.
+- A model trained on two peak hours covers two of the three classes.
+  Collecting more hours of the same peak would not fix this. Coverage of
+  quieter periods would.
+- Phase 2 (unseen cameras) with this checkpoint would test a model already
+  known to be missing a class. That is a decision for the project owner, not
+  a step to take by default.
+
+**Unchanged:** the protocol, the model, the thresholds, the lanes and the P97
+record. The licence remains unresolved (internal engineering only), and the
+P96 undercount (14% / 27% / 41%) applies to every label here.

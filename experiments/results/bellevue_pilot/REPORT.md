@@ -231,3 +231,21 @@ observable from this camera.
   undercount is a limitation of every label.
 
 The run was interrupted after 6 of 20 trainings and resumed unchanged (P97).
+
+## P98 — the frozen P97 model on eleven new hours of the same camera
+
+| comparison | model | baseline | difference [95% CI, block bootstrap] | verdict |
+|---|---|---|---|---|
+| **Mon 07:08–15:08, 60 s (primary)** | 0.4268 | 0.4895 | **−0.063 [−0.107, −0.009]**, 48 blocks | **does not replicate** |
+| dawn/dusk, 60 s | | | −0.254 [−0.334, −0.130], 12 blocks | worse (Holm) |
+| Sunday daylight, 60 s | | | −0.015 [−0.079, +0.062], 6 blocks | n.s. |
+| primary, 120 s (H) | | | −0.294 [−0.342, −0.231], 47 blocks | worse (Holm) |
+| primary accuracy | | | +0.094 [+0.061, +0.128] | better (Holm) |
+
+- **The model never predicts LOW**: 0 of 2,691 decisions, against 129 true
+  LOW. P97 trained on 1 LOW in 381.
+- **It is better on MEDIUM (F1 0.832 against 0.744) and level on HIGH (0.448
+  against 0.437).** That is what P97 measured too.
+- Every file is continuous, and none was excluded. Mon 13:08 is 53.5 min long
+  at the source and is kept. The camera is fixed: median shift ≤ 0.0063 of
+  frame width (`P98_PROVENANCE.md`).
