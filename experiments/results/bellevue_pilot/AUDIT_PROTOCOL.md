@@ -56,3 +56,27 @@ Per lane:
 
 Both sets of counts are kept: the manual counts in `audit_manual.json`, the
 detector counts in the corpus's `counts.csv`.
+
+## Expansion to 60 frames — fixed before the 40 new frames were chosen
+
+Written after the 20-frame pilot showed material undercounting (P95), as this
+protocol requires. The 20 pilot frames and their counts are kept unchanged.
+
+- **Selection, stratified by time.** The two hours are cut into the same 20
+  six-minute bins (`[180·i, 180·i + 180)` samples). In each bin, **two more
+  samples** are drawn uniformly by a generator seeded with **2027**, excluding
+  the pilot frame. Traffic conditions are **not** selected on detector counts.
+  Filtering on the quantity being audited would let a badly undercounted busy
+  frame pass as a quiet one. Time bins span both hours and every signal phase.
+- **Counting:** the same rules, regions, centre criterion and blinding as
+  above, on a separate page with its own saved state.
+- **Quiet against busy** is split at the **median of the hand count**, per
+  lane. The hand count is the reference, the detector count is not.
+- **Uncertainty:** frames are the cluster. A frame's four lanes come from one
+  image and are resampled together, in a bootstrap over the 60 frames with
+  10,000 resamples. Frames six minutes apart are still one camera and one
+  afternoon, so the intervals describe this sample, not the detector in
+  general.
+- **Reported per lane:** mean signed error, the undercount percentage, exact
+  agreement, Pearson and Spearman correlation, each with its interval, and each
+  split quiet against busy.
