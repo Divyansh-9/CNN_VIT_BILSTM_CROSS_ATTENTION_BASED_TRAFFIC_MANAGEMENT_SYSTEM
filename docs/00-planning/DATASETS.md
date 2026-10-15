@@ -755,3 +755,27 @@ maps onto ours is not yet checked.
 
 The register entry is `chennai_zenodo_21545806` in `data/sources.json`.
 
+## BMD-45 metadata checked for sequences — 2026-10-15
+
+The question was whether the published BMD-45 can supply forecasting windows
+after all: 60 frames at 2 s from one camera, 390 s of continuity per camera.
+Only the metadata was downloaded (`metadata.jsonl` for both splits, 21.6 MB),
+never the 153 GB of images.
+
+| check | finding |
+|---|---|
+| camera id | **none** — each row is `file_name`, `objects.bbox`, `objects.categories` |
+| per-image time | **none** — the README states one window for the whole dataset, February 2025, 06:00–18:00 IST |
+| reliable ordering | **no** — 45,986 ids spread over 41…999,988, median gap 15, **longest run of consecutive ids 4** |
+| 390 s continuous | **cannot be established** |
+
+The README says why. Images were "sampled from long-duration CCTV recordings
+using spatial and temporal diversity criteria", which is the right design for a
+detection benchmark and rules out reconstructing sequences.
+
+**BMD-45 stays detector-only.** The same README confirms that the long-duration
+recordings exist and who operates the cameras: about 3,679 Safe City cameras
+run by Bengaluru Police, recorded February 2025. That makes the request in
+[OUTREACH-2026-10-15](OUTREACH-2026-10-15.md) §0A specific rather than
+speculative.
+

@@ -38,7 +38,7 @@
         "detector": "accepted",
         "forecaster": "rejected"
       },
-      "reason": "Stills, about 12.5 frames per camera; no camera holds the 120 continuous seconds one window needs."
+      "reason": "Stills, about 12.5 frames per camera; no camera holds the 120 continuous seconds one window needs. Confirmed from the metadata 2026-10-15: no camera id, no per-image time, ids spread over ~1M with the longest consecutive run 4; the README says frames were sampled for temporal diversity from long-duration Bengaluru Police Safe City recordings (February 2025), which are the route to sequences."
     },
     "idd": {
       "name": "India Driving Dataset, IIIT Hyderabad",

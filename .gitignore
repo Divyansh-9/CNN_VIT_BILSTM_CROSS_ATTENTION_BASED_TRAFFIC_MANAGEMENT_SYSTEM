@@ -128,3 +128,7 @@ data/server/
 # Regenerated on every run and byte-identical from the same inputs, so they are
 # build output rather than data.
 data/_discipline/
+
+# BMD-45 metadata downloaded to the repository root (2026-10-15). Third-party
+# data, CC BY 4.0, re-fetchable with `hf download ... --include "*.json"`.
+/BMD-45/
