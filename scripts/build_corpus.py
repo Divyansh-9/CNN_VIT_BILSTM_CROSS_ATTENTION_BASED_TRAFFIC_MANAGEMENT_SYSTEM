@@ -552,7 +552,10 @@ def main(argv: list[str] | None = None) -> int:
 
     import collections
     print(f"\n  {len(labelled)} sequences over {len(by_clip)} clip(s)")
-    print(f"  splits: {collections.Counter(splits.values())}")
+    # `splits` maps clip -> split in clip mode and is None in temporal mode,
+    # where one clip is divided by time; the per-window split is the truth in
+    # both cases.
+    print(f"  splits: {collections.Counter(e['split'] for e in labelled)}")
     for name in lane_names(lanes):
         dist = collections.Counter(e[f"label_{name}"] for e in labelled
                                    if f"label_{name}" in e)

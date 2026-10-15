@@ -116,14 +116,14 @@
       "determined_by": "frame",
       "licence": "none stated; README says 'made available for research purposes', repository licence field is null",
       "licence_resolved": false,
-      "continuous_s": null,
+      "continuous_s": 3600,
       "cameras": 5,
       "high_support": null,
       "roles": {
         "forecaster": "candidate",
         "detector": "candidate"
       },
-      "reason": "Assessed 2026-10-15 from the README and the official sample frame of three of the five cameras. About 101 h of 1280x720 30 Hz video from September 2017, five pole-mounted intersection cameras, hosted as Google Drive folders. Each view frames a whole junction - every approach in one shot - which matches the deployment geometry better than any camera in the corpus, and a burnt-in timestamp makes continuity checkable. Against it: strong wide-angle distortion, a dome housing occluding the bottom of the frame, and lane-disciplined US traffic with no two- or three-wheelers, so it is the M6 regime, not the target one. Owes: a licence that permits the intended use, continuous duration per file, and HIGH support once labelled."
+      "reason": "Assessed 2026-10-15 from the README and the official sample frame of three of the five cameras. About 101 h of 1280x720 30 Hz video from September 2017, five pole-mounted intersection cameras, hosted as Google Drive folders. Each view frames a whole junction - every approach in one shot - which matches the deployment geometry better than any camera in the corpus, and a burnt-in timestamp makes continuity checkable. Against it: strong wide-angle distortion, a dome housing occluding the bottom of the frame, and lane-disciplined US traffic with no two- or three-wheelers, so it is the M6 regime, not the target one. Owes: a licence that permits the intended use, continuous duration per file, and HIGH support once labelled. First camera downloaded 2026-10-15 for internal engineering: NE 8th, Monday 16:08-17:08, 940 MB, continuous by its burnt-in clock."
     }
   }
 }

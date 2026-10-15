@@ -6452,3 +6452,101 @@ verified against the repository. The laptop has one physical disk; C: and D:
 are partitions of it, and `pack` refuses a destination on the repository's own
 drive.
 
+## P91 — A30's Bellevue finding does not reproduce with the current detector (2026-10-15)
+
+**Believed.** [A30](#a30--measurement-withdrawn-the-detector-does-not-work-on-bellevue-2026-08-17),
+2026-08-17: Bellevue is unusable as a corpus. On NE 8th, about 10 visible
+vehicles drew 3 detections, one labelled `auto_rickshaw`, and the near-overhead
+fisheye view was judged a third viewpoint class the detector cannot handle.
+`build_corpus.py` has excluded paths containing "Bellevue" by default ever
+since.
+
+**Measured.** The project owner re-opened Bellevue for the foreign-data
+pipeline (S63). The same camera (NE 8th, Monday 11 Sep 2017, 16:08–17:08) was
+run through the detector the corpus is now built with: ITD-xl
+(`best_xl_ITD_v1.2.pt`), confidence 0.45, **input 992**.
+
+- Survey: **1,286 detections over 60 frames**, about 21 a frame; 1.6%
+  unassigned to any lane.
+- Three frames rendered and inspected (16:13, 16:38, 17:03): **24, 23 and 24
+  detections**. At 16:38, every near- and mid-range vehicle is boxed. The north
+  queue has about 10 boxes on about 15 visible cars, with the farthest missed;
+  one small car at the right edge is missed. Roughly 75–85% of vehicles,
+  against A30's 3 of 10.
+
+`check_recording.py`, the tool A30's lesson produced, takes no `--imgsz` and
+renders at the detector's default input size. The corpus counts at 992. Part of
+A30's failure may have been the input size, and the tool cannot show it.
+
+**What is still wrong, and why it is tolerable here.**
+
+| error | effect | bound |
+|---|---|---|
+| the painted bicycle-lane symbol detected as `bicycle 0.74` in every frame, inside the west lane's reach | a constant +1 bicycle in that lane | 0.20 PCU, constant; per-camera thresholds absorb a constant offset |
+| US cars sometimes labelled `autorickshaw` | 1.20 PCU instead of 1.00 | +0.20 PCU per misclassified car |
+| the far end of the north queue under-counted | lower counts at the longest queues | compresses the top of the range, which the per-camera percentiles partly absorb |
+
+None of these is A30's failure, where the counts were fiction. All three are
+biases, and **Bellevue's labels are recorded as auto-labelled, proxy-derived
+and foreign-domain**, never as Indian evidence and never as the headline.
+
+**Changed.** A30 stands as what it measured. The default exclusion in
+`build_corpus.py` is unchanged; this corpus was built with `--exclude` given
+explicitly and empty, so the override is visible in the command and the
+manifest. It is scoped to `data/corpus_bellevue` alone.
+
+**Owed.** `check_recording.py` should take `--imgsz`, so the domain check runs
+at the size the corpus counts at. A precise recall figure needs hand-counted
+frames; the 75–85% here is from inspection, not annotation.
+
+## P92 — on one Bellevue camera, MFSTNet does not beat persistence (2026-10-15)
+
+**Measured.** S63, under a pre-registration written before any label existed.
+Two hours of one camera, a chronological 60/20/20 split with full-window
+buffers, G and H at five seeds each, selection on validation only. The selected
+run is G, seed 21, at validation macro-F1 0.8704. On the held-out final period
+it scored **0.5644**, while persistence — the label of the window's last
+observed sample — scored **0.5875** on the same windows. G is better only on
+QWK, 0.540 against 0.464. Full detail in
+`experiments/results/bellevue_pilot/REPORT.md`.
+
+**Why it matters more than one camera.** A32 said the labels are a
+deterministic function of the count, so count baselines see the
+label-generating variable. Persistence is the simplest such baseline, and
+nothing here beats it. Until a model beats persistence on held-out data, it has
+not shown it forecasts anything. That bar now belongs beside every result,
+including S61, which was never compared with persistence.
+
+**Also found.**
+
+- The fixed thresholds give **no HIGH** in validation or test on this camera.
+  The per-camera thresholds give HIGH only as "the busiest third", flat across
+  the evening peak.
+- The south lane is empty in 63% of samples and always LOW.
+- `build_corpus.py` crashed after writing a temporal-mode corpus, because a
+  print statement assumed clip-mode splits. The data was complete and the
+  print is fixed.
+
+**Owed, as a decision.** Whether the forecasting target needs redefining —
+for example a longer horizon, or occupancy change rather than level —
+**before** more Bellevue cameras are added. More cameras would measure
+generalisation of a model that does not yet beat persistence on the camera it
+was trained on.
+
+**And S61 does not beat it either.** The same persistence baseline on S61's
+four foreign folds, with that corpus's own labels (LOW ≤ 4, MEDIUM ≤ 15),
+against G's mean over five seeds:
+
+| fold | test camera | G | persistence |
+|---|---|---|---|
+| 0 | Dhaka Rampura | 0.4225 | **0.4492** |
+| 1 | M6 | 0.4671 | **0.6924** |
+| 2 | Dhaka footbridge | 0.4089 | **0.6726** |
+| 3 | Dhaka Rampura (second camera) | 0.3297 | **0.4141** |
+
+Persistence is ahead on every fold. That is consistent with
+[ADR-023](decisions/ADR-023-separate-the-two-claims.md)'s measurement that
+naive last-value scored 0.557 across four folds. It is now confirmed for the
+model actually deployed on the edge. **The deployed model is verified,
+integrated and fast. It is not yet better than predicting no change.**
+

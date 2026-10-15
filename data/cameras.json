@@ -94,6 +94,24 @@
       "determined_by": "none",
       "note": "Nothing is known about this clip. Recorded as unknown rather than guessed: an assumed country is worse than an absent one, because it would count toward the target domain.",
       "licence": "unresolved (provenance unknown)"
+    },
+    "Bellevue_Bellevue_NE8th__2017-09-11_16-08-32": {
+      "country": "United States",
+      "city": "Bellevue, WA (NE 8th St)",
+      "viewpoint": "elevated",
+      "traffic_type": "structured",
+      "determined_by": "frame",
+      "note": "Pole-mounted junction camera, whole intersection in frame, all four approaches visible. Inspected 2026-10-15 at 1 s, 1800 s and 3590 s: burnt-in clock reads 16:08:33, 16:38:32, 17:08:22, exactly continuous. H.264 1280x720 29.99 fps, 60 min, weekday evening peak. Lane-disciplined US traffic: the M6 regime, not the target one.",
+      "licence": "unresolved (research use stated, no licence; request drafted in OUTREACH-2026-10-15)"
+    },
+    "Bellevue_NE8th_2017-09-11_15-08_to_17-08": {
+      "country": "United States",
+      "city": "Bellevue, WA (NE 8th St)",
+      "viewpoint": "elevated",
+      "traffic_type": "structured",
+      "determined_by": "frame",
+      "note": "The 15:08-17:08 join of NE 8th: two consecutive hourly files, stream-copied, continuous across the join (15:08:32-16:08:32, then 16:08:32 onward). Pole-mounted junction camera, whole intersection in frame, all four approaches visible. Inspected 2026-10-15 at 1 s, 1800 s and 3590 s: burnt-in clock reads 16:08:33, 16:38:32, 17:08:22, exactly continuous. H.264 1280x720 29.99 fps, 60 min, weekday evening peak. Lane-disciplined US traffic: the M6 regime, not the target one.",
+      "licence": "unresolved (research use stated, no licence; request drafted in OUTREACH-2026-10-15)"
     }
   }
 }
