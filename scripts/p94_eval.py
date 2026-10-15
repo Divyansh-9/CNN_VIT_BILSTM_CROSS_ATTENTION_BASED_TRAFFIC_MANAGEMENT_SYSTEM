@@ -47,6 +47,15 @@ SETS = {
             "3lane_sus120": ("data/corpus_bellevue_3lane_sus120", 60)},
 }
 TARGETS = SETS["P94"]
+
+#: Lane ids are assigned left to right on import, so the same id can mean a
+#: different approach in different experiments: in P97 lane_2 is EAST, in P94
+#: it was south. Results are reported by approach, never by id alone.
+LANE_NAMES = {
+    "P94": {"lane_0": "west", "lane_1": "north", "lane_2": "south", "lane_3": "east"},
+    "P97": {"lane_0": "west", "lane_1": "north", "lane_2": "east"},
+}
+NAMES = LANE_NAMES["P94"]
 SEEDS = (42, 1, 7, 13, 21)
 CLASSES = ["LOW", "MEDIUM", "HIGH"]
 SELECTION = ROOT / "selection_P94.json"
@@ -146,8 +155,9 @@ def test() -> int:
             rep = evaluate(truth, flat(i, windows), CLASSES)
             entry[name] = {"macro_f1": round(rep.macro_f1, 4),
                            "accuracy": round(rep.accuracy, 4), "qwk": round(rep.qwk, 4),
-                           "per_lane_correct": {lane: sum(int(w[i][j] == w[0][j]) for w in windows)
-                                                for j, lane in enumerate(lanes)}}
+                           "per_lane_correct": {f"{NAMES.get(lane, lane)} ({lane})":
+                                         sum(int(w[i][j] == w[0][j]) for w in windows)
+                                     for j, lane in enumerate(lanes)}}
         majority = [max(set(truth), key=truth.count)] * len(truth)
         entry["majority_macro_f1"] = round(evaluate(truth, majority, CLASSES).macro_f1, 4)
         for name, i in (("G", 1), ("H", 2)):
@@ -177,8 +187,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--set", choices=sorted(SETS), default="P94",
                         help="which pre-registered experiment")
     args = parser.parse_args(argv)
-    global TARGETS, SELECTION, TEST_OUT
+    global TARGETS, SELECTION, TEST_OUT, NAMES
     TARGETS = SETS[args.set]
+    NAMES = LANE_NAMES[args.set]
     SELECTION = ROOT / f"selection_{args.set}.json"
     TEST_OUT = ROOT / f"{args.set.lower()}_test.json"
     return select() if args.phase == "select" else test()
