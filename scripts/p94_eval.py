@@ -38,11 +38,19 @@ use_utf8()
 from mfstnet.metrics import evaluate  # noqa: E402
 
 ROOT = Path("experiments/results/bellevue_pilot")
-TARGETS = {"sus60": ("data/corpus_bellevue_sus60", 30),
-           "sus120": ("data/corpus_bellevue_sus120", 60)}
+#: Each experiment's targets: results folder -> (corpus, K). P97 is the
+#: three-lane rerun of P94 under the same rules (PREREGISTRATION_P97.md).
+SETS = {
+    "P94": {"sus60": ("data/corpus_bellevue_sus60", 30),
+            "sus120": ("data/corpus_bellevue_sus120", 60)},
+    "P97": {"3lane_sus60": ("data/corpus_bellevue_3lane_sus60", 30),
+            "3lane_sus120": ("data/corpus_bellevue_3lane_sus120", 60)},
+}
+TARGETS = SETS["P94"]
 SEEDS = (42, 1, 7, 13, 21)
 CLASSES = ["LOW", "MEDIUM", "HIGH"]
 SELECTION = ROOT / "selection_P94.json"
+TEST_OUT = ROOT / "p94_test.json"
 RESAMPLES = 10_000
 
 
@@ -159,14 +167,20 @@ def test() -> int:
                   f"QWK {m['qwk']:.4f}{extra}")
             print(f"    {'':<21} per lane {m['per_lane_correct']}")
         print(f"    majority F1 {entry['majority_macro_f1']:.4f}")
-    (ROOT / "p94_test.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    TEST_OUT.write_text(json.dumps(report, indent=2), encoding="utf-8")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("phase", choices=("select", "test"))
+    parser.add_argument("--set", choices=sorted(SETS), default="P94",
+                        help="which pre-registered experiment")
     args = parser.parse_args(argv)
+    global TARGETS, SELECTION, TEST_OUT
+    TARGETS = SETS[args.set]
+    SELECTION = ROOT / f"selection_{args.set}.json"
+    TEST_OUT = ROOT / f"{args.set.lower()}_test.json"
     return select() if args.phase == "select" else test()
 
 

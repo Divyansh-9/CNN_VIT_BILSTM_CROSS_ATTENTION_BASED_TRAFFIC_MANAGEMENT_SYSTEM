@@ -181,6 +181,18 @@ def observation(payload: Counts) -> CommandOut:
                       reason=decision.reason, clamped=decision.clamped)
 
 
+def missing_approaches(payload) -> list[str]:
+    """Approaches the camera does not predict (P97a).
+
+    `to_state_values()` writes 0.0 for an approach with no prediction, and 0.0
+    is also LOW, so in PPO's state "not observed" and "no congestion" are the
+    same number. That contract is unchanged here — changing it invalidates
+    every PPO checkpoint — but every response says which approaches are
+    absent, so no consumer has to infer it from a zero.
+    """
+    return sorted(set(APPROACHES) - set(payload.predictions))
+
+
 def store_prediction(intersection_id: str, raw: str | bytes):
     """Validate one encoded `CongestionPrediction` and store it (ADR-026).
 
@@ -209,7 +221,8 @@ def prediction(intersection_id: str, raw: str = Body(..., media_type="text/plain
         raise HTTPException(422, str(error)) from error
     return {"intersection_id": intersection_id, "model": payload.model,
             "predictions": {k: v.value for k, v in payload.predictions.items()},
-            "state_11_14": payload.to_state_values()}
+            "state_11_14": payload.to_state_values(),
+            "missing_approaches": missing_approaches(payload)}
 
 
 @app.get("/prediction/{intersection_id}/latest")
@@ -225,7 +238,8 @@ def latest_prediction(intersection_id: str) -> dict:
             "predictions": {k: v.value for k, v in payload.predictions.items()},
             "confidences": dict(payload.confidences),
             "gate_value": payload.gate_value,
-            "state_11_14": payload.to_state_values()}
+            "state_11_14": payload.to_state_values(),
+            "missing_approaches": missing_approaches(payload)}
 
 
 @app.get("/history/{intersection_id}")

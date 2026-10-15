@@ -154,3 +154,22 @@ def test_publishing_without_a_broker_raises_so_fr_a06_can_fire():
     transport = MqttTransport(port=free_port(), client_id="edge-alone")
     with pytest.raises(ConnectionError):
         transport.publish("stms/j7/heartbeat", "{}", 0)
+
+
+def test_a_three_lane_camera_reports_its_missing_approach(database):
+    """P97a: south is absent, not LOW. The state still carries 0.0 for it,
+    so the response must say it is missing."""
+    from fastapi.testclient import TestClient
+
+    from contracts.mqtt import CongestionClass, CongestionPrediction
+
+    payload = CongestionPrediction(
+        predictions={a: CongestionClass.MEDIUM for a in "NEW"},
+        confidences={a: 0.7 for a in "NEW"}, gate_value=None,
+        model="G@0123456789ab")
+    client = TestClient(database.app)
+    posted = client.post("/prediction/j3", content=payload.encode(),
+                         headers={"content-type": "text/plain"}).json()
+    assert posted["missing_approaches"] == ["S"]
+    assert posted["state_11_14"][1] == 0.0          # S, indistinguishable from LOW
+    assert client.get("/prediction/j3/latest").json()["missing_approaches"] == ["S"]

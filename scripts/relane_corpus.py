@@ -205,7 +205,20 @@ def main(argv: list[str] | None = None) -> int:
     # train and test for a reason unrelated to the lanes, and a comparison
     # against the previous corpus would then mean nothing.
     splits = manifest.get("splits") or {}
-    unknown = sorted({s.clip_id for s in all_sequences} - set(splits))
+    if manifest.get("split_mode") == "temporal":
+        # One clip divided by time: the split belongs to each WINDOW, not to
+        # the clip. Carry every window's split over from the source corpus,
+        # verbatim, and drop the windows the source had discarded as boundary
+        # buffers -- the same rule as clip mode: a lane change must be the
+        # only difference between the two corpora.
+        with (args.corpus / "sequences.csv").open(encoding="utf-8") as handle:
+            by_window = {(r["clip_id"], int(r["start_index"])): r["split"]
+                         for r in csv.DictReader(handle)}
+        all_sequences = [s for s in all_sequences
+                         if (s.clip_id, s.start_index) in by_window]
+        splits = None
+    unknown = (sorted({s.clip_id for s in all_sequences} - set(splits))
+               if splits is not None else [])
     if unknown:
         raise SystemExit(
             f"the manifest has no split for {unknown[0][:50]}. Splits are "
@@ -216,7 +229,9 @@ def main(argv: list[str] | None = None) -> int:
     labelled = []
     for sequence in all_sequences:
         series = smoothed[sequence.clip_id]
-        entry = {"clip_id": sequence.clip_id, "split": splits[sequence.clip_id],
+        split = (splits[sequence.clip_id] if splits is not None
+                 else by_window[(sequence.clip_id, sequence.start_index)])
+        entry = {"clip_id": sequence.clip_id, "split": split,
                  "start_index": sequence.start_index,
                  "label_index": sequence.label_index}
         for name in lane_names(lanes_by_clip[sequence.clip_id]):
@@ -225,8 +240,12 @@ def main(argv: list[str] | None = None) -> int:
                 low_max=low_max, med_max=med_max).name
         labelled.append(entry)
 
-    assert_no_clip_leakage([e["clip_id"] for e in labelled],
-                           [e["split"] for e in labelled])
+    # Clip mode: a clip must sit in exactly one split. Temporal mode divides
+    # one clip by time on purpose; its guarantee is the buffered window split
+    # carried over from the source, not clip disjointness.
+    if splits is not None:
+        assert_no_clip_leakage([e["clip_id"] for e in labelled],
+                               [e["split"] for e in labelled])
 
     out.mkdir(parents=True, exist_ok=True)
     if out != args.corpus:
