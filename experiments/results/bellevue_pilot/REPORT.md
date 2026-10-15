@@ -204,3 +204,15 @@ A blind hand count of 20 frames. The detector undercounts west by 15%, north by
 0.77–0.84) but compresses busy ones. The south lane is close to noise
 (correlation 0.41). The painted symbol was reported as a bicycle in 6 of 20
 frames.
+
+## 60-frame audit (P96)
+
+| lane | undercount | ranking (Pearson) |
+|---|---|---|
+| west | 14% [9, 19] | 0.82 |
+| north | 27% [20, 33] | 0.80 |
+| east | 41% [34, 47] | 0.71 |
+| south | 79% [66, 88] | 0.16 — no reliable signal |
+
+The undercount grows with traffic on every lane. The south approach is not
+observable from this camera.

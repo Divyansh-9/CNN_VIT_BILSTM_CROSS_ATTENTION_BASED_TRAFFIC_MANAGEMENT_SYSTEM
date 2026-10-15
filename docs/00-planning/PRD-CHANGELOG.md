@@ -6688,3 +6688,48 @@ The protocol's rule for material error is to expand the annotation sample
 first. Whether to drop the south lane from the labels is a separate decision,
 and changes the model's lane count.
 
+## P96 — 60-frame audit: the undercount holds and grows with traffic; the south lane carries no signal (2026-10-15)
+
+**Measured** on 60 blind hand-counted frames: the 20-frame pilot unchanged,
+plus 40 more, two per six-minute bin with seed 2027. Selection was stratified
+by time, never by detector count. Intervals are a frame-clustered bootstrap.
+Detail in `experiments/results/bellevue_pilot/audit_comparison_60.json`.
+
+| lane | undercount [95% CI] | quiet → busy undercount | Pearson [95% CI] | exact |
+|---|---|---|---|---|
+| west | 14% [9, 19] | 8% → 19% | 0.82 [0.72, 0.89] | 25% |
+| north | 27% [20, 33] | 20% → 30% | 0.80 [0.68, 0.90] | 18% |
+| east | 41% [34, 47] | 28% → 47% | 0.71 [0.56, 0.86] | 12% |
+| south | 79% [66, 88] | 50% → 85% | **0.16 [−0.02, 0.50]** | 48% |
+
+The painted bicycle symbol was reported as a bicycle in 13 of 60 frames (22%).
+
+- **What the larger sample settles.** The pilot's north figure of −39% was high;
+  60 frames put it at 27%. **The direction holds everywhere:** the detector
+  undercounts on every lane, and on every lane it undercounts more when traffic
+  is heavy. Busy periods are compressed, so the busy end of each lane's labels
+  is squashed.
+- **On west, north and east the ranking survives.** The lower bound of every
+  correlation interval is at least 0.56, so relative labels track real traffic
+  there, imperfectly but genuinely.
+- **The south lane does not.** Its correlation interval includes zero.
+  Exact-agreement of 48% looks good only because both counts are usually near
+  zero.
+
+**The south lane, assessed against the owner's two options.**
+
+1. **Three lanes — west, north and east.** Supported by the evidence above.
+   The contract already defines an absent approach: `to_state_values()` yields
+   0.0 for a missing lane, the same value FR-A06 specifies when MFSTNet is
+   unavailable, so PPO's 16-dimensional state stays intact.
+2. **A corrected fourth region.** It needs an observable south approach queue.
+   In this camera's frames the south approach runs **beneath the camera**: the
+   bottom of the image is the near crosswalk and the dome housing, and vehicles
+   waiting to enter northbound are out of view. **There is no observable queue
+   to place a region on.** Option 2 is not available for this camera. It may be
+   for another.
+
+**Not changed.** No label, threshold, corpus or checkpoint. The lane decision is
+the project owner's. The detector question — fine-tuning against a 14–41%
+undercount that worsens with traffic — follows it, as agreed.
+
