@@ -6180,3 +6180,237 @@ dropped.
 The first version invented `Mode.FALLBACK`. The contract already defines
 `LOCAL`, and a second name for one state is how a dashboard ends up with a
 branch that never fires.
+
+## P85 — M6 decides whether the full model beats the linear probe (2026-10-14)
+
+**Believed.** That the leave-one-camera-out mean in `loco_summary.csv` was a
+single quantity, and that ADR-022's `CANNOT DISTINGUISH` verdict was a property
+of the models.
+
+**Measured.** `scripts/camera_audit.py`, recomputed from the committed per-fold
+scores with no training run. Fold 1 holds out **M6 Motorway Traffic** — the one
+camera `data/cameras.json` declares `traffic_type: structured`, against a target
+of `mixed`, and the entry that file already calls "the premise's
+counterexample". It is **41.2% of all windows and 52.6% of every HIGH label**.
+
+Macro-F1 over all four folds, against the three `mixed` folds alone:
+
+| config | all folds | mixed only | delta |
+|---|---|---|---|
+| A — CNN only | 0.3596 | 0.3546 | −0.0050 |
+| B | 0.4059 | 0.4257 | +0.0198 |
+| C — best vision | 0.4405 | 0.4691 | +0.0286 |
+| D | 0.2787 | 0.3553 | +0.0766 |
+| E | 0.4123 | 0.4845 | +0.0722 |
+| F | 0.3900 | 0.4663 | +0.0763 |
+| **G — full model** | **0.3950** | **0.4693** | **+0.0743** |
+| **H — linear probe** | **0.4154** | **0.4245** | **+0.0090** |
+
+**The sign of ADR-022's comparison flips.** With all four folds the linear probe
+beats the full model, G−H = **−0.0204**. Over the three in-regime folds the full
+model beats the probe, G−H = **+0.0449**.
+
+**Why, and why it is coherent rather than suspicious.** The configurations that
+gain from excluding M6 are exactly the ones carrying fusion, recurrence and
+attention — D through G all gain about 0.07 — while the linear probe gains
+0.009 and the CNN-only arm *loses* 0.005. A model with more capacity to fit the
+training regime transfers worse to a camera outside it. On fold 1, config D
+scores 0.0490 on every seed, which is a degenerate constant predictor rather
+than a weak one.
+
+**Changed.** Nothing yet, and deliberately. PRD §2.5.5 forbids dropping an
+inconvenient fold, and a mean chosen after seeing which one flatters a model is
+cherry-picking. What is now required is that **no macro-F1 mean is quoted
+without its fold composition**, because the two means answer different
+questions: one is transfer to an out-of-regime camera, the other is
+generalisation within the target regime.
+
+**Rejected.** Dropping M6 from the corpus. It is the project's only structured
+-traffic camera and therefore its only external-domain generalisation test; the
+right move is to report it as a named arm, not to delete it.
+
+**Owed.** A decision on how ADR-022's verdict is stated given that it is
+conditional on fold composition, and a re-reading of `gate vs probe` in the
+synopsis, which currently quotes the all-folds number alone.
+
+## P86 — the `domain` claim cannot pass while M6 stays a fold (2026-10-15)
+
+**Believed.** That adding licensed Indian cameras would turn the `domain` claim
+green, and that this was compatible with keeping M6 as the project's
+external-domain test (P85).
+
+**Measured.** `evaluation_contains_target_domain` in `scripts/check_claims.py`
+fails if **any** fold's test camera is off target. Every `real_external` camera
+that stays a leave-one-camera-out fold is therefore a permanent failure of that
+claim, however many Indian cameras are added beside it. The two decisions —
+retain M6 as a fold, and assert the Indian domain — cannot both hold under the
+claim's current protocol.
+
+**Changed.** Nothing. `scripts/check_sources.py` now states the conflict every
+time it runs, so it cannot be rediscovered after a collection effort has been
+spent.
+
+**Owed — the project owner's decision.** The coherent resolution is the
+three-partition design: headline leave-one-camera-out folds over `real_india`
+cameras only, and `real_external` cameras scored as a separately named
+external-domain arm (train on the Indian folds, test on M6 and Dhaka). That is a
+change to the claim's protocol and to ADR-019's fold set, so it needs an
+amendment to both, not a code edit. Until then, `domain` stays red for two
+reasons rather than one.
+
+**Approved in principle — 2026-10-15, project owner.** The headline is scored
+on eligible `real_india` cameras only; M6 and Dhaka are reported separately as
+an external-domain evaluation; synthetic data is never an evaluation. The
+approval covers the protocol, **not** a finding that the Indian-domain
+requirement is met. Drafted as [ADR-025](decisions/ADR-025-headline-folds-are-real-india.md)
+for explicit sign-off.
+
+Implementing it found two traps, both now closed in `scripts/check_claims.py`.
+First, a scoped `domain` check is **vacuously true over zero Indian folds**, and
+zero is today's count; an empty scope now fails. Second, scoping only `domain`
+would leave `camera_count` passing on three Bangladeshi cameras and a British
+motorway, so all three evaluation claims are scoped together. Previewed with
+`--protocol headline`: `domain`, `class_coverage` and `camera_count` all fail.
+`CLAIMS.yaml` is unchanged until ADR-025 is signed.
+
+## P87 — no trained MFSTNet was ever kept (2026-10-15)
+
+**Believed.** That the A–H suite had produced trained models, and that the
+exported ONNX graph was one of them.
+
+**Measured.** `train_one` in `scripts/train_mfstnet.py` selected the best state
+on validation macro-F1, evaluated it on test, and returned only the metrics.
+**None of the 320 leave-one-camera-out runs saved its weights.**
+`scripts/export_onnx.py` builds `MFSTNet(config, masks)` from scratch — correct
+for the latency it measures, which does not depend on the weights, but it means
+the control server and the dashboard have no trained forecaster to serve, and
+there was nothing to fine-tune from.
+
+**Changed.** `--save-checkpoint DIR` writes the selected model per config, with
+a sidecar recording domain, test, validation and excluded cameras, mode,
+preprocessing hash and the file's sha256. It refuses to overwrite without
+`--force`, under P47's rule. `--init-from PT` fine-tunes from one: it loads
+strictly, refuses a different config, and refuses a different feature space by
+preprocessing hash (ADR-005: raise, never warn). The child's sidecar names its
+parent by sha256, not by path. `resplit_corpus.py --domain foreign|india|mixed`
+selects the cameras (ADR-025), and `mixed` reproduces all four committed fold
+views byte for byte.
+
+**Also tightened.** `CameraRegistry.partition` is now the one definition of a
+camera's domain, shared by the fold builder and `check_sources.py`. It requires
+every declared target field, viewpoint included, so Mumbai and South Extension
+— Indian by filename, viewpoint never inspected — are `unknown` rather than
+`real_india`. The corpus holds **zero** Indian cameras by that definition, which
+is what the claims gate already said.
+
+**Owed.** Re-export ONNX from a trained checkpoint, and point the server at it,
+once the foreign baseline is chosen.
+
+## P88 — the cache's hash certifies an interpolation it never used (2026-10-15)
+
+**Believed.** That `PreprocessingSpec` describes how cached features were
+computed, so a matching hash means matching inputs (ADR-005).
+
+**Measured.** `PreprocessingSpec.resize_mode` is `"bilinear"`.
+`scripts/build_cache.py` has always resized with `cv2.INTER_AREA`. The hash
+covers the label, not the computation. The spec's own docstring names
+interpolation as "exactly the kind of change that slips through a review
+unnoticed", and it did — inside the record that exists to catch it. Found while
+building the edge forecaster (ADR-026), which must reproduce the cache's input
+exactly or serve the model an input space it never trained on, with nothing
+raising.
+
+**Changed.** The per-frame transform moved to `mfstnet/preprocess.py`, used by
+both `build_cache.py` and `edge/forecaster.py`, and verified bit-identical to
+the previous inline transform on a 1280×720 frame. The edge and the cache now
+cannot diverge, whatever the label says.
+
+**Rejected.** Correcting the label to `"area"`. It changes the hash, which
+invalidates every cached feature and every checkpoint's `preprocessing_hash`,
+to fix a word. The computation is right and is now single-sourced. The label
+should be corrected at the next deliberate cache rebuild, with this entry
+cited.
+
+## P89 — the edge budget times inference, not decoding (2026-10-15)
+
+**Believed.** That `verify_edge.py`'s step time is the edge's cost per step.
+
+**Measured.** The step timer starts at a decoded frame. On S61's selected
+checkpoint the step p95 was 170.8 ms against a 1000 ms budget. Cold start, which
+does include decoding, was 147 s for the first 60-sample window. About 6 s of
+that is model work (60 × 96 ms of features). The remaining ~141 s is decoding
+the test camera's file: **3840×2160 at 29.97 fps**. Sampling every 2 s still
+decodes every frame (P51), so that is about 3,600 4K frames, or roughly 39 ms a
+frame, about 25 fps on the CPU. A live 4K stream arrives at 30 fps. **The decode
+rate is derived from the cold start, not measured on its own.**
+
+**Changed.** Nothing in the code. The ADR-026 evidence states the gap beside the
+passing numbers rather than under them.
+
+**Owed.** Time decoding alone at the deployment camera's resolution and codec,
+with and without NVDEC. If a 4K camera cannot be decoded in real time, either
+the stream is requested at 1080p — the model sees 224×224 regardless — or decode
+moves to the GPU. Neither touches the model or its budget.
+
+**Measured — 2026-10-15, `scripts/benchmark_decode.py`.** The derived 25 fps
+above was **wrong**. Cold start also included OpenCV's forward-decode reader
+and the model, so it was not a decode figure. Measured directly, and fixed
+before the first run:
+
+- **Test streams:** a 5-minute segment of the same footage in three encodings —
+  the original AV1, and H.264 encoded the way a camera does (1 s GOP, constant
+  bitrate).
+- **Live run:** each stream played at real rate, one frame every 2 s through the
+  full verified pipeline.
+- **Pass needs all of:** decode at least 1.0× real time; lag growth under one
+  step; interval p95 within 25% of 2 s; no lost sample.
+
+| stream | decoder | decode only | lag, first to last | interval p95 | step p95 | verdict |
+|---|---|---|---|---|---|---|
+| AV1 4K (the YouTube file) | software | 41.3 fps, 1.38× | **3.2 → 39.4 s** | 3.00 s | 508 ms | **FAIL** |
+| AV1 4K | NVDEC | 106.5 fps, 3.55× | 3.31 → 2.07 s | 2.17 s | 496 ms | pass |
+| H.264 4K | software | 293.8 fps, 9.80× | 3.75 → 1.80 s | 2.12 s | 471 ms | pass |
+| H.264 4K | NVDEC | 274.1 fps, 9.15× | 3.68 → 2.30 s | 2.22 s | 517 ms | pass |
+| H.264 1080p | software | 824.4 fps, 27.5× | 3.28 → 1.72 s | 2.10 s | 413 ms | pass |
+
+All five delivered 150 of 150 samples and 91 predictions.
+
+**The AV1 software failure is real and reproducible**, and it is the one that
+shows why decode-only throughput settles nothing. Decode alone ran at 1.38×
+real time. Alongside the model, which shares the CPU, it fell 36 s behind in
+five minutes. On a live stream that is dropped frames. It is not averaged into
+the passing rows.
+
+**Where a step's time goes**, each stage measured in isolation with no decoder
+running:
+
+| stage | 4K | 1080p |
+|---|---|---|
+| preprocessing, `INTER_AREA` on CPU | 50 ms | 11 ms |
+| backbones, GPU, one frame | 52 ms | 52 ms |
+| ONNX head, CPU, 60-step window | 167 ms | 167 ms |
+
+The 4K resize costs about 40 ms more than 1080p. It is not the main cost. The
+head is the largest stage and the least stable: it measured 57–115 ms in
+earlier runs and 167 ms after 30 minutes of sustained load. That fits CPU
+contention or laptop thermal throttling, and **which one is not isolated**. The
+rest of the in-pipeline 410–520 ms is contention with a decoder running
+continuously beside it. Every configuration stays inside the 1000 ms budget.
+
+**Recommended deployment format: H.264, 1080p if the camera offers it.** It
+passes in software with the largest margins, needs no GPU decoder, and halves
+the preprocessing cost. The 224×224 model input does not need 4K. One caution
+on that: the corpus cached this camera's features from its 4K source. A
+1080p-to-224 downscale is close to a 4K-to-224 one, but not identical, so
+switching a deployed camera's stream resolution is a small input shift worth
+re-verifying with `verify_edge.py`.
+
+**Still open, and why production readiness stays open.** These are re-encodes
+of a YouTube file played from disk. They are not a real camera's stream over
+RTSP: no network jitter, no camera-side encoder, no reconnects. The real
+camera's codec, resolution, frame rate and stream protocol decide the final
+answer. Two optimisations are worth measuring before then, and neither is
+needed to pass: running the head on the GPU (onnxruntime's CUDA provider,
+verified the same way as the CPU graph), and capping onnxruntime's threads so
+it stops contending with decoding.
+

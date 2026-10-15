@@ -123,3 +123,8 @@ logs/
 
 # Server runtime store (ADR-008 SQLite). Regenerated on first request.
 data/server/
+
+# Per-condition SUMO network directories built by scripts/discipline_pilot.py.
+# Regenerated on every run and byte-identical from the same inputs, so they are
+# build output rather than data.
+data/_discipline/

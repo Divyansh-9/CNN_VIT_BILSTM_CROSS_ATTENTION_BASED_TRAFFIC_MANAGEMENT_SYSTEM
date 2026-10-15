@@ -1,0 +1,129 @@
+{
+  "_note": [
+    "Every data source the project uses or has considered, with the partition it belongs to and the roles it may serve.",
+    "",
+    "Three partitions, never blended. real_india is the target domain and the only partition that can make the `domain` claim true. real_external is real footage outside the target country or traffic regime: an external-domain test, and training data only under a declared protocol. synthetic_sumo is simulator output: it may pretrain count-based models and may never appear in any evaluation split.",
+    "",
+    "Roles are separate gates because one source can pass one and fail another. BMD-45 is the right detector data and cannot feed the forecaster, because 45,986 stills over 3,679 cameras is about 12.5 frames per camera and a window needs 120 continuous seconds from one.",
+    "",
+    "scripts/check_sources.py enforces the gate. A source marked accepted for a role that it does not pass fails the check; a source in_use reports what it still owes; a rejected source must say why. Licence is recorded as found, and `resolved` means someone has established that derived data may be redistributed, not that the footage is publicly viewable.",
+    "",
+    "Cameras already in the corpus are not duplicated here: the youtube_corpus entry points at data/cameras.json, and each camera's partition is derived from its declared country and traffic type."
+  ],
+  "sources": {
+    "youtube_corpus": {
+      "name": "Third-party YouTube uploads used to build the forecasting corpus",
+      "partition": "per-camera",
+      "cameras_from": "data/cameras.json",
+      "roles": {
+        "forecaster": "in_use"
+      },
+      "licence": "unresolved for every camera",
+      "licence_resolved": false,
+      "reason": "Built before the gate existed. Every camera still owes a licence, and none of the four fold-eligible cameras is Indian."
+    },
+    "bmd45": {
+      "name": "BMD-45, Bengaluru Safe City CCTV (arXiv 2604.24419)",
+      "partition": "real_india",
+      "country": "India",
+      "traffic_type": "mixed",
+      "viewpoint": "elevated",
+      "fixed_camera": true,
+      "determined_by": "frame",
+      "licence": "CC BY 4.0, ungated",
+      "licence_resolved": true,
+      "continuous_s": 0,
+      "cameras": 3679,
+      "roles": {
+        "detector": "accepted",
+        "forecaster": "rejected"
+      },
+      "reason": "Stills, about 12.5 frames per camera; no camera holds the 120 continuous seconds one window needs."
+    },
+    "idd": {
+      "name": "India Driving Dataset, IIIT Hyderabad",
+      "partition": "real_india",
+      "country": "India",
+      "traffic_type": "mixed",
+      "viewpoint": "dashcam",
+      "fixed_camera": false,
+      "determined_by": "frame",
+      "licence": "research use via registered account; cite the IDD paper",
+      "licence_resolved": false,
+      "continuous_s": 0,
+      "roles": {
+        "detector": "in_use",
+        "forecaster": "rejected"
+      },
+      "reason": "Dashcam, not a fixed elevated camera. Research-use terms do not establish redistribution of derived data."
+    },
+    "chennai_zenodo_21545806": {
+      "name": "Chennai Traffic Dataset, Zenodo record 21545806 (2026-07-25)",
+      "url": "https://zenodo.org/records/21545806",
+      "partition": "real_india",
+      "country": "India",
+      "traffic_type": "mixed",
+      "viewpoint": "ground",
+      "fixed_camera": false,
+      "determined_by": "frame",
+      "licence": "CC BY 4.0",
+      "licence_resolved": true,
+      "continuous_s": 110,
+      "cameras": 2,
+      "roles": {
+        "detector": "candidate",
+        "forecaster": "rejected"
+      },
+      "reason": "Inspected 2026-10-15 by reading the archive directory over HTTP ranges and viewing one frame. 1,855 images in two sequences, source frame indices 0-2744 and 0-1890 sampled at every second frame or coarser. Even at 25 fps the longer sequence is about 110 s, below the 120 s one window spans. The frame viewed is road-level from a moving vehicle, not a fixed elevated camera. Plates are already blurred."
+    },
+    "campus_recording": {
+      "name": "Part B campus capture, six-viewpoint evaluation set (S19)",
+      "partition": "real_india",
+      "country": "India",
+      "traffic_type": "mixed",
+      "viewpoint": "elevated",
+      "fixed_camera": true,
+      "determined_by": "plan",
+      "licence": "own footage, subject to institutional permission",
+      "licence_resolved": false,
+      "continuous_s": null,
+      "cameras": 6,
+      "high_support": null,
+      "roles": {
+        "forecaster": "candidate",
+        "detector": "candidate"
+      },
+      "reason": "Blocked on the faculty guide since 2026-08-22. The only route identified so far that can be licence-clean, Indian, fixed, elevated and continuous at once."
+    },
+    "sumo_synthetic": {
+      "name": "SUMO count sequences at the project intersection (ADR-024)",
+      "partition": "synthetic_sumo",
+      "roles": {
+        "count_pretraining": "candidate"
+      },
+      "licence": "generated by the project",
+      "licence_resolved": true,
+      "reason": "Counts and queues only, no pixels. May pretrain count baselines and the linear probe; may never enter an evaluation split or be counted toward any claim."
+    },
+    "bellevue": {
+      "name": "Bellevue Traffic Video Dataset, City of Bellevue, WA (github.com/City-of-Bellevue/TrafficVideoDataset)",
+      "url": "https://github.com/City-of-Bellevue/TrafficVideoDataset",
+      "partition": "real_external",
+      "country": "United States",
+      "traffic_type": "structured",
+      "viewpoint": "elevated",
+      "fixed_camera": true,
+      "determined_by": "frame",
+      "licence": "none stated; README says 'made available for research purposes', repository licence field is null",
+      "licence_resolved": false,
+      "continuous_s": null,
+      "cameras": 5,
+      "high_support": null,
+      "roles": {
+        "forecaster": "candidate",
+        "detector": "candidate"
+      },
+      "reason": "Assessed 2026-10-15 from the README and the official sample frame of three of the five cameras. About 101 h of 1280x720 30 Hz video from September 2017, five pole-mounted intersection cameras, hosted as Google Drive folders. Each view frames a whole junction - every approach in one shot - which matches the deployment geometry better than any camera in the corpus, and a burnt-in timestamp makes continuity checkable. Against it: strong wide-angle distortion, a dome housing occluding the bottom of the frame, and lane-disciplined US traffic with no two- or three-wheelers, so it is the M6 regime, not the target one. Owes: a licence that permits the intended use, continuous duration per file, and HIGH support once labelled."
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "rule": "experiments/results/loco_foreign/PREREGISTRATION.md",
+  "columns_read": [
+    "config",
+    "seed",
+    "fold",
+    "val_macro_f1"
+  ],
+  "config_means": {
+    "G": 0.4457,
+    "H": 0.4021
+  },
+  "fold": 3,
+  "fold_facts": {
+    "test_camera": "🎧 Incredible traffic Sound in Dhaka, Bangladesh। Rampura [4K ASMR] #TheSoundOfDhaka",
+    "val_camera": "Incredible traffic Sound in Dhaka, Bangladesh। Rampura  [4K ASMR] #TheSoundofDhaka",
+    "test_regime": "mixed",
+    "val_regime": "mixed",
+    "test_windows": 34
+  },
+  "candidates": [
+    {
+      "seed": 13,
+      "val_macro_f1": 0.5187
+    },
+    {
+      "seed": 42,
+      "val_macro_f1": 0.4932
+    },
+    {
+      "seed": 21,
+      "val_macro_f1": 0.3685
+    },
+    {
+      "seed": 1,
+      "val_macro_f1": 0.3479
+    },
+    {
+      "seed": 7,
+      "val_macro_f1": 0.242
+    }
+  ],
+  "selected": {
+    "config": "G",
+    "seed": 13,
+    "fold": 3,
+    "checkpoint": "models\\mfstnet\\foreign\\mfstnet_G_seed13_fold3.pt"
+  },
+  "runs_completed": 40,
+  "runs_failed": []
+}

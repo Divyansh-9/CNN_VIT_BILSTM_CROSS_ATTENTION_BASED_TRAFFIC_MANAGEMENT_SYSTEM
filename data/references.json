@@ -1,0 +1,978 @@
+{
+  "works": [
+    {
+      "key": "chakraborty2018",
+      "theme": "vision-congestion",
+      "title": "Traffic Congestion Detection from Camera Images using Deep Convolution Neural Networks",
+      "authors": [
+        "Pranamesh Chakraborty",
+        "Yaw Okyere Adu-Gyamfi",
+        "Subhadipto Poddar",
+        "Vesal Ahsani",
+        "Anuj Sharma",
+        "Soumik Sarkar"
+      ],
+      "year": 2018,
+      "venue": "Transportation Research Record Journal of the Transportation Research Board",
+      "doi": "10.1177/0361198118777631",
+      "openalex": "https://openalex.org/W2808017405",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "kumar2021",
+      "theme": "vision-congestion",
+      "title": "Applications of deep learning in congestion detection, prediction and alleviation: A survey",
+      "authors": [
+        "Nishant Kumar",
+        "Martin Raubal"
+      ],
+      "year": 2021,
+      "venue": "Transportation Research Part C Emerging Technologies",
+      "doi": "10.1016/j.trc.2021.103432",
+      "openalex": "https://openalex.org/W3209643259",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "feng2024",
+      "theme": "vision-congestion",
+      "title": "Predicting spatio-temporal traffic flow: a comprehensive end-to-end approach from surveillance cameras",
+      "authors": [
+        "Yuxiang Feng",
+        "Yifan Zhao",
+        "Xingchen Zhang",
+        "Sérgio Batista",
+        "Yiannis Demiris",
+        "Panagiotis Angeloudis"
+      ],
+      "year": 2024,
+      "venue": "Transportmetrica B Transport Dynamics",
+      "doi": "10.1080/21680566.2024.2380915",
+      "openalex": "https://openalex.org/W4400885760",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "yu2018",
+      "theme": "graph-forecasting",
+      "title": "Spatio-Temporal Graph Convolutional Networks: A Deep Learning Framework for Traffic Forecasting",
+      "authors": [
+        "Bing Yu",
+        "Haoteng Yin",
+        "Zhanxing Zhu"
+      ],
+      "year": 2018,
+      "venue": "International Joint Conference on Artificial Intelligence",
+      "doi": "10.24963/ijcai.2018/505",
+      "openalex": "https://openalex.org/W2756203131",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "li2018",
+      "theme": "graph-forecasting",
+      "title": "Diffusion Convolutional Recurrent Neural Network: Data-Driven Traffic Forecasting",
+      "authors": [
+        "Yaguang Li",
+        "Rose Yu",
+        "Cyrus Shahabi",
+        "Yan Liu"
+      ],
+      "year": 2017,
+      "venue": "arXiv",
+      "doi": "10.48550/arXiv.1707.01926",
+      "openalex": null,
+      "arxiv": "1707.01926",
+      "type": "preprint",
+      "verified_against": "arxiv"
+    },
+    {
+      "key": "wu2019",
+      "theme": "graph-forecasting",
+      "title": "Graph WaveNet for Deep Spatial-Temporal Graph Modeling",
+      "authors": [
+        "Zonghan Wu",
+        "Shirui Pan",
+        "Guodong Long",
+        "Jing Bo Jiang",
+        "Chengqi Zhang"
+      ],
+      "year": 2019,
+      "venue": "International Joint Conference on Artificial Intelligence",
+      "doi": "10.24963/ijcai.2019/264",
+      "openalex": "https://openalex.org/W2965341826",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "guo2019",
+      "theme": "graph-forecasting",
+      "title": "Attention Based Spatial-Temporal Graph Convolutional Networks for Traffic Flow Forecasting",
+      "authors": [
+        "Shengnan Guo",
+        "Youfang Lin",
+        "Ning Feng",
+        "Chao Song",
+        "Huaiyu Wan"
+      ],
+      "year": 2019,
+      "venue": "Proceedings of the AAAI Conference on Artificial Intelligence",
+      "doi": "10.1609/aaai.v33i01.3301922",
+      "openalex": "https://openalex.org/W2903871660",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "he2016",
+      "theme": "backbone",
+      "title": "Deep Residual Learning for Image Recognition",
+      "authors": [
+        "Kaiming He",
+        "Xiangyu Zhang",
+        "Shaoqing Ren",
+        "Jian Sun"
+      ],
+      "year": 2016,
+      "venue": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings",
+      "doi": "10.1109/cvpr.2016.90",
+      "openalex": "https://openalex.org/W2194775991",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "dosovitskiy2021",
+      "theme": "backbone",
+      "title": "An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale",
+      "authors": [
+        "Alexey Dosovitskiy",
+        "Lucas Beyer",
+        "Alexander Kolesnikov",
+        "Dirk Weissenborn",
+        "Xiaohua Zhai",
+        "Thomas Unterthiner",
+        "Mostafa Dehghani",
+        "Matthias Minderer",
+        "Georg Heigold",
+        "Sylvain Gelly",
+        "Jakob Uszkoreit",
+        "Neil Houlsby"
+      ],
+      "year": 2020,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.2010.11929",
+      "openalex": "https://openalex.org/W3094502228",
+      "type": "preprint",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "oquab2024",
+      "theme": "backbone",
+      "title": "DINOv2: Learning Robust Visual Features without Supervision",
+      "authors": [
+        "Maxime Oquab",
+        "Timothée Darcet",
+        "Théo Moutakanni",
+        "Huy Vo",
+        "Marc Szafraniec",
+        "Vasil Khalidov",
+        "Pierre Fernandez",
+        "Daniel Haziza",
+        "Francisco Massa",
+        "Alaaeldin El-Nouby",
+        "Mahmoud Assran",
+        "Nicolas Ballas",
+        "Wojciech Galuba",
+        "Russell Howes",
+        "Po-Yao Huang",
+        "Shang-Wen Li",
+        "Ishan Misra",
+        "Michael Rabbat",
+        "Vasu Sharma",
+        "Gabriel Synnaeve",
+        "Hu Xu",
+        "Hervé Jeǵou",
+        "Julien Mairal",
+        "Patrick Labatut",
+        "Armand Joulin",
+        "Piotr Bojanowski"
+      ],
+      "year": 2023,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.2304.07193",
+      "openalex": "https://openalex.org/W4366208220",
+      "type": "preprint",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "liu2022",
+      "theme": "backbone",
+      "title": "A ConvNet for the 2020s",
+      "authors": [
+        "Zhuang Liu",
+        "Hanzi Mao",
+        "Chao-Yuan Wu",
+        "Christoph Feichtenhofer",
+        "Trevor J. Darrell",
+        "Saining Xie"
+      ],
+      "year": 2022,
+      "venue": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings",
+      "doi": "10.1109/cvpr52688.2022.01167",
+      "openalex": "https://openalex.org/W4312443924",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "peng2021",
+      "theme": "hybrid",
+      "title": "Conformer: Local Features Coupling Global Representations for Visual Recognition",
+      "authors": [
+        "Zhiliang Peng",
+        "Wei Feng Huang",
+        "Shanzhi Gu",
+        "Lingxi Xie",
+        "Yaowei Wang",
+        "Jianbin Jiao",
+        "Qixiang Ye"
+      ],
+      "year": 2021,
+      "venue": "IEEE/CVF International Conference on Computer Vision (ICCV)",
+      "doi": "10.1109/iccv48922.2021.00042",
+      "openalex": "https://openalex.org/W3160694286",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "chen2021",
+      "theme": "hybrid",
+      "title": "CrossViT: Cross-Attention Multi-Scale Vision Transformer for Image Classification",
+      "authors": [
+        "Chun-Fu Richard Chen",
+        "Quanfu Fan",
+        "Rameswar Panda"
+      ],
+      "year": 2021,
+      "venue": "IEEE/CVF International Conference on Computer Vision (ICCV)",
+      "doi": "10.1109/iccv48922.2021.00041",
+      "openalex": "https://openalex.org/W3151130473",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "dai2021",
+      "theme": "hybrid",
+      "title": "CoAtNet: Marrying Convolution and Attention for All Data Sizes",
+      "authors": [
+        "Dai, Zihang",
+        "Hanxiao Liu",
+        "Quoc Viet Le",
+        "Mingxing Tan"
+      ],
+      "year": 2021,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.2106.04803",
+      "openalex": "https://openalex.org/W3171087525",
+      "type": "preprint",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "mehta2022",
+      "theme": "hybrid",
+      "title": "MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer",
+      "authors": [
+        "Sachin Mehta",
+        "Mohammad Rastegari"
+      ],
+      "year": 2021,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.2110.02178",
+      "openalex": "https://openalex.org/W3203105104",
+      "type": "preprint",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "vaswani2017",
+      "theme": "attention",
+      "title": "Attention Is All You Need",
+      "authors": [
+        "Ashish Vaswani",
+        "Noam Shazeer",
+        "Niki Parmar",
+        "Jakob Uszkoreit",
+        "Llion Jones",
+        "Aidan N. Gomez",
+        "Lukasz Kaiser",
+        "Illia Polosukhin"
+      ],
+      "year": 2017,
+      "venue": "arXiv",
+      "doi": "10.48550/arXiv.1706.03762",
+      "openalex": null,
+      "arxiv": "1706.03762",
+      "type": "preprint",
+      "verified_against": "arxiv"
+    },
+    {
+      "key": "lu2019",
+      "theme": "attention",
+      "title": "ViLBERT: Pretraining Task-Agnostic Visiolinguistic Representations for Vision-and-Language Tasks",
+      "authors": [
+        "Jiasen Lu",
+        "Dhruv Batra",
+        "Devi Parikh",
+        "Stefan Lee"
+      ],
+      "year": 2019,
+      "venue": "neural information processing systems",
+      "doi": null,
+      "openalex": "https://openalex.org/W2970608575",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "tan2019",
+      "theme": "attention",
+      "title": "LXMERT: Learning Cross-Modality Encoder Representations from Transformers",
+      "authors": [
+        "Hao Xuan Tan",
+        "Mohit Bansal"
+      ],
+      "year": 2019,
+      "venue": null,
+      "doi": "10.18653/v1/d19-1514",
+      "openalex": "https://openalex.org/W2970231061",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "alayrac2022",
+      "theme": "attention",
+      "title": "Flamingo: a Visual Language Model for Few-Shot Learning",
+      "authors": [
+        "Alayrac, Jean-Baptiste",
+        "Jeff Donahue",
+        "Pauline Luc",
+        "Antoine Miech",
+        "Barr, Iain",
+        "Yana Hasson",
+        "Karel Lenc",
+        "Arthur Mensch",
+        "Katie Millican",
+        "Malcolm Reynolds",
+        "Roman Ring",
+        "Eliza Rutherford",
+        "Serkan Cabi",
+        "Tengda Han",
+        "Gong, Zhitao",
+        "Sina Samangooei",
+        "Marianne Monteiro",
+        "Jacob Menick",
+        "Sebastian Borgeaud",
+        "Brock, Andrew",
+        "Aida Nematzadeh",
+        "Sahand Sharifzadeh",
+        "Mikołaj Bińkowski",
+        "Ricardo Barreira",
+        "Oriol Vinyals",
+        "Andrew Zisserman",
+        "Karen Simonyan"
+      ],
+      "year": 2022,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.2204.14198",
+      "openalex": "https://openalex.org/W4225323055",
+      "type": "preprint",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "hochreiter1997",
+      "theme": "temporal",
+      "title": "Long Short-Term Memory",
+      "authors": [
+        "Sepp Hochreiter",
+        "Jürgen Schmidhuber"
+      ],
+      "year": 1997,
+      "venue": "Neural Computation",
+      "doi": "10.1162/neco.1997.9.8.1735",
+      "openalex": "https://openalex.org/W2064675550",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "chen2016",
+      "theme": "temporal",
+      "title": "XGBoost",
+      "authors": [
+        "Tianqi Chen",
+        "Carlos Guestrin"
+      ],
+      "year": 2016,
+      "venue": "ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD)",
+      "doi": "10.1145/2939672.2939785",
+      "openalex": "https://openalex.org/W2295598076",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "wei2018",
+      "theme": "rl-control",
+      "title": "IntelliLight",
+      "authors": [
+        "Hua Wei",
+        "Guanjie Zheng",
+        "Huaxiu Yao",
+        "Zhenhui Li"
+      ],
+      "year": 2018,
+      "venue": "ACM SIGKDD International Conference on Knowledge Discovery & Data Mining (KDD)",
+      "doi": "10.1145/3219819.3220096",
+      "openalex": "https://openalex.org/W2809148419",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "wei2019a",
+      "theme": "rl-control",
+      "title": "PressLight",
+      "authors": [
+        "Hua Wei",
+        "Chacha Chen",
+        "Guanjie Zheng",
+        "Kan Wu",
+        "Vikash V. Gayah",
+        "Kai Meng Xu",
+        "Zhenhui Li"
+      ],
+      "year": 2019,
+      "venue": "ACM SIGKDD International Conference on Knowledge Discovery & Data Mining (KDD)",
+      "doi": "10.1145/3292500.3330949",
+      "openalex": "https://openalex.org/W2964749398",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "wei2019b",
+      "theme": "rl-control",
+      "title": "CoLight",
+      "authors": [
+        "Hua Wei",
+        "Nan Xu",
+        "Huichu Zhang",
+        "Guanjie Zheng",
+        "Xinshi Zang",
+        "Chacha Chen",
+        "Weinan Zhang",
+        "Yanmin Zhu",
+        "Kai Xu",
+        "Zhenhui Li"
+      ],
+      "year": 2019,
+      "venue": "ACM International Conference on Information and Knowledge Management (CIKM)",
+      "doi": "10.1145/3357384.3357902",
+      "openalex": "https://openalex.org/W2983178256",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "zheng2019",
+      "theme": "rl-control",
+      "title": "Learning Phase Competition for Traffic Signal Control",
+      "authors": [
+        "Guanjie Zheng",
+        "Yuanhao Xiong",
+        "Xinshi Zang",
+        "Jie Feng",
+        "Hua Wei",
+        "Huichu Zhang",
+        "Yong Li",
+        "Kai Meng Xu",
+        "Zhenhui Li"
+      ],
+      "year": 2019,
+      "venue": "ACM International Conference on Information and Knowledge Management (CIKM)",
+      "doi": "10.1145/3357384.3357900",
+      "openalex": "https://openalex.org/W2944397927",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "chen2020",
+      "theme": "rl-control",
+      "title": "Toward A Thousand Lights: Decentralized Deep Reinforcement Learning for Large-Scale Traffic Signal Control",
+      "authors": [
+        "Chacha Chen",
+        "Hua Wei",
+        "Nan Xu",
+        "Guanjie Zheng",
+        "Ming Yang",
+        "Yuanhao Xiong",
+        "Kai Xu",
+        "Zhenhui Li"
+      ],
+      "year": 2020,
+      "venue": "Proceedings of the AAAI Conference on Artificial Intelligence",
+      "doi": "10.1609/aaai.v34i04.5744",
+      "openalex": "https://openalex.org/W2998187693",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "wei2021",
+      "theme": "rl-control",
+      "title": "Recent Advances in Reinforcement Learning for Traffic Signal Control",
+      "authors": [
+        "Hua Wei",
+        "Guanjie Zheng",
+        "Vikash V. Gayah",
+        "Zhenhui Li"
+      ],
+      "year": 2021,
+      "venue": "ACM SIGKDD Explorations Newsletter",
+      "doi": "10.1145/3447556.3447565",
+      "openalex": "https://openalex.org/W3123082711",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "schulman2017",
+      "theme": "rl-control",
+      "title": "Proximal Policy Optimization Algorithms",
+      "authors": [
+        "John Schulman",
+        "Filip Wolski",
+        "Prafulla Dhariwal",
+        "Alec Radford",
+        "Oleg Klimov"
+      ],
+      "year": 2017,
+      "venue": "arXiv",
+      "doi": "10.48550/arXiv.1707.06347",
+      "openalex": null,
+      "arxiv": "1707.06347",
+      "type": "preprint",
+      "verified_against": "arxiv"
+    },
+    {
+      "key": "varma2019",
+      "theme": "datasets",
+      "title": "IDD: A Dataset for Exploring Problems of Autonomous Navigation in Unconstrained Environments",
+      "authors": [
+        "Girish Varma",
+        "Anbumani Subramanian",
+        "Anoop Namboodiri",
+        "Manmohan Krishna Chandraker",
+        "C. V. Jawahar"
+      ],
+      "year": 2019,
+      "venue": "IEEE Winter Conference on Applications of Computer Vision",
+      "doi": "10.1109/wacv.2019.00190",
+      "openalex": "https://openalex.org/W2901870313",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "wen2020",
+      "theme": "datasets",
+      "title": "UA-DETRAC: A new benchmark and protocol for multi-object detection and tracking",
+      "authors": [
+        "Longyin Wen",
+        "Dawei Du",
+        "Zhaowei Cai",
+        "Zhen Lei",
+        "Ming‐Ching Chang",
+        "Honggang Qi",
+        "Jongwoo Lim",
+        "Ming–Hsuan Yang",
+        "Siwei Lyu"
+      ],
+      "year": 2020,
+      "venue": "Computer Vision and Image Understanding",
+      "doi": "10.1016/j.cviu.2020.102907",
+      "openalex": "https://openalex.org/W3003490096",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "tang2019",
+      "theme": "datasets",
+      "title": "CityFlow: A City-Scale Benchmark for Multi-Target Multi-Camera Vehicle Tracking and Re-Identification",
+      "authors": [
+        "Zheng Tang",
+        "Milind Ramesh Naphade",
+        "Ming-Yu Liu",
+        "Xiaodong Yang",
+        "Stan T. Birchfield",
+        "Shuo Wang",
+        "Ratnesh Kumar",
+        "David C. Anastasiu",
+        "Jenq–Neng Hwang"
+      ],
+      "year": 2019,
+      "venue": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings",
+      "doi": "10.1109/cvpr.2019.00900",
+      "openalex": "https://openalex.org/W2965843888",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "sugiarto2024",
+      "theme": "indian-traffic",
+      "title": "Base saturation flow rate (BSFR) and its effect on performance of pretimed signalized intersection with non-lane based urban heterogeneous traffic",
+      "authors": [
+        "Sugiarto Sugiarto",
+        "Sofyan Muhammad Saleh",
+        "Yusria Darma",
+        "Muhammad Rusdi",
+        "Qurrata A’yuni",
+        "Teuku Syahrul Fazila",
+        "Roudhia Rahma"
+      ],
+      "year": 2024,
+      "venue": "PLoS ONE",
+      "doi": "10.1371/journal.pone.0306112",
+      "openalex": "https://openalex.org/W4400350153",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "lopez2018",
+      "theme": "tooling",
+      "title": "Microscopic Traffic Simulation using SUMO",
+      "authors": [
+        "Pablo Álvarez López",
+        "Evamarie Wießner",
+        "Michael Behrisch",
+        "Laura Bieker-Walz",
+        "Jakob Erdmann",
+        "Yun-Pang Flötteröd",
+        "Robert Hilbrich",
+        "Leonhard Lücken",
+        "Johannes Rummel",
+        "Péter Wagner"
+      ],
+      "year": 2018,
+      "venue": "International Conference on Intelligent Transportation Systems",
+      "doi": "10.1109/itsc.2018.8569938",
+      "openalex": "https://openalex.org/W2903709398",
+      "type": "conference-paper",
+      "verified_against": "openalex",
+      "arxiv": null
+    },
+    {
+      "key": "redmon2016",
+      "theme": "detection",
+      "title": "You Only Look Once: Unified, Real-Time Object Detection",
+      "authors": [
+        "Joseph Redmon",
+        "Santosh Divvala",
+        "Ross Girshick",
+        "Ali Farhadi"
+      ],
+      "year": 2016,
+      "venue": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings",
+      "doi": "10.1109/cvpr.2016.91",
+      "openalex": "https://openalex.org/W1483870316",
+      "arxiv": null,
+      "type": "conference-paper",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "lin2017",
+      "theme": "detection",
+      "title": "Focal Loss for Dense Object Detection",
+      "authors": [
+        "Tsung-Yi Lin",
+        "Priya Goyal",
+        "Ross Girshick",
+        "Kaiming He",
+        "Piotr Dollár"
+      ],
+      "year": 2017,
+      "venue": "IEEE International Conference on Computer Vision (ICCV)",
+      "doi": "10.1109/iccv.2017.324",
+      "openalex": "https://openalex.org/W2963351448",
+      "arxiv": null,
+      "type": "conference-paper",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "zhang2016",
+      "theme": "density",
+      "title": "Single-Image Crowd Counting via Multi-Column Convolutional Neural Network",
+      "authors": [
+        "Yingying Zhang",
+        "Desen Zhou",
+        "Siqin Chen",
+        "Shenghua Gao",
+        "Yi Ma"
+      ],
+      "year": 2016,
+      "venue": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings",
+      "doi": "10.1109/cvpr.2016.70",
+      "openalex": "https://openalex.org/W2463631526",
+      "arxiv": null,
+      "type": "conference-paper",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "li2018csr",
+      "theme": "density",
+      "title": "CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes",
+      "authors": [
+        "Yuhong Li",
+        "Xiaofan Zhang",
+        "Deming Chen"
+      ],
+      "year": 2018,
+      "venue": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings",
+      "doi": "10.1109/cvpr.2018.00120",
+      "openalex": "https://openalex.org/W2964209782",
+      "arxiv": null,
+      "type": "conference-paper",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "richter2016",
+      "theme": "synthetic",
+      "title": "Playing for Data: Ground Truth from Computer Games",
+      "authors": [
+        "Stephan R. Richter",
+        "Vibhav Vineet",
+        "Stefan Roth",
+        "Vladlen Koltun"
+      ],
+      "year": 2016,
+      "venue": "Lecture notes in computer science",
+      "doi": "10.1007/978-3-319-46475-6_7",
+      "openalex": "https://openalex.org/W2487365028",
+      "arxiv": null,
+      "type": "conference-paper",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "ros2016",
+      "theme": "synthetic",
+      "title": "The SYNTHIA Dataset: A Large Collection of Synthetic Images for Semantic Segmentation of Urban Scenes",
+      "authors": [
+        "Germán Ros",
+        "Laura Sellart",
+        "Joanna Materzyńska",
+        "David Vázquez",
+        "Antonio Manuel López"
+      ],
+      "year": 2016,
+      "venue": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings",
+      "doi": "10.1109/cvpr.2016.352",
+      "openalex": "https://openalex.org/W2431874326",
+      "arxiv": null,
+      "type": "conference-paper",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "gaidon2016",
+      "theme": "synthetic",
+      "title": "Virtual Worlds as Proxy for Multi-Object Tracking Analysis",
+      "authors": [
+        "Adrien Gaidon",
+        "Qiao Wang",
+        "Yohann Cabon",
+        "Eleonora Vig"
+      ],
+      "year": 2016,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.1605.06457",
+      "openalex": "https://openalex.org/W2949907962",
+      "arxiv": null,
+      "type": "preprint",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "dosovitskiy2017",
+      "theme": "synthetic",
+      "title": "CARLA: An Open Urban Driving Simulator",
+      "authors": [
+        "Alexey Dosovitskiy",
+        "Germán Ros",
+        "Felipe Codevilla",
+        "Antonio Manuel López",
+        "Vladlen Koltun"
+      ],
+      "year": 2017,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.1711.03938",
+      "openalex": "https://openalex.org/W2767621168",
+      "arxiv": null,
+      "type": "preprint",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "tobin2017",
+      "theme": "synthetic",
+      "title": "Domain randomization for transferring deep neural networks from simulation to the real world",
+      "authors": [
+        "Josh Tobin",
+        "Rachel Fong",
+        "Alex Ray",
+        "Jonas Schneider",
+        "Wojciech Zaremba",
+        "Pieter Abbeel"
+      ],
+      "year": 2017,
+      "venue": "IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)",
+      "doi": "10.1109/iros.2017.8202133",
+      "openalex": "https://openalex.org/W2605102758",
+      "arxiv": null,
+      "type": "conference-paper",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "ganin2016",
+      "theme": "synthetic",
+      "title": "Domain-adversarial training of neural networks",
+      "authors": [
+        "GaninYaroslav",
+        "UstinovaEvgeniya",
+        "AjakanHana",
+        "GermainPascal",
+        "LarochelleHugo",
+        "LavioletteFrançois",
+        "MarchandMario",
+        "LempitskyVictor"
+      ],
+      "year": 2016,
+      "venue": "Journal of Machine Learning Research",
+      "doi": "10.5555/2946645.2946704",
+      "openalex": "https://openalex.org/W2998115938",
+      "arxiv": null,
+      "type": "article",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "hoffman2018",
+      "theme": "synthetic",
+      "title": "CyCADA: Cycle-Consistent Adversarial Domain Adaptation",
+      "authors": [
+        "Judy Hoffman",
+        "Eric Tzeng",
+        "Taesung Park",
+        "Jun-Yan Zhu",
+        "Phillip Isola",
+        "Kate Saenko",
+        "Alexei A. Efros",
+        "Trevor J. Darrell"
+      ],
+      "year": 2017,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.1711.03213",
+      "openalex": "https://openalex.org/W2767657961",
+      "arxiv": null,
+      "type": "preprint",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "gulrajani2021",
+      "theme": "generalisation",
+      "title": "In Search of Lost Domain Generalization",
+      "authors": [
+        "Ishaan Gulrajani",
+        "David López-Paz"
+      ],
+      "year": 2020,
+      "venue": "arXiv (Cornell University)",
+      "doi": "10.48550/arxiv.2007.01434",
+      "openalex": "https://openalex.org/W3039431315",
+      "arxiv": null,
+      "type": "preprint",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "zhou2022",
+      "theme": "generalisation",
+      "title": "Domain Generalization: A Survey",
+      "authors": [
+        "Kaiyang Zhou",
+        "Ziwei Liu",
+        "Yu Qiao",
+        "Tao Xiang",
+        "Chen Change Loy"
+      ],
+      "year": 2022,
+      "venue": "IEEE Transactions on Pattern Analysis and Machine Intelligence",
+      "doi": "10.1109/tpami.2022.3195549",
+      "openalex": "https://openalex.org/W4289639938",
+      "arxiv": null,
+      "type": "article",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "cui2019",
+      "theme": "generalisation",
+      "title": "Class-Balanced Loss Based on Effective Number of Samples",
+      "authors": [
+        "Yin Cui",
+        "Menglin Jia",
+        "Tsung-Yi Lin",
+        "Yang Song",
+        "Serge Belongie"
+      ],
+      "year": 2019,
+      "venue": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings - IEEE Computer Society Conference on Computer Vision and Pattern Recognition/Proceedings",
+      "doi": "10.1109/cvpr.2019.00949",
+      "openalex": "https://openalex.org/W2963691377",
+      "arxiv": null,
+      "type": "conference-paper",
+      "verified_against": "openalex"
+    },
+    {
+      "key": "raffin2021",
+      "theme": "tooling",
+      "title": "Stable-Baselines3: Reliable Reinforcement Learning Implementations",
+      "authors": [
+        "Antonin Raffin",
+        "Ashley Hill",
+        "Adam Gleave",
+        "Anssi Kanervisto",
+        "Maximilian Ernestus",
+        "Noah Dormann"
+      ],
+      "year": 2021,
+      "venue": "elib (German Aerospace Center)",
+      "doi": null,
+      "openalex": "https://openalex.org/W3216772467",
+      "type": "article",
+      "verified_against": "openalex",
+      "arxiv": null
+    }
+  ]
+}

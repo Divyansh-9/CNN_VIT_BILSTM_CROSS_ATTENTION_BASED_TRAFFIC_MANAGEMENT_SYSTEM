@@ -81,6 +81,23 @@ def check_torch() -> None:
     except ImportError:
         report(WARN, "PyTorch", "not installed yet (expected before setup)")
         return
+    except OSError as error:
+        # The failure this pre-flight most needs to name, and the one it used to
+        # let escape as a raw traceback. A torch whose DLLs fail to initialise is
+        # *installed*, so the import raises `OSError: [WinError 1114]` and never
+        # `ImportError` — most often a Visual C++ runtime that does not match the
+        # wheel. Reporting it as a named blocker is the difference between a
+        # pre-flight that failed and a pre-flight that crashed.
+        report(FAIL, "PyTorch", f"installed but will not load -- {error}")
+        report(
+            WARN,
+            "PyTorch",
+            "WinError 1114 is usually the Visual C++ runtime: install "
+            "Microsoft.VCRedist.2015+.x64 and reboot before reinstalling torch. "
+            "Every torch-importing test collects as an ERROR until it loads, and "
+            "collection errors are not test failures",
+        )
+        return
 
     # The BUILD matters as much as the version. `2.13.0+cpu` reads as a healthy
     # PyTorch and cannot use a GPU that is sitting right there, and reporting it
@@ -131,6 +148,12 @@ def check_packages() -> None:
             report(OK, label, getattr(m, "__version__", "installed"))
         except ImportError:
             report(WARN, label, "not installed")
+        except OSError as error:
+            # Same case as `check_torch`: installed, imports, fails to load its
+            # own libraries. Ultralytics and ONNX Runtime both reach this by
+            # importing torch, so a broken torch would otherwise take the
+            # pre-flight down three checks after it already reported the cause.
+            report(FAIL, label, f"installed but will not load -- {error}")
 
 
 def check_git_lfs() -> None:

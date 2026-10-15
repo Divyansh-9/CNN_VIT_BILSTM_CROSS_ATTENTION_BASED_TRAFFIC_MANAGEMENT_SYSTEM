@@ -29,8 +29,10 @@ import time
 from contextlib import closing
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException
 from pydantic import BaseModel, Field
+
+from contracts.mqtt import ContractError, Topic, decode
 
 from server.safety import Decision, SafetyLimits, SignalGuard
 
@@ -97,6 +99,16 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     connection.execute(
         "CREATE INDEX IF NOT EXISTS observations_at "
         "ON observations (intersection_id, at)")
+    # ADR-026: predictions arrive from the edge, where MFSTNet runs. Stored as
+    # the contract's own encoding plus the model id, so what the dashboard
+    # shows can be traced to the verified graph that produced it.
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS predictions (
+            at REAL NOT NULL,
+            intersection_id TEXT NOT NULL,
+            model TEXT NOT NULL,
+            payload TEXT NOT NULL
+        )""")
     connection.commit()
     return connection
 
@@ -167,6 +179,53 @@ def observation(payload: Counts) -> CommandOut:
                       phase=decision.phase, green_s=decision.green_s,
                       all_red_s=decision.all_red_s, source=decision.source,
                       reason=decision.reason, clamped=decision.clamped)
+
+
+def store_prediction(intersection_id: str, raw: str | bytes):
+    """Validate one encoded `CongestionPrediction` and store it (ADR-026).
+
+    The single entry point for predictions, used by the HTTP endpoint and by
+    the MQTT subscriber (`server/mqtt_ingest.py`) alike, so the two paths
+    cannot validate differently. Decoding through `contracts.mqtt.decode`
+    checks the schema version, every field and the NFR-13 size cap before
+    anything is written. Raises `ContractError` on a payload it refuses.
+    """
+    payload = decode(Topic.PREDICTION, raw)
+    with closing(connect()) as connection:
+        connection.execute("INSERT INTO predictions VALUES (?,?,?,?)",
+                           (time.time(), intersection_id, payload.model,
+                            payload.encode()))
+        connection.commit()
+    return payload
+
+
+@app.post("/prediction/{intersection_id}")
+def prediction(intersection_id: str, raw: str = Body(..., media_type="text/plain")) -> dict:
+    """One `CongestionPrediction`, exactly as the edge encoded it — the HTTP
+    stand-in for the MQTT topic of the same name, with the same validation."""
+    try:
+        payload = store_prediction(intersection_id, raw)
+    except ContractError as error:
+        raise HTTPException(422, str(error)) from error
+    return {"intersection_id": intersection_id, "model": payload.model,
+            "predictions": {k: v.value for k, v in payload.predictions.items()},
+            "state_11_14": payload.to_state_values()}
+
+
+@app.get("/prediction/{intersection_id}/latest")
+def latest_prediction(intersection_id: str) -> dict:
+    with closing(connect()) as connection:
+        row = connection.execute(
+            "SELECT at, model, payload FROM predictions WHERE intersection_id = ? "
+            "ORDER BY at DESC LIMIT 1", (intersection_id,)).fetchone()
+    if row is None:
+        raise HTTPException(404, f"no prediction for {intersection_id} yet")
+    payload = decode(Topic.PREDICTION, row[2])
+    return {"at": row[0], "model": row[1],
+            "predictions": {k: v.value for k, v in payload.predictions.items()},
+            "confidences": dict(payload.confidences),
+            "gate_value": payload.gate_value,
+            "state_11_14": payload.to_state_values()}
 
 
 @app.get("/history/{intersection_id}")

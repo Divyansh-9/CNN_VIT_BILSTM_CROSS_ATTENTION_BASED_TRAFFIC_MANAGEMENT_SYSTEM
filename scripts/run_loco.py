@@ -52,7 +52,8 @@ AGGREGATED = ("macro_f1", "weighted_f1", "accuracy", "qwk", "ordinal_mae",
 DEFAULT_SEEDS = (42, 1, 7, 13, 21)
 
 
-def fold_count(corpus: Path, clips: Path, minimum: int) -> int:
+def fold_count(corpus: Path, clips: Path, minimum: int,
+               domain: str = "mixed") -> int:
     """Ask `resplit_corpus.py` rather than recomputing camera identity here.
 
     Two implementations of "how many folds are there" is one more than can be
@@ -62,7 +63,8 @@ def fold_count(corpus: Path, clips: Path, minimum: int) -> int:
     result = subprocess.run(
         [sys.executable, "scripts/resplit_corpus.py", "--corpus", str(corpus),
          "--clips", str(clips), "--fold", "0", "--out", str(RESULTS / "_probe"),
-         "--min-test-sequences", str(minimum), "--list"],
+         "--min-test-sequences", str(minimum), "--domain", domain,
+         "--list"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     if result.returncode != 0:
@@ -172,6 +174,17 @@ def summarise(fold_files: list[Path], out: Path) -> list[dict]:
     return summary
 
 
+def record_failure(out: Path, fold: int, seed: int, config: str,
+                   code: int) -> None:
+    path = out / "failures.csv"
+    new = not path.exists()
+    with path.open("a", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        if new:
+            writer.writerow(["fold", "seed", "config", "exit_code"])
+        writer.writerow([fold, seed, config, code])
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--corpus", type=Path, required=True)
@@ -194,6 +207,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="rebuild the summary from existing fold CSVs "
                              "without retraining anything")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--domain", default="mixed",
+                        choices=("mixed", "foreign", "india"),
+                        help="which partition the folds draw on (ADR-025); "
+                             "mixed reproduces every committed result")
+    parser.add_argument("--checkpoints", type=Path, default=None,
+                        help="keep each run's selected model here (P87)")
     args = parser.parse_args(argv)
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -209,7 +228,8 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"no fold CSVs under {args.out} to re-stat")
         summary = summarise(existing, args.summary)
     else:
-        folds = fold_count(args.corpus, args.clips, args.min_test_sequences)
+        folds = fold_count(args.corpus, args.clips, args.min_test_sequences,
+                           args.domain)
 
         # P55. One process per config, not one per fold. Eight models built
         # back to back in a single process ran a 6 GB card into a driver-level
@@ -238,7 +258,8 @@ def main(argv: list[str] | None = None) -> int:
                 [sys.executable, "scripts/resplit_corpus.py",
                  "--corpus", str(args.corpus), "--clips", str(args.clips),
                  "--fold", str(index), "--out", str(view),
-                 "--min-test-sequences", str(args.min_test_sequences)],
+                 "--min-test-sequences", str(args.min_test_sequences),
+                 "--domain", args.domain],
                 check=True,
             )
             for seed in args.seeds:
@@ -269,7 +290,20 @@ def main(argv: list[str] | None = None) -> int:
                         command += ["--epochs", str(args.epochs)]
                     if args.force:
                         command.append("--force")
-                    subprocess.run(command, check=True)
+                    if args.checkpoints is not None:
+                        command += ["--save-checkpoint", str(args.checkpoints)]
+                    # A failed run is recorded, not raised and not silently
+                    # retried: the suite continues, the failure is a row in
+                    # failures.csv, and the summary says how many runs it is
+                    # built from. Replacing a failed seed with a new one is
+                    # how a reported spread gets quietly narrowed.
+                    outcome = subprocess.run(command)
+                    if outcome.returncode != 0:
+                        record_failure(args.out, index, seed, config,
+                                       outcome.returncode)
+                        print(f"      fold {index} seed {seed} {config}  "
+                              f"FAILED (exit {outcome.returncode}), recorded")
+                        continue
                     written.append(target)
         summary = summarise(written, args.summary)
 

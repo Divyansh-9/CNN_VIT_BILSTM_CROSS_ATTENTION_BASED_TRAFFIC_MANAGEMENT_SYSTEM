@@ -148,6 +148,33 @@ CHECKS = {fn.__name__: fn for fn in (
 )}
 
 
+#: Claims about what the *evaluation* shows. Under the headline protocol
+#: (P86, ADR-025) all three are scoped together: moving only `domain` to the
+#: Indian folds would leave `camera_count` passing on three Bangladeshi cameras
+#: and a British motorway, under a headline that contains none of them.
+EVALUATION_CHECKS = (
+    "evaluation_contains_target_domain",
+    "every_class_has_test_support",
+    "enough_eligible_cameras",
+)
+
+HEADLINE = "headline"
+
+
+def headline_folds(registry: CameraRegistry, folds):
+    """Folds whose every test camera is declared on target.
+
+    `is_on_target` returning None — undeclared or unknown — keeps a fold out:
+    a camera nobody has inspected is not evidence for the Indian headline.
+    """
+    kept = []
+    for name, rows in folds:
+        cameras = windows_in_test_split(rows)
+        if cameras and all(registry.is_on_target(c) is True for c in cameras):
+            kept.append((name, rows))
+    return kept
+
+
 def run(claims: list[dict], registry: CameraRegistry, folds) -> list[dict]:
     results = []
     for claim in claims:
@@ -156,9 +183,39 @@ def run(claims: list[dict], registry: CameraRegistry, folds) -> list[dict]:
             results.append({**claim, "passed": False,
                             "detail": f"no checker named {claim['check']!r}"})
             continue
-        passed, detail = check(claim, registry, folds)
+        scoped = folds
+        if claim.get("scope") == HEADLINE:
+            scoped = headline_folds(registry, folds)
+            if not scoped:
+                # The vacuity guard. "Every fold's test camera is on target"
+                # is TRUE over zero folds, and that is exactly the state the
+                # corpus is in today. A claim over an empty set is not
+                # evidence, so it fails rather than passing by default.
+                target = (f"{registry.target.get('country')} / "
+                          f"{registry.target.get('traffic_type')}")
+                results.append({**claim, "passed": False, "detail": (
+                    f"no fold is in the headline scope: none of "
+                    f"{len(folds)} fold(s) has a test camera on target "
+                    f"({target}). A claim over an empty set is not evidence.")})
+                continue
+        passed, detail = check(claim, registry, scoped)
+        if claim.get("scope") == HEADLINE:
+            detail = f"[headline: {len(scoped)} of {len(folds)} folds] {detail}"
         results.append({**claim, "passed": passed, "detail": detail})
     return results
+
+
+def with_protocol(claims: list[dict], protocol: str | None) -> list[dict]:
+    """Preview a protocol without editing CLAIMS.yaml.
+
+    `--protocol headline` scopes every evaluation claim to the headline folds,
+    which is what ADR-025 proposes. It changes what is *printed*, never the
+    file, so the claims of record stay what was signed.
+    """
+    if protocol != HEADLINE:
+        return claims
+    return [{**c, "scope": HEADLINE} if c["check"] in EVALUATION_CHECKS else c
+            for c in claims]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -168,6 +225,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--claims", type=Path, default=CLAIMS)
     parser.add_argument("--folds", type=Path, default=FOLDS)
     parser.add_argument("--cameras", type=Path, default=Path("data/cameras.json"))
+    parser.add_argument("--protocol", choices=[HEADLINE], default=None,
+                        help="preview the claims under a proposed evaluation "
+                             "protocol without editing CLAIMS.yaml (ADR-025)")
     args = parser.parse_args(argv)
 
     claims = yaml.safe_load(args.claims.read_text(encoding="utf-8"))["claims"]
@@ -180,6 +240,10 @@ def main(argv: list[str] | None = None) -> int:
             f"be checked without one."
         )
 
+    claims = with_protocol(claims, args.protocol)
+    if args.protocol:
+        print(f"  PREVIEW under protocol {args.protocol!r} — CLAIMS.yaml is "
+              f"unchanged and this is not the claim of record.\n")
     results = run(claims, registry, folds)
     blocking = [r for r in results if r["status"] == "asserted" and not r["passed"]]
 

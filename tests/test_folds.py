@@ -75,3 +75,40 @@ def test_too_few_cameras_refuses(n):
 def test_three_cameras_is_the_degenerate_but_legal_case():
     folds = leave_one_camera_out(["a", "b", "c"])
     assert all(len(f.train) == 1 for f in folds)
+
+
+# --------------------------------------------------------------------------
+#  ADR-025: the Indian headline at its minimum size
+# --------------------------------------------------------------------------
+
+def test_four_cameras_give_a_valid_three_way_split_with_two_training_cameras():
+    """The headline's floor is four cameras (`camera_count`). That has to be a
+    workable leave-one-camera-out design, not merely a count: every fold needs
+    a distinct test, validation and training set. At four, each fold trains
+    on two cameras — legal, and thin, which is why the campus ask is six."""
+    from mfstnet.corpus.folds import leave_one_camera_out
+
+    cameras = ["in_a", "in_b", "in_c", "in_d"]
+    folds = leave_one_camera_out(cameras)
+    assert len(folds) == 4
+    for fold in folds:
+        assert len(fold.train) == 2
+        assert fold.test != fold.val
+        assert fold.test not in fold.train and fold.val not in fold.train
+    assert sorted(f.test for f in folds) == cameras
+    assert sorted(f.val for f in folds) == cameras
+
+
+def test_every_camera_validates_once_so_class_support_covers_validation_too():
+    """Each camera is the validation camera of exactly one fold. A camera with
+    no HIGH window would make that fold select its checkpoint on a two-class
+    problem — so the per-camera class requirement that `class_coverage`
+    applies to test cameras is, by construction, also a validation
+    requirement. No separate threshold is needed."""
+    from collections import Counter
+
+    from mfstnet.corpus.folds import leave_one_camera_out
+
+    folds = leave_one_camera_out(["a", "b", "c", "d", "e", "f"])
+    assert Counter(f.val for f in folds) == Counter("abcdef")
+    assert all(len(f.train) == 4 for f in folds)

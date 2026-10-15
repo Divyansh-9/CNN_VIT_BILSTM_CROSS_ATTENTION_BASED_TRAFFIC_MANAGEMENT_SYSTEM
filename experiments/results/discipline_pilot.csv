@@ -1,0 +1,11 @@
+discipline,seed,regime,lateral_mean_m,mean_wait_s,mean_queue,throughput,arrived_fraction,disqualified
+0.0,42,saturated,0.4892,10.846,6.771,696,0.9305,False
+1.0,42,saturated,0.0,14.166,9.323,685,0.9158,False
+0.0,1,saturated,0.5036,12.354,7.916,684,0.9144,False
+1.0,1,saturated,0.0,14.588,10.118,682,0.9118,False
+0.0,7,saturated,0.4848,14.553,9.633,685,0.917,False
+1.0,7,saturated,0.0,18.991,13.249,673,0.9009,False
+0.0,13,saturated,0.4972,13.486,8.68,695,0.9291,False
+1.0,13,saturated,0.0,20.009,13.752,683,0.9131,False
+0.0,21,saturated,0.4265,12.827,8.055,704,0.9412,False
+1.0,21,saturated,0.0,15.317,9.911,698,0.9332,False

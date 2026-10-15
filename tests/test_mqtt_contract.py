@@ -85,7 +85,7 @@ def test_a_raw_string_prediction_is_rejected():
     with pytest.raises(ContractError, match="never MED"):
         CongestionPrediction(
             predictions={"N": "MEDIUM"},  # type: ignore[dict-item]
-            confidences={"N": 0.9}, gate_value=0.5, model="m",
+            confidences={"N": 0.9}, gate_value=0.5, model="G@0123456789ab",
         )
 
 
@@ -147,7 +147,7 @@ def test_every_payload_carries_a_version():
         VehicleCount(1, {"car": 1}, 12.0),
         EmergencyDetect("ambulance", 0.91, 3),
         SignalCommand("NS_GREEN", 45, CommandSource.PPO_AGENT),
-        CongestionPrediction({"N": CongestionClass.HIGH}, {"N": 0.9}, 0.7, "mfstnet_v1"),
+        CongestionPrediction({"N": CongestionClass.HIGH}, {"N": 0.9}, 0.7, "G@0123456789ab"),
         Heartbeat("online", Mode.NORMAL, True, True),
     ]
     for p in payloads:
@@ -182,7 +182,7 @@ def test_state_values_come_out_in_lane_order():
     pred = CongestionPrediction(
         predictions={"N": CongestionClass.HIGH, "S": CongestionClass.MEDIUM,
                      "E": CongestionClass.LOW, "W": CongestionClass.LOW},
-        confidences={l: 0.9 for l in "NSEW"}, gate_value=0.73, model="mfstnet_v1",
+        confidences={l: 0.9 for l in "NSEW"}, gate_value=0.73, model="G@0123456789ab",
     )
     assert pred.to_state_values() == [1.0, 0.5, 0.0, 0.0]
 
@@ -192,7 +192,7 @@ def test_a_missing_lane_yields_zero_and_the_vector_keeps_its_length():
     vector instead would invalidate every trained checkpoint."""
     pred = CongestionPrediction(
         predictions={"N": CongestionClass.HIGH},
-        confidences={"N": 0.9}, gate_value=0.5, model="m",
+        confidences={"N": 0.9}, gate_value=0.5, model="G@0123456789ab",
     )
     values = pred.to_state_values()
     assert len(values) == 4
@@ -218,7 +218,7 @@ def test_prediction_round_trips_with_its_enums_intact():
     pred = CongestionPrediction(
         predictions={"N": CongestionClass.HIGH, "S": CongestionClass.LOW},
         confidences={"N": 0.87, "S": 0.91}, gate_value=0.73,
-        model="mfstnet_v1", ts=1.0,
+        model="G@0123456789ab", ts=1.0,
     )
     back = decode(Topic.PREDICTION, pred.encode())
     assert back.predictions["N"] is CongestionClass.HIGH
@@ -228,7 +228,7 @@ def test_prediction_round_trips_with_its_enums_intact():
 def test_gate_value_survives_the_round_trip():
     """FR-UI05 and BR-07 depend on it. A16 removed the gate from the PPO STATE,
     not from this payload — a reader of that amendment might delete it here."""
-    pred = CongestionPrediction({"N": CongestionClass.LOW}, {"N": 0.5}, 0.42, "m", ts=1.0)
+    pred = CongestionPrediction({"N": CongestionClass.LOW}, {"N": 0.5}, 0.42, "G@0123456789ab", ts=1.0)
     assert decode(Topic.PREDICTION, pred.encode()).gate_value == 0.42
 
 
@@ -266,3 +266,72 @@ def test_predictions_and_confidences_must_cover_the_same_lanes():
         CongestionPrediction(
             {"N": CongestionClass.LOW}, {"N": 0.5, "S": 0.5}, 0.5, "m"
         )
+
+
+# --------------------------------------------------------------------------
+#  NFR-13 by size: nothing frame-sized crosses the boundary
+# --------------------------------------------------------------------------
+
+def test_a_frame_smuggled_through_a_free_text_field_is_refused():
+    import base64
+
+    from contracts.mqtt import (MAX_PAYLOAD_BYTES, CongestionClass,
+                                CongestionPrediction, ContractError)
+
+    frame = base64.b64encode(bytes(30_000)).decode()     # a small JPEG
+    # Refused twice over in v2: the model id is a pattern, so the frame never
+    # reaches the size cap. The cap is the second line, for any future field.
+    with pytest.raises(ContractError, match="config@12-hex"):
+        CongestionPrediction(
+            predictions={"N": CongestionClass.LOW}, confidences={"N": 0.9},
+            gate_value=0.5, model=frame)
+    assert MAX_PAYLOAD_BYTES < 30_000
+
+
+def test_an_oversized_inbound_payload_is_refused_before_parsing():
+    from contracts.mqtt import ContractError, Topic, decode
+
+    with pytest.raises(ContractError, match="cap"):
+        decode(Topic.PREDICTION, '{"x":"' + "A" * 10_000 + '"}')
+
+
+def test_real_payloads_sit_far_below_the_cap():
+    from contracts.mqtt import (MAX_PAYLOAD_BYTES, CongestionClass,
+                                CongestionPrediction)
+
+    payload = CongestionPrediction(
+        predictions={l: CongestionClass.HIGH for l in "NSEW"},
+        confidences={l: 0.97 for l in "NSEW"}, gate_value=0.53,
+        model="G@4cc8c2b41f2d")
+    assert len(payload.encode()) < MAX_PAYLOAD_BYTES // 10
+
+
+# --------------------------------------------------------------------------
+#  schema v2: no free text crosses the boundary (ADR-026)
+# --------------------------------------------------------------------------
+
+def test_prediction_keys_must_be_approaches():
+    from contracts.mqtt import CongestionClass, CongestionPrediction, ContractError
+
+    with pytest.raises(ContractError, match="approaches"):
+        CongestionPrediction(predictions={"lane_0": CongestionClass.LOW},
+                             confidences={"lane_0": 0.9}, gate_value=None,
+                             model="H@0123456789ab")
+
+
+def test_an_absent_gate_is_none_and_survives_the_round_trip():
+    from contracts.mqtt import (CongestionClass, CongestionPrediction, Topic,
+                                decode)
+
+    sent = CongestionPrediction(predictions={"N": CongestionClass.HIGH},
+                                confidences={"N": 0.8}, gate_value=None,
+                                model="H@0123456789ab")
+    assert decode(Topic.PREDICTION, sent.encode()).gate_value is None
+
+
+def test_emergency_type_is_a_closed_set():
+    from contracts.mqtt import ContractError, EmergencyDetect
+
+    EmergencyDetect("ambulance", 0.9, 3)
+    with pytest.raises(ContractError, match="unknown emergency type"):
+        EmergencyDetect("aGVsbG8gd29ybGQ=", 0.9, 3)

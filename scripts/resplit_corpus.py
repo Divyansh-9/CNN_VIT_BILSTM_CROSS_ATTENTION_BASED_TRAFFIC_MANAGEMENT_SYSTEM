@@ -39,6 +39,7 @@ from scripts.console import use_utf8  # noqa: E402
 
 use_utf8()
 
+from mfstnet.corpus.composition import CameraRegistry  # noqa: E402
 from mfstnet.corpus.folds import (  # noqa: E402
     MINIMUM_TEST_SEQUENCES,
     eligible_for_test,
@@ -46,6 +47,19 @@ from mfstnet.corpus.folds import (  # noqa: E402
 )
 
 CARRIED = ("counts.csv", "detections.csv")
+
+#: Which cameras a fold view may contain, by partition (ADR-025, P86).
+#: `mixed` is every camera, partitioned or not: it reproduces the folds every
+#: committed result was produced on, and is the default for that reason.
+#: `foreign` and `india` are disjoint, so a model trained on one has never seen
+#: the other — which is what lets fine-tuning on India be compared against
+#: training on India from scratch without the comparison being contaminated.
+#: `unknown` cameras belong to no domain and enter only `mixed`.
+DOMAINS = {
+    "mixed": None,
+    "foreign": {"real_external"},
+    "india": {"real_india"},
+}
 
 
 def camera_ids(clip_ids, clips_dir: Path) -> dict[str, str]:
@@ -97,6 +111,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--clips", type=Path, required=True,
                         help="the directory the corpus was built from")
     parser.add_argument("--protocol", choices=("loco",), default="loco")
+    parser.add_argument("--domain", choices=sorted(DOMAINS), default="mixed",
+                        help="which partition the fold view draws on (ADR-025). "
+                             "mixed reproduces every committed result; foreign "
+                             "and india are disjoint")
+    parser.add_argument("--cameras", type=Path,
+                        default=Path("data/cameras.json"))
     parser.add_argument("--fold", type=int, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--min-test-sequences", type=int,
@@ -116,6 +136,25 @@ def main(argv: list[str] | None = None) -> int:
 
     clip_ids = {row["clip_id"] for row in rows}
     groups = camera_ids(clip_ids, args.clips)
+
+    registry = CameraRegistry.load(args.cameras)
+    allowed = DOMAINS[args.domain]
+    excluded = sorted({c for c in groups.values()
+                       if allowed is not None
+                       and registry.partition(c) not in allowed})
+    if excluded:
+        # Out of the fold view entirely, not parked in a fourth split: a row
+        # that is in the file is a row something can count.
+        rows = [r for r in rows if groups[r["clip_id"]] not in excluded]
+        clip_ids = {row["clip_id"] for row in rows}
+        groups = {k: v for k, v in groups.items() if v not in excluded}
+        print(f"  domain {args.domain}: {len(excluded)} camera(s) outside it "
+              f"are excluded — " + ", ".join(c[:24] for c in excluded))
+    if not rows:
+        raise SystemExit(
+            f"domain {args.domain!r} contains no camera in this corpus. "
+            f"Partitions come from {args.cameras}; scripts/check_sources.py "
+            f"lists them. Nothing is trained on an empty domain.")
     cameras = sorted(set(groups.values()))
 
     per_camera: dict[str, int] = {c: 0 for c in cameras}
@@ -178,6 +217,9 @@ def main(argv: list[str] | None = None) -> int:
     manifest["fold_val_camera"] = fold.val
     manifest["fold_always_train"] = always_train
     manifest["min_test_sequences"] = args.min_test_sequences
+    manifest["domain"] = args.domain
+    manifest["domain_excluded"] = excluded
+    manifest["camera_partitions"] = {c: registry.partition(c) for c in cameras}
     manifest["resplit_from"] = str(args.corpus)
     (args.out / "manifest.json").write_text(json.dumps(manifest, indent=2),
                                             encoding="utf-8")

@@ -24,6 +24,7 @@ Closes the six defects from TRIAGE-001:
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -46,7 +47,19 @@ __all__ = [
     "decode",
 ]
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+# v2 (ADR-026): no free text crosses the edge boundary. `model` is a pattern,
+# prediction keys are approaches, emergency `type` is a closed set, and
+# `gate_value` may be None for a config with no gate rather than a made-up 0.5.
+
+#: `config@first-12-hex-of-the-graph's-sha256` — what `VerifiedGraph.model_id`
+#: produces. A pattern rather than a string, so the field cannot carry anything
+#: else at any length (NFR-13).
+MODEL_ID = re.compile(r"^[A-H]@[0-9a-f]{12}$")
+APPROACHES = ("N", "S", "E", "W")
+#: PRD §17 names "ambulance" and nothing else. Extending the set is a contract
+#: diff, which is the point of having one.
+EMERGENCY_TYPES = ("ambulance",)
 """D5. Bumped on any breaking payload change.
 
 Three consumers built weeks apart have no other way to detect a producer/consumer
@@ -157,12 +170,33 @@ class CommandSource(str, Enum):
 
 # ---------------------------------------------------------------- payloads --
 
+#: NFR-13, enforced by size rather than by intent. Every payload here is a
+#: handful of scalars and is a few hundred bytes; one frame as a JPEG is tens of
+#: kilobytes, and one frame's DINOv2 feature map is about 200 KB. A cap two
+#: orders of magnitude below either means a free-text field — `model`, `type`,
+#: `edge_status` — cannot carry an image or a feature map off the edge, whatever
+#: a future caller puts in it. Checked on encode (the edge) and on decode (the
+#: server), so neither side relies on the other.
+MAX_PAYLOAD_BYTES = 4096
+
+
+def _bounded(topic: str, text: str | bytes) -> None:
+    size = len(text.encode("utf-8") if isinstance(text, str) else text)
+    if size > MAX_PAYLOAD_BYTES:
+        raise ContractError(
+            f"{topic}: payload is {size} bytes, over the {MAX_PAYLOAD_BYTES}-byte "
+            f"cap. Only counts and predictions leave the edge (NFR-13); nothing "
+            f"this size is either.")
+
+
 @dataclass(frozen=True)
 class _Payload:
     def encode(self) -> str:
         d = {k: (v.value if isinstance(v, Enum) else v) for k, v in asdict(self).items()}
         d["v"] = SCHEMA_VERSION
-        return json.dumps(d, separators=(",", ":"))
+        text = json.dumps(d, separators=(",", ":"))
+        _bounded(type(self).__name__, text)
+        return text
 
 
 @dataclass(frozen=True)
@@ -197,6 +231,10 @@ class EmergencyDetect(_Payload):
     ts: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
+        if self.type not in EMERGENCY_TYPES:
+            raise ContractError(
+                f"unknown emergency type {self.type!r}; expected one of "
+                f"{list(EMERGENCY_TYPES)}")
         # FR-P04: confidence >= 0.75 AND >= 2 consecutive detections. The
         # conjunction is the contract — a single high-confidence frame is not
         # evidence, and a spurious preemption costs every other approach its green.
@@ -235,7 +273,10 @@ class SignalCommand(_Payload):
 class CongestionPrediction(_Payload):
     predictions: Mapping[str, CongestionClass]
     confidences: Mapping[str, float]
-    gate_value: float
+    # None for a config without a gate (A, B, H): an absent gate is not a gate
+    # of 0.5, and the dashboard must not plot it as one (FR-UI05). Required,
+    # not defaulted, so a producer states which case it is in.
+    gate_value: float | None
     model: str
     horizon_sec: int = 60
     ts: float = field(default_factory=time.time)
@@ -249,8 +290,16 @@ class CongestionPrediction(_Payload):
                     f"lane {lane}: prediction must be a CongestionClass, got {cls!r}. "
                     f"D1 — the wire spelling is MEDIUM, never MED."
                 )
-        if not 0.0 <= self.gate_value <= 1.0:
-            raise ContractError(f"gate_value must be in [0, 1], got {self.gate_value}")
+        if set(self.predictions) - set(APPROACHES):
+            raise ContractError(
+                f"prediction keys must be approaches {list(APPROACHES)}; got "
+                f"{sorted(self.predictions)}. Map keys are text too (NFR-13).")
+        if self.gate_value is not None and not 0.0 <= self.gate_value <= 1.0:
+            raise ContractError(f"gate_value must be in [0, 1] or None, got {self.gate_value}")
+        if not isinstance(self.model, str) or not MODEL_ID.match(self.model):
+            raise ContractError(
+                f"model must be config@12-hex-digest, got {self.model!r}. It names "
+                f"the verified graph and nothing else.")
 
     def to_state_values(self, lanes: tuple[str, ...] = ("N", "S", "E", "W")) -> list[float]:
         """D6. PPO state indices 11–14, in lane order.
@@ -274,7 +323,9 @@ class CongestionPrediction(_Payload):
             "ts": self.ts,
             "v": SCHEMA_VERSION,
         }
-        return json.dumps(d, separators=(",", ":"))
+        text = json.dumps(d, separators=(",", ":"))
+        _bounded(type(self).__name__, text)
+        return text
 
 
 @dataclass(frozen=True)
@@ -310,6 +361,7 @@ def decode(topic: Topic, raw: str | bytes) -> Any:
     Raises:
         ContractError: on a version mismatch or any validation failure.
     """
+    _bounded(topic.name, raw)
     try:
         data: dict[str, Any] = json.loads(raw)
     except json.JSONDecodeError as exc:

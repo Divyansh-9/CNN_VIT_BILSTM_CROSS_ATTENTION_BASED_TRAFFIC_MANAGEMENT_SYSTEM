@@ -1,0 +1,40 @@
+{
+  "git_commit": "6ada65c",
+  "python": "3.14.4",
+  "platform": "Windows",
+  "torch": "2.13.0+cu126",
+  "torch_build": "cu126",
+  "cuda_available": true,
+  "cuda_device": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "cuda_capability": "sm_89",
+  "cudnn_tf32": true,
+  "matmul_tf32": false,
+  "numpy": "2.5.2",
+  "ultralytics": "8.4.118",
+  "stable_baselines3": "2.9.0",
+  "gymnasium": "1.3.0",
+  "eclipse_sumo": "1.27.1",
+  "scikit_learn": "1.9.0",
+  "scipy": "1.18.0",
+  "xgboost": "3.4.1",
+  "experiment": "lane-discipline pilot (ADR-024)",
+  "sumo_version": "Eclipse SUMO sumo 1.27.1",
+  "regime": "saturated",
+  "duration_s": 900,
+  "seeds": [
+    42,
+    1,
+    7,
+    13,
+    21
+  ],
+  "levels": [
+    0.0,
+    1.0
+  ],
+  "sublane_resolution": 0.8,
+  "webster_saturation": 750,
+  "min_arrived": 0.85,
+  "min_separation_m": 0.25,
+  "demand": "pre-expanded to explicit vehicles; identical across levels"
+}

@@ -103,6 +103,20 @@ class CameraRegistry:
                 return False
         return True
 
+    def partition(self, camera: str) -> str:
+        """`real_india`, `real_external` or `unknown` (ADR-025).
+
+        Derived from `is_on_target`, so the partition a camera trains in and
+        the scope a claim is checked over can never disagree: both ask the
+        same question of the same declaration. `unknown` is its own answer and
+        belongs to no domain — a camera nobody has inspected is evidence for
+        neither.
+        """
+        verdict = self.is_on_target(camera)
+        if verdict is None:
+            return "unknown"
+        return "real_india" if verdict else "real_external"
+
     def missing(self, cameras) -> list[str]:
         return sorted(c for c in cameras if c not in self.cameras)
 

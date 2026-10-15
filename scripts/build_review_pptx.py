@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import statistics
 import sys
 import tempfile
@@ -78,6 +79,40 @@ EYEBROW_Y = Inches(0.40)
 TITLE_Y = Inches(0.86)
 LEAD_Y = Inches(1.80)
 BODY_Y = Inches(2.42)
+
+# -- panel geometry --------------------------------------------------------
+#
+# `Deck.panel` draws its box at the height it is handed and then lays the rows
+# out from the top regardless of that height, so a height estimated by eye is
+# silently wrong in one direction: the last row is clipped by the bottom border
+# and the footnote is drawn *outside* the box, over whatever comes next. These
+# are the measurements `panel` itself advances by, kept here rather than beside
+# the callers so that the guard at the bottom of `panel` and
+# `build_synopsis_pptx.panel_height` cannot drift apart.
+
+PANEL_HEAD = Inches(0.66)        # title band above the first row
+PANEL_ROW = Inches(0.50)         # a bold lead with a detail line beneath it
+PANEL_ROW_BARE = Inches(0.32)    # a lead on its own
+PANEL_FOOT_GAP = Inches(0.26)    # the separating rule and the air around it
+PANEL_FOOT_TOP = Inches(0.20)    # where the footnote's own text box starts
+PANEL_FOOT_LINE = Inches(0.17)   # one wrapped line of the 9.5 pt footnote
+PANEL_PAD = Inches(0.22)         # air below the last thing drawn
+
+#: Horizontal advance of one character, in inches, measured off the rendered
+#: deck rather than from font metrics: the monospace face's figure is exact and
+#: the body face's is an average over the prose actually used.
+MONO_ADVANCE = 0.079             # detail rows, 9.5 pt
+BODY_ADVANCE = 0.060             # footnotes, 9.5 pt
+
+#: What `panel` reserves horizontally: a detail row is indented past the
+#: bullet, a footnote sits inside the box's own padding.
+PANEL_DETAIL_INSET = Inches(0.76)
+PANEL_FOOT_INSET = Inches(0.56)
+
+
+def line_count(text: str, usable_in: float, advance_in: float) -> int:
+    """Lines `text` occupies in `usable_in` inches at `advance_in` per char."""
+    return max(1, math.ceil(len(text) * advance_in / usable_in))
 
 
 # ==========================================================================
@@ -262,6 +297,22 @@ class Deck:
         slide = self._blank(PAPER)
         self.slides.append(slide)
 
+        # `headline` is a two-part sequence — the plain opening and the
+        # accented remainder — not a sentence. A bare string is subscriptable,
+        # so passing one silently renders its first two characters as the
+        # entire headline and loses the rest: "Four settled bodies of work"
+        # becomes "Fo". That is invisible in the source and obvious only on a
+        # rendered slide, so it is refused here.
+        if isinstance(headline, str):
+            raise TypeError(
+                f"headline must be a sequence of one or two strings, not a "
+                f"string: {headline!r} would render as "
+                f"{headline[:2]!r}. Pass (plain, accented) or (plain,).")
+        if not 1 <= len(headline) <= 2:
+            raise ValueError(
+                f"headline has {len(headline)} parts; content() renders one "
+                "plain part and one accented part.")
+
         _, _, para, run = self.text(slide, MARGIN, EYEBROW_Y, Inches(9), Inches(0.3),
                                     size=10.5, font=MONO, colour=AMBER, bold=True)
         run.text = f"{number:02d}"
@@ -308,27 +359,52 @@ class Deck:
         self.text(slide, left + Inches(0.28), top + Inches(0.26),
                   width - Inches(0.5), Inches(0.24),
                   size=10, font=MONO, colour=ACCENT, bold=True)[3].text = title.upper()
-        y = top + Inches(0.66)
+        y = top + PANEL_HEAD
         for lead, detail in items:
             self.rect(slide, left + Inches(0.28), y + Inches(0.07),
                       Inches(0.05), Inches(0.05), fill=AMBER, shape=MSO_SHAPE.OVAL)
             _, _, _, run = self.text(slide, left + Inches(0.46), y,
-                                     width - Inches(0.76), Inches(0.22),
+                                     width - PANEL_DETAIL_INSET, Inches(0.22),
                                      size=size, colour=INK, bold=True)
             run.text = lead
             if detail:
                 _, _, _, sub = self.text(slide, left + Inches(0.46), y + Inches(0.21),
-                                         width - Inches(0.76), Inches(0.22),
+                                         width - PANEL_DETAIL_INSET, Inches(0.22),
                                          size=size - 1.5, font=MONO, colour=MUTED)
                 sub.text = detail
-                y += Inches(0.50)
+                y += PANEL_ROW
             else:
-                y += Inches(0.32)
+                y += PANEL_ROW_BARE
+
+        # Everything below here has to fit inside the box that was already
+        # drawn, and `panel` cannot grow it — the rows above are positioned
+        # relative to `top`, so a taller box drawn now would not move them. So
+        # refuse instead, and name the shortfall: a footnote whose height was
+        # never reserved is drawn over the next thing on the slide, which is a
+        # defect only a rendered slide reveals. `panel_height` computes a
+        # height that satisfies this, including the footnote when it is passed
+        # one — omitting the argument there is the way this goes wrong.
+        needed = y - top
+        if footnote:
+            usable = (width - PANEL_FOOT_INSET) / Inches(1)
+            lines = line_count(footnote, usable, BODY_ADVANCE)
+            needed += PANEL_FOOT_TOP + lines * PANEL_FOOT_LINE
+        if needed > height:
+            over = (needed - height) / Inches(1)
+            detail = (f" plus a {lines}-line footnote" if footnote else "")
+            raise ValueError(
+                f"panel {title!r} is {over:.2f} in too short for its content: "
+                f"{len(items)} rows{detail} need "
+                f"{needed / Inches(1):.2f} in and the box is "
+                f"{height / Inches(1):.2f} in. Size it with "
+                f"panel_height(items, width"
+                f"{', footnote' if footnote else ''}).")
+
         if footnote:
             self.rule(slide, left + Inches(0.28), y + Inches(0.06),
-                      width - Inches(0.56))
-            _, _, _, run = self.text(slide, left + Inches(0.28), y + Inches(0.2),
-                                     width - Inches(0.56), Inches(0.7),
+                      width - PANEL_FOOT_INSET)
+            _, _, _, run = self.text(slide, left + Inches(0.28), y + PANEL_FOOT_TOP,
+                                     width - PANEL_FOOT_INSET, Inches(0.7),
                                      size=9.5, colour=MUTED, spacing=1.2)
             run.text = footnote
 
@@ -1630,7 +1706,13 @@ def render_images(outdir: Path) -> dict:
         from ultralytics import YOLO
 
         from scripts.pilot_a17 import vehicle_ids
-    except ImportError as error:
+    except (ImportError, OSError) as error:
+        # `OSError` and not only `ImportError`: a torch whose DLLs fail to
+        # initialise is *installed*, so the import raises
+        # `OSError: [WinError 1114]` rather than `ImportError`, and catching
+        # the narrower one takes the whole deck down over three optional
+        # illustrations. The deck's own contract is that image slides say when
+        # a frame is missing, so a broken detector should reach that path.
         print(f"  cannot render images ({error}) — image slides will say so")
         return produced
 

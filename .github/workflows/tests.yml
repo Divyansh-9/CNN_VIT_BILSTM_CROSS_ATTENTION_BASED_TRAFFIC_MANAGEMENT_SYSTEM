@@ -36,7 +36,15 @@ jobs:
         # Deliberately NOT requirements.txt — torch is ~2 GB and none of these
         # suites import it. Keeping this job dependency-light keeps it fast
         # enough that people actually read the result.
-        run: pip install pytest pyyaml
+        #
+        # python-pptx is here for a specific reason: the deck and progress-report
+        # suites guard their geometry with `importorskip("pptx")`, so a runner
+        # without it reports them as skipped and the job passes green over the
+        # guards — the exact failure this workflow's header warns about for
+        # torch. It is a ~500 KB pure-Python wheel, so there is no cost argument
+        # for leaving it out. The `.docx` builders need no dependency at all;
+        # they write OOXML directly.
+        run: pip install pytest pyyaml python-pptx
 
       - name: Run suites
         run: >
@@ -46,6 +54,26 @@ jobs:
           --ignore=tests/test_cache.py
           --ignore=tests/test_sumo_network.py
           --ignore=tests/test_simulation.py
+
+      - name: Build the submitted documents and check them against the guidelines
+        # The three documents are generated, never hand-edited, and the two
+        # checkers read the produced `.docx` rather than the source — so the
+        # only way to run them in CI is to build first. No `--pdf`: that drives
+        # real Word and PowerPoint over COM and is Windows-only, and an
+        # approximate PDF of a submitted document is worse than no PDF.
+        #
+        # This is what makes the guideline rules — A4 and the prescribed
+        # margins, the chapter order, the 25-30 paper bound, captions and
+        # equations cited in the text, citations matched in both directions,
+        # and the rule that two of the three documents can quote no measured
+        # result — hold on every push rather than when someone remembers.
+        run: |
+          python scripts/build_synopsis.py --which all --out-dir "$RUNNER_TEMP/docs"
+          python scripts/check_synopsis.py \
+            "$RUNNER_TEMP/docs/MFSTNet-Synopsis-Report.docx" \
+            "$RUNNER_TEMP/docs/MFSTNet-Synopsis-Phase1.docx"
+          python scripts/check_progress_report.py \
+            "$RUNNER_TEMP/docs/MFSTNet-Phase1-Progress-Report-1.docx"
 
   model:
     name: model suites (CPU torch)
@@ -62,7 +90,7 @@ jobs:
         # assert geometry and gradient flow, which are device-independent.
         run: |
           pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
-          pip install pytest pyyaml timm
+          pip install pytest pyyaml timm onnxruntime onnx psutil fastapi httpx paho-mqtt amqtt
           pip install gymnasium stable-baselines3
           pip install nbformat nbclient ipykernel pandas matplotlib
           pip install eclipse-sumo traci sumolib
@@ -80,7 +108,8 @@ jobs:
           pytest -q --tb=short
           tests/test_encoders.py tests/test_model.py tests/test_cache.py
           tests/test_spec_matches_code.py tests/test_sumo_network.py
-          tests/test_simulation.py
+          tests/test_simulation.py tests/test_checkpoints.py
+          tests/test_edge_forecaster.py tests/test_mqtt_live.py
 
       - name: Overfit check (S26)
         # The cheapest decisive test in the model track. A graph that cannot

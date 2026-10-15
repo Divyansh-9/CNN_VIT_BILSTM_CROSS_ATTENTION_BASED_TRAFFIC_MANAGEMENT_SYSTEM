@@ -732,3 +732,26 @@ lane splitting are why per-lane ROI counting is noisier in South Asian traffic
 than the PRD assumes** — vehicles genuinely occupy the boundary between lanes.
 That is an argument for reporting the unassigned rate with every corpus, which
 [P17](../00-planning/PRD-CHANGELOG.md) already requires.
+
+## Chennai Traffic Dataset (Zenodo 21545806, 2026) — assessed 2026-10-15
+
+| | |
+|---|---|
+| **Source** | [zenodo.org/records/21545806](https://zenodo.org/records/21545806) — Srinivasulu, Sebastian, Vanajakshi |
+| **Licence** | CC BY 4.0 |
+| **Contents** | `train.zip` 680 MB, 1,855 JPEGs; `train_labels.zip` |
+| **Structure** | two sequences, `offcampus` (source frames 0–2744) and `oncampus` (0–1890), sampled at every second frame or coarser |
+| **Viewpoint** | road-level from a moving vehicle; plates already blurred |
+
+Assessed without downloading it: the archive's directory was read over HTTP
+range requests and one frame was extracted and viewed.
+
+**Rejected for the forecaster.** It fails two gates in `scripts/check_sources.py`
+independently. It is not a fixed elevated camera, and its longer sequence is
+about 110 s even at 25 fps — under the 120 s one window spans, let alone the
+390 s a camera needs to be fold-eligible. **A candidate for the detector**, where
+neither property matters and the licence is clean; whether its label taxonomy
+maps onto ours is not yet checked.
+
+The register entry is `chennai_zenodo_21545806` in `data/sources.json`.
+

@@ -114,6 +114,14 @@ onnxscript==0.7.1
 fastapi==0.141.1
 pydantic==2.13.4
 uvicorn==0.52.4
+
+# ---- the edge/server link (PRD 17.1, ADR-026) ----
+# edge/mqtt_transport.py and server/mqtt_ingest.py. The test broker (amqtt)
+# is deliberately NOT here: tests/test_mqtt_live.py runs it from an
+# environment of its own via AMQTT_PYTHON, and production uses Mosquitto.
+paho-mqtt==2.1.0
+# Process memory in scripts/verify_edge.py, ADR-026's edge budget.
+psutil==7.2.2
 httpx==0.28.1
 
 # ---- NOT INSTALLED: subsystems that do not exist yet ----
@@ -124,7 +132,6 @@ httpx==0.28.1
 #
 # Add the pin in the same commit as the first import, as above.
 #
-#   paho-mqtt              the edge/server link (PRD §17.1) — unbuilt
 #   tensorboard, mlflow    experiment tracking (PRD §21) — not yet wired
 #   peft                   LoRA, if ADR-007's adapter path is taken
 #   pytest-cov             coverage reporting, not currently collected

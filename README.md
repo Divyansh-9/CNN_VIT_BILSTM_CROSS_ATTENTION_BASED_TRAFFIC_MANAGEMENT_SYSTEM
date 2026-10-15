@@ -32,10 +32,12 @@ for unstructured Indian intersections**
 
 </div>
 
-> **Badges report what is true, not what is planned.** Status reads
-> **PRE-IMPLEMENTATION** because no model has trained and no frame has been detected. The two CI
-> badges are live workflow results, not pictures of them. When the system runs, the status badge
-> changes — and not before.
+> **Badges report what is true, not what is planned.** The two CI badges are live workflow
+> results, not pictures of them. The model track is **built and measured**: the A–H ablation
+> is complete, PPO beats the best-tuned Webster baseline by 19.4% over 30 paired seeds, and
+> three detector arms are trained. What is **not** built is the React dashboard, and two
+> asserted claims in `docs/00-planning/CLAIMS.yaml` are red — `domain` and `class_coverage` —
+> so `scripts/make_paper_tables.py` is withheld by design. That is the honest state.
 
 ---
 
@@ -43,10 +45,10 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 
 | | |
 |---|---|
-| **Week** | 2 of 20 |
-| **Specified** | 43 documents · 12 architecture decisions · 35 catalogued references |
-| **Built** | 1,339 lines of Python · 44 tests passing |
-| **Blocked on you** | Python 3.11 install · faculty scope sign-off · first video |
+| **Week** | 10 of 20 |
+| **Specified** | 73 documents · 26 architecture decisions · 48 verified references |
+| **Built** | ~43,000 lines of Python · 966 tests passing |
+| **Blocked on you** | faculty scope sign-off (S04, S19) · ADR-024 acceptance · 25 GB free disk against ~60 GB needed |
 
 > **New to the project, or the documents feel heavy?** Start with **[EXPLAIN.md](EXPLAIN.md)** —
 > everything below in plain English with worked examples, no prior knowledge assumed.
@@ -440,14 +442,14 @@ python scripts/check_env.py          # tells you what is missing, in plain langu
 > with `No matching distribution found for torch` — which looks like a network problem and is not.
 
 ```powershell
-py -3.11 -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 pip install -r requirements.txt
 cp .env.example .env
 
 python scripts/check_env.py          # should now report no blockers
-python -m pytest -q                  # 44 tests
+python -m pytest -q                  # 966 pass, 1 skip
 ```
 
 Then [Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--setup).

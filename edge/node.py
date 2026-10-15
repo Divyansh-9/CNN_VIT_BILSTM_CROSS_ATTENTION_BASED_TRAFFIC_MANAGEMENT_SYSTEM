@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from contracts.mqtt import Heartbeat, Mode, Topic, VehicleCount
+from contracts.mqtt import (CongestionPrediction, Heartbeat, Mode, Topic,
+                            VehicleCount)
 
 __all__ = ["Transport", "RecordingTransport", "EdgeNode", "LocalWebster"]
 
@@ -101,6 +102,11 @@ class EdgeNode:
     webster: LocalWebster = field(default_factory=LocalWebster)
     last_ack: float = field(default_factory=time.time)
     mode: Mode = Mode.NORMAL       # LOCAL once FR-A06 fires
+    # True once a prediction has been published (ADR-026). Reported in the
+    # heartbeat from what the node has DONE, not from configuration, so a
+    # forecaster that is loaded but never produced output does not read as
+    # active on the dashboard.
+    forecasting: bool = False
 
     def publish_counts(self, lane: str, types: dict[str, int], fps: float,
                        now: float | None = None) -> bool:
@@ -121,16 +127,30 @@ class EdgeNode:
         self.last_ack = now
         return True
 
+    def publish_prediction(self, prediction: CongestionPrediction,
+                           now: float | None = None) -> bool:
+        """MFSTNet's output for this junction (ADR-026). Returns whether the
+        link took it. QoS comes from the topic, never from the caller."""
+        now = time.time() if now is None else now
+        topic = Topic.PREDICTION.render(self.intersection_id)
+        try:
+            self.transport.publish(topic, prediction.encode(),
+                                   Topic.PREDICTION.qos)
+        except (ConnectionError, OSError):
+            return False
+        self.last_ack = now
+        self.forecasting = True
+        return True
+
     def publish_heartbeat(self, now: float | None = None) -> bool:
         now = time.time() if now is None else now
         payload = Heartbeat(
             edge_status="degraded" if self.degraded(now) else "online",
             mode=self.mode,
-            # Neither runs on the edge under ADR-008: the node counts and
-            # publishes, the server holds the policy and the forecaster. Saying
-            # so in the heartbeat means a dashboard reads it rather than assumes
-            # it.
-            mfstnet_active=False,
+            # ADR-026 moved MFSTNet here from the server (NFR-13: its input
+            # is frames). The policy stays on the server, so PPO is never
+            # active on the edge.
+            mfstnet_active=self.forecasting,
             ppo_active=False)
         topic = Topic.HEARTBEAT.render(self.intersection_id)
         try:

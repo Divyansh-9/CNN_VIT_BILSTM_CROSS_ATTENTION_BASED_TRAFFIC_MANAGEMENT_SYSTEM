@@ -147,3 +147,61 @@ def test_every_live_claim_declares_a_known_status():
     bad = [c["id"] for c in claims["claims"]
            if c.get("status") not in ("asserted", "aspirational")]
     assert not bad, bad
+
+
+# --------------------------------------------------------------------------
+#  the headline protocol (P86, ADR-025)
+# --------------------------------------------------------------------------
+
+from scripts.check_claims import (  # noqa: E402
+    EVALUATION_CHECKS, HEADLINE, headline_folds, with_protocol)
+
+DOMAIN = {"id": "domain", "check": "evaluation_contains_target_domain",
+          "scope": HEADLINE}
+COUNT = {"id": "camera_count", "check": "enough_eligible_cameras",
+         "minimum_cameras": 1, "scope": HEADLINE}
+
+
+def test_an_empty_headline_scope_fails_rather_than_passing_vacuously():
+    """'Every headline fold is on target' is true over zero folds, which is
+    the corpus today. The claim must fail, not pass by default."""
+    folds = [("fold0", rows_for("m6", ["LOW", "HIGH"]))]
+    (result,) = run([DOMAIN], REGISTRY, folds)
+    assert result["passed"] is False
+    assert "empty set" in result["detail"]
+
+
+def test_camera_count_is_scoped_with_domain_not_left_on_external_folds():
+    """Scoping only `domain` would leave camera_count green on the external
+    cameras under an Indian headline that contains none of them."""
+    folds = [("fold0", rows_for("m6", ["LOW"]))]
+    unscoped = {k: v for k, v in COUNT.items() if k != "scope"}
+    assert run([unscoped], REGISTRY, folds)[0]["passed"] is True
+    assert run([COUNT], REGISTRY, folds)[0]["passed"] is False
+
+
+def test_headline_keeps_on_target_folds_and_drops_external_ones():
+    folds = [("fold0", rows_for("delhi", ["LOW"])),
+             ("fold1", rows_for("m6", ["LOW"]))]
+    assert [name for name, _ in headline_folds(REGISTRY, folds)] == ["fold0"]
+    (result,) = run([DOMAIN], REGISTRY, folds)
+    assert result["passed"] is True
+    assert "1 of 2 folds" in result["detail"]
+
+
+def test_an_undeclared_camera_is_not_headline_evidence():
+    folds = [("fold0", rows_for("nobody_looked", ["LOW"]))]
+    assert headline_folds(REGISTRY, folds) == []
+
+
+def test_the_protocol_preview_scopes_every_evaluation_claim_and_nothing_else():
+    claims = [{"id": "d", "check": "evaluation_contains_target_domain"},
+              {"id": "c", "check": "every_class_has_test_support"},
+              {"id": "n", "check": "enough_eligible_cameras"},
+              {"id": "v", "check": "every_camera_is_elevated"},
+              {"id": "r", "check": "every_camera_licence_permits_release"}]
+    scoped = {c["id"]: c.get("scope") for c in with_protocol(claims, HEADLINE)}
+    assert scoped == {"d": HEADLINE, "c": HEADLINE, "n": HEADLINE,
+                      "v": None, "r": None}
+    assert len(EVALUATION_CHECKS) == 3
+    assert with_protocol(claims, None) is claims

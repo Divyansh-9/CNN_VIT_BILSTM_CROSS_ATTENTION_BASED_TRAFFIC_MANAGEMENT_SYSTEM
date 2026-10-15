@@ -276,7 +276,7 @@ def evaluate_split(model, dataset, size: int, lanes, device: str = "cpu"):
 
 def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
               epochs: int, seed: int, device: str = "cpu",
-              micro_batch: int | None = None):
+              micro_batch: int | None = None, init_state: dict | None = None):
     """`config.n_lanes` comes from the CORPUS, not from the ablation default.
 
     A junction has four approaches and a motorway two; the lane count is a
@@ -309,6 +309,21 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     # The construction-time masks are a registered buffer, so `.to()` carries
     # them. Per-sample masks arrive with the batch and are moved there.
     model = MFSTNet(config, masks).to(device)
+    if init_state is not None:
+        # Mode 2, fine-tuning (ADR-025). Strict: a checkpoint whose shapes or
+        # keys differ from this config is a different model, and loading it
+        # partially would train a hybrid nobody specified. The construction
+        # masks are a registered buffer, so they are not taken from the
+        # checkpoint — this corpus's lane geometry wins, which is P23's rule.
+        own_masks = {k: v for k, v in model.state_dict().items()
+                     if k not in init_state or "mask" in k}
+        try:
+            model.load_state_dict({**init_state, **own_masks}, strict=True)
+        except RuntimeError as error:
+            raise SystemExit(
+                f"--init-from does not fit config {name}: "
+                f"{str(error).splitlines()[0]}. Fine-tune only from a "
+                f"checkpoint of the same config and lane count.") from error
     optimiser = torch.optim.AdamW(
         model.parameters(), lr=t["lr"], weight_decay=t["weight_decay"]
     )
@@ -405,6 +420,12 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
         "off_by_two_rate": round(report.off_by_two_rate, 4),
         "qwk": round(report.qwk, 4),
         "n": report.n,
+        # The score the checkpoint was SELECTED on, recorded so that choosing
+        # between runs never needs the test camera (S61). Early stopping
+        # minimised 1 - validation macro-F1; this is that best value, on the
+        # fold's validation camera, which is a different camera from test.
+        "val_macro_f1": (round(1.0 - best, 4) if best_state is not None
+                         else ""),
         "seconds": round(time.perf_counter() - started, 1),
         # ADR-003 requires every latency figure to state its measurement host.
         # The same applies to a trained metric: seeded runs are reproducible on
@@ -427,7 +448,65 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     for index, label in enumerate(CLASSES):
         row[f"train_count_{label.lower()}"] = counts[index]
     row.update(gate_stats(last))
-    return row, report, true, pred
+    state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+    return row, report, true, pred, state
+
+
+def save_checkpoint(args, name, state, row, manifest, preprocessing_hash,
+                    lane_names, device) -> Path:
+    """One selected model, plus the record of exactly what produced it.
+
+    Before this, every run evaluated its best state and threw it away: 320
+    leave-one-camera-out runs left CSVs and no weights, so nothing could be
+    served, exported trained, or fine-tuned (ADR-025).
+
+    The record answers the questions a checkpoint is useless without: which
+    domain and cameras trained it, which camera selected it, which camera it
+    was tested on, and what it started from. Refuses to overwrite, because a
+    checkpoint a result was reported from is evidence (P47).
+    """
+    import hashlib
+
+    import torch
+
+    from experiments.provenance import write_sidecar
+
+    fold = manifest.get("fold", "")
+    stem = f"mfstnet_{name}_seed{args.seed}" + (f"_fold{fold}" if fold != "" else "")
+    path = args.save_checkpoint / f"{stem}.pt"
+    if path.exists() and not args.force:
+        raise SystemExit(f"{path} exists. A checkpoint a result came from is "
+                         f"evidence; pass --force to replace it on purpose.")
+
+    meta = {
+        "config": name,
+        "seed": args.seed,
+        "epochs_run": row["epochs_run"],
+        "domain": manifest.get("domain", "mixed"),
+        "fold": fold,
+        "test_camera": manifest.get("fold_test_camera", ""),
+        "val_camera": manifest.get("fold_val_camera", ""),
+        "excluded_cameras": manifest.get("domain_excluded", []),
+        "camera_partitions": manifest.get("camera_partitions", {}),
+        "corpus": str(args.corpus),
+        "preprocessing_hash": preprocessing_hash,
+        "lane_names": list(lane_names),
+        "test_macro_f1": row["macro_f1"],
+    }
+    if args.init_from is not None:
+        digest = hashlib.sha256(args.init_from.read_bytes()).hexdigest()
+        meta["init_from"] = str(args.init_from)
+        meta["init_from_sha256"] = digest
+        meta["mode"] = "fine_tune"
+    else:
+        meta["mode"] = "from_scratch"
+
+    args.save_checkpoint.mkdir(parents=True, exist_ok=True)
+    torch.save({"state_dict": state, "meta": meta}, path)
+    meta["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    write_sidecar(path, device=device, **meta)
+    print(f"    checkpoint {path} ({meta['mode']}, domain {meta['domain']})")
+    return path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -454,7 +533,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--force", action="store_true",
         help="overwrite results recorded from a longer run than this one")
+    parser.add_argument(
+        "--save-checkpoint", type=Path, default=None, metavar="DIR",
+        help="write the selected model (best validation macro-F1) to DIR, one "
+             ".pt per config, each with a provenance sidecar")
+    parser.add_argument(
+        "--init-from", type=Path, default=None, metavar="PT",
+        help="start from this checkpoint instead of from scratch (fine-tuning, "
+             "ADR-025 mode 2). Single config only")
     args = parser.parse_args(argv)
+
+    if args.init_from is not None and args.ablation:
+        raise SystemExit(
+            "--init-from takes one checkpoint and --ablation trains eight "
+            "configs; a checkpoint fits exactly one of them. Pass --config.")
+    if args.init_from is not None and not args.init_from.is_file():
+        raise SystemExit(f"--init-from {args.init_from} does not exist")
 
     import yaml
 
@@ -581,15 +675,41 @@ def main(argv: list[str] | None = None) -> int:
         else [(args.config, ablation_config(args.config))]
     )
 
+    init_state, init_meta = None, None
+    if args.init_from is not None:
+        import torch
+
+        bundle = torch.load(args.init_from, map_location="cpu",
+                            weights_only=True)
+        init_state, init_meta = bundle["state_dict"], bundle["meta"]
+        # ADR-005: features from a different backbone or preprocessing are a
+        # different input space. Raise, never warn.
+        if init_meta["preprocessing_hash"] != cache.spec.hash:
+            raise SystemExit(
+                f"--init-from was trained on features with preprocessing hash "
+                f"{init_meta['preprocessing_hash']}; this cache is "
+                f"{cache.spec.hash}. Fine-tuning across feature spaces is not "
+                f"fine-tuning.")
+        if init_meta["config"] != args.config:
+            raise SystemExit(
+                f"--init-from is config {init_meta['config']}, not "
+                f"{args.config}.")
+        print(f"  fine-tuning from {args.init_from} "
+              f"(domain {init_meta.get('domain')}, seed {init_meta.get('seed')})")
+
     rows = []
     for name, config in configs:
         print(f"\n  === config {name} ===")
-        row, report, true, pred = train_one(
+        row, report, true, pred, state = train_one(
             name, config, device=device,
             train_set=split["train"], val_set=split["val"],
             test_set=split["test"], lanes=lanes, spec=spec,
             epochs=epochs, seed=args.seed, micro_batch=args.micro_batch,
+            init_state=init_state,
         )
+        if args.save_checkpoint is not None:
+            save_checkpoint(args, name, state, row, manifest, cache.spec.hash,
+                            lane_names, device)
         row["labels"] = "auto" if auto else "human_verified"
         row["corpus"] = str(args.corpus)
         # ADR-019. A fold result and a single-draw result are not comparable,
