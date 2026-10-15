@@ -1,0 +1,295 @@
+{
+  "samples_per_clip": {
+    "Bellevue_Bellevue_NE8th__2017-09-10_18-08-23": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-11_09-08-30": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-11_10-08-31": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-11_11-08-31": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-11_12-08-31": 1800,
+    "Bellevue_Bellevue_NE8th__2017-09-11_13-08-32": 1605,
+    "Bellevue_Bellevue_NE8th__2017-09-11_14-08-31": 1800
+  },
+  "by_K": {
+    "30": {
+      "per_file": {
+        "Bellevue_Bellevue_NE8th__2017-09-10_18-08-23": {
+          "stratum": "sunday_daylight",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24": {
+          "stratum": "dawn_dusk",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29": {
+          "stratum": "dawn_dusk",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31": {
+          "stratum": "primary",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31": {
+          "stratum": "primary",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_09-08-30": {
+          "stratum": "primary",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_10-08-31": {
+          "stratum": "primary",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_11-08-31": {
+          "stratum": "primary",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_12-08-31": {
+          "stratum": "primary",
+          "windows": 115,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_13-08-32": {
+          "stratum": "primary",
+          "windows": 102,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_14-08-31": {
+          "stratum": "primary",
+          "windows": 105,
+          "blocks": 6
+        }
+      },
+      "per_stratum": {
+        "primary": {
+          "windows": 897,
+          "blocks": 48,
+          "support": {
+            "LOW": 129,
+            "MEDIUM": 1860,
+            "HIGH": 702
+          },
+          "support_by_lane": {
+            "west": {
+              "LOW": 38,
+              "MEDIUM": 713,
+              "HIGH": 146
+            },
+            "north": {
+              "LOW": 67,
+              "MEDIUM": 402,
+              "HIGH": 428
+            },
+            "east": {
+              "LOW": 24,
+              "MEDIUM": 745,
+              "HIGH": 128
+            }
+          }
+        },
+        "dawn_dusk": {
+          "windows": 230,
+          "blocks": 12,
+          "support": {
+            "LOW": 203,
+            "MEDIUM": 444,
+            "HIGH": 43
+          },
+          "support_by_lane": {
+            "west": {
+              "LOW": 96,
+              "MEDIUM": 131,
+              "HIGH": 3
+            },
+            "north": {
+              "LOW": 56,
+              "MEDIUM": 144,
+              "HIGH": 30
+            },
+            "east": {
+              "LOW": 51,
+              "MEDIUM": 169,
+              "HIGH": 10
+            }
+          }
+        },
+        "sunday_daylight": {
+          "windows": 115,
+          "blocks": 6,
+          "support": {
+            "LOW": 8,
+            "MEDIUM": 240,
+            "HIGH": 97
+          },
+          "support_by_lane": {
+            "west": {
+              "LOW": 5,
+              "MEDIUM": 102,
+              "HIGH": 8
+            },
+            "north": {
+              "LOW": 0,
+              "MEDIUM": 58,
+              "HIGH": 57
+            },
+            "east": {
+              "LOW": 3,
+              "MEDIUM": 80,
+              "HIGH": 32
+            }
+          }
+        }
+      }
+    },
+    "60": {
+      "per_file": {
+        "Bellevue_Bellevue_NE8th__2017-09-10_18-08-23": {
+          "stratum": "sunday_daylight",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24": {
+          "stratum": "dawn_dusk",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29": {
+          "stratum": "dawn_dusk",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31": {
+          "stratum": "primary",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31": {
+          "stratum": "primary",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_09-08-30": {
+          "stratum": "primary",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_10-08-31": {
+          "stratum": "primary",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_11-08-31": {
+          "stratum": "primary",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_12-08-31": {
+          "stratum": "primary",
+          "windows": 113,
+          "blocks": 6
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_13-08-32": {
+          "stratum": "primary",
+          "windows": 100,
+          "blocks": 5
+        },
+        "Bellevue_Bellevue_NE8th__2017-09-11_14-08-31": {
+          "stratum": "primary",
+          "windows": 103,
+          "blocks": 6
+        }
+      },
+      "per_stratum": {
+        "primary": {
+          "windows": 881,
+          "blocks": 47,
+          "support": {
+            "LOW": 75,
+            "MEDIUM": 1948,
+            "HIGH": 620
+          },
+          "support_by_lane": {
+            "west": {
+              "LOW": 21,
+              "MEDIUM": 776,
+              "HIGH": 84
+            },
+            "north": {
+              "LOW": 52,
+              "MEDIUM": 342,
+              "HIGH": 487
+            },
+            "east": {
+              "LOW": 2,
+              "MEDIUM": 830,
+              "HIGH": 49
+            }
+          }
+        },
+        "dawn_dusk": {
+          "windows": 226,
+          "blocks": 12,
+          "support": {
+            "LOW": 174,
+            "MEDIUM": 468,
+            "HIGH": 36
+          },
+          "support_by_lane": {
+            "west": {
+              "LOW": 91,
+              "MEDIUM": 135,
+              "HIGH": 0
+            },
+            "north": {
+              "LOW": 43,
+              "MEDIUM": 152,
+              "HIGH": 31
+            },
+            "east": {
+              "LOW": 40,
+              "MEDIUM": 181,
+              "HIGH": 5
+            }
+          }
+        },
+        "sunday_daylight": {
+          "windows": 113,
+          "blocks": 6,
+          "support": {
+            "LOW": 1,
+            "MEDIUM": 261,
+            "HIGH": 77
+          },
+          "support_by_lane": {
+            "west": {
+              "LOW": 1,
+              "MEDIUM": 111,
+              "HIGH": 1
+            },
+            "north": {
+              "LOW": 0,
+              "MEDIUM": 57,
+              "HIGH": 56
+            },
+            "east": {
+              "LOW": 0,
+              "MEDIUM": 93,
+              "HIGH": 20
+            }
+          }
+        }
+      }
+    }
+  }
+}

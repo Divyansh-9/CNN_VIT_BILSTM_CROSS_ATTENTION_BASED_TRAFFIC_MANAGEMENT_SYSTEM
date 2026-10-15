@@ -226,12 +226,16 @@ def main(argv: list[str] | None = None) -> int:
         help="directory of REVIEWED per-camera lane files from "
              "scripts/import_lane_centres.py — what a multi-camera corpus needs",
     )
-    parser.add_argument("--split-mode", choices=("clip", "temporal"), default="clip",
+    parser.add_argument("--split-mode", choices=("clip", "temporal", "none"),
+                        default="clip",
                         help="'clip' assigns whole clips (ADR-002) and needs "
                              "enough clips to fill three splits. 'temporal' "
                              "splits ONE camera's timeline by time, discarding "
                              "windows within a window-length of each boundary "
-                             "so no test window shares a frame with training")
+                             "so no test window shares a frame with training. "
+                             "'none' marks every window 'test', for a corpus "
+                             "that only evaluates a frozen model (P98) and "
+                             "trains nothing")
     parser.add_argument("--low-max", type=int, default=4,
                         help="highest count still LOW. PRD 14.1 says 4. "
                              "A parameter because the corpus stores COUNTS, "
@@ -399,7 +403,12 @@ def main(argv: list[str] | None = None) -> int:
         for clip_id, rows in by_clip.items()
     }
 
-    if args.split_mode == "temporal":
+    if args.split_mode == "none":
+        # Nothing trains on this corpus, so there is nothing to keep it apart
+        # from; the separation from training data is the evaluator's job.
+        splits = None
+        sequence_split = {id(s): "test" for s in all_sequences}
+    elif args.split_mode == "temporal":
         if len(by_clip) > 1:
             raise SystemExit(
                 f"--split-mode temporal splits ONE camera's timeline, but "
