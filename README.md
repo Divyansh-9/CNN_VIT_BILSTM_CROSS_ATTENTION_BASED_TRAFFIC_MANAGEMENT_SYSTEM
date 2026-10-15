@@ -47,7 +47,7 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 |---|---|
 | **Week** | 10 of 20 |
 | **Specified** | 73 documents · 26 architecture decisions · 48 verified references |
-| **Built** | ~43,000 lines of Python · 966 tests passing |
+| **Built** | ~43,000 lines of Python · 977 tests passing |
 | **Blocked on you** | faculty scope sign-off (S04, S19) · ADR-024 acceptance · 25 GB free disk against ~60 GB needed |
 
 > **New to the project, or the documents feel heavy?** Start with **[EXPLAIN.md](EXPLAIN.md)** —
@@ -449,7 +449,7 @@ pip install -r requirements.txt
 cp .env.example .env
 
 python scripts/check_env.py          # should now report no blockers
-python -m pytest -q                  # 966 pass, 1 skip
+python -m pytest -q                  # 977 pass, 1 skip
 ```
 
 Then [Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--setup).

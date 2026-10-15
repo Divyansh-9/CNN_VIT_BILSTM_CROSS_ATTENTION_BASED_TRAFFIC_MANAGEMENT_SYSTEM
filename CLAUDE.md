@@ -146,7 +146,7 @@ toward nothing.
 file, and neither is defined where it is used.
 
 **`P<n>` is a changelog entry in [PRD-CHANGELOG.md](docs/00-planning/PRD-CHANGELOG.md)**,
-currently running to P89. It is the defect and amendment journal: what was
+currently running to P90. It is the defect and amendment journal: what was
 believed, what was measured, what changed, and what was rejected along with the
 reason. Entries record rejected options on purpose — P42 rejects disabling cuDNN
 for the RNN with the measurement that made it unacceptable (66.1 against 5.9
@@ -155,7 +155,7 @@ PRD amendment, not a workaround. Read the P entry before re-deciding something
 it already decided against.
 
 **`S<n>` is an implementation step in [BUILD-LOG.md](BUILD-LOG.md)**, S01
-through S65. It carries a status (✅ done, 🔵 in progress, ⛔ blocked, ⬜ not
+through S66. It carries a status (✅ done, 🔵 in progress, ⛔ blocked, ⬜ not
 started), an owner, and for anything blocked, **who** it is blocked on and
 **what** would unblock it. `scripts/check_build_log.py` checks the board against
 what is actually on disk, so the board cannot quietly drift from the repo.
@@ -450,6 +450,8 @@ python scripts/select_checkpoint.py                  # S61: pre-registered rule,
 python scripts/export_checkpoint.py --checkpoint PT --cache data/cache_corpus   # trained ONNX, proven against committed predictions
 python scripts/verify_edge.py --graph ONNX --lanes lane_0=N lane_1=S lane_2=E lane_3=W --device cuda   # real video, edge, server; ADR-026
 python scripts/benchmark_decode.py run --work DIR --graph ONNX   # decode + pipeline at camera resolution; P89
+python scripts/benchmark_live.py run --graph ONNX --seconds 600   # S65; camera URL from STMS_CAMERA_URL only
+python scripts/backup_models.py pack --dest E:/backup   # weights are gitignored; verify against the committed manifest
 AMQTT_PYTHON=<python with amqtt> python -m pytest tests/test_mqtt_live.py   # real broker, edge to server
 ```
 

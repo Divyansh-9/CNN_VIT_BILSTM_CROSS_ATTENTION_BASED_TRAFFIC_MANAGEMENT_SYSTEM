@@ -65,12 +65,40 @@ class VerifiedGraph:
             raise DeploymentError(
                 f"{path} did not pass verification against its committed "
                 f"predictions; it is not demonstrably the trained model.")
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        if digest != sidecar.get("graph_sha256"):
+        recorded = sidecar.get("files_sha256")
+        if not recorded:
             raise DeploymentError(
-                f"{path} hashes to {digest[:12]}, not the "
-                f"{str(sidecar.get('graph_sha256'))[:12]} that was verified. "
-                f"The file was replaced after verification.")
+                f"{path}'s sidecar records no per-file hashes. Its weights may "
+                f"sit in an external .onnx.data file that was never covered "
+                f"(P90); re-export it with scripts/export_checkpoint.py.")
+        from mfstnet.onnx_files import file_hashes
+
+        # The graph's own bytes first, before anything parses them: a
+        # replaced graph is reported as replaced, not as a parser crash.
+        graph_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if graph_digest != recorded.get(path.name):
+            raise DeploymentError(
+                f"{path.name} hashes to {graph_digest[:12]}, not the "
+                f"{str(recorded.get(path.name))[:12]} that was verified. The "
+                f"file was replaced after verification.")
+        try:
+            actual = file_hashes(path)
+        except FileNotFoundError as error:
+            raise DeploymentError(
+                f"{path} references a file that is missing: {error}") from error
+        except Exception as error:     # any parse failure is a refusal
+            raise DeploymentError(f"{path} cannot be read as ONNX: "
+                                  f"{type(error).__name__}") from error
+        if set(actual) != set(recorded):
+            raise DeploymentError(
+                f"{path} consists of {sorted(actual)} but "
+                f"{sorted(recorded)} were verified")
+        for name, digest in actual.items():
+            if digest != recorded[name]:
+                raise DeploymentError(
+                    f"{name} hashes to {digest[:12]}, not the "
+                    f"{recorded[name][:12]} that was verified. The file was "
+                    f"replaced after verification.")
         return cls(path=path, sidecar=sidecar)
 
     @property

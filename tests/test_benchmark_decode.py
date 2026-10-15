@@ -21,7 +21,8 @@ def test_the_stream_line_wins_over_a_title_that_says_video():
     """The corpus's 4K clip has "Video:" in its title metadata, and the first
     version of the probe parsed the title and crashed."""
     assert parse_probe(BANNER) == {"width": 3840, "height": 2160,
-                                   "fps": 29.97, "codec": "av1"}
+                                   "fps": 29.97, "codec": "av1",
+                                   "duration_s": 300.03}
 
 
 def test_a_1080p_h264_stream():
@@ -30,3 +31,8 @@ def test_a_1080p_h264_stream():
             "6000 kb/s, 29.97 fps, 29.97 tbr, 30k tbn (default)\n")
     assert parse_probe(line)["codec"] == "h264"
     assert parse_probe(line)["width"] == 1920
+
+
+def test_a_stream_without_a_duration_line_reports_none():
+    line = "  Stream #0:0: Video: h264, yuv420p, 1280x720, 25 fps, 25 tbr\n"
+    assert parse_probe(line)["duration_s"] is None

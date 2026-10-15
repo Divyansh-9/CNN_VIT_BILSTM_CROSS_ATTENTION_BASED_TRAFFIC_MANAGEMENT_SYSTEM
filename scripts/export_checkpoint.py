@@ -83,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     from mfstnet.cache import FeatureCache
     from mfstnet.corpus.lanes import LaneCentres
     from mfstnet.model import MFSTNet, ablation_config
+    from mfstnet.onnx_files import file_hashes
     from mfstnet.temporal import lane_masks_from_centres
     from scripts.export_onnx import build_wrapper
     from scripts.seed import set_seed
@@ -239,7 +240,10 @@ def main(argv: list[str] | None = None) -> int:
         lane_names=lanes, timesteps=manifest["T"], step_s=manifest.get("step_s"),
         preprocessing_hash=meta["preprocessing_hash"],
         windows=len(test), decisions=n, passed=passed,
-        graph_sha256=hashlib.sha256(graph.read_bytes()).hexdigest(), **checks)
+        graph_sha256=hashlib.sha256(graph.read_bytes()).hexdigest(),
+        # P90: the weights live in an external `.onnx.data` file, so the
+        # graph's own hash certifies structure only. Every file is recorded.
+        files_sha256=file_hashes(graph), **checks)
 
     print(f"\n  {'PASS' if passed else 'FAIL'}  {graph}")
     if not passed:

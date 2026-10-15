@@ -97,8 +97,12 @@ def parse_probe(stderr: str) -> dict:
     size = re.search(r", (\d{3,5})x(\d{3,5})", video)
     fps = re.search(r"([\d.]+) fps", video)
     codec = re.search(r"Video: (\w+)", video)
+    length = re.search(r"Duration: (\d+):(\d+):([\d.]+)", stderr)
+    duration = (int(length.group(1)) * 3600 + int(length.group(2)) * 60
+                + float(length.group(3))) if length else None
     return {"width": int(size.group(1)), "height": int(size.group(2)),
-            "fps": float(fps.group(1)), "codec": codec.group(1)}
+            "fps": float(fps.group(1)), "codec": codec.group(1),
+            "duration_s": duration}
 
 
 def probe(path: Path) -> dict:
@@ -182,7 +186,9 @@ def sustained(path: Path, decoder: str, forecaster, node, step_s: float) -> dict
             lags.append(done - started - samples * step_s)
         samples += 1
     process.wait()
-    expected = int(SEGMENT_S / step_s)
+    # From the stream's own duration, so a camera capture of any length is
+    # held to the same no-lost-sample criterion as the prepared segments.
+    expected = int((info["duration_s"] or SEGMENT_S) / step_s)
     intervals = [b - a for a, b in zip(predicted_at, predicted_at[1:])]
     growth = (lags[-1] - lags[0]) if len(lags) > 1 else float("inf")
     return {
@@ -200,7 +206,8 @@ def sustained(path: Path, decoder: str, forecaster, node, step_s: float) -> dict
 
 
 def run(work: Path, graph_path: Path, lanes: list[str], device: str,
-        out: Path) -> int:
+        out: Path, runs: list[tuple[Path, str, str]] | None = None) -> int:
+    """`runs` is (path, stream name, decoder); by default the prepared set."""
     from edge.forecaster import EdgeForecaster, VerifiedGraph
     from edge.node import EdgeNode, RecordingTransport
     from experiments.provenance import write_sidecar
@@ -216,8 +223,8 @@ def run(work: Path, graph_path: Path, lanes: list[str], device: str,
     node = EdgeNode(intersection_id="bench", transport=RecordingTransport())
 
     rows = []
-    for stream, decoder in RUNS:
-        path = work / f"{stream}.mp4"
+    runs = runs or [(work / f"{s}.mp4", s, d) for s, d in RUNS]
+    for path, stream, decoder in runs:
         info = probe(path)
         print(f"\n  {stream} ({info['codec']} {info['width']}x{info['height']} "
               f"@ {info['fps']}) — {decoder}")
@@ -276,7 +283,21 @@ def main(argv: list[str] | None = None) -> int:
                    default=["lane_0=N", "lane_1=S", "lane_2=E", "lane_3=W"])
     r.add_argument("--device", default="cuda")
     r.add_argument("--out", type=Path, default=RESULTS)
+    f = sub.add_parser("file", help="the same criteria on one recording, e.g. "
+                                    "a capture from the real camera (S65)")
+    f.add_argument("--stream", type=Path, required=True)
+    f.add_argument("--graph", type=Path, required=True)
+    f.add_argument("--lanes", nargs="+",
+                   default=["lane_0=N", "lane_1=S", "lane_2=E", "lane_3=W"])
+    f.add_argument("--device", default="cuda")
+    f.add_argument("--decoders", nargs="+", default=["software", "nvdec"])
+    f.add_argument("--out", type=Path,
+                   default=Path("experiments/results/decode_benchmark_capture.csv"))
     args = parser.parse_args(argv)
+    if args.command == "file":
+        return run(args.stream.parent, args.graph, args.lanes, args.device,
+                   args.out, runs=[(args.stream, args.stream.stem, d)
+                                   for d in args.decoders])
     if args.command == "prepare":
         prepare(args.work)
         return 0

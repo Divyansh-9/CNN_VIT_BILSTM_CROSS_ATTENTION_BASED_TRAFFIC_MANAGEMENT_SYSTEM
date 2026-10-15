@@ -6414,3 +6414,41 @@ needed to pass: running the head on the GPU (onnxruntime's CUDA provider,
 verified the same way as the CPU graph), and capping onnxruntime's threads so
 it stops contending with decoding.
 
+## P90 — the verified graph's weights were never hashed (2026-10-15)
+
+**Believed.** That `VerifiedGraph` refuses any model that differs from the one
+`export_checkpoint.py` verified, because it checks the graph's sha256 (ADR-026).
+
+**Measured.** torch's exporter wrote the S61 model as two files: the graph,
+`mfstnet_foreign_G_seed13_fold3.onnx` (0.57 MB), and its weights in
+`….onnx.data` (12.6 MB). **55 of the graph's 89 initialisers live in the
+`.data` file**, and only the graph file was hashed. A `.data` file swapped for
+untrained weights would have loaded, passed the check and served. That is the
+exact failure P87 exists to prevent, and it got past the check written for it.
+Found while preparing the weights backup, which had to know every file a model
+consists of.
+
+**Changed.** `mfstnet/onnx_files.py` reads, from the graph itself, every
+external file the graph references and hashes each one. `export_checkpoint.py`
+records them as `files_sha256`. `VerifiedGraph` now:
+
+- hashes the graph file before parsing it, so a replaced graph is reported as
+  replaced and not as a parser crash;
+- refuses a sidecar without per-file hashes;
+- refuses a missing or extra file, and refuses any file whose hash differs.
+
+Four tests build a real two-file ONNX model; one swaps only its weights.
+
+**The S61 evidence stands.** Re-exporting the selected checkpoint produced both
+files **byte-identical** to the deployed ones (`fe093966…`, `df2736a5…`).
+Export is deterministic, so the graph verified 136/136 and measured on the edge
+is the one now covered file by file. Its sidecar was replaced with the
+re-export's, which adds `files_sha256` and changes nothing else.
+
+**Related.** `scripts/backup_models.py` writes
+`experiments/results/model_artifacts.sha256`: 83 files, 312 MB, the `.data`
+files included. That manifest is committed, so any copy of the weights can be
+verified against the repository. The laptop has one physical disk; C: and D:
+are partitions of it, and `pack` refuses a destination on the repository's own
+drive.
+
