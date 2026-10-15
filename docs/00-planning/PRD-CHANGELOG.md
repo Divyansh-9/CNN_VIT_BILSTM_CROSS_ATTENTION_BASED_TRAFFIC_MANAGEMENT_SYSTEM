@@ -6921,3 +6921,41 @@ dawn, glare and dusk frames: that set also tests whether the morning LOW labels
 are real. **87% of the corpus's LOW (297 of 343) comes from 06:08–08:08**, and
 neither detector has been measured there. Nothing is rebuilt. P97 and P98
 stand under ITD-xl.
+
+## P99b — the morning LOW labels are real; YOLOv8m-1280 is not adopted (2026-10-15)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P99b.md`
+(`81c3e89`). The 60 frames were chosen by seed before counting, from Mon
+06:08, 07:08 and 08:08 and Sun 19:08. They were counted blind by hand
+(`p99b_manual.json`; annotator unrecorded, all 60 counted in about 11 minutes
+— these scenes average about 4 vehicles per lane). **Harness check passed:**
+ITD-xl reproduces `data/corpus_p98/counts.csv` on all 60 frames.
+
+| | ITD-xl (current) | YOLOv8m-1280 |
+|---|---|---|
+| 3-lane MAE | **0.911** | 1.267 |
+| signed bias W / N / E | −0.08 / −0.05 / +0.17 | +0.53 / **+2.05** / +0.72 |
+| Pearson W / N / E | 0.84 / 0.91 / 0.84 | 0.92 / 0.85 / 0.94 |
+| LOW precision (frame count ≤ 2) | **0.845 [0.747, 0.931]**, 58 called | 0.950 [0.868, 1.000], 40 called |
+| LOW recall | 0.817 [0.718, 0.910] | 0.633 [0.536, 0.730] |
+
+**Decision 1, the morning LOW labels:** ITD-xl's LOW precision of 0.845 is
+above the pre-registered 0.80 floor, so the labels are **usable**. The
+interval's lower bound (0.747) is below 0.80. The labels are an honest
+limitation, not a certainty. By hour, LOW precision is 1.00 at 06:08, 0.79 at
+07:08 and 0.89 at Sun 19:08, but **0.44 at 08:08** (4 of 9), the hour with the
+heaviest glare. That figure is reported, not a decision, at that sample size.
+
+**Decision 2, M1280:** (M1280 − ITD-xl) MAE is **+0.356 [+0.161, +0.550]**.
+The upper bound exceeds the +0.25 margin, so **M1280 is not adopted** and
+ITD-xl stays. No corpus is rebuilt.
+
+**What the two audits together say about the detector.** ITD-xl is accurate
+when traffic is quiet (dawn, dusk, mornings: bias ≈ 0) and undercounts when it
+is busy (P96: 14–41% in the afternoon). M1280 is the opposite: it is better
+when busy (P99a) and **overcounts north by 47% when quiet**. Neither dominates.
+The detector question is about the MEDIUM/HIGH boundary under heavy traffic.
+LOW is not the problem. Fine-tuning, if it comes, targets busy-queue
+occlusion. It stays deferred.
+
+**For P99:** the existing ITD-xl counts are kept. P99 needs no detector rerun.

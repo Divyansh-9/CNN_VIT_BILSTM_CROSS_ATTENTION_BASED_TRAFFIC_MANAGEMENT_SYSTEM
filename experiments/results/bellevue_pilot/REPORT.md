@@ -260,3 +260,12 @@ frame of 60, against 13. YOLOv8x at 1280 also improves; nothing at 640 does.
 The cost: correlation falls on west and north, and M1280 overcounts north by
 15% when traffic is quiet. Adoption needs P99b, blind counts from 06:08,
 07:08, 08:08 and Sun 19:08, the hours that hold 87% of the LOW labels.
+
+## P99b — blind counts at dawn, glare and dusk (60 frames)
+
+ITD-xl is accurate on these hours: 3-lane MAE 0.91, bias ≈ 0. Its LOW
+precision is 0.845 [0.747, 0.931], above the 0.80 floor, so **the morning LOW
+labels are usable**. The exception is 08:08 (glare): 4 of 9 LOW calls were
+right. YOLOv8m-1280 overcounts north by 47% here, and is worse by +0.356
+[+0.161, +0.550]. It **fails non-inferiority and is not adopted**. ITD-xl
+undercounts busy traffic, M1280 overcounts quiet traffic.
