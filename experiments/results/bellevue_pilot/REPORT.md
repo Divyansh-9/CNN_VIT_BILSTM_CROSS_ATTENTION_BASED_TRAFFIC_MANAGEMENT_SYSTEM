@@ -143,3 +143,35 @@ Persistence is also ahead of G on all four of S61's foreign folds — 0.4492
 against 0.4225, 0.6924 against 0.4671, 0.6726 against 0.4089, and 0.4141
 against 0.3297 (P92). The finding is not specific to Bellevue. It is a
 property of the forecasting target as currently defined.
+
+## S63b — horizon diagnostic, under PREREGISTRATION_horizon.md
+
+Labels were re-derived from the stored counts by `scripts/rehorizon_corpus.py`,
+which reproduces the 60 s corpus exactly. Thresholds stayed frozen (LOW ≤ 2,
+MEDIUM ≤ 8). The paired bootstrap ran 10,000 resamples, each test window's
+lanes kept together.
+
+| horizon | test windows | selected | model F1 | persistence F1 | difference [95% CI] | verdict |
+|---|---|---|---|---|---|---|
+| 60 s | 29 | G s21 | 0.5644 | 0.5875 | −0.023 [−0.114, +0.079] | not distinguishable |
+| **180 s** | 21 | G s21 | 0.6165 | 0.5848 | +0.032 [−0.061, +0.128] | **not distinguishable** |
+| 300 s | — | — | — | — | — | **infeasible on two hours** |
+
+- **300 s.** The buffer grows to 269 samples per boundary and empties the
+  validation split. `assign_splits_temporal` refused, which is correct.
+- **Validation at 180 s is 7 windows (28 decisions).** G and H **tie exactly**
+  on mean validation macro-F1 (0.8254). The tie went to G alphabetically: the
+  rule has no explicit config tie-break, and that is disclosed here, not
+  hidden. With 28 decisions, selection is close to chance.
+- **Persistence did not weaken with the horizon.** On validation it rose from
+  0.6132 at 60 s to 0.6889 at 180 s, so a longer horizon showed no sign of
+  opening room for a model.
+- **Class support** was present at 180 s in every split (HIGH 135 / 6 / 14).
+
+**Correction to the 60 s wording.** "The model does not beat persistence" is
+supported. "Persistence beats the model" is **not** — the interval contains
+zero.
+
+**Stop rule applied.** Neither horizon beats persistence, so the horizon is not
+changed again. Next is the label definition and the quality of the
+detector-derived target, as decided in advance.

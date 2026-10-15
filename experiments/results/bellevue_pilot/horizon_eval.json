@@ -1,0 +1,63 @@
+{
+  "config_means": {
+    "G": 0.7995,
+    "H": 0.7847
+  },
+  "by_seed": {
+    "G": {
+      "13": 0.7779,
+      "1": 0.7733,
+      "21": 0.8704,
+      "42": 0.7919,
+      "7": 0.7842
+    },
+    "H": {
+      "13": 0.7842,
+      "1": 0.7791,
+      "21": 0.7895,
+      "42": 0.7813,
+      "7": 0.7895
+    }
+  },
+  "selected": {
+    "config": "G",
+    "seed": 21,
+    "val_macro_f1": 0.8704
+  },
+  "test_windows": 29,
+  "test_decisions": 116,
+  "support": {
+    "LOW": 36,
+    "MEDIUM": 56,
+    "HIGH": 24
+  },
+  "model": {
+    "macro_f1": 0.5644,
+    "accuracy": 0.569,
+    "qwk": 0.5402
+  },
+  "persistence": {
+    "macro_f1": 0.5875,
+    "accuracy": 0.6379,
+    "qwk": 0.4638
+  },
+  "majority": {
+    "macro_f1": 0.2171
+  },
+  "difference_macro_f1": -0.0231,
+  "bootstrap_95ci": [
+    -0.1136,
+    0.0788
+  ],
+  "verdict": "not distinguishable",
+  "per_lane_correct": {
+    "lane_0": 12,
+    "lane_1": 13,
+    "lane_2": 29,
+    "lane_3": 12
+  },
+  "thresholds": {
+    "low_max": 2,
+    "med_max": 8
+  }
+}

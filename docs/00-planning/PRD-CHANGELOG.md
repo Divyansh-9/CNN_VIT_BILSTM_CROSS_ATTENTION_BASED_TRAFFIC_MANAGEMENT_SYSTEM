@@ -6550,3 +6550,10 @@ naive last-value scored 0.557 across four folds. It is now confirmed for the
 model actually deployed on the edge. **The deployed model is verified,
 integrated and fast. It is not yet better than predicting no change.**
 
+**Horizon diagnostic, S63b.** At 180 s on the same camera the selected model
+scores 0.6165 against persistence 0.5848, a difference of +0.032 with a paired
+bootstrap 95% interval of [−0.061, +0.128]: not distinguishable. 300 s cannot
+be split on two hours. At 60 s the interval is [−0.114, +0.079], so the
+supported statement is "does not beat persistence", not "is beaten by it". By
+the pre-registered stop rule the horizon is not changed again.
+
