@@ -104,7 +104,12 @@ def test() -> int:
         corpus = Path(corpus)
         manifest = json.loads((corpus / "manifest.json").read_text(encoding="utf-8"))
         lanes = list(manifest["lanes"])
-        b = next(iter(manifest["thresholds_by_clip"].values()))
+        # The frozen thresholds, in whichever form the corpus records them:
+        # per clip after relabel_corpus.py --calibrate (P94), or as the
+        # corpus-wide pair relane_corpus.py writes (P97). Same values, 2 and 8.
+        b = (next(iter(manifest["thresholds_by_clip"].values()))
+             if manifest.get("thresholds_by_clip")
+             else {"low_max": manifest["low_max"], "med_max": manifest["med_max"]})
         level = lambda x: 0 if x <= b["low_max"] else (1 if x <= b["med_max"] else 2)  # noqa: E731, B023
         c = {lane: [] for lane in lanes}
         with (corpus / "counts.csv").open(encoding="utf-8") as handle:

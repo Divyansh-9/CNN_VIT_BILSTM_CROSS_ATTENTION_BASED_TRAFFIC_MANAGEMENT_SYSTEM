@@ -216,3 +216,18 @@ frames.
 
 The undercount grows with traffic on every lane. The south approach is not
 observable from this camera.
+
+## P97 — three lanes (west, north, east)
+
+| target | selected | test F1 | baseline F1 | difference [95% CI] | verdict |
+|---|---|---|---|---|---|
+| 60 s | G s13 | 0.4508 | 0.3248 | [+0.027, +0.225] | **beats** |
+| 120 s | H s42 (tie) | 0.3148 | 0.3806 | [−0.152, +0.027] | not distinguishable |
+
+- **At 60 s the win is on MEDIUM and HIGH, not on the single LOW instance.**
+  The post-hoc accuracy, QWK and MEDIUM/HIGH-F1 intervals all exclude zero.
+- **The gains are on north (+9 windows right) and east (+6); none on west.**
+- **This is a three-lane, single-camera temporal evaluation.** Detector
+  undercount is a limitation of every label.
+
+The run was interrupted after 6 of 20 trainings and resumed unchanged (P97).

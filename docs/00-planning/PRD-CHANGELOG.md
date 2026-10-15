@@ -6733,3 +6733,75 @@ The painted bicycle symbol was reported as a bicycle in 13 of 60 frames (22%).
 the project owner's. The detector question — fine-tuning against a 14–41%
 undercount that worsens with traffic — follows it, as agreed.
 
+## P97 — on three lanes, G beats the previous-window mean at 60 s (2026-10-15)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P97.md`.
+The three-lane Bellevue corpus (west, north, east) has P94's targets, windows,
+splits, thresholds, seeds and rules; only the lanes changed. The selections
+were committed (`20a4428`) before the test was read.
+
+**A run was interrupted.** Six of the twenty runs finished before a session
+ended. The remaining fourteen ran afterwards with an unchanged configuration,
+and a run counted as done only when both its metrics and its predictions
+existed. The evaluator then stopped once on a manifest key — the three-lane
+corpus records its frozen 2/8 thresholds as `low_max`/`med_max` — before any
+prediction file was opened. It was fixed to read either form, and the test was
+read once.
+
+| target | model | test F1 | previous-window mean | difference [95% CI] | verdict |
+|---|---|---|---|---|---|
+| **60 s** | **G (selected)** | 0.4508 | 0.3248 | **[+0.027, +0.225]** | **beats the baseline** |
+| 60 s | H | 0.3620 | 0.3248 | [−0.050, +0.127] | not distinguishable |
+| 120 s | **H (selected: exact validation tie)** | 0.3148 | 0.3806 | [−0.152, +0.027] | not distinguishable |
+| 120 s | G | 0.4703 | 0.3806 | [−0.001, +0.189] | not distinguishable |
+
+**The 60 s result does not come from the near-empty class.** The test period
+has one LOW lane-decision in 87, and both G and the baseline get it wrong. G's
+advantage is on the classes with support: MEDIUM F1 0.803 against 0.678 (59
+instances) and HIGH 0.549 against 0.296 (27). Post-hoc sensitivity intervals,
+**not pre-registered**, exclude zero:
+
+| metric, G − baseline | difference [95% CI] |
+|---|---|
+| accuracy | +0.172 [+0.035, +0.299] |
+| QWK | +0.401 [+0.129, +0.665] |
+| F1 over MEDIUM and HIGH only | +0.189 [+0.040, +0.338] |
+
+**Where the gain is.** Windows right out of 29, G against the baseline: north
+20 against 11, east 18 against 12, west 25 against 25. The gain sits on the
+signal-cycle lanes P93 identified and is absent on west.
+
+**H is not a comparable simpler model here.** At 60 s it is not distinguishable
+from the baseline and well below G (accuracy 0.552 against 0.724).
+
+**What this supports, and what it does not.**
+
+- **Supported:** on this camera, under these auto-derived labels, the full
+  model forecasts the 60 s sustained level better than predicting the last
+  minute again — the first pre-registered result in the project to clear that
+  bar.
+- **Qualified:**
+  - There were **two** pre-registered primary comparisons, one per target, and
+    one passed. No family-wise correction was pre-registered, and the primary
+    interval's lower bound (+0.027) is close to zero; the sensitivity
+    intervals are clearer.
+  - It is one camera, one afternoon and 29 test windows.
+  - The labels carry the P96 undercount: west 14%, north 27%, east 41%.
+  - At 120 s the test has **no LOW at all**, so macro-F1 there is capped by an
+    absent class.
+- **Not established:** generalisation to an unseen camera; anything about
+  Indian traffic.
+
+**Two checks of consistency.**
+
+- **At 120 s, G's interval is identical to P94's** (four lanes), to four
+  decimals. That is expected rather than suspicious: the south lane was always
+  LOW and always predicted LOW by both G and the baseline, so it changed
+  neither side of the difference.
+- **G and H tied exactly on validation at 120 s in both P94 and P97.** With 13
+  validation windows, identical predictions are plausible. Validation
+  predictions are not saved, so this is unverified.
+
+**Not compared with P94** as if it were the same task, as the
+pre-registration requires.
+
