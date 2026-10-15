@@ -175,3 +175,14 @@ zero.
 **Stop rule applied.** Neither horizon beats persistence, so the horizon is not
 changed again. Next is the label definition and the quality of the
 detector-derived target, as decided in advance.
+
+## Correction to check 3 (P93a)
+
+Labels count **vehicles**, not PCU: `pcu_total` is never called by the corpus
+pipeline. The PCU effects stated in check 3 are therefore wrong. A car read as
+an `autorickshaw` changes no label. What changes a count:
+
+- the painted bicycle symbol adds **one vehicle** to the west lane in 21% of
+  samples;
+- each `two wheeler` detection is one vehicle;
+- the far queue is under-counted.

@@ -6557,3 +6557,57 @@ be split on two hours. At 60 s the interval is [−0.114, +0.079], so the
 supported statement is "does not beat persistence", not "is beaten by it". By
 the pre-registered stop rule the horizon is not changed again.
 
+## P93 — the targets are predictable enough to leave room, and the signal cycle shows (2026-10-15)
+
+**Measured** by `scripts/target_diagnostic.py` under
+`experiments/results/bellevue_pilot/PREREGISTRATION_P93.md`, on validation
+only: 19 windows, 76 lane decisions. The test period was not read.
+
+| target | persistence F1 | naive trend F1 | trend − persistence [95% CI] |
+|---|---|---|---|
+| sustained level, mean count over the next 60 s | **0.6021** | 0.4780 | −0.124 [−0.208, −0.036] |
+| direction, rise / stay / fall at ±1 vehicle | **0.2102** | 0.2589 | +0.049 [−0.010, +0.107] |
+| instantaneous level (the current target, reference) | 0.6422 | — | — |
+
+**Both targets clear the pre-registered bar for room** — persistence below 0.80,
+and every class with at least 10 validation decisions.
+
+**The finding behind the numbers is the signal cycle.** On the training period
+the north lane's count autocorrelates at **−0.337 at 60 s and +0.354 at
+120 s**, and the west lane at +0.206 at 120 s: a cycle of about two minutes.
+That explains three things at once:
+
+- **Persistence of the 60 s mean is right only 15.8% of the time on the north
+  lane.** The last minute and the next minute sit in opposite halves of the
+  cycle.
+- **Naive trend loses to persistence** (the interval excludes zero), and on
+  direction its QWK is **−0.64**: a recent rise is followed by a fall.
+  Momentum is the wrong model; the traffic oscillates.
+- **A model has a real way to win.** A 120 s input window covers a whole cycle,
+  so the phase can be seen. Persistence cannot see phase.
+
+**Pre-registered decision.** Sustained level has room, so it may be frozen and
+a G/H training run pre-registered against it. Direction has room too, as a
+separate task.
+
+## P93a — ADR-017's PCU weighting was never applied to any label (2026-10-15)
+
+`count_frame` adds one per detected vehicle (`per_lane[lane] += 1`), and
+`pcu_total` in `mfstnet/corpus/pcu.py` is called nowhere in the corpus
+pipeline. **Every label in the project, S61's included, is a raw vehicle count
+against a threshold**, not the PCU-weighted occupancy ADR-017 specifies.
+
+**Correction to P91 and to the S63 report, check 3.** A car misread as an
+`autorickshaw` does not add 0.2 PCU; it adds nothing, because labels count
+vehicles. The detection errors that do matter are the ones that change a
+**count**:
+
+- the painted bicycle symbol adds **one whole vehicle** to the west lane in 21%
+  of samples — larger than the 0.2 PCU first stated;
+- the 7% of `two wheeler` detections each count as one vehicle;
+- the far end of the north queue is missed.
+
+**Owed.** Implementing PCU needs pre-registered mappings for `LCV` and
+`two wheeler`, which the PCU table lacks. It changes every label, so it is a
+decision, not a fix.
+
