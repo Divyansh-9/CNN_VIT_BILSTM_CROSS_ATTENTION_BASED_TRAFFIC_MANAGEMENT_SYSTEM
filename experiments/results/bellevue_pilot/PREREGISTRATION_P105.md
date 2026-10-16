@@ -147,3 +147,67 @@ result says anything about signal-control safety.
 ## Licence
 
 Unresolved: research use only, internal engineering, not publishable (S63).
+
+## Amendment 1 — the exact footage (Option B), lanes and rules, before any download
+
+Written after a **read-only listing** of the source folders (file names only)
+and **before any P105 file was downloaded or counted**. The project owner chose
+Option B: a subset fixed by rule, smaller than "every later eligible file".
+
+**Files** (16; names and Drive ids in `p105_files.json`):
+
+| camera | calibration (never scored) | test |
+|---|---|---|
+| 116th NE12th | Sun 19:08 | Mon 07:08, 12:08, 16:08 |
+| 150th Eastgate | Sun 19:08 | Mon 07:08, 12:08, 16:08 |
+| 150th Newport | Sun 19:08 | Mon 07:08, 12:08, 16:08 |
+| 150th SE38th | Sun 19:08 | Mon 07:08, 12:08, 16:08 |
+
+**How the subset was fixed:**
+
+- **The calibration hour** is each camera's earliest eligible daylight hour,
+  by the committed rule.
+- **The test hours** are fixed to morning, midday and afternoon on every
+  camera. 12:08 is used throughout because 116th has no 13:08.
+- **None of these hours was counted in P91–P103.**
+- **Exclusions:** NE 8th has no untouched daylight hour left. The second
+  Newport archive is no longer on disk and is not used. The short local 116th
+  fragments are not used; only the source files above are.
+
+**Lanes:**
+
+- **Eastgate, Newport and SE38th reuse their P103 lanes, frozen.** These are
+  the centres in P103 Amendment 1. No region is moved.
+- **116th NE12th's lanes** are placed by the project owner on frames from its
+  Sun 19:08 calibration hour only, then reviewed and locked by Amendment 2
+  before any detector run.
+
+**Calibration, support and scoring — the committed rules, restated:**
+
+- **Thresholds:** q33/q67 of the calibration hour's 60 s means, pooled over
+  lanes, at full precision.
+- **Stop rules:** fewer than 30 pooled lane-decisions of any class, or fewer
+  than 6 ten-minute test blocks, **stops** the run. Hours are **never**
+  changed on observed results. A file failing continuity is excluded whole,
+  with no substitute chosen.
+- **The model:** `p105_ridge_v1.json` (sha `73532968…`), applied unchanged.
+  It is never refitted on these cameras or tuned on their results.
+- **Scoring:** one read. The primary family is ridge − persistence on
+  macro-F1 and on forecast-count MAE (Holm). The secondaries are those
+  pre-registered.
+
+**Limitations, stated now:**
+
+- **The calibration hours run into dusk**, with sunset about 19:25. P99b's
+  blind audit did cover NE 8th at Sun 19:08 (ITD-xl LOW precision 0.89). A
+  Sunday-evening calibration may sit lower than Monday traffic, as P103 found
+  at Eastgate.
+- **About 70 blocks** gives less precision than Option A would. Clearing the
+  6-block floor is not a guarantee of power, so every interval and per-camera
+  result is reported.
+- **The ridge specification** was chosen and fitted on footage already used.
+  P105 tests its **transfer** to new cameras and hours. It does not
+  independently confirm how that specification was selected.
+
+If the result is inconclusive, more footage (Option A or other cameras) is a
+**separate, newly specified experiment**. It is not an extension of this one.
