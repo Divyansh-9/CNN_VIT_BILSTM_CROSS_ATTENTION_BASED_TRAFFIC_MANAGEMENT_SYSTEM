@@ -1,6 +1,6 @@
 # ADR-020 — One age channel, because a stale forecast is worse than an absent one
 
-**Status:** Proposed · **Date:** 2026-08-21 · **Amends [PRD](../PRD.md) §13.1 state layout (A16); fixes [P53](../PRD-CHANGELOG.md)**
+**Status:** Accepted **as amended** by the project owner 2026-10-16 (Amendment 1 below), **not a faculty-guide signature** · originally Proposed 2026-08-21 · **Date:** 2026-08-21 · **Amends [PRD](../PRD.md) §13.1 state layout (A16); fixes [P53](../PRD-CHANGELOG.md)**
 
 ## Context
 
@@ -89,3 +89,87 @@ larger change: the surrogate would have to emit calibrated three-class
 probabilities rather than a class, which is [ADR-021](ADR-021-forecast-quality-as-a-swept-variable.md)'s
 territory. Deferred deliberately so this amendment stays one that can be
 verified by inspection.
+
+---
+
+## Amendment 1 — 2026-10-16, after the P97a investigation (P108)
+
+**Accepted by the project owner, not a faculty-guide signature.** Everything
+above is the original decision, kept unedited, because the reasoning still
+holds. This amendment records what has changed since 2026-08-21, and adds the
+one rule the original did not have, the fallback. Evidence:
+[INVESTIGATION-P97a-missing-forecasts.md](../INVESTIGATION-P97a-missing-forecasts.md),
+P108 and P109.
+
+### Why an amendment was needed: three assumptions that no longer hold
+
+1. **"Zero final PPO checkpoints exist today."** One now does:
+   `ppo_no-forecast_saturated_keep_or_switch_seed42.zip`, 500,000 steps,
+   observation contract `24ad1c994e844238`. The age channel changes `dim`, so
+   it will refuse to load (P53 working). **It is retrained under the amended
+   layout**, because it is the fallback policy below and must share the
+   layout. No other model is affected: forecasters and MFSTNet do not read
+   this state.
+2. **"All four lane predictions come from one MFSTNet forward pass."** Under
+   ADR-027 an approach can be absent **on its own**, permanently (a camera
+   that cannot see it: NE 8th south, P96; Newport lane_2, P103) or
+   transiently. The reserved zero is therefore **per approach**. The age
+   channel stays **one per forecast message**, because one message has one
+   timestamp.
+3. **"MFSTNet class" at 11–14.** Under ADR-027 the class forecast comes from
+   whichever forecaster holds that role (today persistence v1). The index
+   names `mfst_pred_*` are kept, to avoid churning every consumer for a name,
+   and they now mean **"the class forecast for that approach"**, whatever its
+   source.
+
+### The layout, as amended (`dim: 17`)
+
+```
+11-14  class forecast N S E W   LOW, MEDIUM, HIGH -> 1/3, 2/3, 1;  0.0 = no forecast for that approach
+15     emergency_flag           unchanged
+16     forecast_age             min(age_s, 10) / 10;  1.0 when there is no forecast message at all
+```
+
+**A missing approach is never encoded as a class.** The state builder writes
+0.0 only for an approach with no forecast, and refuses any other route to it.
+That carries P109's rule (no implicit zero) into the controller.
+
+### The fallback: a rule about every required input, not one age
+
+A **forecast-aware** policy may decide only when **all** of these hold:
+
+- every approach the policy requires has a class forecast in the current
+  message (partial coverage is not enough);
+- that message is at most **10 s** old (PRD §7.2's bound), by the server's
+  clock;
+- the counts and queues it reads are present for every approach, and finite
+  and non-negative.
+
+**If any condition fails, the controller uses the no-forecast policy:** the
+retrained checkpoint, on the same layout, with 11–14 = 0.0 and index 16 = 1.0.
+If the counts themselves are invalid, the existing FR-A06 Webster fallback
+applies.
+
+**Recovery:** the forecast-aware policy resumes only on a **complete, fresh,
+valid** message, never on partial or recovering data. **Every switch is
+logged with its reason.** A missing approach therefore never becomes LOW: not
+in steady state, not during partial camera failure, and not during recovery.
+
+### Acceptance and evidence required
+
+- **Contract tests:**
+  - an absent approach can never encode as a class;
+  - the age is monotone, with 1.0 for absent;
+  - the P53 digest changes and old checkpoints refuse to load.
+- **Fallback tests:** each failing condition above selects the no-forecast
+  policy, and recovery requires a complete fresh message.
+- **A pre-registered simulation safety evaluation,** with missing and stale
+  forecasts injected at fixed rates:
+  - the controller with this fallback must be **not meaningfully worse** than
+    the no-forecast baseline;
+  - the comparison is paired, with the margin and statistics fixed before
+    running.
+  - Passing it is **safety evidence only.** Whether forecasts *improve*
+    control is ADR-021's question, asked afterwards.
+- **The controller stays disconnected from signal timing** until that
+  evaluation passes (ADR-027 rule 4).
