@@ -170,12 +170,20 @@ def test_an_unversioned_payload_is_rejected():
 # ------------------------------------------------- D6 · string to state value --
 
 @pytest.mark.parametrize(
-    "cls, value", [(CongestionClass.LOW, 0.0), (CongestionClass.MEDIUM, 0.5),
+    "cls, value", [(CongestionClass.LOW, 1 / 3), (CongestionClass.MEDIUM, 2 / 3),
                    (CongestionClass.HIGH, 1.0)]
 )
 def test_class_maps_to_the_normalised_state_value(cls, value):
-    """PRD §13.1 divides by 2, so HIGH maps to 1.0."""
+    """ADR-020 as amended: 1/3, 2/3, 1, so 0.0 is left for "no forecast"."""
     assert cls.to_state_value() == value
+
+
+def test_no_class_maps_to_the_reserved_absent_value_and_the_spec_agrees():
+    import yaml
+
+    spec = yaml.safe_load(open("mfstnet/configs/spec.yaml", encoding="utf-8"))["ppo_state"]
+    assert {c.value: c.to_state_value() for c in CongestionClass} ==         spec["normalisers"]["forecast_class_value"]
+    assert spec["forecast_unavailable"]["absent_value"] not in         {c.to_state_value() for c in CongestionClass}
 
 
 def test_state_values_come_out_in_lane_order():
@@ -184,7 +192,7 @@ def test_state_values_come_out_in_lane_order():
                      "E": CongestionClass.LOW, "W": CongestionClass.LOW},
         confidences={l: 0.9 for l in "NSEW"}, gate_value=0.73, model="G@0123456789ab",
     )
-    assert pred.to_state_values() == [1.0, 0.5, 0.0, 0.0]
+    assert pred.to_state_values() == [1.0, 2 / 3, 1 / 3, 1 / 3]
 
 
 def test_a_missing_lane_is_refused_never_zero_filled():
@@ -203,7 +211,7 @@ def test_absence_stays_visible_and_the_list_keeps_its_length():
         predictions={"N": CongestionClass.HIGH, "E": CongestionClass.LOW},
         confidences={"N": 0.9, "E": 0.9}, gate_value=0.5, model="G@0123456789ab",
     )
-    assert pred.to_state_values_or_none() == [1.0, None, 0.0, None]   # a real LOW stays 0.0
+    assert pred.to_state_values_or_none() == [1.0, None, 1 / 3, None]   # a real LOW is 1/3, absent is None
 
 
 # ------------------------------------------------------- round trip --

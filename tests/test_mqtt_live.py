@@ -171,5 +171,5 @@ def test_a_three_lane_camera_reports_its_missing_approach(database):
     posted = client.post("/prediction/j3", content=payload.encode(),
                          headers={"content-type": "text/plain"}).json()
     assert posted["missing_approaches"] == ["S"]
-    assert posted["state_11_14"] == [0.5, None, 0.5, 0.5]   # S absent, not LOW
+    assert posted["state_11_14"] == [2 / 3, None, 2 / 3, 2 / 3]   # S absent, not LOW
     assert client.get("/prediction/j3/latest").json()["missing_approaches"] == ["S"]

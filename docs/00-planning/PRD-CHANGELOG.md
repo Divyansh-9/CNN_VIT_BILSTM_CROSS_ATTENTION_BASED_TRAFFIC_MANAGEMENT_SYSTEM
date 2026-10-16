@@ -7648,3 +7648,52 @@ D as the plan, and amend ADR-020.
 **Unchanged on purpose:** the simulator, `PPOController` and the 16-dim
 layout. The no-forecast arm's 11–14 are the arm's declared world, not a
 substituted value. Option D, under amended ADR-020, changes that layout next.
+
+## P110 — P97a Option D, step 3: the amended 17-dim state and the fail-safe gate (2026-10-16)
+
+**Implements ADR-020 as amended** (`a1e09e0`). The controller stays
+disconnected from signal timing.
+
+- **`spec.yaml`:**
+  - **Layout:** `dim: 17`. Indices 11–14 are the class forecast per approach,
+    `forecast_class_value` LOW/MEDIUM/HIGH → 1/3, 2/3, 1, with **0.0 reserved
+    for "no forecast"**. Index 16 is `forecast_age = min(age, 10) / 10`.
+  - **Fallback:** `forecast_unavailable` is **one named operation**: class
+    slots read absent and the age reads 1.0. It replaces
+    `mfst_pred_divisor: 2` and `zero_when_mfstnet_unavailable`.
+  - **Digest:** the observation contract digest changes (P53), and a test pins
+    that it is no longer `24ad1c99…`.
+- **`simulation/forecast_state.py`, the encoder:** `forecast_slots` is the
+  only route to 11–14 and 16. An absent or unknown class reads absent, never a
+  class. A message without a valid age is refused. A layout where a class
+  equals the absent value is refused.
+- **`simulation/forecast_state.py`, `ForecastGate`:** the owner's rule that the
+  **validity of every required input** decides.
+  - **Webster** if counts or queues are missing, non-finite or negative for
+    any approach.
+  - **The no-forecast policy** if the forecast message is absent, older than
+    10 s (inclusive bound), invalid in age, or missing or invalid for **any**
+    required approach. Partial coverage is not enough.
+  - **The forecast-aware policy** only when everything is complete, fresh and
+    valid.
+  - **Recovery** needs a complete, fresh message. Every switch is logged with
+    its reasons.
+- **The environment and `PPOController`** build the forecast slots through the
+  encoder. `PPOController.observe` **refuses** a missing or invalid count or
+  queue, where it used to read it as 0 vehicles: the same P97a defect, in
+  counts.
+- **`CongestionClass.to_state_value`** is now 1/3, 2/3, 1, and a test checks it
+  equals the spec. The server's `state_11_14` uses the same values, with
+  `null` for absent.
+- **The 500,000-step no-forecast checkpoint is archived** to
+  `models/ppo/_pre_adr020/` with a README. Its contract no longer matches, so
+  it is kept as evidence, out of `discover_checkpoints()`. **Step 4 retrains
+  it** under the amended layout.
+- **Tests:**
+  - **New:** `tests/test_forecast_state.py`, 22 tests covering encoding,
+    partial failure, the 10 s boundary, invalid classes, invalid counts to
+    Webster, recovery and the switch log, and the policy input refusing a
+    missing count.
+  - **Rewritten:** the twelve tests that pinned the old layout now assert the
+    amended one.
+  - The full suite passes.

@@ -68,11 +68,22 @@ def test_changing_a_normaliser_changes_the_digest(spec):
     assert contract_digest(tuned) != contract_digest(spec)
 
 
-def test_changing_the_fallback_indices_changes_the_digest(spec):
-    """Which indices go to zero without a forecast is part of what zero means."""
+def test_changing_the_fallback_operation_changes_the_digest(spec):
+    """Which slots read "absent" without a forecast, and what the age reads, is
+    part of what those numbers mean (ADR-020 as amended)."""
     changed = copy.deepcopy(spec)
-    changed["ppo_state"]["zero_when_mfstnet_unavailable"] = [11, 12]
+    changed["ppo_state"]["forecast_unavailable"]["class_slots"] = [11, 12]
     assert contract_digest(changed) != contract_digest(spec)
+    aged = copy.deepcopy(spec)
+    aged["ppo_state"]["forecast_unavailable"]["age_value"] = 0.0
+    assert contract_digest(aged) != contract_digest(spec)
+
+
+def test_the_amended_layout_has_a_new_digest(spec):
+    """P97a: the pre-ADR-020 checkpoint recorded 24ad1c994e844238. The amended
+    layout must not share it, or that checkpoint would load against a state it
+    never saw."""
+    assert contract_digest(spec) != "24ad1c994e844238"
 
 
 def test_changing_the_dimension_changes_the_digest(spec):
@@ -112,7 +123,7 @@ def test_an_absent_digest_refuses_rather_than_being_waved_through():
 def test_the_fields_hashed_are_the_ones_that_carry_meaning(spec):
     fields = contract_fields(spec)
     assert set(fields) == {
-        "dim", "index_map", "normalisers", "zero_when_mfstnet_unavailable"}
+        "dim", "index_map", "normalisers", "forecast_unavailable"}
 
 
 # ---------------------------------------------------------------------------

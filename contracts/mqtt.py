@@ -148,13 +148,13 @@ class CongestionClass(str, Enum):
     HIGH = "HIGH"
 
     def to_state_value(self) -> float:
-        """D6. Class to the normalised value at PPO state indices 11–14.
+        """D6. Class to the value at PPO state indices 11–14.
 
-        PRD §13.1 divides by 2 so the highest class maps to 1.0. Defined once,
-        here, because the mapping crosses a process boundary — the dashboard and
-        the PPO adapter both consume the same string.
+        ADR-020 as amended (P97a): LOW, MEDIUM, HIGH → 1/3, 2/3, 1, so that
+        0.0 is left to mean "no forecast" and no class can produce it. It must
+        equal `spec.yaml`'s `forecast_class_value`, and a test checks they do.
         """
-        return {"LOW": 0.0, "MEDIUM": 0.5, "HIGH": 1.0}[self.value]
+        return {"LOW": 1 / 3, "MEDIUM": 2 / 3, "HIGH": 1.0}[self.value]
 
 
 class Mode(str, Enum):

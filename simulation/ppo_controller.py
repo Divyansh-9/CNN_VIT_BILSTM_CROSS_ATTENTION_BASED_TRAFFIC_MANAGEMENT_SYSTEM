@@ -61,6 +61,7 @@ class PPOController:
         self.index = state["index_map"]
         self.norm = state["normalisers"]
         self.dim = state["dim"]
+        self.state_spec = state
         # NFR-16: read from the spec, and RAISE if it is not there. The first
         # version of this line used `.get("green_durations", [10, 20, ...])`
         # against a spec key actually named `green_durations_s`, so it silently
@@ -86,19 +87,30 @@ class PPOController:
         """The runner's dict -> the spec's vector. One layout, read from YAML."""
         import numpy as np
 
+        from simulation.forecast_state import _valid_number, forecast_slots
+
         vector = np.zeros(self.dim, dtype=np.float32)
         counts, queues = observation["counts"], observation["queues"]
         for approach in APPROACHES:
+            # P97a, same rule as the forecast: a missing count is not zero
+            # vehicles. Refused, so the caller's gate falls back (ADR-020 A1).
+            for name, values in (("counts", counts), ("queues", queues)):
+                if approach not in values or not _valid_number(values[approach]):
+                    raise ValueError(f"{name}: {approach} missing or invalid; "
+                                     f"a missing value is not zero (P97a)")
             vector[self.index[f"count_{approach}"]] = (
-                counts.get(approach, 0) / self.norm["count_divisor"])
+                counts[approach] / self.norm["count_divisor"])
             vector[self.index[f"queue_{approach}"]] = (
-                queues.get(approach, 0) / self.norm["queue_divisor"])
+                queues[approach] / self.norm["queue_divisor"])
         phase = observation["phase"]
         vector[self.index["phase_NS"]] = 1.0 if phase == NS else 0.0
         vector[self.index["phase_EW"]] = 1.0 if phase == EW else 0.0
-        # Forecast indices stay zero: this is the `no-forecast` arm's world, and
-        # FR-A06 declares zeroed as the fallback state. P53 records that zero is
-        # NOT unambiguous under the current encoding.
+        # ADR-020 as amended: the forecast slots come from the one encoder.
+        # With no forecast message (the no-forecast policy's world) every class
+        # slot reads "absent" and the age reads 1.0; never a class.
+        for i, value in forecast_slots(self.state_spec, observation.get("forecast"),
+                                       observation.get("forecast_age_s")).items():
+            vector[i] = value
         return vector
 
     def decide(self, observation: dict) -> tuple[int, int]:

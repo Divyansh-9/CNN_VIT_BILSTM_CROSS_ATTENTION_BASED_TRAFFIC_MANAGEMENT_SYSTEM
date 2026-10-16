@@ -1,6 +1,6 @@
 """Gymnasium environment for the signal controller (S36, PRD §13.1).
 
-The **16-dim state vector is a contract** (FR-M14, amendment A16). Its layout is
+The **17-dim state vector is a contract** (FR-M14, A16, ADR-020 as amended). Its layout is
 defined once in `mfstnet/configs/spec.yaml` and read from there, never restated
 here — a second copy of an index map is a second chance to permute it, and a
 permuted state invalidates every trained checkpoint silently.
@@ -10,12 +10,14 @@ permuted state invalidates every trained checkpoint silently.
     8      phase == NS
     9      phase == EW
     10     phase remaining       / phase_remaining_divisor
-    11-14  MFSTNet class N S E W / mfst_pred_divisor
+    11-14  class forecast N S E W   LOW/MEDIUM/HIGH -> 1/3, 2/3, 1; 0.0 = none
     15     emergency flag
+    16     forecast_age            min(age, 10) / 10; 1.0 when there is no forecast
 
-Indices 11-14 are **zeroed, never dropped**, when MFSTNet is unavailable
-(PRD §7.2, FR-A06). Shortening the vector would change the observation space and
-break the checkpoint; zeroing keeps the contract and states "no forecast".
+**0.0 at 11-14 means "no forecast", and no class can produce it** (ADR-020 as
+amended, P97a). Under the old layout LOW was 0.0, so "no forecast" read as
+"clear". `simulation.forecast_state.forecast_slots` is the only route to these
+indices. Shortening the vector would still break the checkpoint.
 
 `mfst_gate_mean` was in the original 17-dim spec and A16 removed it: SUMO has no
 camera, so there is no gate to read, and a state feature that is always zero in
@@ -43,9 +45,11 @@ except ImportError as error:      # pragma: no cover
 from ..runner import APPROACHES, lane_ids
 from ..sumo_tools import ensure_sumo_home, sumo_binary
 
+from simulation.forecast_state import forecast_slots  # noqa: E402
+
 __all__ = ["TrafficSignalEnv", "GREEN_DURATIONS", "STATE_DIM"]
 
-STATE_DIM = 16
+STATE_DIM = 17                    # ADR-020 as amended: forecast_age at 16
 GREEN_DURATIONS = (10, 20, 30, 45, 60, 90)     # PRD §13.1
 ACTION_SPACES = ("phase_duration", "keep_or_switch")   # ADR-015
 NS, EW = 0, 1
@@ -86,7 +90,7 @@ class TrafficSignalEnv(gym.Env):
         spec = _load_spec()
         self._index_map = spec["ppo_state"]["index_map"]
         self._norm = spec["ppo_state"]["normalisers"]
-        self._zeroed = spec["ppo_state"]["zero_when_mfstnet_unavailable"]
+        self._state_spec = spec["ppo_state"]
         signal = spec["signal"]
 
         if spec["ppo_state"]["dim"] != STATE_DIM:
@@ -306,14 +310,16 @@ class TrafficSignalEnv(gym.Env):
             max(0, self._remaining) / self._norm["phase_remaining_divisor"]
         )
 
-        # Indices 11-14 stay zero when there is no forecast. Zeroed, never
-        # dropped — shortening the vector breaks every trained checkpoint.
+        # ADR-020 as amended: no forecast in this world, so every class slot
+        # reads the reserved "absent" and the age reads 1.0. Never a class.
         if self.use_mfstnet:
             raise NotImplementedError(
                 "live MFSTNet in the loop is Phase 3 (PRD §2.4). Until then the "
-                "forecast indices stay zeroed, which is the declared fallback "
-                "behaviour (FR-A06), not a stub."
+                "forecast indices read 'no forecast', which is the declared "
+                "fallback behaviour (FR-A06), not a stub."
             )
+        for i, value in forecast_slots(self._state_spec, None, None).items():
+            state[i] = value
 
         return state
 

@@ -61,8 +61,7 @@ def contract_fields(spec: dict) -> dict:
         "dim": state["dim"],
         "index_map": dict(sorted(state["index_map"].items())),
         "normalisers": dict(sorted(state["normalisers"].items())),
-        "zero_when_mfstnet_unavailable": list(
-            state["zero_when_mfstnet_unavailable"]),
+        "forecast_unavailable": dict(sorted(state["forecast_unavailable"].items())),
     }
 
 
