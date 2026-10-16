@@ -150,3 +150,32 @@ in whole hours.** The resulting mapping, fixed now:
 
 The fold support table was reproduced exactly by `scripts/p100_corpus.py`, and
 no test hour reaches either training corpus.
+
+## Amendment 2 — the swap partner never overlaps the original (before any run)
+
+The project owner required, before launch, that a replacement window be
+neither the original nor temporally overlapping it. A random same-hour
+derangement guarantees only the first: same-hour windows start 30 s apart and
+span 90 samples (3 min), so a random partner could share most of the original's
+frames.
+
+**The pairing, now fixed and deterministic:**
+
+- Within each hour, the windows are sorted by start time, and each is paired
+  with the window half the list away (a cyclic shift by n // 2).
+- The evaluator **stops** if any partner is the window itself, comes from
+  another clip, or starts fewer than 90 samples away.
+- Checked on start times only, with no label or prediction read:
+  - **Part A:** 390 windows, minimum gap 30.0 min;
+  - **Part B:** 1,157 windows, minimum gap 24.0 min (the short 13:08 hour),
+    median 30.0 min.
+
+The labels stay the original window's. The metric and the windows are the same
+as for the unmodified model.
+
+**Reporting:** Part A (P99's already-read test windows) is an exploratory
+re-analysis. It is reported **separately** from P100's confirmatory results
+and is not an independent test. Part B's content test runs on the held-out
+hours only. Both Part B primary comparisons are reported with the content
+effect, LOW recall and its support. Beating a baseline does not satisfy the
+Phase 2 LOW-recall condition.

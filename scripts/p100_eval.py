@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import random
 import sys
 from collections import Counter
 from datetime import datetime
@@ -114,21 +113,37 @@ def argmax(p: list[float]) -> int:
     return max(range(len(p)), key=p.__getitem__)
 
 
-def add_swap(rows: list[dict], key: str, seed: int = 0) -> None:
-    """`key + "_swap"`: each window gets its same-hour partner's real prediction."""
-    rng = random.Random(seed)
+SPAN = T + K        # one window's inputs and target, in samples
+
+
+def partners(rows: list[dict]) -> list[int]:
+    """Amendment 2: within each hour, windows sorted by start, each paired with
+    the one half the list away (a cyclic shift by n // 2). Deterministic, a
+    derangement, and checked: a partner is never the window itself and never
+    shares a sample with it, so the swap removes the window's own traffic."""
     by_hour: dict[str, list[int]] = {}
     for i, w in enumerate(rows):
         by_hour.setdefault(w["hour"], []).append(i)
-    for hour in sorted(by_hour):
-        members = by_hour[hour]
-        if len(members) < 2:
-            raise SystemExit(f"hour {hour} has one window; a swap needs a partner")
-        order = list(range(len(members)))
-        while any(a == b for a, b in enumerate(order)):   # a derangement
-            rng.shuffle(order)
-        for a, b in enumerate(order):
-            rows[members[a]][key + "_swap"] = rows[members[b]][key]
+    out = [-1] * len(rows)
+    for hour, members in by_hour.items():
+        members = sorted(members, key=lambda i: rows[i]["start"])
+        n = len(members)
+        if n < 2:
+            raise SystemExit(f"hour {hour} has {n} window(s); a swap needs a partner")
+        for a, i in enumerate(members):
+            j = members[(a + n // 2) % n]
+            if j == i or rows[i]["clip"] != rows[j]["clip"] or                     abs(rows[i]["start"] - rows[j]["start"]) < SPAN:
+                raise SystemExit(f"{hour}: window {rows[i]['start']} would be paired "
+                                 f"with overlapping window {rows[j]['start']} — STOP")
+            out[i] = j
+    return out
+
+
+def add_swap(rows: list[dict], key: str) -> None:
+    """`key + "_swap"`: each window gets its partner's real-input prediction,
+    which is exactly what the model outputs when given the partner's inputs."""
+    for i, j in enumerate(partners(rows)):
+        rows[i][key + "_swap"] = rows[j][key]
 
 
 def recall_table(rows, keys) -> dict:
