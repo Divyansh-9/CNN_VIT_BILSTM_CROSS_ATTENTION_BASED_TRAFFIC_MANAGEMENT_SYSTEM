@@ -1,0 +1,31 @@
+import { useEffect, useState } from "react";
+import { get } from "./api.js";
+
+export const RETRY_MS = 5000;
+
+// Polls one read-only endpoint. The dashboard's refresh budget is 2 s (PRD),
+// so live panels poll at 2 s. With intervalMs 0 the endpoint is fetched until
+// it first succeeds and then never again: evidence does not change while the
+// dashboard runs (ADR-014), but one failed first request must not leave the
+// panel waiting forever.
+export function usePoll(path, intervalMs, fetcher, retryMs = RETRY_MS) {
+  const [state, setState] = useState({ status: "loading" });
+  useEffect(() => {
+    let alive = true;
+    let timer = null;
+    const run = async () => {
+      const result = await get(path, fetcher);
+      if (!alive) return;
+      setState(result);
+      if (!intervalMs && result.status !== "ok") timer = setTimeout(run, retryMs);
+    };
+    run();
+    const interval = intervalMs ? setInterval(run, intervalMs) : null;
+    return () => {
+      alive = false;
+      if (interval) clearInterval(interval);
+      if (timer) clearTimeout(timer);
+    };
+  }, [path, intervalMs, fetcher, retryMs]);
+  return state;
+}

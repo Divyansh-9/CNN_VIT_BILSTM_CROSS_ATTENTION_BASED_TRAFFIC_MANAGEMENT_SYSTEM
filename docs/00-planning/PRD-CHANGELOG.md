@@ -7523,3 +7523,68 @@ deployed forecaster and PRD §7.
   would read, under ADR-014's two-panel rule.
 - **The PPO state's 0.0-for-missing** (P97a) is unchanged, because the
   controller is not connected.
+
+## P107 — a minimal read-only dashboard, to ADR-008's shape and ADR-014's two-panel rule (2026-10-16)
+
+**Decision by the project owner after P106:** one small presentation and
+observability task. No training, no Option A, no controller integration, no
+push.
+
+**Built** (`dashboard/`, React 18.3.1 + Vite 5.4.11 at exact pins; vitest):
+
+- **Live region, two separate panels** (ADR-027 roles):
+  - the **next-minute count** (ridge) as a point estimate;
+  - the **congestion class** (persistence).
+
+  Each shows model id, role, time received, age and staleness, all from the
+  API, never hard-coded. A missing approach shows *no forecast*, never 0 and
+  never LOW, and a real zero stays a zero. A stale forecast is labelled and
+  dimmed. A response that fails validation is shown as *invalid*, with the
+  reason, and never partly. The failures caught are a wrong role for the
+  panel, an unknown model id, out-of-range or non-finite values, an unknown
+  approach, or `missing_approaches` disagreeing with the values. API errors
+  (404, 5xx, unreachable, non-JSON) each have their own state.
+- **The P97a warning stays visible** in the live region: the controller's
+  state contract encodes a missing approach as 0.0, the same as LOW. The page
+  does not imply it fixes that.
+- **No live accuracy** appears anywhere (ADR-014: it would be circular against
+  detector-derived labels).
+- **Results region,** separated from live: `GET /evidence` (new, read-only)
+  builds the panel from the **committed** P105/P103 result files. Each study
+  names its file, commit and date (from git), scope (windows, blocks, cameras,
+  exclusions) and every difference **with its direction** ("persistence −
+  ridge … positive favours ridge"). It is labelled *historical evaluation
+  evidence, not a live performance guarantee*, with its limitations listed.
+  Evidence is fetched until it first succeeds, then never again.
+- **Read-only by construction:** the API client issues only `GET`, and only to
+  `/count_forecast/{id}/latest`, `/prediction/{id}/latest` and `/evidence`.
+  Tests pin the allow-list and scan the source for write calls. The server
+  serves the build at `/dashboard` from the same origin.
+
+**Tests:**
+
+- dashboard, 12 (`npm test`): read-only API, error states, missing never
+  zero/LOW, stale, invalid and mismatched roles, region separation and the
+  P97a warning, evidence retry;
+- `tests/test_dashboard_evidence.py`, 4: the numbers equal the committed files,
+  the difference directions are correct, each study names its file and commit,
+  and the endpoint refuses POST;
+- the full Python suite passes.
+
+**Checked end to end in a browser:**
+
+- **The real edge forecasters** ran on real Newport counts, with the
+  housing-occluded approach left unmapped, so S is missing. They posted
+  through the server.
+- **Fresh and stale intersections** both rendered correctly.
+- **Desktop and 375 px phone width:** no horizontal scroll. Evidence rows stack
+  into labelled cards, so the verdict is never off-screen. Two defects were
+  found by looking and fixed before commit: an unlabelled difference
+  direction, and a one-shot evidence fetch that could wait forever.
+
+**Not done (scope):**
+
+- WebSockets: it polls every 2 s, within the PRD's refresh budget;
+- charts, ADR-014's deferred-agreement ribbon and the detection overlay;
+- authentication: the page cannot reach a control endpoint;
+- `dashboard` tests in CI: CI has no Node job, so `npm test` is run locally.

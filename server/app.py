@@ -314,6 +314,92 @@ def latest_count_forecast(intersection_id: str) -> dict:
             "note": COUNT_NOTE}
 
 
+RESULTS = Path("experiments/results/bellevue_pilot")
+EVIDENCE_LABEL = ("Historical evaluation evidence, computed offline once under a "
+                  "pre-registered protocol. Not a live performance guarantee.")
+EVIDENCE_LIMITS = [
+    "labels are ITD-xl's own future counts, not human-verified traffic (A32)",
+    "one Bellevue Sunday evening and Monday; 3 cameras scored; 116th NE12th excluded",
+    "a count improvement does not establish a congestion-class improvement",
+    "neither forecast is connected to signal timing; P97a (missing encoded as 0.0 = LOW "
+    "in the controller's state) is open",
+]
+
+
+def committed_at(path: Path) -> dict:
+    """ADR-014: the panel names the commit that produced each number."""
+    import subprocess
+
+    try:
+        out = subprocess.run(["git", "log", "-1", "--format=%h %cs", "--", str(path)],
+                             capture_output=True, text=True, timeout=5, check=True).stdout.split()
+    except Exception:
+        out = []
+    return {"file": str(path).replace("\\", "/"),
+            "commit": out[0] if out else "uncommitted", "date": out[1] if len(out) > 1 else ""}
+
+
+def _row(metric, a_name, a, b_name, b, test=None, lower_is_better=False):
+    """A difference is always stated so that positive favours `a_name`."""
+    row = {"metric": metric, "lower_is_better": lower_is_better,
+           "values": {a_name: round(a, 4), b_name: round(b, 4)},
+           "difference_of": (f"{b_name} − {a_name}" if lower_is_better
+                             else f"{a_name} − {b_name}"),
+           "positive_favours": a_name}
+    if test is not None:
+        row.update({"difference": test["point"], "ci95": test["ci95"],
+                    "significant": bool(test.get("holm_significant"))})
+    return row
+
+
+@app.get("/evidence")
+def evidence() -> dict:
+    """ADR-014 Panel A: frozen numbers read from committed result files.
+
+    Nothing here is live and nothing changes while the dashboard runs. Every
+    value is read from the file named beside it, never typed into the page.
+    """
+    import json
+
+    def load(name):
+        return json.loads((RESULTS / name).read_text(encoding="utf-8"))
+
+    try:
+        p105, p103 = load("p105_results.json"), load("p103_results.json")
+        excluded = sorted(load("p105_eligibility.json")["excluded_cameras"])
+    except FileNotFoundError as error:
+        raise HTTPException(503, f"evidence file missing: {error.filename}") from error
+    p105_cams = sorted(p105["per_camera"])
+    return {
+        "label": EVIDENCE_LABEL, "limitations": EVIDENCE_LIMITS,
+        "studies": [
+            {"id": "P105", "role": "next_minute_count (ridge)",
+             "question": "Does the level-free ridge forecast next-minute counts better than persistence?",
+             **committed_at(RESULTS / "p105_results.json"),
+             "scope": {"cameras": p105_cams, "excluded_cameras": excluded,
+                       "windows": p105["windows"], "blocks": p105["blocks"]},
+             "rows": [
+                 _row("count MAE (vehicles)", "ridge", p105["pooled"]["ridge"]["mae"],
+                      "persistence", p105["pooled"]["persistence"]["mae"],
+                      p105["primary"]["persistence - ridge, count MAE"], lower_is_better=True),
+                 _row("congestion macro-F1", "ridge", p105["pooled"]["ridge"]["f1"],
+                      "persistence", p105["pooled"]["persistence"]["f1"],
+                      p105["primary"]["ridge - persistence, macro-F1"])]},
+            {"id": "P103", "role": "congestion_class (persistence)",
+             "question": "Which class forecaster transfers to new cameras?",
+             **committed_at(RESULTS / "p103_results.json"),
+             "scope": {"cameras": sorted(p103["calibrated"]["per_camera"]),
+                       "windows": sum(p103["calibrated"]["support"].values()) // 4,
+                       "blocks": p103["primary"]["C1-L - persistence"]["blocks"]},
+             "rows": [
+                 _row("congestion macro-F1", "persistence", p103["calibrated"]["pooled"]["persistence"]["f1"],
+                      "count model C1-L", p103["calibrated"]["pooled"]["C1-L"]["f1"],
+                      {**p103["primary"]["C1-L - persistence"],
+                       "point": -p103["primary"]["C1-L - persistence"]["point"],
+                       "ci95": [-x for x in reversed(p103["primary"]["C1-L - persistence"]["ci95"])]})]},
+        ]}
+
+
 @app.get("/history/{intersection_id}")
 def history(intersection_id: str, limit: int = 50) -> dict:
     """Recent decisions, for the Live page's event panel (ADR-008, FR-UI0x)."""
@@ -325,3 +411,12 @@ def history(intersection_id: str, limit: int = 50) -> dict:
         ).fetchall()
     return {"intersection_id": intersection_id,
             "rows": [dict(row) for row in rows]}
+
+
+# The read-only dashboard (ADR-008 Live/Results, ADR-014 two panels), served
+# from the same origin when it has been built: `npm run build` in dashboard/.
+_DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard" / "dist"
+if _DASHBOARD.is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/dashboard", StaticFiles(directory=_DASHBOARD, html=True), name="dashboard")
