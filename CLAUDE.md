@@ -36,7 +36,7 @@ ADR-006 and ADR-008 were **accepted 2026-08-13 by the project owner**, and both 
 
 ## Decisions that override the original PRD text
 
-Twenty-three ADRs in [docs/00-planning/decisions/](docs/00-planning/decisions/) changed how the project executes. Read them before acting on PRD §8, §12, §15, or §20. ADR-001 to ADR-008 are the ones that rewrite the architecture; ADR-009 to ADR-023 mostly settle how something is measured, and several of them are the reason a number in the PRD is no longer the number to quote:
+Twenty-seven ADRs (ADR-001 to ADR-027) in [docs/00-planning/decisions/](docs/00-planning/decisions/) changed how the project executes. Read them before acting on PRD §8, §12, §15, or §20. ADR-001 to ADR-008 are the ones that rewrite the architecture; ADR-009 to ADR-023 mostly settle how something is measured, and several of them are the reason a number in the PRD is no longer the number to quote. The four newest set data scope (ADR-024 synthetic data, ADR-025 Indian-only headline folds) and deployment (ADR-026 MFSTNet on the edge, ADR-027 the two forecasting roles):
 
 - **ADR-001** — dataset is two-track. YOLOv8 bootstraps on a public Indian dataset from Week 2; IndiaTrafficNet runs in parallel and swaps in at Week 8. Between Weeks 2–8 two sets of detector weights exist, so every experiment must record which it used.
 - **ADR-002** — MFSTNet's training corpus is built by auto-labelling real 5-minute video clips with the fine-tuned YOLOv8 (counts → PRD §14.1 thresholds → congestion label at t+60s). The PRD originally had no corpus specification, and §20 L1's claim that MFSTNet trains on SUMO sequences was wrong. **Splits are cut by source clip, never by sequence** — overlapping windows would leak.
@@ -81,7 +81,7 @@ Also fixed in the corpus spec: PRD §8.1 cannot produce four different lane pred
 1. **IndiaTrafficNet** — dataset, now Part A (curated) + Part B (1,500–3,000 campus frames) per ADR-006, with 8 India-specific classes incl. auto-rickshaw, e-rickshaw, cattle → fine-tunes YOLOv8s for edge detection. The 12,000-self-collected-frames figure is the pre-ADR-006 target and is no longer the plan.
 2. **MFSTNet** — the model. ResNet-50 + DINOv2 ViT-S/14 (both frozen, ADR-007) → gated bidirectional cross-attention → BiLSTM → temporal self-attention → attention pooling → per-lane ROI pooling → per-lane congestion head (LOW/MEDIUM/HIGH, 60s ahead).
 3. **PPO agent** — Stable-Baselines3 PPO on a SUMO 4-way intersection via TraCI. Consumes MFSTNet predictions as auxiliary state.
-4. **Prototype** — edge node on a team laptop, not a Jetson (ADR-003; the MQTT contract and control logic are unchanged, but every latency figure must state its measurement host) ⇄ MQTT ⇄ FastAPI server (PPO + ONNX MFSTNet) ⇄ React dashboard.
+4. **Prototype** — edge node on a team laptop, not a Jetson (ADR-003; the MQTT contract and control logic are unchanged, but every latency figure must state its measurement host) ⇄ MQTT ⇄ FastAPI server (the policy, its safety guard, and storage of the forecasts it receives) ⇄ read-only React dashboard. **Forecasting runs on the edge** (ADR-026), because MFSTNet's input is frames and NFR-13 keeps frames there. Per **ADR-027**, the prototype publishes two separate forecasts: the **persistence congestion class** and the **ridge next-minute count**. MFSTNet's verified edge path is retained but does not serve them. Neither forecast is connected to the policy or to signal timing (P97a).
 
 ### Data flow that spans components
 
@@ -146,7 +146,7 @@ toward nothing.
 file, and neither is defined where it is used.
 
 **`P<n>` is a changelog entry in [PRD-CHANGELOG.md](docs/00-planning/PRD-CHANGELOG.md)**,
-currently running to P90. It is the defect and amendment journal: what was
+currently running to P107. It is the defect and amendment journal: what was
 believed, what was measured, what changed, and what was rejected along with the
 reason. Entries record rejected options on purpose — P42 rejects disabling cuDNN
 for the RNN with the measurement that made it unacceptable (66.1 against 5.9
@@ -360,7 +360,7 @@ any version (P32). The install command that does work is in
 [Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--setup) at
 lines 108 and 457. README.md's badges are stale in the same way: they say
 `PRE-IMPLEMENTATION`, `WEEK 2 of 20`, 1,339 lines and eleven ADRs, against ~32,500
-lines and twenty-three. Treat `requirements.txt` and the manual as authoritative
+lines and twenty-seven. Treat `requirements.txt` and the manual as authoritative
 and README.md as out of date until it is refreshed.
 
 **A broken torch raises `OSError`, not `ImportError`, and three scripts had to
