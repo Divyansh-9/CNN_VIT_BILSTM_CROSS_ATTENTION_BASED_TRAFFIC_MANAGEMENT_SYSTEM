@@ -17,8 +17,8 @@ model weights.
 Built and working: the corpus pipeline, the feature cache, MFSTNet with the
 full A-H ablation, leave-one-camera-out evaluation, the classical baselines,
 the SUMO environment and PPO arms, the benchmark harness, ONNX export, the
-FastAPI control server, and the edge node with both FR-A06 fallbacks. Not
-built: the React dashboard.
+FastAPI control server, the edge node with both FR-A06 fallbacks, and a
+read-only React dashboard (`1102932`; see "Dashboard status" below).
 
 The PRD ([docs/00-planning/PRD.md](docs/00-planning/PRD.md), now v1.1) remains the single source of truth for architecture, requirements (IDs `FR-*`, `NFR-*`), milestones, and acceptance criteria. Before implementing anything, find the governing requirement ID and honor its exact numbers rather than inventing values. When implementation reveals the PRD is wrong, amend the PRD and log it in [PRD-CHANGELOG](docs/00-planning/PRD-CHANGELOG.md) — never work around a PRD statement you believe is incorrect.
 
@@ -85,7 +85,7 @@ Also fixed in the corpus spec: PRD §8.1 cannot produce four different lane pred
 
 ### Data flow that spans components
 
-The coupling that is easy to miss: **MFSTNet's output is not just a prediction, it is part of the PPO state vector.** The state is **16-dim** and includes 4 per-lane MFSTNet class predictions at indices 11–14. PRD §13.1 originally specified 17 dimensions including `mfst_gate_mean`; A16 removed that feature and the vector is 16 today — see the contract note under Working conventions, and ADR-020 for the pending 17th channel, which is a *different* 17th from the original one. Changing MFSTNet's output shape or normalization invalidates trained PPO checkpoints. The same predictions also flow to the dashboard over MQTT topic `stms/{intersection_id}/congestion/prediction`.
+The coupling that is easy to miss: **MFSTNet's output is not just a prediction, it is part of the PPO state vector.** The state is **16-dim** and includes 4 per-lane MFSTNet class predictions at indices 11–14. PRD §13.1 originally specified 17 dimensions including `mfst_gate_mean`; A16 removed that feature and the vector is 16 today — see the contract note under Working conventions, and ADR-020 for the pending 17th channel, which is a *different* 17th from the original one. Changing MFSTNet's output shape or normalization invalidates trained PPO checkpoints. The same predictions also flow to the server over MQTT topic `stms/{intersection_id}/congestion/prediction`, and the read-only dashboard reads them from the server's API, never from MQTT directly.
 
 Two fallback paths are required behavior, not nice-to-haves (PRD §7.2, FR-A06): if MFSTNet inference fails, PPO must run on raw counts alone; if MQTT drops >10s, the Jetson switches to a locally-embedded Webster controller.
 
@@ -515,11 +515,33 @@ python scripts/verify_counting.py                               # counting != de
 python scripts/evaluate_detector_arms.py --weights <pt>         # A31 viewpoint arms
 ```
 
-Not yet built: the React dashboard. ONNX export, the FastAPI control server and
-the edge node all exist — `server/app.py`, `server/safety.py`, `edge/node.py`,
-`contracts/mqtt.py`. Build the dashboard to ADR-008's descoped shape and to
-ADR-014's two-panel rule — ADR-008 was accepted 2026-08-13, while remembering
-the acceptance came from the project owner and not from the guide.
+ONNX export, the FastAPI control server and the edge node all exist —
+`server/app.py`, `server/safety.py`, `edge/node.py`, `contracts/mqtt.py`.
+
+### Dashboard status
+
+**Built:** a read-only React dashboard (`dashboard/`), committed as `1102932`,
+to ADR-008's descoped shape and ADR-014's two-panel rule.
+
+- **Live forecasts:** the ridge next-minute vehicle count and the persistence
+  congestion class, displayed in separate, validated panels.
+- **Historical results:** evaluation evidence loaded from committed result
+  files through `GET /evidence`, explicitly not a live performance guarantee.
+- **Safety boundary:** the dashboard is GET-only, with no signal-control
+  integration. The P97a missing-approach representation issue remains
+  unresolved by this dashboard.
+- **Refresh:** HTTP polling every 2 seconds.
+- **Validation:** browser-checked at desktop and phone widths, including a
+  real-data end-to-end test, stale responses, missing approaches and API error
+  states. `cd dashboard && npm test` runs its tests.
+
+**Not implemented:** WebSocket updates, charts, the ADR-014 agreement ribbon,
+the detection overlay, authentication, and dashboard tests in CI.
+
+**Forecasting roles:** ADR-027 remains authoritative. MFSTNet's edge path
+remains intact, and vision claim C2 remains open. The end-to-end test shows
+that forecasts are transported and displayed correctly for the cases tested.
+It does **not** show that they are safe to use for adaptive signal control.
 
 ## Working conventions
 
