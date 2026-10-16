@@ -30,10 +30,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections import deque
 from pathlib import Path
 
 from contracts.mqtt import CongestionClass, CongestionPrediction
+from edge.samples import SampleBuffer
 
 __all__ = ["PersistenceForecaster", "calibrate", "classify", "load_spec"]
 
@@ -84,34 +84,31 @@ class PersistenceForecaster:
         self.camera, self.lane_to_approach = camera, dict(lane_to_approach)
         self.precision = {CongestionClass[k]: float(v)
                           for k, v in spec["confidence_is_measured_precision"].items()}
-        self.rings = {lane: deque(maxlen=WINDOW) for lane in lane_to_approach}
+        # ADR-027: the same checks as the count forecaster. A gap resets the
+        # window, and a missing lane is refused rather than read as zero.
+        self.buffer = SampleBuffer(lane_to_approach, WINDOW)
 
     @property
     def ready(self) -> bool:
-        return all(len(r) == WINDOW for r in self.rings.values())
+        return self.buffer.ready
 
-    def push(self, counts: dict[str, int]) -> None:
-        if set(counts) != set(self.rings):
-            raise ValueError(f"counts for {sorted(counts)}, lanes are {sorted(self.rings)}")
-        for lane, count in counts.items():
-            if count < 0:
-                raise ValueError(f"{lane}: negative count {count}")
-            self.rings[lane].append(int(count))
+    def push(self, counts: dict[str, int], ts: float | None = None) -> None:
+        self.buffer.push(counts, ts)
 
     def predict(self) -> CongestionPrediction:
         if not self.ready:
-            raise ValueError(f"{min(len(r) for r in self.rings.values())} of {WINDOW} "
-                             f"samples buffered; a shorter mean is not the scored method")
+            raise ValueError(f"fewer than {WINDOW} contiguous samples buffered; a shorter "
+                             f"mean is not the scored method")
         predictions, confidences = {}, {}
-        for lane, ring in self.rings.items():
-            cls = classify(sum(ring) / WINDOW, self.low, self.med)
+        for lane in self.lane_to_approach:
+            cls = classify(sum(self.buffer.series(lane)) / WINDOW, self.low, self.med)
             approach = self.lane_to_approach[lane]
             predictions[approach] = cls
             confidences[approach] = self.precision[cls]
         return CongestionPrediction(predictions=predictions, confidences=confidences,
                                     gate_value=None, model=self.model_id)
 
-    def step(self, counts: dict[str, int]) -> CongestionPrediction | None:
-        """Add one sample of per-lane counts; forecast once 30 are buffered."""
-        self.push(counts)
+    def step(self, counts: dict[str, int], ts: float | None = None) -> CongestionPrediction | None:
+        """Add one sample of per-lane counts; forecast once 30 contiguous are buffered."""
+        self.push(counts, ts)
         return self.predict() if self.ready else None

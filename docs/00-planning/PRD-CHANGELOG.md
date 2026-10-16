@@ -7459,3 +7459,67 @@ The near-empty lanes (Newport lane_2, SE38th lane_1) are kept and marked.
 
 **No promotion follows automatically.** Persistence v1 remains the prototype's
 forecaster until a separate decision.
+
+## P106 — two forecasting roles implemented: persistence for the class, ridge for the count (2026-10-16)
+
+**Decision by the project owner after P105, recorded as
+[ADR-027](decisions/ADR-027-forecasting-roles.md)**, which amends ADR-026's
+deployed forecaster and PRD §7.
+
+- **Class:** persistence v1 stays the congestion-class forecaster.
+- **Count:** the frozen ridge v1 becomes the **next-minute vehicle count**
+  forecaster.
+- **Not connected:** neither feeds signal timing.
+- **Deferred:** the larger Option A study.
+
+**Implemented:**
+
+- **Contract** (`contracts/mqtt.py`, additive, schema still v2):
+  - a `CountForecast` payload on its own topic `stms/{id}/count/forecast`, at
+    QoS 0 like predictions;
+  - model ids match `ridge@<12 hex>` only, and are disjoint from the class
+    pattern;
+  - counts must be finite and in [0, 200] per approach, and the horizon is
+    60 s;
+  - an approach the edge cannot forecast is absent, never 0.
+- **`edge/samples.py`**, a buffer shared by both edge forecasters:
+  - an exact lane set is required, because a missing lane is not a zero;
+  - counts must be whole and plausible;
+  - out-of-order samples are refused;
+  - **a gap over 3 s resets the window**, so no forecast joins two stretches of
+    traffic.
+- **`edge/count_forecast.py`:**
+  - serves only the spec with the frozen SHA-256 (`73532968…`), as model id
+    `ridge@73532968dcf2`;
+  - its features are identical to P105's, by test;
+  - a non-finite or out-of-range forecast is refused, not published.
+- **`edge/persistence.py`:** now uses the shared buffer, with the same
+  checks. Its existing API is unchanged and its timestamp is optional.
+- **`edge/node.py`:** `publish_count_forecast` publishes on the count topic,
+  and never sets `mfstnet_active`.
+- **Server:**
+  - a separate `count_forecasts` table;
+  - `POST /count_forecast/{id}` and `GET /count_forecast/{id}/latest`;
+  - **both** latest-forecast responses now carry `role`, plus `age_s` and
+    `stale` from the server's own clock (stale = older than the 60 s horizon).
+    The count response also lists `missing_approaches` and states that it is a
+    point estimate, not a class, and not used for signal timing;
+  - MQTT ingest subscribes to both topics and routes each one to its own
+    store.
+- **Tests:** `tests/test_count_forecast.py` (22) covers:
+  - the forecaster reproduces P105's method, and a tampered spec is refused;
+  - the gap reset, the out-of-order refusal and the four kinds of bad sample;
+  - the contract's refusals, including a class named `ridge@`;
+  - topic and QoS;
+  - the server keeping count and class apart, with real zeros kept and absent
+    approaches listed;
+  - the stale flag and ingest routing.
+
+  The full suite passes.
+
+**Not done:**
+
+- **No dashboard is built** (ADR-008). The two `/latest` endpoints are what one
+  would read, under ADR-014's two-panel rule.
+- **The PPO state's 0.0-for-missing** (P97a) is unchanged, because the
+  controller is not connected.

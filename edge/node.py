@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from contracts.mqtt import (CongestionPrediction, Heartbeat, Mode, Topic,
+from contracts.mqtt import (CongestionPrediction, CountForecast, Heartbeat, Mode, Topic,
                             VehicleCount)
 
 __all__ = ["Transport", "RecordingTransport", "EdgeNode", "LocalWebster"]
@@ -144,6 +144,19 @@ class EdgeNode:
         # is published like any other, but it is not the model running.
         if not prediction.model.startswith("persistence@"):
             self.forecasting = True
+        return True
+
+    def publish_count_forecast(self, forecast: CountForecast,
+                               now: float | None = None) -> bool:
+        """The next-minute count (ADR-027), on its own topic. It never sets
+        `forecasting`: a count forecast is not MFSTNet, nor a class forecast."""
+        now = time.time() if now is None else now
+        topic = Topic.COUNT_FORECAST.render(self.intersection_id)
+        try:
+            self.transport.publish(topic, forecast.encode(), Topic.COUNT_FORECAST.qos)
+        except (ConnectionError, OSError):
+            return False
+        self.last_ack = now
         return True
 
     def publish_heartbeat(self, now: float | None = None) -> bool:

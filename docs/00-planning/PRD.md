@@ -377,6 +377,16 @@ MFSTNet closes both gaps.
 
 ## 7. System Architecture
 
+> **Amended by [ADR-027](decisions/ADR-027-forecasting-roles.md) (2026-10-16,
+> project owner):** the prototype publishes two separate forecasts. The
+> **congestion class** comes from persistence v1, the best transferable class
+> forecaster measured (P103/P104). The **next-minute vehicle count** comes
+> from the level-free ridge v1, which beat persistence on count error on
+> untouched cameras (P105). They travel on separate topics and are never
+> merged. MFSTNet's edge path ([ADR-026](decisions/ADR-026-mfstnet-runs-on-the-edge.md))
+> is retained, but it does not serve the prototype's forecasts. Neither
+> forecast feeds signal timing (P97a).
+
 ### 7.1 Two-Phase Design
 
 ```

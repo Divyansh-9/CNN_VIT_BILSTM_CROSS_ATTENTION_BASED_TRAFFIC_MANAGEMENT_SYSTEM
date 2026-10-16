@@ -2,9 +2,10 @@
 
     python -m server.mqtt_ingest --host 127.0.0.1 --port 1883
 
-Subscribes to `stms/+/congestion/prediction` and hands every message to
-`server.app.store_prediction` — the same function the HTTP endpoint uses — so a
-payload refused over HTTP is refused over MQTT too. The intersection id is read
+Subscribes to `stms/+/congestion/prediction` and, since ADR-027,
+`stms/+/count/forecast`, and hands every message to the store function its
+HTTP endpoint uses (`store_prediction`, `store_count_forecast`), so a payload
+refused over HTTP is refused over MQTT too. The intersection id is read
 from the topic, which the contract renders, never from the payload.
 
 A refused payload is counted and logged by topic and reason, and its content is
@@ -23,12 +24,24 @@ from contracts.mqtt import ContractError, Topic
 __all__ = ["PredictionIngest"]
 
 
+INGESTED = (Topic.PREDICTION, Topic.COUNT_FORECAST)
+
+
+def route(topic: str) -> tuple[str, Topic]:
+    """`stms/{id}/…` -> (`id`, the contract topic it renders), or refuse."""
+    parts = topic.split("/")
+    for candidate in INGESTED:
+        if len(parts) == 4 and candidate.render(parts[1]) == topic:
+            return parts[1], candidate
+    raise ContractError(f"not an ingested topic: {topic!r}")
+
+
 def intersection_of(topic: str) -> str:
     """`stms/{id}/congestion/prediction` -> `id`, checked against the contract."""
-    parts = topic.split("/")
-    if len(parts) != 4 or Topic.PREDICTION.render(parts[1]) != topic:
+    identifier, which = route(topic)
+    if which is not Topic.PREDICTION:
         raise ContractError(f"not a prediction topic: {topic!r}")
-    return parts[1]
+    return identifier
 
 
 class PredictionIngest:
@@ -52,14 +65,15 @@ class PredictionIngest:
 
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
         if not reason_code.is_failure:
-            pattern = Topic.PREDICTION.render("+")
-            client.subscribe(pattern, qos=Topic.PREDICTION.qos)
+            client.subscribe([(t.render("+"), t.qos) for t in INGESTED])
 
     def _on_message(self, client, userdata, message):
-        from server.app import store_prediction
+        from server.app import store_count_forecast, store_prediction
 
         try:
-            store_prediction(intersection_of(message.topic), message.payload)
+            identifier, which = route(message.topic)
+            store = store_prediction if which is Topic.PREDICTION else store_count_forecast
+            store(identifier, message.payload)
             self.stored += 1
             self.arrivals.append(time.perf_counter())
         except ContractError as error:

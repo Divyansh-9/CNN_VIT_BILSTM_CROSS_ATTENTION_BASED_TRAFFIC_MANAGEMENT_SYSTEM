@@ -24,6 +24,7 @@ Closes the six defects from TRIAGE-001:
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from dataclasses import asdict, dataclass, field
@@ -58,6 +59,13 @@ SCHEMA_VERSION = 2
 #: A pattern rather than a string, so the field cannot carry anything else at
 #: any length (NFR-13).
 MODEL_ID = re.compile(r"^(?:[A-H]|persistence)@[0-9a-f]{12}$")
+#: `ridge@first-12-hex-of-the-frozen-spec's-sha256` — what
+#: `edge.count_forecast` produces (ADR-027). A count forecaster gets its own
+#: pattern, so a count model can never be presented as a class forecaster.
+COUNT_MODEL_ID = re.compile(r"^ridge@[0-9a-f]{12}$")
+#: The largest 60 s mean count a lane region can plausibly hold. Measured lanes
+#: average 0.2–11 vehicles; a value beyond this is a fault, not traffic.
+MAX_LANE_COUNT = 200.0
 APPROACHES = ("N", "S", "E", "W")
 #: PRD §17 names "ambulance" and nothing else. Extending the set is a contract
 #: diff, which is the point of having one.
@@ -97,6 +105,9 @@ class Topic(Enum):
     EMERGENCY = ("stms/{id}/{lane}/emergency/detect", QoS.EXACTLY_ONCE)
     SIGNAL_COMMAND = ("stms/{id}/signal/command", QoS.AT_LEAST_ONCE)
     PREDICTION = ("stms/{id}/congestion/prediction", QoS.AT_MOST_ONCE)
+    # ADR-027: the next-minute count, on its own topic so it can never be
+    # merged with or mistaken for the congestion class. QoS as for predictions.
+    COUNT_FORECAST = ("stms/{id}/count/forecast", QoS.AT_MOST_ONCE)
     HEARTBEAT = ("stms/{id}/system/heartbeat", QoS.AT_MOST_ONCE)
 
     def __init__(self, template: str, qos: QoS) -> None:
@@ -332,6 +343,40 @@ class CongestionPrediction(_Payload):
 
 
 @dataclass(frozen=True)
+class CountForecast(_Payload):
+    """ADR-027: each approach's forecast mean vehicle count over the next 60 s.
+
+    A point estimate from the frozen ridge model, not a congestion class and
+    not a guarantee. An approach the edge cannot forecast is **absent**, never
+    zero: zero vehicles is a forecast, a missing approach is not.
+    """
+
+    counts: Mapping[str, float]
+    model: str
+    horizon_sec: int = 60
+    ts: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if not self.counts:
+            raise ContractError("a count forecast must cover at least one approach")
+        if set(self.counts) - set(APPROACHES):
+            raise ContractError(
+                f"count keys must be approaches {list(APPROACHES)}; got "
+                f"{sorted(self.counts)}. Map keys are text too (NFR-13).")
+        for lane, value in self.counts.items():
+            if not isinstance(value, (int, float)) or not math.isfinite(value)                     or not 0.0 <= value <= MAX_LANE_COUNT:
+                raise ContractError(
+                    f"lane {lane}: forecast count must be finite and in "
+                    f"[0, {MAX_LANE_COUNT:.0f}], got {value!r}")
+        if not isinstance(self.model, str) or not COUNT_MODEL_ID.match(self.model):
+            raise ContractError(
+                f"model must be ridge@12-hex-digest, got {self.model!r}. It names "
+                f"the frozen count-forecaster spec and nothing else.")
+        if self.horizon_sec != 60:
+            raise ContractError(f"horizon_sec must be 60 (P105's target), got {self.horizon_sec}")
+
+
+@dataclass(frozen=True)
 class Heartbeat(_Payload):
     edge_status: str
     mode: Mode
@@ -354,6 +399,7 @@ _PAYLOAD_FOR = {
     Topic.EMERGENCY: EmergencyDetect,
     Topic.SIGNAL_COMMAND: SignalCommand,
     Topic.PREDICTION: CongestionPrediction,
+    Topic.COUNT_FORECAST: CountForecast,
     Topic.HEARTBEAT: Heartbeat,
 }
 

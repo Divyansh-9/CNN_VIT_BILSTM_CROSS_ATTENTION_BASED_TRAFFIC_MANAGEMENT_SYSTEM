@@ -109,6 +109,15 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
             model TEXT NOT NULL,
             payload TEXT NOT NULL
         )""")
+    # ADR-027: the next-minute count is a different output from the class, so
+    # it is a different table. It cannot be read back as a class by accident.
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS count_forecasts (
+            at REAL NOT NULL,
+            intersection_id TEXT NOT NULL,
+            model TEXT NOT NULL,
+            payload TEXT NOT NULL
+        )""")
     connection.commit()
     return connection
 
@@ -193,6 +202,24 @@ def missing_approaches(payload) -> list[str]:
     return sorted(set(APPROACHES) - set(payload.predictions))
 
 
+def role_of(model: str) -> str:
+    """ADR-027: which output a model id belongs to, so no response leaves a
+    consumer to guess whether a number is a class or a count."""
+    if model.startswith("ridge@"):
+        return "next_minute_count (ridge)"
+    if model.startswith("persistence@"):
+        return "congestion_class (persistence)"
+    return "congestion_class (MFSTNet)"
+
+
+def freshness(received_at: float, horizon_sec: int, now: float | None = None) -> dict:
+    """Age by the server's own clock, since edge clocks drift. A forecast older
+    than its own horizon is stale: it is about a minute that has already
+    passed, and it is labelled so rather than served as current."""
+    age = (time.time() if now is None else now) - received_at
+    return {"age_s": round(age, 1), "stale": age > horizon_sec}
+
+
 def store_prediction(intersection_id: str, raw: str | bytes):
     """Validate one encoded `CongestionPrediction` and store it (ADR-026).
 
@@ -234,12 +261,57 @@ def latest_prediction(intersection_id: str) -> dict:
     if row is None:
         raise HTTPException(404, f"no prediction for {intersection_id} yet")
     payload = decode(Topic.PREDICTION, row[2])
-    return {"at": row[0], "model": row[1],
+    return {"at": row[0], "model": row[1], "role": role_of(row[1]),
+            **freshness(row[0], payload.horizon_sec),
             "predictions": {k: v.value for k, v in payload.predictions.items()},
             "confidences": dict(payload.confidences),
             "gate_value": payload.gate_value,
             "state_11_14": payload.to_state_values(),
             "missing_approaches": missing_approaches(payload)}
+
+
+def store_count_forecast(intersection_id: str, raw: str | bytes):
+    """Validate one encoded `CountForecast` and store it (ADR-027). The single
+    entry point for count forecasts, over HTTP and over MQTT alike."""
+    payload = decode(Topic.COUNT_FORECAST, raw)
+    with closing(connect()) as connection:
+        connection.execute("INSERT INTO count_forecasts VALUES (?,?,?,?)",
+                           (time.time(), intersection_id, payload.model,
+                            payload.encode()))
+        connection.commit()
+    return payload
+
+
+COUNT_NOTE = ("point estimate of each approach's mean vehicle count over the next "
+              "60 s (P105); not a congestion class, and not used for signal timing")
+
+
+@app.post("/count_forecast/{intersection_id}")
+def count_forecast(intersection_id: str, raw: str = Body(..., media_type="text/plain")) -> dict:
+    try:
+        payload = store_count_forecast(intersection_id, raw)
+    except ContractError as error:
+        raise HTTPException(422, str(error)) from error
+    return {"intersection_id": intersection_id, "model": payload.model,
+            "role": role_of(payload.model), "counts": dict(payload.counts),
+            "missing_approaches": sorted(set(APPROACHES) - set(payload.counts))}
+
+
+@app.get("/count_forecast/{intersection_id}/latest")
+def latest_count_forecast(intersection_id: str) -> dict:
+    with closing(connect()) as connection:
+        row = connection.execute(
+            "SELECT at, model, payload FROM count_forecasts WHERE intersection_id = ? "
+            "ORDER BY at DESC LIMIT 1", (intersection_id,)).fetchone()
+    if row is None:
+        raise HTTPException(404, f"no count forecast for {intersection_id} yet")
+    payload = decode(Topic.COUNT_FORECAST, row[2])
+    return {"at": row[0], "model": row[1], "role": role_of(row[1]),
+            **freshness(row[0], payload.horizon_sec),
+            "horizon_sec": payload.horizon_sec, "counts": dict(payload.counts),
+            # Absent, never zero: zero vehicles is a forecast, absence is not.
+            "missing_approaches": sorted(set(APPROACHES) - set(payload.counts)),
+            "note": COUNT_NOTE}
 
 
 @app.get("/history/{intersection_id}")
