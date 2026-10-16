@@ -269,3 +269,18 @@ labels are usable**. The exception is 08:08 (glare): 4 of 9 LOW calls were
 right. YOLOv8m-1280 overcounts north by 47% here, and is worse by +0.356
 [+0.161, +0.550]. It **fails non-inferiority and is not adopted**. ITD-xl
 undercounts busy traffic, M1280 overcounts quiet traffic.
+
+## P99 — block-split retrain on 13 hours (Phase 2 NOT passed)
+
+| | |
+|---|---|
+| selected (validation only) | G, unweighted loss, seed 7 |
+| macro-F1, model vs persistence | 0.5875 vs 0.4852, **+0.102 [+0.041, +0.177]**, 26 blocks |
+| LOW / MEDIUM / HIGH recall | 0.349 / 0.800 / 0.601 (persistence 0.361 / 0.729 / 0.369) |
+| condition 1, LOW recall ≥ 0.50 | **fail** (0.349) |
+| conditions 2, 3, 4 | pass |
+| model − hour prior | −0.015 [−0.077, +0.119]; the hour prior alone scores 0.6026 |
+| frozen P97 control, same windows | macro-F1 0.414, LOW recall 0.000 |
+
+Coverage fixed the missing class and the model beats persistence, but not an
+hour-of-day prior, and LOW recall is below the bar.

@@ -108,7 +108,14 @@ def main(argv: list[str] | None = None) -> int:
     if lanes != list(meta["lane_names"]):
         raise SystemExit(f"lane order differs: corpus {lanes}, checkpoint "
                          f"{meta['lane_names']}")
-    test = [r for r in rows if r["split"] == "test"]
+    # The windows the run's own committed predictions describe. A --no-test run
+    # (P99) scored validation and committed validation predictions; its corpus
+    # holds no test window at all.
+    scored = meta.get("evaluated_on", "test")
+    test = [r for r in rows if r["split"] == scored]
+    if not test:
+        raise SystemExit(f"{meta['corpus']} holds no '{scored}' window to prove the "
+                         f"export against")
     spec = yaml.safe_load(Path("mfstnet/configs/spec.yaml")
                           .read_text(encoding="utf-8"))
     grid = spec.get("grid", 7)
@@ -224,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
               and agree_trained >= MIN_AGREEMENT and agree_fresh < agree_trained)
 
     n = len(test) * len(lanes)
-    print(f"\n  {len(test)} test windows x {len(lanes)} lanes = {n} decisions, "
+    print(f"\n  {len(test)} {scored} windows x {len(lanes)} lanes = {n} decisions, "
           f"camera {meta['test_camera'][:40]}")
     print(f"    ONNX vs PyTorch     max |logit diff| {drift:.2e}   "
           f"argmax agreement {same_argmax:.4f}")

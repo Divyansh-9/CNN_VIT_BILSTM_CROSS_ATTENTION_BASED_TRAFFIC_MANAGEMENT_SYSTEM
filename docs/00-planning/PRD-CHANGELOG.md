@@ -6959,3 +6959,81 @@ LOW is not the problem. Fine-tuning, if it comes, targets busy-queue
 occlusion. It stays deferred.
 
 **For P99:** the existing ITD-xl counts are kept. P99 needs no detector rerun.
+
+## P99 — coverage fixes the missing class and beats persistence, but Phase 2 is not passed (2026-10-16)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P99.md`
+and its Amendment 1 (`4046cbc`, `8af7eb2`). All 20 runs trained on a corpus
+holding **no test window** (`--no-test`). The selection was made on validation
+only and committed (`21814b9`) before the test was read once. The two runs
+finished before the overnight pause were kept, and the interrupted third was
+retrained from the start under the same configuration.
+
+**Selection:** G, **unweighted** loss, seed 7 (validation macro-F1 0.6196).
+Pair means: G/none 0.6153, G/inverse 0.6074, H/inverse 0.6013, H/none 0.5721.
+The G margin (0.008) is smaller than the seed spread within G/inverse.
+
+**Primary, 26 test blocks, 390 windows:** macro-F1 **0.5875** against the
+previous-window mean's 0.4852. The difference is **+0.102 [+0.041, +0.177]**,
+so it **beats persistence**.
+
+| recall | LOW (83) | MEDIUM (824) | HIGH (263) |
+|---|---|---|---|
+| model | **0.349** | 0.800 | 0.601 |
+| previous-window mean | 0.361 | 0.729 | 0.369 |
+
+**The Phase 2 conditions are conjunctive, and Phase 2 is NOT passed:**
+
+| condition | result | |
+|---|---|---|
+| 1. LOW recall ≥ 0.50 (support ≥ 30) | 0.349, 29 of 83 | **FAIL** |
+| 2. primary interval above zero | [+0.041, +0.177] | pass |
+| 3. positive without any one lane or period | +0.080 to +0.111 across all 7 ablations | pass |
+| 4. ONNX parity and test suite | argmax 1.0000, logit diff 2.6e-6, trained 1.0000 vs fresh 0.2256; pytest exit 0 | pass |
+
+**Secondaries (Holm, 10 tests):**
+
+- **Significant:**
+  - east +0.096;
+  - accuracy +0.101;
+  - QWK +0.177;
+  - MEDIUM recall +0.070;
+  - HIGH recall **+0.232 [+0.108, +0.345]**.
+- **Not significant:**
+  - west +0.075;
+  - north +0.094 (p 0.034, against a threshold of 0.0125);
+  - LOW recall −0.012;
+  - the objective, inverse − none on G: −0.034 [−0.058, −0.007], with p 0.015
+    against a threshold of 0.010;
+  - **the shortcut diagnostic.**
+
+**The shortcut diagnostic is the finding that matters most.** The hour prior
+knows only the time of day. It scores macro-F1 **0.6026**, +0.118 over
+persistence, and the model − hour prior difference is −0.015 [−0.077, +0.119].
+On this within-day split, the model's advantage over persistence is **not shown
+to come from traffic beyond time of day**. The hour prior had every hour's
+training blocks to draw on, which is exactly the limitation the protocol
+stated in advance.
+
+**Coverage did fix P98's failure.** The frozen P97 checkpoint, on the 330 test
+windows from the P98 hours, still predicts **no LOW** (recall 0.000), with
+macro-F1 0.414, −0.081 [−0.169, +0.026] against persistence. P99's selected
+model scores 0.586 on the same windows and predicts LOW 69 times, 29 of them
+correct.
+
+**Reported, not substituted:** H with inverse weighting reaches test LOW recall
+0.627 and macro-F1 0.596. It was not selected on validation, and swapping it in
+after the test would void the protocol.
+
+**What this establishes:**
+
+- Training coverage was the blocker P98 exposed, and it is fixed.
+- The model beats persistence on blocks of the hours it trained on.
+- LOW is still under-recalled: 53 of 83 LOW were predicted MEDIUM, at a
+  boundary of a 60 s mean ≤ 2 against ≥ 3 with a detector error of about 0.9
+  per frame.
+- An hour-of-day predictor does as well as the model.
+
+The next blocker is whether the model uses the scene at all beyond time of day.
+That needs a held-out-hour or held-out-day test, where an hour prior cannot be
+learned. Phase 2 stays paused.
