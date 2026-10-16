@@ -165,3 +165,30 @@ fallback design.
 
 **It cannot show** that forecasts help, which is ADR-021's question, nor
 anything about real cameras or real signal timing.
+
+## Amendment 1 — what "Webster" means when the counts are corrupt (before any run)
+
+Found while writing the Part 1 harness, **before any part has run**. The
+protocol says Webster decides when counts or queues are invalid. But the
+benchmark's Webster (`simulation/webster.py`, `s = 750`) **re-times from the
+counts**, and those counts are exactly the corrupt input. Neither available
+choice is acceptable:
+
+- feeding Webster the corrupt values defeats the fallback;
+- feeding it SUMO's true counts would give the fallback information a real
+  system would not have.
+
+**Resolved, following the project's own FR-A06 precedent.** The edge node's
+degraded-mode controller, `LocalWebster` in `edge/node.py`, is **deliberately a
+fixed-time cycle**, "a known, safe, unsurprising cycle", because in degraded
+mode it cannot trust its counts. So **under F5 or F6 the deciding controller
+is that cycle:** alternate phases with a 30 s green, the same behaviour as
+`LocalWebster` and `simulation.controllers.Fixed(green_s=30)`. The runner's
+min-green, max-green and interphase clamps still apply.
+
+**Invariant I4 now reads:** every decision with an F5 or F6 fault was decided
+by the degraded-mode fixed cycle, and the action applied was that cycle's.
+
+**Holding the last valid counts was rejected,** because it would trust stale
+counts while claiming not to. **The adaptive Webster stays the benchmark
+baseline;** it is simply not the input-invalid fallback.

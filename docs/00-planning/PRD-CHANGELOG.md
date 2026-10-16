@@ -7743,3 +7743,47 @@ PUBLICATION-READINESS. It is the owner's decision.
 - **Verification:** the `fast` command passes in a clean environment with
   exactly its install list, and the dashboard commands pass from a clean
   `npm ci`. The `model` job can only be confirmed on the runner.
+
+## P112 — P97a step 5 pre-registered in two parts; the Part 1 harness frozen before it runs (2026-10-16)
+
+**Approved by the project owner as a two-part protocol**
+(`experiments/results/safety/PREREGISTRATION_P112.md`, `702566d`). **No part
+has run.**
+
+- **Part 1, fault-handling integrity,** runs after the retrain finishes.
+  - **Setup:** five seeds; a fixed, seeded schedule of missing (bursts), stale,
+    boundary (10.0 and 9.9 s), single and double approach dropout,
+    invalid-class, and corrupt count and queue faults.
+  - **Recovery is defined per message**, with no carry-forward of approaches.
+  - **Six strict invariants:** any single violation fails, nothing is
+    averaged.
+  - **The forecast stream is labelled "ground-truth-now (not a forecast)",**
+    because the invariants concern validity, not accuracy.
+- **Part 2, non-inferiority,** is frozen now and **PENDING** until P52, ADR-021
+  and a forecast-aware policy exist.
+  - **Design:** 30 paired benchmark seeds, conditions C0, C1 and C2.
+  - **Margins:** +5% `mean_wait_s` and +1 `starvation_event`.
+  - **Statistics:** a one-sided bootstrap, with Holm over six tests.
+  - **Labelling:** oracle inputs are labelled as such.
+
+**Amendment 1, before any run.** Under corrupt counts the protocol said
+"Webster", but the benchmark's Webster re-times from those very counts.
+Following FR-A06's own `LocalWebster`, the deciding controller is the
+**degraded-mode fixed 30 s cycle**. Holding the last valid counts was
+rejected, because it trusts stale counts.
+
+**Frozen before running:**
+
+- **`simulation/gated_controller.py`:** `GatedController` gives the gate's
+  verdict to exactly one of the fixed cycle, the no-forecast policy or the
+  forecast-aware policy. A `Probe` stands in for the forecast-aware policy
+  until P52.
+- **`scripts/p112_part1.py`:** it checks every invariant against **its own
+  record of what it injected**, never the gate's reasons, and refuses any
+  checkpoint but the full retrain.
+- **A harness check** (`--check`, one seed, 900 s, smoke checkpoint, scratch
+  output, never the result) exercised every fault type and all three deciders,
+  with 0 violations.
+- **`tests/test_p112_harness.py`:** proves the checker can fail. A gate that
+  ignores staleness, accepts partial coverage, ignores corrupt counts, or is
+  too strict at the 10 s bound is each caught by the matching invariant.
