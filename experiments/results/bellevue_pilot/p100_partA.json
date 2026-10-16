@@ -1,0 +1,30 @@
+{
+  "protocol": "PREREGISTRATION_P100.md, Part A",
+  "note": "re-analysis of P99's already-read test windows; changes no P99 result",
+  "checkpoint": "models\\mfstnet\\p99\\none\\mfstnet_G_seed7.pt",
+  "windows": 390,
+  "real_macro_f1": 0.5875,
+  "swapped_macro_f1": 0.54,
+  "real_minus_swapped": {
+    "point": 0.0474,
+    "ci95": [
+      -0.0067,
+      0.1371
+    ],
+    "p": 0.0964,
+    "blocks": 26,
+    "windows": 390
+  },
+  "recall": {
+    "real": {
+      "LOW": 0.3494,
+      "MEDIUM": 0.7998,
+      "HIGH": 0.6008
+    },
+    "swapped": {
+      "LOW": 0.2771,
+      "MEDIUM": 0.7803,
+      "HIGH": 0.5551
+    }
+  }
+}
