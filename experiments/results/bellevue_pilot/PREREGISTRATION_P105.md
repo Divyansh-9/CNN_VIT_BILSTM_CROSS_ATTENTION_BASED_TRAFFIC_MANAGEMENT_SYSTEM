@@ -249,3 +249,49 @@ Eastgate, Newport and SE38th keep their P103 lanes unchanged (Amendment 1).
 - **Dry run:** the evaluator ran end to end on **synthetic** counts in a
   scratch directory, never P105 data, to confirm every code path and the sign
   of each difference.
+
+## Amendment 4 — eligibility outcome, before any detector run
+
+All 16 files were downloaded, and checked at start, middle and end against the
+burnt-in clock, with resolution and fps recorded (`p105_eligibility.json`).
+
+**Excluded, whole, nothing substituted:** **116th NE12th, the whole camera.**
+
+- **None of its four files has a burnt-in clock,** so continuity cannot be
+  checked as the protocol requires.
+- **Its test files are also truncated at the source:** 6.81 min (28.94 fps),
+  1.81 min, and 1.35 min (20.73 fps).
+- **With every test file excluded, the camera has no test.** By the committed
+  rule ("a camera without at least one of each is excluded"), it leaves the
+  study.
+
+**Kept:** all 12 files of Eastgate, Newport and SE38th are continuous. Two
+SE38th test files are short at the source and continuous, so they are kept at
+their actual length:
+
+- **07:08:** 48.70 min, 07:08:31 → 07:32:51 → 07:57:10;
+- **16:08:** 9.40 min, 16:08:36 → 16:13:17 → 16:17:57.
+
+**Eligible after exclusions:** 3 cameras, 3 calibration hours and **9 test
+files**:
+
+| camera | test files |
+|---|---|
+| Eastgate | 3 × 60 min |
+| Newport | 3 × 60 min |
+| SE38th | 48.7 + 60 + 9.4 min |
+
+The exact count of 10-minute blocks is reported by the support check.
+
+**The camera has not moved,** which is checked rather than assumed, because the
+P103 lanes are reused frozen. `scripts/camera_offset.py` registered every P105
+file against its camera's reference: P103's calibration hour for the three
+P103 cameras, and Sun 19:08 for 116th. Every median shift that registered is at
+most 0.026 of frame width. Some registrations were weak or failed in glare and
+shadow: Eastgate 07:08 and 12:08, Newport 12:08 and 16:08, SE38th 12:08. For
+those, red/green overlays show road markings, kerbs and signal housings
+coinciding. No camera moved. The frozen lanes apply.
+
+**Code:** `p105_build.py` and `p105_eval.py` now read the exclusions from the
+committed `p105_eligibility.json`, so no exclusion is decided in code after
+counting.

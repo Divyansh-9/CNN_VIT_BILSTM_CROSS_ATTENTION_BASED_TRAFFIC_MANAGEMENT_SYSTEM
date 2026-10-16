@@ -26,6 +26,7 @@ use_utf8()
 FROZEN = Path("data/corpus_bellevue_3lane")
 WEIGHTS = Path("models/external/best_xl_ITD_v1.2.pt")
 FILES = Path("experiments/results/bellevue_pilot/p105_files.json")
+ELIGIBILITY = Path("experiments/results/bellevue_pilot/p105_eligibility.json")
 FOOTAGE = Path("data/_bellevue/p105")
 LANES = {"116th_NE12th": Path("data/_bellevue/p105/lanes_reviewed/116th_NE12th.json"),
          **{c: Path(f"data/_bellevue/p103/lanes_reviewed/{c}.json")
@@ -56,6 +57,9 @@ def main() -> int:
 
     frozen = json.loads((FROZEN / "manifest.json").read_text(encoding="utf-8"))
     files = json.loads(FILES.read_text(encoding="utf-8"))["files"]
+    # Amendment 4: files failing eligibility are excluded whole, never substituted.
+    excluded = json.loads(ELIGIBILITY.read_text(encoding="utf-8"))["excluded_files"]
+    files = [f for f in files if Path(f["name"]).stem not in excluded]
     PER_FILE_LANES.mkdir(parents=True, exist_ok=True)
     for f in files:
         spec = json.loads(LANES[f["camera"]].read_text(encoding="utf-8"))
@@ -81,6 +85,8 @@ def main() -> int:
 
     for camera, lane_file in sorted(LANES.items()):
         members = [f for f in files if f["camera"] == camera]
+        if not members:
+            continue
         counts, detections, samples, rejected = [], [], {}, []
         for f in members:
             part = PARTS / Path(f["name"]).stem

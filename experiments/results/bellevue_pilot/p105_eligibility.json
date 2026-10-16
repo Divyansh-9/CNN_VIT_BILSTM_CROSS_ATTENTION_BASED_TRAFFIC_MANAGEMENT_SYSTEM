@@ -1,0 +1,16 @@
+{
+  "protocol": "PREREGISTRATION_P105.md, Amendment 4",
+  "excluded_cameras": {
+    "116th_NE12th": "no burnt-in clock on any file, so continuity cannot be checked as the protocol requires; its three test files are excluded whole, leaving no test"
+  },
+  "excluded_files": {
+    "Bellevue_116th_NE12th__2017-09-10_19-08-25": "no burnt-in clock (continuity unverifiable)",
+    "Bellevue_116th_NE12th__2017-09-11_07-08-32": "no burnt-in clock; 6.81 min at source, 28.94 fps",
+    "Bellevue_116th_NE12th__2017-09-11_12-08-33": "no burnt-in clock; 1.81 min at source",
+    "Bellevue_116th_NE12th__2017-09-11_16-08-37": "no burnt-in clock; 1.35 min at source, 20.73 fps"
+  },
+  "kept_short_files": {
+    "Bellevue_150th_SE38th__2017-09-11_07-08-31": "48.70 min at source, continuous 07:08:31 -> 07:32:51 -> 07:57:10",
+    "Bellevue_150th_SE38th__2017-09-11_16-08-35": "9.40 min at source, continuous 16:08:36 -> 16:13:17 -> 16:17:57"
+  }
+}

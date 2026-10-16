@@ -44,7 +44,10 @@ CORPUS = Path("data/corpus_p105")
 RIDGE = ROOT / "p105_ridge_v1.json"
 RIDGE_SHA = "73532968dcf24b2533089687530ca435d2f09bc8cebcb159b44d97dd55c7c74c"
 THRESHOLDS = ROOT / "p105_thresholds.json"
-CAMERAS = ("116th_NE12th", "150th_Eastgate", "150th_Newport", "150th_SE38th")
+# Amendment 4: cameras excluded by eligibility are not scored, and are reported.
+_ELIGIBILITY = json.loads((ROOT / "p105_eligibility.json").read_text(encoding="utf-8"))
+CAMERAS = tuple(c for c in ("116th_NE12th", "150th_Eastgate", "150th_Newport", "150th_SE38th")
+                if c not in _ELIGIBILITY["excluded_cameras"])
 CLASSES = ["LOW", "MEDIUM", "HIGH"]
 BLOCK, RESAMPLES = 300, 10_000
 STOP_POOLED, FLAG_CAMERA, MIN_BLOCKS, EMPTY_LANE = 30, 10, 6, 0.5
