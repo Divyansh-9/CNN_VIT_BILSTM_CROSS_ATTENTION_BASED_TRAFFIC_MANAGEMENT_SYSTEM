@@ -7175,3 +7175,40 @@ human-verified future labels would make the comparison neutral.
 needs footage no model or analysis has touched. LOW recall for the primary is
 0.407, below the Phase 2 reference of 0.50. The balanced variant reaches 0.760
 but was not the pre-registered model. Phase 2 stays paused.
+
+## P102 — C1 count forecaster v1 frozen; fresh confirmation can only come from other cameras (2026-10-16)
+
+**Frozen** by the project owner's decision after P101.
+`experiments/results/bellevue_pilot/c1_count_forecaster_v1.json`, SHA-256
+`809d06eaf3152046f6178b1a75f9dc7a712142b3608c451ccd732fc0dc82ba46`, written by
+`scripts/c1_freeze.py`.
+
+- **The model:** P101's primary specification, unchanged (24 count features,
+  no clock, unweighted logistic regression per lane), fitted once on all 1,157
+  NE 8th daylight windows.
+- **Checks:** a pure-Python reload reproduces scikit-learn on every window.
+  CPU inference takes about 30 µs per window on this laptop, a proxy host,
+  with features excluded.
+- **Not promoted:** the balanced and boosted variants. **Not yet tested on
+  footage it has not seen.**
+
+**The source holds no other day of NE 8th.** Its 23 hourly files are one
+continuous run, Sun 18:08 to Mon 16:08. The 13 daylight hours are spent, and
+the 10 night hours have no measured detector validity. A fresh-footage
+confirmation must therefore use **other cameras**, which makes it a
+camera-transfer test.
+
+Daylight hours already on disk:
+
+| camera | hours |
+|---|---|
+| 150th Eastgate | Sun 18:08; Mon 06:08, 10:08, 14:08 |
+| 150th Newport | Sun 18:08; Mon 10:08, 14:08 |
+| 150th SE38th | Sun 18:08; Mon 09:08, 13:08 |
+| 116th NE12th | only fragments |
+
+**v1 is tied to NE 8th's layout.** Each lane's forecast reads all three lanes
+in a fixed order (west, north, east), and another junction has no such
+correspondence. A transfer test therefore needs a **lane-agnostic**
+specification: one model shared across lanes, reading only the target lane's
+own count history. It must be fixed before any other camera is counted.
