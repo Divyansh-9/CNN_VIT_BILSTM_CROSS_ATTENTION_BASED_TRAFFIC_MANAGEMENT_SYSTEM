@@ -314,3 +314,18 @@ persistence +0.129. All three are Holm-significant. The counts alone beat
 vision and both baselines on unseen hours. Caveat (A32): the labels are the
 detector's own future counts, which advantages a count model. The windows
 were already read in P100, so this is not confirmatory.
+
+## P103 — transfer to Eastgate, Newport and SE38th (calibrated per camera)
+
+| | macro-F1 | LOW / MEDIUM / HIGH recall |
+|---|---|---|
+| C1-L (frozen on NE 8th) | 0.483 | 0.287 / 0.168 / 0.981 |
+| **persistence** | **0.706** | 0.761 / 0.558 / 0.798 |
+| calibration prior | 0.561 | 0.726 / 0.393 / 0.680 |
+
+C1-L − persistence is **−0.222 [−0.260, −0.183]**. By camera it is −0.284
+(Eastgate), −0.344 (Newport) and −0.035 (SE38th, not significant). **It does
+not transfer.** The forecasts run +0.66 to +0.78 vehicles high on every camera,
+because the fit is centred on NE 8th's level of 6.1 against 1.2–2.6 here, and
+the calibrated classes span about one vehicle. Without the limitation lanes
+the difference is −0.143 to −0.221, so the conclusion stands.

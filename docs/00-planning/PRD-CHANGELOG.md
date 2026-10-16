@@ -7212,3 +7212,91 @@ in a fixed order (west, north, east), and another junction has no such
 correspondence. A transfer test therefore needs a **lane-agnostic**
 specification: one model shared across lanes, reading only the target lane's
 own count history. It must be fixed before any other camera is counted.
+
+## P103 — the count forecaster does not transfer to new cameras; persistence does (2026-10-16)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P103.md`
+with Amendments 1–2 (`24997e7`, `fd60f3f`, `656233b`).
+
+- **Before scoring:** the lanes were owner-placed and locked, all 10 files were
+  continuous, and none was refused by the detector pass.
+- **Thresholds and support** were committed (`6beb086`), calibrated from the
+  Sunday 18:08 hours only.
+- **Scoring:** one read, applying `c1L_v1.json` (sha `dbbd8df0…`) unchanged.
+
+**Primary (calibrated per camera; pooled across Eastgate, Newport and SE38th;
+Monday test hours, 788 windows, 41 blocks, 3,152 lane-decisions):**
+
+| method | macro-F1 | LOW recall | MEDIUM recall | HIGH recall |
+|---|---|---|---|---|
+| C1-L (frozen, NE 8th) | 0.4834 | 0.287 | 0.168 | **0.981** |
+| persistence | **0.7056** | 0.761 | 0.558 | 0.798 |
+| calibration prior | 0.5605 | 0.726 | 0.393 | 0.680 |
+
+| comparison (Holm) | difference [95% CI, block bootstrap stratified by camera] |
+|---|---|
+| C1-L − persistence | **−0.222 [−0.260, −0.183]** |
+| C1-L − calibration prior | **−0.077 [−0.115, −0.035]** |
+
+**Per camera, C1-L − persistence:**
+
+| camera | difference | Holm |
+|---|---|---|
+| Eastgate | −0.284 [−0.325, −0.175] | significant |
+| Newport | −0.344 [−0.369, −0.315] | significant |
+| SE38th | −0.035 [−0.100, +0.018] | not significant |
+
+The protocol's reading is **"no improvement over persistence"**: the NE 8th
+gain does not transfer, and on new cameras the learned forecaster is worse
+than the count it starts from. LOW recall, C1-L − persistence, is −0.473
+(significant).
+
+**Why** (an exploratory diagnostic, computed after scoring from the saved
+windows):
+
+- **C1-L forecasts too high on every camera:** +0.70 (Eastgate), +0.78
+  (Newport) and +0.66 (SE38th) vehicles, above the actual future mean in 77–89%
+  of windows.
+- The OLS fit is centred on NE 8th's lane level (6.12 vehicles), and these
+  lanes average 1.2–2.6.
+- The calibrated boundaries span about one vehicle (Eastgate 0.13/0.97,
+  Newport 0.53/1.53, SE38th 1.1/2.4), so a +0.7 bias moves most forecasts up a
+  class. In the confusion matrix, 785 of 943 MEDIUM decisions are called HIGH.
+- Persistence carries no learned level, so it transfers.
+- **This also reframes P101.** Much of the count model's NE 8th advantage over
+  persistence plausibly came from learning **that camera's** level, through
+  regression toward its mean. That is real within one camera and does not move
+  between cameras.
+
+**Absolute 2/8 arm (secondary):**
+
+- **HIGH is nearly absent here** (5 / 0 / 9 per camera, 14 pooled). It is
+  flagged, and macro-F1 is effectively over LOW and MEDIUM.
+- C1-L-cls − persistence is +0.017 [+0.010, +0.024] (Holm-significant), and
+  C1-L − persistence is −0.036 [−0.046, −0.024].
+- A small classifier edge on sparse lanes, with one class missing, does not
+  change the primary reading.
+
+**Limitation lanes (Amendment 2, reported, not tested).** C1-L − persistence:
+
+| scored lanes | difference |
+|---|---|
+| without Newport lane_2 | −0.147 [−0.189, −0.106] |
+| without Eastgate lane_1 | −0.221 [−0.258, −0.183] |
+| without both | −0.143 [−0.184, −0.105] |
+
+The conclusion does not depend on either lane.
+
+**The lane profiles:**
+
+- **Eastgate lane_1 is not a constant background.** Its standard deviation is
+  0.70 and its modal share 0.72, in line with the camera's other lanes.
+- **Newport lane_2 is nearly empty** (mean 0.37), as the occlusion predicted.
+- **Unflagged and newly visible, SE38th lane_1 is nearly empty too** (mean
+  0.19, modal share 0.99).
+- C1-L − persistence per lane is negative or about zero on all 12 lanes. It is
+  closest to zero on the busiest lanes (SE38th lanes 2 and 3, about 0.00), as
+  the bias explanation predicts.
+
+**Scope:** three cameras, one Sunday and Monday, with per-camera calibration.
+The NE 8th models, P97–P102 and their records are unchanged.
