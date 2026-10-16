@@ -7697,3 +7697,49 @@ disconnected from signal timing.
   - **Rewritten:** the twelve tests that pinned the old layout now assert the
     amended one.
   - The full suite passes.
+
+## P111 — documentation and CI audit after P110; nothing pushed, and why (2026-10-16)
+
+The project owner asked whether documentation and GitHub were being
+maintained.
+
+**Documentation.** Four documents still described the pre-P110 world, and two
+of them **instructed the defect**:
+
+- **The Execution Manual §4.3** said "zero indices 11–14". It now shows the
+  17-dim layout, the reserved 0.0, `forecast_age`, and "never write a value
+  for a missing forecast or count yourself". It routes through
+  `forecast_slots` and `ForecastGate`.
+- **CLAUDE.md** had the same "zero indices 11–14" convention, a "16-dim
+  contract" in three places, and "ADR-020 not implemented". All are
+  corrected.
+- **The README** described the state as 16-dim; corrected.
+- **docs/README.md** now indexes the P97a investigation and the new
+  [PUBLICATION-READINESS](PUBLICATION-READINESS.md). The build log gains rows
+  for P108–P111.
+
+**GitHub. Nothing is pushed, deliberately.** The repository is **PUBLIC**.
+130+ unpushed commits contain **337 Bellevue-derived files** (licence
+unresolved, internal only) and **19 third-party video preview frames**, and
+**18 such frames are already public** on `main`. Pushing would publish them.
+The options, with a recommendation (make the repository private, push, open a
+draft PR; then the licence or a sanitised public branch), are in
+PUBLICATION-READINESS. It is the owner's decision.
+
+**CI would have failed on the first push, and is fixed.**
+
+- **What was wrong:**
+  - `origin/main` last ran CI on 2026-08-20, and 47 of the branch's 74 test
+    files have never run there.
+  - The `fast` job's exact command **failed at collection**:
+    `test_checkpoint_guard.py` imports torch via `scripts/train_ppo.py`.
+  - The new guards needed numpy and FastAPI that the job does not install.
+- **The fix, which keeps the workflow's own rule (install what a guard needs
+  rather than let it skip):**
+  - the `fast` job installs pinned numpy, fastapi, pydantic and httpx;
+  - the torch- and OpenCV-only files move to the `model` job, which gains
+    `opencv-python-headless`;
+  - a new `dashboard` job runs `npm ci`, `npm test` and `npm run build`.
+- **Verification:** the `fast` command passes in a clean environment with
+  exactly its install list, and the dashboard commands pass from a clean
+  `npm ci`. The `model` job can only be confirmed on the runner.

@@ -49,7 +49,7 @@ Twenty-seven ADRs (ADR-001 to ADR-027) in [docs/00-planning/decisions/](docs/00-
 The measurement decisions, ADR-009 to ADR-023. Each one changes what number is
 correct to report, so check the ADR before quoting the PRD:
 
-- **ADR-009** — PPO trains against a forecast surrogate, and the state vector is 16-dimensional. **ADR-021** amends it: forecast quality is a swept variable, and the perfect-forecast ceiling run comes first because it can falsify the whole RL track — if PPO with a perfect forecast does not beat PPO with no forecast, the forecast is not worth carrying.
+- **ADR-009** — PPO trains against a forecast surrogate, and the state vector was 16-dimensional (17 since ADR-020 as amended, P110). **ADR-021** amends it: forecast quality is a swept variable, and the perfect-forecast ceiling run comes first because it can falsify the whole RL track — if PPO with a perfect forecast does not beat PPO with no forecast, the forecast is not worth carrying.
 - **ADR-010** — SUMO models heterogeneous, non-lane-disciplined traffic via the sublane model (`--lateral-resolution`), and the residual gap is declared rather than papered over.
 - **ADR-011 / ADR-012** — Webster is two roles, not one, with explicit cycle clamping and starvation semantics; and saturation flow is **not chosen**. The published range is swept and Webster's *best* configuration is the baseline PPO must beat.
 - **ADR-013** — code on GitHub, weights on Hugging Face, DOI from Zenodo. The public demo is deliberately smaller than the prototype.
@@ -59,18 +59,19 @@ correct to report, so check the ADR before quoting the PRD:
 - **ADR-017** — congestion is defined on **PCU-weighted occupancy**, not raw vehicle count, from Indo-HCM 2017 values, with thresholds calibrated per camera at p33/p67 and recorded in the corpus manifest. An unmapped class raises rather than defaulting to 1.0.
 - **ADR-018** — distil ITD-x into our YOLOv8s by pseudo-labelling, adopted **only** if pre-registered criteria are met on real labelled test data, never on pseudo-labels.
 - **ADR-019** — leave-one-camera-out evaluation. This is the one that retires 60/20/20 for MFSTNet.
-- **ADR-020** — one shared `forecast_age` channel, because a stale forecast is worse than an absent one; index 15 stays `emergency_flag` and the channel is appended as index 16, making the state 17-dim.
+- **ADR-020** — **accepted as amended 2026-10-16 (project owner, not the guide) and implemented (P110).**
+  - **Reserved zero:** 0.0 at indices 11–14 now means "no forecast for this approach", and no class can produce it (LOW, MEDIUM, HIGH → 1/3, 2/3, 1).
+  - **Age channel:** one shared `forecast_age` is appended at index 16, so the state is 17-dim; index 15 stays `emergency_flag`.
+  - **Fail-safe gate:** a forecast-aware policy may act only when every required input is complete, fresh (at most 10 s) and valid. Otherwise the no-forecast policy decides, or Webster for invalid counts (`simulation/forecast_state.py`).
 - **ADR-022** — the full-model-versus-linear-probe test is pre-registered before the LOCO suite completes. A fold's test split is 140 / 252 / 44 / 136 lane-windows, 572 paired observations, 44 in the smallest.
 - **ADR-023** — the two claims are stated separately: C1, the count-based forecaster plus RL controller, ships independent of C2, the vision claim.
 
 **Read the Status field, and do not trust it as a record of what is running.**
-ADR-016 and everything from ADR-019 onward is still marked *Proposed*, yet
+ADR-016, ADR-019 and ADR-021 to ADR-025 are still marked *Proposed*, yet
 ADR-019 is fully implemented and is what `resplit_corpus.py` does today.
-ADR-020 is the reverse case: marked *Proposed* and **not** implemented —
-`forecast_age` appears nowhere in the code, and `mfstnet/configs/spec.yaml`
-still declares `dim: 16` ending at `emergency_flag: 15`. So the 16-dim contract
-below is what the code holds, and ADR-020 is a pending 17th channel, not a
-description of the present.
+ADR-020, ADR-026 and ADR-027 are *Accepted* by the project owner (not the
+guide). ADR-020 is now implemented: `spec.yaml` declares `dim: 17` with
+`forecast_age: 16` (P110).
 
 Also fixed in the corpus spec: PRD §8.1 cannot produce four different lane predictions as written (global pooling then one shared head applied 4×) — **per-lane ROI pooling** replaces global pooling, which is why the feature cache must preserve spatial structure. And the evaluation was circular: labels derive from detector counts and three PRD §14.3 baselines also consume detector counts, so the **test split is human-verified** while train/val stay auto-labelled.
 
@@ -85,7 +86,11 @@ Also fixed in the corpus spec: PRD §8.1 cannot produce four different lane pred
 
 ### Data flow that spans components
 
-The coupling that is easy to miss: **MFSTNet's output is not just a prediction, it is part of the PPO state vector.** The state is **16-dim** and includes 4 per-lane MFSTNet class predictions at indices 11–14. PRD §13.1 originally specified 17 dimensions including `mfst_gate_mean`; A16 removed that feature and the vector is 16 today — see the contract note under Working conventions, and ADR-020 for the pending 17th channel, which is a *different* 17th from the original one. Changing MFSTNet's output shape or normalization invalidates trained PPO checkpoints. The same predictions also flow to the server over MQTT topic `stms/{intersection_id}/congestion/prediction`, and the read-only dashboard reads them from the server's API, never from MQTT directly.
+The coupling that is easy to miss: **MFSTNet's output is not just a prediction, it is part of the PPO state vector.** The state is **17-dim** (ADR-020 as amended, P110):
+- **Indices 11–14** hold one class forecast per approach, encoded 1/3, 2/3, 1, with **0.0 reserved for "no forecast"**. Under ADR-027 that forecast comes from whichever forecaster holds the role; the index names `mfst_pred_*` are kept.
+- **Index 16** holds `forecast_age`.
+- **History:** PRD §13.1 originally had a different 17th channel, `mfst_gate_mean`, which A16 removed.
+- **Not yet connected:** no forecast feeds the policy today (ADR-027, P97a). Changing MFSTNet's output shape or normalization invalidates trained PPO checkpoints. The same predictions also flow to the server over MQTT topic `stms/{intersection_id}/congestion/prediction`, and the read-only dashboard reads them from the server's API, never from MQTT directly.
 
 Two fallback paths are required behavior, not nice-to-haves (PRD §7.2, FR-A06): if MFSTNet inference fails, PPO must run on raw counts alone; if MQTT drops >10s, the Jetson switches to a locally-embedded Webster controller.
 
@@ -549,7 +554,10 @@ It does **not** show that they are safe to use for adaptive signal control.
 - **Every module disableable by flag** (NFR-15). The 7-config ablation must run from config alone, with no code edit between configs.
 - **`set_seed(42)` before building any model**, seeding Python/NumPy/PyTorch/SB3 (NFR-07). Verify determinism by running one epoch twice.
 - **Result CSVs are written by the training script**, never transcribed. Paper tables are generated from committed CSVs by a committed script (NFR-09/10, BR-18).
-- **The 16-dim PPO state vector is a contract** (PRD §13.1 as amended by A16, FR-M14). A16 removed `mfst_gate_mean`: SUMO has no camera, so a feature that is always zero in training and non-zero in deployment is worse than absent. The layout lives once in `mfstnet/configs/spec.yaml`; if MFSTNet is unavailable, zero indices **11–14** — never shorten the vector. `simulation/contract.py` hashes the layout into every checkpoint sidecar, because a permuted index keeps the shape and changes the meaning (P53). **Note P52: the `surrogate` arm is not implemented** — it and `no-forecast` are currently the same environment.
+- **The 17-dim PPO state vector is a contract** (PRD §13.1 as amended by A16 and ADR-020, FR-M14). A16 removed `mfst_gate_mean`: SUMO has no camera, so a feature that is always zero in training and non-zero in deployment is worse than absent.
+  - **Where the layout lives:** once, in `mfstnet/configs/spec.yaml`.
+  - **When a forecast is unavailable:** apply the spec's `forecast_unavailable` operation (class slots read absent, age reads 1.0), only through `simulation.forecast_state.forecast_slots`. **Never encode a missing approach or a missing count as a value** (P97a, P109, P110), and never shorten the vector.
+  - **When a policy may use forecasts:** only through `ForecastGate`. `simulation/contract.py` hashes the layout into every checkpoint sidecar, because a permuted index keeps the shape and changes the meaning (P53). **Note P52: the `surrogate` arm is not implemented** — it and `no-forecast` are currently the same environment.
 - **MQTT QoS differs per topic and is part of the contract** (PRD §17.1): emergency is QoS 2, counts and commands QoS 1, predictions and heartbeat QoS 0.
 - **`contracts/mqtt.py` is the only place a topic or payload is defined.** QoS is attached to the topic there, not accepted as an argument at the call site — a caller that can pass its own QoS can silently downgrade emergency traffic, and the type system should not allow it. Import the topic; never format one from a string.
 - **`use_utf8()` from `scripts/console.py` goes at the top of any script that prints a path.** Forty-seven of fifty-seven scripts call it. It exists because a cache build died on `UnicodeEncodeError: 'charmap' codec can't encode character '।'` — the Devanagari danda in a Dhaka filename — and lost twenty minutes of GPU work to a progress line. Console encoding is not cosmetic on this machine.

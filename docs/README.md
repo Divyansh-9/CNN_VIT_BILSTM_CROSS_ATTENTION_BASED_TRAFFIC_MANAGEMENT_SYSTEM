@@ -36,7 +36,9 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 | [DATASETS](00-planning/DATASETS.md) | Where data comes from, the legal analysis, licensing, class mapping |
 | [RELATED-WORK](00-planning/RELATED-WORK.md) | State of the art, and what we can honestly claim as novel |
 | [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | **Read this.** Capacity arithmetic, three hazards, and the recommended descoping |
-| [decisions/](00-planning/decisions/) | ADR-001 dataset · 002 corpus · 003 edge hardware · 004 doc waves · 005 local training · 006 curate-then-collect · 007 backbones · 008 descoping |
+| [decisions/](00-planning/decisions/) | ADR-001 dataset · 002 corpus · 003 edge hardware · 004 doc waves · 005 local training · 006 curate-then-collect · 007 backbones · 008 descoping · … · 020 forecast state (accepted, amended) · 026 MFSTNet on the edge · 027 the two forecasting roles; full list in the [register](DOCUMENT-REGISTER.md) |
+| [INVESTIGATION-P97a](00-planning/INVESTIGATION-P97a-missing-forecasts.md) | How a missing forecast read as LOW in the controller's state, and the fix (P108–P110) |
+| [PUBLICATION-READINESS](00-planning/PUBLICATION-READINESS.md) | **Why this branch is not on GitHub yet**: a public repo, the unresolved Bellevue licence, third-party frames, and the CI audit |
 
 ### Requirements
 

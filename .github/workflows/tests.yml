@@ -44,7 +44,15 @@ jobs:
         # torch. It is a ~500 KB pure-Python wheel, so there is no cost argument
         # for leaving it out. The `.docx` builders need no dependency at all;
         # they write OOXML directly.
-        run: pip install pytest pyyaml python-pptx
+        #
+        # numpy, fastapi, pydantic and httpx (pinned as in requirements.txt)
+        # for the same reason: the forecaster, calibration, server and
+        # dashboard-evidence suites (P104-P110) are guards, and without these
+        # they either fail to import or `importorskip` away. All four are
+        # small pure-Python or prebuilt wheels.
+        run: >
+          pip install pytest pyyaml python-pptx numpy==2.5.2
+          fastapi==0.141.1 pydantic==2.13.4 httpx==0.28.1
 
       - name: Run suites
         run: >
@@ -54,6 +62,8 @@ jobs:
           --ignore=tests/test_cache.py
           --ignore=tests/test_sumo_network.py
           --ignore=tests/test_simulation.py
+          --ignore=tests/test_checkpoint_guard.py
+          --ignore=tests/test_video_sampling.py
 
       - name: Build the submitted documents and check them against the guidelines
         # The three documents are generated, never hand-edited, and the two
@@ -94,6 +104,7 @@ jobs:
           pip install gymnasium stable-baselines3
           pip install nbformat nbclient ipykernel pandas matplotlib
           pip install eclipse-sumo traci sumolib
+          pip install opencv-python-headless
 
       - name: Fail if torch is missing rather than skipping
         # Without this the suites `importorskip` away and the job passes green
@@ -110,6 +121,7 @@ jobs:
           tests/test_spec_matches_code.py tests/test_sumo_network.py
           tests/test_simulation.py tests/test_checkpoints.py
           tests/test_edge_forecaster.py tests/test_mqtt_live.py
+          tests/test_checkpoint_guard.py tests/test_video_sampling.py
 
       - name: Overfit check (S26)
         # The cheapest decisive test in the model track. A graph that cannot
@@ -124,3 +136,30 @@ jobs:
         # diff on every run. A notebook whose stored output came from code that
         # no longer exists is worse than no notebook: it looks like evidence.
         run: python scripts/run_notebook.py notebooks/03_results.ipynb --check
+
+  dashboard:
+    # The read-only dashboard (P107). Its 12 tests pin that it is GET-only, that
+    # a missing approach is never shown as zero or LOW, and the stale, invalid
+    # and error states. A separate job so a Node problem cannot mask a Python one.
+    name: dashboard (vitest + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install exactly the locked dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

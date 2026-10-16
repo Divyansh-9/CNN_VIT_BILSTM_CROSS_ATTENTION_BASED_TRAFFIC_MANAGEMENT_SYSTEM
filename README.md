@@ -236,8 +236,9 @@ reported as future work — that is a professional decision, not a failure.
 
 ### The coupling that spans subsystems
 
-MFSTNet's output is not only a prediction — it is part of the PPO state vector. PRD §13.1's
-16-dimensional state carries four per-lane predictions at indices 11–14. **Changing MFSTNet's output
+MFSTNet's output is not only a prediction — it is part of the PPO state vector. The
+17-dimensional state (PRD §13.1 as amended by ADR-020, P110) carries four per-lane class
+forecasts at indices 11–14, where 0.0 is reserved for "no forecast", plus the forecast's age at 16. **Changing MFSTNet's output
 shape or normalisation invalidates every trained PPO checkpoint.** During SUMO training those fields
 come from a noise-calibrated surrogate, not from MFSTNet itself
 ([ADR-009](docs/00-planning/decisions/ADR-009-ppo-forecast-surrogate.md)) — SUMO has no camera.
@@ -318,7 +319,7 @@ Eleven architecture decision records. Each carries its rejected alternatives and
 | [006](docs/00-planning/decisions/ADR-006-curate-then-collect-dataset.md) | Curate a benchmark, collect a small permissioned campus set | **Proposed** |
 | [007](docs/00-planning/decisions/ADR-007-backbones-and-training-recipe.md) | DINOv2, bf16, LoRA instead of unfreezing, INT8 at export | Active |
 | [008](docs/00-planning/decisions/ADR-008-prototype-descoping.md) | Reduce infrastructure, protect the experiments | **Proposed** |
-| [009](docs/00-planning/decisions/ADR-009-ppo-forecast-surrogate.md) | Noise-calibrated forecast surrogate; 16-dimensional state | Active |
+| [009](docs/00-planning/decisions/ADR-009-ppo-forecast-surrogate.md) | Noise-calibrated forecast surrogate; 16-dimensional state at the time (17 since ADR-020 as amended) | Active |
 | [010](docs/00-planning/decisions/ADR-010-sumo-heterogeneous-traffic.md) | SUMO sublane model and heterogeneous vehicle types | Active |
 | [011](docs/00-planning/decisions/ADR-011-webster-definition.md) | Webster cycle clamping, starvation semantics, two roles reconciled | Active |
 | [012](docs/00-planning/decisions/ADR-012-webster-saturation-flow.md) | Sweep the published saturation-flow range rather than picking a value | Active |

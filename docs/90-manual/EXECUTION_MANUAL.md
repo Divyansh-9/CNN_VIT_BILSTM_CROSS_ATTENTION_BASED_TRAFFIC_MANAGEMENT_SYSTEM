@@ -706,7 +706,9 @@ model.save("models/ppo_intersection")
 
 ## 4.3 The state vector is a contract
 
-PRD §13.1 — **16 dimensions** (A16 removed `mfst_gate_mean`; see [ADR-009](../00-planning/decisions/ADR-009-ppo-forecast-surrogate.md)), in this exact order:
+PRD §13.1 as amended by A16 and **ADR-020 (as amended 2026-10-16, P110)**: **17 dimensions**, in this
+exact order. The layout lives in `mfstnet/configs/spec.yaml`; this block illustrates it and is not a
+second source.
 
 ```python
 state = np.array([
@@ -714,14 +716,21 @@ state = np.array([
     queue_N/200, queue_S/200, queue_E/200, queue_W/200,      #  4-7
     phase_NS, phase_EW,                                       #  8-9
     phase_remaining/90,                                       # 10
-    mfst_pred_N/2, mfst_pred_S/2, mfst_pred_E/2, mfst_pred_W/2,  # 11-14
+    cls_N, cls_S, cls_E, cls_W,     # 11-14  LOW/MEDIUM/HIGH -> 1/3, 2/3, 1;  0.0 = NO forecast
     emergency_flag,                                           # 15
+    forecast_age,                   # 16     min(age_s, 10)/10;  1.0 when there is no forecast
 ])
 ```
 
 **Changing this shape or these normalisations invalidates every trained PPO checkpoint** (FR-M14).
-If MFSTNet is unavailable, **zero indices 11–14** — do not shorten the vector. The dimensionality
-must not move once the first checkpoint exists.
+
+**Never write 0.0 or any other value for a missing forecast or a missing count yourself.** Under
+the old 16-dim layout, LOW was 0.0, so "no forecast" read as "every approach is clear" (P97a).
+Build indices 11–14 and 16 only through `simulation.forecast_state.forecast_slots`, which applies
+the spec's `forecast_unavailable` operation. Let a policy use forecasts only through
+`ForecastGate`: a forecast-aware policy acts only when every required input is complete, fresh
+(at most 10 s) and valid. Otherwise the no-forecast policy acts, or Webster when counts are invalid.
+Do not shorten the vector.
 
 During SUMO training these four fields come from a **noise-calibrated surrogate**, not from MFSTNet —
 SUMO has no camera. Train three arms (P-none / P-real / P-oracle) and report all three; see ADR-009.
