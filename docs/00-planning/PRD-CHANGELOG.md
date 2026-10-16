@@ -7311,3 +7311,63 @@ as the protocol requires, so the support behind the scores is LOW 543 /
 MEDIUM 943 / HIGH 1,666, against the table's 555 / 940 / 1,657. Against a
 −0.222 difference, this changes no conclusion. `p103_eval.py` now stores
 thresholds at full precision for any future run. P103 is **not** rescored.
+
+## P104 — persistence adopted as the prototype's transferable forecaster; contract amended additively (2026-10-16)
+
+**Decision by the project owner, after P103.**
+
+- **Persistence** becomes the prototype's transferable forecasting path. It was
+  the best method measured on new cameras: macro-F1 0.706 against C1-L's 0.483.
+- **C1-L's NE 8th result** (P101) stays documented as a within-camera result,
+  not a claim of generalisation.
+- **Change-based forecasting** (predicting a lane's change from its own recent
+  level) is the next research experiment. It runs only under a new
+  pre-registration on genuinely untouched footage.
+- **Per-camera fitting** is deferred until such footage exists.
+- **C2 (vision)** stays open until independently verified future labels
+  exist.
+
+**Implemented:**
+
+- **`edge/persistence.py`**
+  - **The method:** exactly as P94–P103 scored it. The class of the mean of
+    each lane's last 30 counts (2 s apart) forecasts the next 60 s, with that
+    camera's thresholds.
+  - **Calibration:** `calibrate` applies ADR-017 (q33/q67) to a disjoint
+    calibration period, at full precision. The P103 rounding defect cannot
+    recur here.
+  - **Confidence:** the class's **measured** P103 precision (LOW 0.762,
+    MEDIUM 0.555, HIGH 0.800), not an invented probability. The gate is
+    `None`.
+- **`persistence_v1.json`**, frozen by `scripts/persistence_freeze.py`, SHA-256
+  `2431c6641b9c6bd2f0ad823aa293ed8b13048b96825a0ff8c9ff87871c70e110`.
+  - **Thresholds:** the three P103 cameras' calibration-hour values, which the
+    script verifies are equal to P103's own; NE 8th's absolute 2/8, validated
+    for LOW by P99b.
+  - **Measured performance:** P103 0.7056 pooled on new cameras; P100 0.5397 on
+    NE 8th's unseen hours.
+  - **Model id:** `persistence@2431c6641b9c`.
+- **Contract (`contracts/mqtt.py`), additive:** `MODEL_ID` now also accepts
+  `persistence@<12 hex>`, the spec's hash. Every earlier id still matches, and
+  anything else is still refused. `SCHEMA_VERSION` stays 2, because no
+  existing payload changes meaning. A consumer pinned to an older copy of the
+  module would refuse persistence ids; the server imports this module, so it
+  does not.
+- **Heartbeat truthfulness (`edge/node.py`):** `mfstnet_active` is now set only
+  by an MFSTNet forecast. A persistence forecast is published like any other,
+  but never reads as the vision model running.
+- **Tests:** `tests/test_persistence_forecaster.py` pins the method, the
+  window, the full-precision boundary, the spec-derived id against the
+  contract, the measured confidence, the heartbeat flag and refusal of an
+  uncalibrated camera. Locally, it also reproduces P103's persistence decisions,
+  differing only on exact-boundary means where P103's rounded thresholds did.
+  The full suite passes.
+
+**Not done, deliberately:**
+
+- **Persistence is not fed into the PPO state** (indices 11–14). Whether
+  forecasts drive signal timing, and how absence is represented, is P97a and a
+  separate decision. A good forecast is not evidence that a control policy is
+  safe.
+- **The near-empty lanes stay visible in every report** (Newport lane_2 and
+  SE38th lane_1). No lane is excluded on its scores.

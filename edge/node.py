@@ -129,8 +129,9 @@ class EdgeNode:
 
     def publish_prediction(self, prediction: CongestionPrediction,
                            now: float | None = None) -> bool:
-        """MFSTNet's output for this junction (ADR-026). Returns whether the
-        link took it. QoS comes from the topic, never from the caller."""
+        """This junction's forecast: MFSTNet's (ADR-026) or persistence's
+        (P104). Returns whether the link took it. QoS comes from the topic,
+        never from the caller."""
         now = time.time() if now is None else now
         topic = Topic.PREDICTION.render(self.intersection_id)
         try:
@@ -139,7 +140,10 @@ class EdgeNode:
         except (ConnectionError, OSError):
             return False
         self.last_ack = now
-        self.forecasting = True
+        # `mfstnet_active` must mean MFSTNet: a persistence forecast (P104)
+        # is published like any other, but it is not the model running.
+        if not prediction.model.startswith("persistence@"):
+            self.forecasting = True
         return True
 
     def publish_heartbeat(self, now: float | None = None) -> bool:

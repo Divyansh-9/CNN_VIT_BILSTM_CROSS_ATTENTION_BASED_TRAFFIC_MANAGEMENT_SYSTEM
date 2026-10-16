@@ -53,9 +53,11 @@ SCHEMA_VERSION = 2
 # `gate_value` may be None for a config with no gate rather than a made-up 0.5.
 
 #: `config@first-12-hex-of-the-graph's-sha256` — what `VerifiedGraph.model_id`
-#: produces. A pattern rather than a string, so the field cannot carry anything
-#: else at any length (NFR-13).
-MODEL_ID = re.compile(r"^[A-H]@[0-9a-f]{12}$")
+#: produces — or `persistence@first-12-hex-of-the-frozen-spec's-sha256`, what
+#: `edge.persistence` produces (P104, additive: every earlier id still matches).
+#: A pattern rather than a string, so the field cannot carry anything else at
+#: any length (NFR-13).
+MODEL_ID = re.compile(r"^(?:[A-H]|persistence)@[0-9a-f]{12}$")
 APPROACHES = ("N", "S", "E", "W")
 #: PRD §17 names "ambulance" and nothing else. Extending the set is a contract
 #: diff, which is the point of having one.
@@ -298,8 +300,9 @@ class CongestionPrediction(_Payload):
             raise ContractError(f"gate_value must be in [0, 1] or None, got {self.gate_value}")
         if not isinstance(self.model, str) or not MODEL_ID.match(self.model):
             raise ContractError(
-                f"model must be config@12-hex-digest, got {self.model!r}. It names "
-                f"the verified graph and nothing else.")
+                f"model must be config@12-hex-digest or persistence@12-hex-digest, "
+                f"got {self.model!r}. It names the verified graph or the frozen "
+                f"persistence spec, and nothing else.")
 
     def to_state_values(self, lanes: tuple[str, ...] = ("N", "S", "E", "W")) -> list[float]:
         """D6. PPO state indices 11–14, in lane order.
