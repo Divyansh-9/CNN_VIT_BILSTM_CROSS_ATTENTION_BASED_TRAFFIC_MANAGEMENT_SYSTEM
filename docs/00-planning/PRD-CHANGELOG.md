@@ -7850,3 +7850,68 @@ fault exactly as ADR-020 (as amended) requires, in these SUMO conditions.
 
 The episodes' delay figures are not a comparison and are not interpreted.
 **The controller stays disconnected from signal timing.**
+
+## P114 — P52 inspected before any training: a perfect forecast has little to say in the current simulation (2026-10-16)
+
+**Nothing was trained.** The owner asked for P52 to be inspected before any
+run. The full record is
+[INVESTIGATION-P52-surrogate-arm.md](INVESTIGATION-P52-surrogate-arm.md).
+
+**P52 stands as reported.**
+
+- `surrogate` and `no-forecast` are still one config (`use_mfstnet: false`
+  for both).
+- No forecast producer exists in training.
+- `train_ppo.py --arm surrogate` would still write a no-forecast policy
+  under the surrogate name.
+- No test compares the observations of two arms.
+
+**The 17-dim layout (P110) and the gate (P113) need no change** to carry a
+forecast. The forecast-aware policy is only consulted on complete, fresh
+messages, so it trains on exactly that distribution. Its age channel must be
+real: an older message carries an older forecast.
+
+**New measurement** (`scripts/p52_headroom.py`, results in
+`experiments/results/p52/`):
+
+- **Setup:** seeds 100–104, disjoint from the evaluation seeds 0–29; §14.1
+  thresholds.
+- **Method:** each decision is paired with the class realised 60–75 s later,
+  which is what ADR-021's oracle would supply.
+- **At saturation, under the no-forecast policy:**
+  - the oracle differs from the current class (persistence) on **6.9%** of
+    2,160 approach-decisions, all LOW↔MEDIUM;
+  - **HIGH occurs 0 times**.
+- **The other regimes:** light 13.6%, oversaturated 5.2%.
+- **The causes:**
+  - the demand is constant-rate `vehsPerHour` flows, identical on all four
+    approaches;
+  - the §14.1 thresholds were set for camera counts, not for a 2-lane SUMO
+    approach.
+- **Disclosed:** an exploratory run on seeds 0–2 came first and is not cited.
+
+**Consequences for ADR-021 (Proposed):**
+
+- **The ceiling, as specified, tests a near-constant input.** A null result
+  would not be the decisive result ADR-021 says it is.
+- **Its macro-F1 grid has no meaning here:**
+  - persistence already scores 0.569 (3-class), so 0.33, 0.50 and 0.65 are
+    worse than what the policy can compute;
+  - with HIGH absent, even the oracle scores 0.667, so 0.80 and 1.00 cannot
+    be reached.
+
+**Rejected: running the ceiling now** on the grounds that the checkpoint and
+the gate are ready. The run would be uninformative, and that is exactly what
+the inspection was asked to catch.
+
+**Pending with the owner (D1–D4):**
+
+- **D1:** add a time-varying scenario, gated by a pre-registered headroom
+  test.
+- **D2:** define the oracle as a SUMO lookahead under the frozen no-forecast
+  policy.
+- **D3:** sweep quality relative to persistence (an ADR-021 amendment).
+- **D4:** three training seeds per arm.
+
+ADR-021's go/no-go still needs the guide. **Part 1 stays passed (P113), Part 2
+stays PENDING, and the controller stays disconnected from signal timing.**
