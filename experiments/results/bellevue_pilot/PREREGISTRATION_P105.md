@@ -211,3 +211,25 @@ Option B: a subset fixed by rule, smaller than "every later eligible file".
 
 If the result is inconclusive, more footage (Option A or other cameras) is a
 **separate, newly specified experiment**. It is not an extension of this one.
+
+## Amendment 2 — 116th NE12th lanes locked (before any detector run)
+
+The project owner placed 116th NE12th's lanes on its Sun 19:08 calibration
+frames (`scripts/p105_lane_page.py`), with no detector run.
+`import_lane_centres.py` validated them: four lanes, centres ordered left to
+right.
+
+| camera | lane centres (x, y), normalised |
+|---|---|
+| 116th_NE12th | lane_0 (0.2019, 0.6833); lane_1 (0.4321, 0.2041); lane_2 (0.7403, 0.2808); lane_3 (0.7691, 0.7492) |
+
+- **Review:** one region per approach queue (north, east, south-east arm,
+  west). The painted central box is largely outside every region, and no two
+  centres are near-duplicates.
+- **Limitation:** the south-east region's lower edge includes part of a
+  foreground signal head.
+- **Reviewer:** "unrecorded". The placement was supplied by the project owner
+  in this session, and no name is filled in on their behalf. Approaches are
+  unnamed.
+
+Eastgate, Newport and SE38th keep their P103 lanes unchanged (Amendment 1).
