@@ -110,8 +110,7 @@ def main() -> int:
     per_window_us = (time.perf_counter() - started) / len(X) * 1e6
 
     # LF on every platform, so the recorded hash matches any checkout.
-    OUT.write_bytes((json.dumps(artifact, indent=2) + "
-").encode("utf-8"))
+    OUT.write_bytes((json.dumps(artifact, indent=2) + "\n").encode("utf-8"))
     digest = hashlib.sha256(OUT.read_bytes()).hexdigest()
     print(f"  wrote {OUT}")
     print(f"  sha256 {digest}")
