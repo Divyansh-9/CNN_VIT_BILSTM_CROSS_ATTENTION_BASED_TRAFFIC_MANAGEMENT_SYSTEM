@@ -1,0 +1,258 @@
+{
+  "protocol": "PREREGISTRATION_P101.md",
+  "status": "exploratory: P100's test windows, already read",
+  "p100_windows_sha256": "4c648ad1e6c57b95126e9204c3dbe73950959ca00bc598c98ef166e2b317418d",
+  "windows": 1157,
+  "blocks": 78,
+  "support": {
+    "LOW": 275,
+    "MEDIUM": 2379,
+    "HIGH": 817
+  },
+  "classes_seen_in_training": {
+    "A/logreg/lane_0": [
+      0,
+      1,
+      2
+    ],
+    "A/logreg/lane_1": [
+      0,
+      1,
+      2
+    ],
+    "A/logreg/lane_2": [
+      0,
+      1,
+      2
+    ],
+    "B/logreg/lane_0": [
+      0,
+      1,
+      2
+    ],
+    "B/logreg/lane_1": [
+      0,
+      1,
+      2
+    ],
+    "B/logreg/lane_2": [
+      0,
+      1,
+      2
+    ]
+  },
+  "macro_f1": {
+    "counts (logreg)": 0.6689,
+    "counts (logreg, balanced)": 0.6181,
+    "counts (gradient boosting)": 0.581,
+    "vision (P100)": 0.4811,
+    "clock prior": 0.4522,
+    "persistence": 0.5397
+  },
+  "recall": {
+    "counts (logreg)": {
+      "LOW": 0.4073,
+      "MEDIUM": 0.8886,
+      "HIGH": 0.6218
+    },
+    "counts (logreg, balanced)": {
+      "LOW": 0.76,
+      "MEDIUM": 0.6272,
+      "HIGH": 0.7674
+    },
+    "counts (gradient boosting)": {
+      "LOW": 0.2036,
+      "MEDIUM": 0.8743,
+      "HIGH": 0.5949
+    },
+    "vision (P100)": {
+      "LOW": 0.0582,
+      "MEDIUM": 0.8588,
+      "HIGH": 0.5043
+    },
+    "clock prior": {
+      "LOW": 0.0,
+      "MEDIUM": 0.8789,
+      "HIGH": 0.5067
+    },
+    "persistence": {
+      "LOW": 0.5091,
+      "MEDIUM": 0.7297,
+      "HIGH": 0.3892
+    }
+  },
+  "confusion": {
+    "counts (logreg)": [
+      [
+        112,
+        163,
+        0
+      ],
+      [
+        74,
+        2114,
+        191
+      ],
+      [
+        1,
+        308,
+        508
+      ]
+    ],
+    "counts (logreg, balanced)": [
+      [
+        209,
+        66,
+        0
+      ],
+      [
+        352,
+        1492,
+        535
+      ],
+      [
+        6,
+        184,
+        627
+      ]
+    ],
+    "counts (gradient boosting)": [
+      [
+        56,
+        218,
+        1
+      ],
+      [
+        72,
+        2080,
+        227
+      ],
+      [
+        1,
+        330,
+        486
+      ]
+    ],
+    "vision (P100)": [
+      [
+        16,
+        259,
+        0
+      ],
+      [
+        70,
+        2043,
+        266
+      ],
+      [
+        0,
+        405,
+        412
+      ]
+    ],
+    "clock prior": [
+      [
+        0,
+        270,
+        5
+      ],
+      [
+        0,
+        2091,
+        288
+      ],
+      [
+        0,
+        403,
+        414
+      ]
+    ],
+    "persistence": [
+      [
+        140,
+        132,
+        3
+      ],
+      [
+        138,
+        1736,
+        505
+      ],
+      [
+        8,
+        491,
+        318
+      ]
+    ]
+  },
+  "family": {
+    "vision - counts": {
+      "point": -0.1879,
+      "ci95": [
+        -0.2541,
+        -0.0992
+      ],
+      "p": 0.0,
+      "blocks": 78,
+      "windows": 1157,
+      "holm_threshold": 0.0167,
+      "holm_significant": true
+    },
+    "counts - clock prior": {
+      "point": 0.2168,
+      "ci95": [
+        0.1426,
+        0.2689
+      ],
+      "p": 0.0,
+      "blocks": 78,
+      "windows": 1157,
+      "holm_threshold": 0.025,
+      "holm_significant": true
+    },
+    "counts - persistence": {
+      "point": 0.1293,
+      "ci95": [
+        0.0973,
+        0.1617
+      ],
+      "p": 0.0,
+      "blocks": 78,
+      "windows": 1157,
+      "holm_threshold": 0.05,
+      "holm_significant": true
+    }
+  },
+  "variants_untested": {
+    "logreg_balanced": {
+      "vision - counts": -0.137,
+      "counts - clock prior": 0.1659,
+      "counts - persistence": 0.0784
+    },
+    "hgb": {
+      "vision - counts": -0.0999,
+      "counts - clock prior": 0.1288,
+      "counts - persistence": 0.0413
+    }
+  },
+  "complementarity": {
+    "LOW": {
+      "disagree": 116,
+      "counts_right": 106,
+      "vision_right": 10,
+      "neither": 0
+    },
+    "MEDIUM": {
+      "disagree": 402,
+      "counts_right": 236,
+      "vision_right": 165,
+      "neither": 1
+    },
+    "HIGH": {
+      "disagree": 235,
+      "counts_right": 165,
+      "vision_right": 69,
+      "neither": 1
+    }
+  }
+}

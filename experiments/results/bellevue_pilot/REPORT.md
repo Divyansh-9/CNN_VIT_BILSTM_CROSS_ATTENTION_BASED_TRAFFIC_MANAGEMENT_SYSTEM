@@ -299,3 +299,18 @@ hours it never saw. LOW collapses because whole-hour holdout leaves fold B
 only 57 LOW training decisions: the footage has 3 quiet hours. Persistence
 wins in the morning (LOW), and the model wins at midday and in the afternoon
 (HIGH).
+
+## P101 — count-only forecaster, P100 folds (exploratory, paired)
+
+| | macro-F1 | LOW recall |
+|---|---|---|
+| **counts, logistic regression** | **0.669** | 0.407 |
+| vision (P100) | 0.481 | 0.058 |
+| persistence | 0.540 | 0.509 |
+| clock prior | 0.452 | 0.000 |
+
+Vision − counts −0.188 [−0.254, −0.099]; counts − clock +0.217; counts −
+persistence +0.129. All three are Holm-significant. The counts alone beat
+vision and both baselines on unseen hours. Caveat (A32): the labels are the
+detector's own future counts, which advantages a count model. The windows
+were already read in P100, so this is not confirmatory.

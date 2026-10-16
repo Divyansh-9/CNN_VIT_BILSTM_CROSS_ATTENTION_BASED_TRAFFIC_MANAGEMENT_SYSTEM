@@ -7112,3 +7112,66 @@ separately): real − swapped +0.047 [−0.007, +0.137].
 
 **Unchanged:** P97, P98 and P99; the protocol; the thresholds. Phase 2 stays
 paused.
+
+## P101 — a count-only forecaster beats the vision model, the clock and persistence on unseen hours (2026-10-16, exploratory)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P101.md`
+(`dcde584`), with the specification frozen before it ran. **Exploratory:** the
+test windows are P100's, already read once. The comparison is paired on the
+identical 1,157 windows (78 blocks), against P100's committed decisions. It
+uses P100's folds, so every window was predicted by a model that never saw its
+hour.
+
+**The model.** Multinomial logistic regression with unweighted classes, one per
+lane and fold, and nothing tuned or selected. Its 24 count features cover the
+same 60 samples the vision model sees, with no clock feature. Scaling is fitted
+on training windows only. It runs in seconds on a CPU.
+
+| method | macro-F1 | LOW recall | MEDIUM recall | HIGH recall |
+|---|---|---|---|---|
+| **counts, logistic regression (primary)** | **0.6689** | 0.407 | 0.889 | 0.622 |
+| counts, logistic regression, balanced (variant) | 0.6181 | **0.760** | 0.627 | 0.767 |
+| counts, gradient boosting (variant) | 0.5810 | 0.204 | 0.874 | 0.595 |
+| vision (P100, seed average) | 0.4811 | 0.058 | 0.859 | 0.504 |
+| persistence | 0.5397 | 0.509 | 0.730 | 0.389 |
+| clock prior | 0.4522 | 0.000 | 0.879 | 0.507 |
+
+**Holm family, all three significant:**
+
+| comparison | difference [95% CI, block bootstrap] |
+|---|---|
+| vision − counts | **−0.188 [−0.254, −0.099]** |
+| counts − clock prior | **+0.217 [+0.143, +0.269]** |
+| counts − persistence | **+0.129 [+0.097, +0.162]** |
+
+All three count variants beat vision, the clock and persistence on point
+estimates; the variants were not tested.
+
+**Where the two disagree** (lane-decisions):
+
+| true class | disagreements | counts right | vision right |
+|---|---|---|---|
+| LOW | 116 | 106 | 10 |
+| MEDIUM | 402 | 236 | 165 |
+| HIGH | 235 | 165 | 69 |
+
+Vision is right on 244 decisions where the counts are wrong, so a combined
+model has something to draw on. But counts lead in every class.
+
+**Reading, by the table fixed in advance:** the interval is below zero, so
+**the counts alone forecast better than the vision model here.** It is also
+the **first model in this series to beat both persistence and the clock on
+hours it never saw.**
+
+**The limitation that bounds it (A32).** The labels are the same detector's
+future counts. A count model inherits the detector's biases on both sides,
+input and target. A vision model must infer counts the detector would produce,
+including its undercount. So this result shows that **the images add nothing
+beyond counts for forecasting these labels**. It does not show that images
+carry no traffic information. P100's content control says they do. Only
+human-verified future labels would make the comparison neutral.
+
+**Not confirmatory.** These test windows were already read, and confirming
+needs footage no model or analysis has touched. LOW recall for the primary is
+0.407, below the Phase 2 reference of 0.50. The balanced variant reaches 0.760
+but was not the pre-registered model. Phase 2 stays paused.
