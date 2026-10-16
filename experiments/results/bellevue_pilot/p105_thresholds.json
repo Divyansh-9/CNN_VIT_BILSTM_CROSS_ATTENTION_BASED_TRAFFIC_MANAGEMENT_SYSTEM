@@ -1,0 +1,55 @@
+{
+  "protocol": "PREREGISTRATION_P105.md",
+  "rule": "q33/q67 of the calibration hour's 60 s means, pooled over lanes, full precision",
+  "cameras": {
+    "150th_Eastgate": {
+      "q33": 0.4666666666666667,
+      "q67": 1.0,
+      "calibration_windows": 114,
+      "test_windows": 342,
+      "test_blocks": 18,
+      "lanes": 4,
+      "test_support": {
+        "LOW": 51,
+        "MEDIUM": 246,
+        "HIGH": 1071
+      },
+      "flagged_classes_under_10": []
+    },
+    "150th_Newport": {
+      "q33": 0.24899999999999997,
+      "q67": 1.1,
+      "calibration_windows": 115,
+      "test_windows": 342,
+      "test_blocks": 18,
+      "lanes": 4,
+      "test_support": {
+        "LOW": 265,
+        "MEDIUM": 311,
+        "HIGH": 792
+      },
+      "flagged_classes_under_10": []
+    },
+    "150th_SE38th": {
+      "q33": 1.0666666666666667,
+      "q67": 2.3666666666666667,
+      "calibration_windows": 114,
+      "test_windows": 220,
+      "test_blocks": 12,
+      "lanes": 4,
+      "test_support": {
+        "LOW": 249,
+        "MEDIUM": 113,
+        "HIGH": 518
+      },
+      "flagged_classes_under_10": []
+    }
+  },
+  "pooled_support": {
+    "LOW": 565,
+    "MEDIUM": 670,
+    "HIGH": 2381
+  },
+  "pooled_test_blocks": 48,
+  "stop": false
+}
