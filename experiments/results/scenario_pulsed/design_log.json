@@ -1,0 +1,172 @@
+[
+  {
+    "iteration": 1,
+    "params": {
+      "levels": [
+        300,
+        700,
+        1100
+      ],
+      "d_min": 120,
+      "d_max": 300,
+      "schedule_rng_tag": 115,
+      "duration_s": 3600
+    },
+    "hash": "8267da50f659",
+    "seeds": [
+      300,
+      301,
+      302,
+      303,
+      304,
+      305,
+      306,
+      307,
+      308,
+      309
+    ],
+    "metrics": {
+      "Q1_oracle_differs_from_persistence": 0.33,
+      "Q2_oracle_class_share": {
+        "LOW": 0.2679,
+        "MEDIUM": 0.4011,
+        "HIGH": 0.331
+      },
+      "Q3_state_classifier_disagrees": 0.5403,
+      "Q4a_deterministic_seeds": "10/10",
+      "Q4b_demand_aligned_seeds": "10/10",
+      "Q5_grid": {
+        "0.0": {
+          "skill": 0.0,
+          "accuracy": 0.67,
+          "macro_f1_3class": 0.6741
+        },
+        "0.25": {
+          "skill": 0.281,
+          "accuracy": 0.7627,
+          "macro_f1_3class": 0.7647
+        },
+        "0.5": {
+          "skill": 0.4873,
+          "accuracy": 0.8308,
+          "macro_f1_3class": 0.8325
+        },
+        "0.75": {
+          "skill": 0.7768,
+          "accuracy": 0.9263,
+          "macro_f1_3class": 0.9269
+        },
+        "1.0": {
+          "skill": 1.0,
+          "accuracy": 1.0,
+          "macro_f1_3class": 1.0
+        }
+      },
+      "Q6_mean_arrived_fraction": 0.9364,
+      "reported_arrived_fraction_fixed30": 0.9554,
+      "reported_transitions": {
+        "LOW->MEDIUM": 1016,
+        "LOW->LOW": 1557,
+        "MEDIUM->MEDIUM": 2128,
+        "MEDIUM->LOW": 821,
+        "MEDIUM->HIGH": 620,
+        "HIGH->MEDIUM": 450,
+        "HIGH->HIGH": 2318,
+        "HIGH->LOW": 22,
+        "LOW->HIGH": 28
+      },
+      "rows": 8960
+    },
+    "checks": {
+      "Q1": true,
+      "Q2": true,
+      "Q3": true,
+      "Q4": true,
+      "Q5": true,
+      "Q6": true
+    },
+    "passed": true,
+    "per_seed": {
+      "300": {
+        "decisions": 236,
+        "rows": 912,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.9291,
+        "arrived_fraction_fixed30": 0.9529
+      },
+      "301": {
+        "decisions": 238,
+        "rows": 924,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.9234,
+        "arrived_fraction_fixed30": 0.9697
+      },
+      "302": {
+        "decisions": 236,
+        "rows": 916,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.9574,
+        "arrived_fraction_fixed30": 0.9619
+      },
+      "303": {
+        "decisions": 229,
+        "rows": 884,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.8962,
+        "arrived_fraction_fixed30": 0.9161
+      },
+      "304": {
+        "decisions": 227,
+        "rows": 880,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.8985,
+        "arrived_fraction_fixed30": 0.9338
+      },
+      "305": {
+        "decisions": 228,
+        "rows": 880,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.9266,
+        "arrived_fraction_fixed30": 0.9385
+      },
+      "306": {
+        "decisions": 227,
+        "rows": 880,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.9603,
+        "arrived_fraction_fixed30": 0.9656
+      },
+      "307": {
+        "decisions": 232,
+        "rows": 896,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.9586,
+        "arrived_fraction_fixed30": 0.975
+      },
+      "308": {
+        "decisions": 227,
+        "rows": 876,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.967,
+        "arrived_fraction_fixed30": 0.9729
+      },
+      "309": {
+        "decisions": 236,
+        "rows": 912,
+        "deterministic": true,
+        "demand_aligned": true,
+        "arrived_fraction": 0.9467,
+        "arrived_fraction_fixed30": 0.9674
+      }
+    }
+  }
+]
