@@ -233,3 +233,19 @@ right.
   unnamed.
 
 Eastgate, Newport and SE38th keep their P103 lanes unchanged (Amendment 1).
+
+## Amendment 3 — build and evaluator committed before any P105 file is counted
+
+- `scripts/p105_build.py` builds the 16 files with the frozen detector and the
+  locked lanes. It records a refused file as an exclusion and substitutes
+  nothing.
+- `scripts/p105_eval.py`:
+  - **Thresholds** come from calibration hours only, at full precision, with
+    the stop rules enforced: pooled support < 30, or fewer than 6 blocks.
+  - **Scoring** checks the ridge model's SHA-256 against `73532968…` and
+    refuses unless the thresholds are committed.
+  - **Methods and families** are exactly as registered.
+  - **Near-empty lanes** (mean future count < 0.5) are marked and kept.
+- **Dry run:** the evaluator ran end to end on **synthetic** counts in a
+  scratch directory, never P105 data, to confirm every code path and the sign
+  of each difference.
