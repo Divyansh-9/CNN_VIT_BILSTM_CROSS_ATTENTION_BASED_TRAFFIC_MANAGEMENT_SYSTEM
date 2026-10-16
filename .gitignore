@@ -94,6 +94,7 @@ data/dev_footage/
 
 # SUMO tripinfo scratch — swept per environment (see traffic_env)
 data/_tripinfo/
+data/_demand/
 
 # Third-party model weights — ITD (IIT Roorkee, CC BY-NC 4.0).
 # NOT committed. The authors gate these behind a request form with a download

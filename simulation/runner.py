@@ -127,6 +127,8 @@ def run_episode(
 
     import traci
 
+    from simulation.scenarios import demand_path
+
     # A MANAGED directory rather than %TEMP%. `unlink` below usually succeeds,
     # but on Windows SUMO can still hold the handle as it exits, and the misses
     # accumulate — 16,955 files and 1.5 GB across two sessions, ending in a full
@@ -144,7 +146,7 @@ def run_episode(
     command = [
         str(sumo_binary("sumo")),
         "-n", str(net_dir / "intersection.net.xml"),
-        "-r", str(net_dir / f"demand_{regime}.rou.xml"),
+        "-r", str(demand_path(net_dir, regime, seed)),
         "-a", str(net_dir / "vtypes.add.xml"),
         "--seed", str(seed),
         "--no-step-log", "true",

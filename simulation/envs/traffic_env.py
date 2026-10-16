@@ -44,6 +44,7 @@ except ImportError as error:      # pragma: no cover
 
 from ..runner import APPROACHES, lane_ids
 from ..sumo_tools import ensure_sumo_home, sumo_binary
+from ..scenarios import demand_path, episode_seed
 
 from simulation.forecast_state import forecast_slots  # noqa: E402
 
@@ -173,13 +174,16 @@ class TrafficSignalEnv(gym.Env):
 
         self._tripinfo = self._tripinfo_dir / f"ep{self._episode:06d}.tripinfo.xml"
         self._traci = traci
-        run_seed = self.base_seed + self._episode if seed is None else seed
+        # P115: on a scenario the seed is the demand, so training episodes are
+        # kept clear of the evaluation seeds; constant regimes are unchanged.
+        run_seed = (episode_seed(self.regime, self.base_seed, self._episode)
+                    if seed is None else seed)
         self._episode += 1
 
         traci.start([
             str(sumo_binary("sumo")),
             "-n", str(self.net_dir / "intersection.net.xml"),
-            "-r", str(self.net_dir / f"demand_{self.regime}.rou.xml"),
+            "-r", str(demand_path(self.net_dir, self.regime, run_seed)),
             "-a", str(self.net_dir / "vtypes.add.xml"),
             "--seed", str(run_seed),
             "--no-step-log", "true",
