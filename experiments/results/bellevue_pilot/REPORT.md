@@ -329,3 +329,19 @@ not transfer.** The forecasts run +0.66 to +0.78 vehicles high on every camera,
 because the fit is centred on NE 8th's level of 6.1 against 1.2–2.6 here, and
 the calibrated classes span about one vehicle. Without the limitation lanes
 the difference is −0.143 to −0.221, so the conclusion stands.
+
+## P105 — level-free change forecaster on untouched footage (3 cameras, 48 blocks)
+
+| | macro-F1 | count MAE | bias |
+|---|---|---|---|
+| persistence | 0.716 | 0.972 | −0.008 |
+| **ridge** | **0.732** | **0.748** | −0.017 |
+| trend | 0.539 | 1.663 | +0.091 |
+
+- **Count MAE:** persistence − ridge is **+0.224 [+0.181, +0.271]**,
+  significant. Ridge is closer on every camera.
+- **macro-F1:** ridge − persistence is +0.016 [−0.002, +0.036], not
+  significant. Per camera: SE38th +0.049 (significant), Eastgate +0.033 and
+  Newport −0.008 (neither significant).
+- **Reading: better counts, classes unchanged.** The level-free design removed
+  P103's +0.7 bias. 116th NE12th was excluded (no clock, truncated files).

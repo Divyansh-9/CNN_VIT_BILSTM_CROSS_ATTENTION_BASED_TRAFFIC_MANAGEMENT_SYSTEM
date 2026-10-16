@@ -7371,3 +7371,91 @@ thresholds at full precision for any future run. P103 is **not** rescored.
   safe.
 - **The near-empty lanes stay visible in every report** (Newport lane_2 and
   SE38th lane_1). No lane is excluded on its scores.
+
+## P105 — a level-free change forecaster beats persistence on counts, not on classes, on untouched footage (2026-10-16)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P105.md`
+with Amendments 1–4 (`0c59a54`, `6129ed9`, `9e225c0`, `17bd58d`, `9830964`).
+
+- **Model:** ridge (`p105_ridge_v1.json`, sha `73532968…`), fitted only on
+  already-used footage before any P105 file existed, applied unchanged.
+- **Footage:** 16 files downloaded by rule. **116th NE12th was excluded whole**:
+  it has no burnt-in clock, and its test files are truncated at the source. No
+  substitute was chosen. No camera moved (overlay-verified).
+- **Thresholds and support:** committed at full precision (`108ff8e`).
+- **Scoring:** one read.
+
+**Test:** Eastgate, Newport and SE38th, Monday 07:08, 12:08 and 16:08; 904
+windows in 48 ten-minute blocks.
+
+| camera | windows | blocks | footage |
+|---|---|---|---|
+| Eastgate | 342 | 18 | three full hours |
+| Newport | 342 | 18 | three full hours |
+| SE38th | 220 | 12 | 48.7 + 60 + 9.4 min |
+
+Support: LOW 565, MEDIUM 670, HIGH 2,381.
+
+| method | macro-F1 | count MAE | bias | LOW / MEDIUM / HIGH recall |
+|---|---|---|---|---|
+| persistence | 0.7162 | 0.972 | −0.008 | 0.782 / 0.491 / 0.877 |
+| **ridge (level-free)** | **0.7324** | **0.748** | −0.017 | 0.782 / 0.506 / 0.902 |
+| trend (continue the last change) | 0.5392 | 1.663 | +0.091 | 0.756 / 0.270 / 0.726 |
+
+**Primary family (Holm):**
+
+| comparison | difference [95% CI, block bootstrap stratified by camera] | verdict |
+|---|---|---|
+| persistence − ridge, count MAE | **+0.224 [+0.181, +0.271]** | **significant: ridge's counts are closer** |
+| ridge − persistence, macro-F1 | +0.016 [−0.002, +0.036], p 0.079 | not significant |
+
+**Reading, by the table fixed in advance:** *better counts, classes unchanged.*
+Ridge forecasts the next minute's count 23% closer than persistence on
+cameras and hours it never saw, and the improvement holds on every camera:
+
+| camera | ridge MAE | persistence MAE |
+|---|---|---|
+| Eastgate | 0.718 | 0.968 |
+| Newport | 0.570 | 0.694 |
+| SE38th | 1.072 | 1.410 |
+
+The gain is not large enough to change congestion classes significantly when
+pooled.
+
+**Secondaries (Holm):**
+
+| comparison | difference | Holm |
+|---|---|---|
+| trend − persistence, macro-F1 | −0.177 | significant: worse |
+| trend − persistence, MAE | worse by 0.691 | significant |
+| ridge − persistence, LOW recall | 0.000 (identical) | — |
+| per camera, ridge − persistence macro-F1: SE38th | **+0.049 [+0.012, +0.088]** | significant |
+| per camera: Eastgate | +0.033 [−0.002, +0.073] | not significant |
+| per camera: Newport | −0.008 | not significant |
+
+Continuing the last change is clearly harmful, as expected at a signalised
+junction (P93's two-minute cycle).
+
+**What this establishes:**
+
+- **The level-free design fixed P103's failure mode.** Ridge's bias is
+  −0.017 vehicles, against C1-L's +0.66 to +0.78 in P103, because it cannot
+  carry a camera's level.
+- **This is the first learned forecaster in the project to beat persistence on
+  a pre-registered primary, on untouched cameras and hours.** The metric is
+  count error.
+- Its coefficients forecast mostly the 2-minute mean. Averaging over a full
+  signal cycle predicts the next minute better than the last half-cycle does.
+
+**What it does not establish:**
+
+- a congestion-class improvement (pooled macro-F1 is not significant);
+- anything at 116th NE12th, which was excluded;
+- independent confirmation of how the ridge specification was selected (stated
+  in Amendment 1);
+- anything about signal-control safety.
+
+The near-empty lanes (Newport lane_2, SE38th lane_1) are kept and marked.
+
+**No promotion follows automatically.** Persistence v1 remains the prototype's
+forecaster until a separate decision.

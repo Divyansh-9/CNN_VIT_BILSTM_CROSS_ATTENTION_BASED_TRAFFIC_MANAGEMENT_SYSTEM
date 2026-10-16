@@ -1,0 +1,263 @@
+{
+  "protocol": "PREREGISTRATION_P105.md",
+  "ridge_sha256": "73532968dcf24b2533089687530ca435d2f09bc8cebcb159b44d97dd55c7c74c",
+  "windows": 904,
+  "blocks": 48,
+  "pooled": {
+    "persistence": {
+      "f1": 0.7162,
+      "mae": 0.9721,
+      "bias": -0.0082,
+      "LOW": 0.7823,
+      "MEDIUM": 0.491,
+      "HIGH": 0.8765
+    },
+    "trend": {
+      "f1": 0.5392,
+      "mae": 1.6633,
+      "bias": 0.0906,
+      "LOW": 0.7558,
+      "MEDIUM": 0.2701,
+      "HIGH": 0.7257
+    },
+    "ridge": {
+      "f1": 0.7324,
+      "mae": 0.748,
+      "bias": -0.0171,
+      "LOW": 0.7823,
+      "MEDIUM": 0.506,
+      "HIGH": 0.9021
+    }
+  },
+  "per_camera": {
+    "150th_Eastgate": {
+      "persistence": {
+        "f1": 0.4894,
+        "mae": 0.9681,
+        "bias": -0.0041,
+        "LOW": 0.1765,
+        "MEDIUM": 0.4228,
+        "HIGH": 0.8702
+      },
+      "trend": {
+        "f1": 0.3665,
+        "mae": 1.6855,
+        "bias": 0.0843,
+        "LOW": 0.3137,
+        "MEDIUM": 0.2033,
+        "HIGH": 0.7096
+      },
+      "ridge": {
+        "f1": 0.5224,
+        "mae": 0.7175,
+        "bias": -0.0068,
+        "LOW": 0.2157,
+        "MEDIUM": 0.4512,
+        "HIGH": 0.901
+      }
+    },
+    "150th_Newport": {
+      "persistence": {
+        "f1": 0.7752,
+        "mae": 0.6943,
+        "bias": -0.0128,
+        "LOW": 0.8038,
+        "MEDIUM": 0.6174,
+        "HIGH": 0.9053
+      },
+      "trend": {
+        "f1": 0.6022,
+        "mae": 1.1731,
+        "bias": 0.0586,
+        "LOW": 0.7434,
+        "MEDIUM": 0.3505,
+        "HIGH": 0.7841
+      },
+      "ridge": {
+        "f1": 0.7672,
+        "mae": 0.5702,
+        "bias": -0.0229,
+        "LOW": 0.7887,
+        "MEDIUM": 0.5916,
+        "HIGH": 0.9154
+      }
+    },
+    "150th_SE38th": {
+      "persistence": {
+        "f1": 0.6734,
+        "mae": 1.4101,
+        "bias": -0.0076,
+        "LOW": 0.8835,
+        "MEDIUM": 0.292,
+        "HIGH": 0.8456
+      },
+      "trend": {
+        "f1": 0.5505,
+        "mae": 2.3909,
+        "bias": 0.1501,
+        "LOW": 0.8594,
+        "MEDIUM": 0.1947,
+        "HIGH": 0.6699
+      },
+      "ridge": {
+        "f1": 0.7225,
+        "mae": 1.0717,
+        "bias": -0.0241,
+        "LOW": 0.8916,
+        "MEDIUM": 0.3894,
+        "HIGH": 0.8842
+      }
+    }
+  },
+  "primary": {
+    "ridge - persistence, macro-F1": {
+      "point": 0.0162,
+      "ci95": [
+        -0.002,
+        0.0358
+      ],
+      "p": 0.079,
+      "blocks": 48,
+      "windows": 904,
+      "holm_threshold": 0.05,
+      "holm_significant": false
+    },
+    "persistence - ridge, count MAE": {
+      "point": 0.2241,
+      "ci95": [
+        0.1805,
+        0.271
+      ],
+      "p": 0.0,
+      "blocks": 48,
+      "windows": 904,
+      "holm_threshold": 0.025,
+      "holm_significant": true
+    }
+  },
+  "secondary": {
+    "trend - persistence, macro-F1": {
+      "point": -0.177,
+      "ci95": [
+        -0.1975,
+        -0.1554
+      ],
+      "p": 0.0,
+      "blocks": 48,
+      "windows": 904,
+      "holm_threshold": 0.0083,
+      "holm_significant": true
+    },
+    "persistence - trend, count MAE": {
+      "point": -0.6912,
+      "ci95": [
+        -0.7371,
+        -0.646
+      ],
+      "p": 0.0,
+      "blocks": 48,
+      "windows": 904,
+      "holm_threshold": 0.01,
+      "holm_significant": true
+    },
+    "ridge - persistence, LOW recall": {
+      "point": 0.0,
+      "ci95": [
+        -0.0261,
+        0.03
+      ],
+      "p": 1.0,
+      "blocks": 48,
+      "windows": 904,
+      "holm_threshold": 0.05,
+      "holm_significant": false
+    },
+    "150th_Eastgate: ridge - persistence, macro-F1": {
+      "point": 0.0331,
+      "ci95": [
+        -0.0015,
+        0.0728
+      ],
+      "p": 0.0604,
+      "blocks": 18,
+      "windows": 342,
+      "holm_threshold": 0.0167,
+      "holm_significant": false
+    },
+    "150th_Newport: ridge - persistence, macro-F1": {
+      "point": -0.0079,
+      "ci95": [
+        -0.0303,
+        0.0196
+      ],
+      "p": 0.5504,
+      "blocks": 18,
+      "windows": 342,
+      "holm_threshold": 0.025,
+      "holm_significant": false
+    },
+    "150th_SE38th: ridge - persistence, macro-F1": {
+      "point": 0.0491,
+      "ci95": [
+        0.012,
+        0.0878
+      ],
+      "p": 0.0028,
+      "blocks": 12,
+      "windows": 220,
+      "holm_threshold": 0.0125,
+      "holm_significant": true
+    }
+  },
+  "lanes": {
+    "150th_Eastgate lane_0": {
+      "future_mean_avg": 1.01,
+      "near_empty": false
+    },
+    "150th_Eastgate lane_1": {
+      "future_mean_avg": 1.542,
+      "near_empty": false
+    },
+    "150th_Eastgate lane_2": {
+      "future_mean_avg": 3.971,
+      "near_empty": false
+    },
+    "150th_Eastgate lane_3": {
+      "future_mean_avg": 2.802,
+      "near_empty": false
+    },
+    "150th_Newport lane_0": {
+      "future_mean_avg": 1.512,
+      "near_empty": false
+    },
+    "150th_Newport lane_1": {
+      "future_mean_avg": 3.127,
+      "near_empty": false
+    },
+    "150th_Newport lane_2": {
+      "future_mean_avg": 0.205,
+      "near_empty": true
+    },
+    "150th_Newport lane_3": {
+      "future_mean_avg": 2.719,
+      "near_empty": false
+    },
+    "150th_SE38th lane_0": {
+      "future_mean_avg": 3.979,
+      "near_empty": false
+    },
+    "150th_SE38th lane_1": {
+      "future_mean_avg": 0.243,
+      "near_empty": true
+    },
+    "150th_SE38th lane_2": {
+      "future_mean_avg": 4.276,
+      "near_empty": false
+    },
+    "150th_SE38th lane_3": {
+      "future_mean_avg": 4.387,
+      "near_empty": false
+    }
+  },
+  "reading": "better counts, classes unchanged"
+}
