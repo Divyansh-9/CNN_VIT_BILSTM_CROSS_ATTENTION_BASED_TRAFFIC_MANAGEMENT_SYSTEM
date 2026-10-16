@@ -284,3 +284,18 @@ undercounts busy traffic, M1280 overcounts quiet traffic.
 
 Coverage fixed the missing class and the model beats persistence, but not an
 hour-of-day prior, and LOW recall is below the bar.
+
+## P100 — unseen-hour test (two folds interleaved by hour)
+
+| question | result |
+|---|---|
+| model − clock prior | +0.029 [−0.005, +0.065], **not shown** |
+| model − persistence | −0.059 [−0.129, +0.031], **not shown** (persistence 0.540 vs model 0.481) |
+| content, real − swapped | **+0.054 [+0.024, +0.087], significant**: the model uses the window's traffic |
+| LOW recall | **0.058** (16 of 275); persistence 0.509 |
+
+The model reads the traffic but does not beat the clock or persistence on
+hours it never saw. LOW collapses because whole-hour holdout leaves fold B
+only 57 LOW training decisions: the footage has 3 quiet hours. Persistence
+wins in the morning (LOW), and the model wins at midday and in the afternoon
+(HIGH).

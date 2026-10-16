@@ -7037,3 +7037,78 @@ after the test would void the protocol.
 The next blocker is whether the model uses the scene at all beyond time of day.
 That needs a held-out-hour or held-out-day test, where an hour prior cannot be
 learned. Phase 2 stays paused.
+
+## P100 — on unseen hours the model uses the traffic, but beats neither the clock nor persistence (2026-10-16)
+
+**Measured** under `experiments/results/bellevue_pilot/PREREGISTRATION_P100.md`
+with Amendments 1–2 (`76a844f`, `3f18a5e`, `bc73d20`). P99's selected recipe
+(G, unweighted) was retrained in two folds interleaved by hour, so every hour
+was tested once by a model that never saw it. Each fold's model is the average
+of three seeds (42, 1, 7), with no selection. The six runs were recorded
+(`edd4481`) before the single test read.
+
+**Part B, confirmatory:** 1,157 windows in 78 blocks across all 13 hours.
+Support: LOW 275, MEDIUM 2,379, HIGH 817.
+
+| | macro-F1 | LOW recall | MEDIUM recall | HIGH recall |
+|---|---|---|---|---|
+| model (seed average) | 0.4811 | **0.058** (16 of 275) | 0.859 | 0.504 |
+| clock prior (nearest training hour) | 0.4522 | 0.000 | 0.879 | 0.507 |
+| persistence | **0.5397** | 0.509 | 0.730 | 0.389 |
+| model, input swapped (same hour, ≥ 24 min away) | 0.4266 | | | |
+
+| question | difference [95% CI, block bootstrap] | Holm | answer |
+|---|---|---|---|
+| 1. unseen hours: model − clock prior | +0.029 [−0.005, +0.065], p 0.127 | threshold 0.025, n.s. | **does not beat the clock** |
+| 2. model − persistence | −0.059 [−0.129, +0.031], p 0.191 | n.s. | **does not beat persistence** (point estimate below it) |
+| 3. content: real − swapped | **+0.054 [+0.024, +0.087]**, p < 0.0001 | significant | **the model uses each window's traffic** |
+| 4. LOW recall, against the 0.50 bar | 0.058; persistence − model +0.451 (significant) | — | **LOW collapses on unseen hours** (information only) |
+
+**More secondaries:**
+
+- **Fold A, model − clock:** +0.079 [+0.005, +0.118], p 0.027. This is **not
+  significant** under Holm (threshold 0.0167).
+- **Fold B, model − clock:** −0.008.
+- **LOW recall, model − clock:** +0.058, not significant.
+
+**Reported, not tested:**
+
+- **Seeds:** individual seeds score 0.473 to 0.497, all above the clock prior
+  and all below persistence.
+- **By period, against the clock prior and against persistence:**
+
+| period | − clock prior | − persistence |
+|---|---|---|
+| morning | +0.105 | −0.126 |
+| midday | −0.005 | +0.112 |
+| afternoon | +0.002 | +0.095 |
+| Sunday evening | +0.077 | +0.010 |
+
+**Reading, by the table fixed in advance:** *does not beat the clock, and real
+input is better than swapped*. **It reads the traffic, but not enough to beat
+the clock.**
+
+- This revises Part A's exploratory hint. On unseen hours, swapping the input
+  measurably hurts.
+- It is not a demonstration of useful scene-specific forecasting: the model
+  beats neither comparator.
+
+**Why LOW collapses: coverage again.** LOW lives in 06:08–08:08 and Sun
+19:08. Fold B holds out 06:08 and 08:08, which contain 213 of the 275 test
+LOW, and trains on only **57** LOW decisions. Fold A trains on 191 and holds
+out 62. With whole hours held out, too few quiet hours remain to learn the
+class. The 13 hours hold **3 quiet hours**, and any hour-held-out design spends
+some of them on test.
+
+**Where each method is strong:**
+
+- Persistence is strong on **LOW** (0.51 recall) and in the morning.
+- The model is strong on **HIGH** (0.50 against 0.39) and at midday and in the
+  afternoon, where it beats persistence by +0.10.
+- Neither dominates.
+
+**Part A, exploratory** (P99 checkpoint, already-read windows, reported
+separately): real − swapped +0.047 [−0.007, +0.137].
+
+**Unchanged:** P97, P98 and P99; the protocol; the thresholds. Phase 2 stays
+paused.

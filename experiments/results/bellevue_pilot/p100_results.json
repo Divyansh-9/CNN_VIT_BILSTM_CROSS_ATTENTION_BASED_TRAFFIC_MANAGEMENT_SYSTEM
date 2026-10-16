@@ -1,0 +1,232 @@
+{
+  "protocol": "PREREGISTRATION_P100.md, Part B",
+  "windows": 1157,
+  "blocks": 78,
+  "support": {
+    "LOW": 275,
+    "MEDIUM": 2379,
+    "HIGH": 817
+  },
+  "macro_f1": {
+    "model": 0.4811,
+    "clock prior": 0.4522,
+    "persistence": 0.5397,
+    "model, swapped input": 0.4266
+  },
+  "recall": {
+    "model": {
+      "LOW": 0.0582,
+      "MEDIUM": 0.8588,
+      "HIGH": 0.5043
+    },
+    "clock prior": {
+      "LOW": 0.0,
+      "MEDIUM": 0.8789,
+      "HIGH": 0.5067
+    },
+    "persistence": {
+      "LOW": 0.5091,
+      "MEDIUM": 0.7297,
+      "HIGH": 0.3892
+    }
+  },
+  "confusion": {
+    "model": [
+      [
+        16,
+        259,
+        0
+      ],
+      [
+        70,
+        2043,
+        266
+      ],
+      [
+        0,
+        405,
+        412
+      ]
+    ],
+    "clock": [
+      [
+        0,
+        270,
+        5
+      ],
+      [
+        0,
+        2091,
+        288
+      ],
+      [
+        0,
+        403,
+        414
+      ]
+    ],
+    "base": [
+      [
+        140,
+        132,
+        3
+      ],
+      [
+        138,
+        1736,
+        505
+      ],
+      [
+        8,
+        491,
+        318
+      ]
+    ]
+  },
+  "primary": {
+    "model - clock prior": {
+      "point": 0.0289,
+      "ci95": [
+        -0.0046,
+        0.0647
+      ],
+      "p": 0.1266,
+      "blocks": 78,
+      "windows": 1157,
+      "holm_threshold": 0.025,
+      "holm_significant": false,
+      "beats": false
+    },
+    "model - persistence": {
+      "point": -0.0586,
+      "ci95": [
+        -0.1289,
+        0.0308
+      ],
+      "p": 0.1914,
+      "blocks": 78,
+      "windows": 1157,
+      "holm_threshold": 0.05,
+      "holm_significant": false,
+      "beats": false
+    }
+  },
+  "secondary": {
+    "content: real - swapped": {
+      "point": 0.0544,
+      "ci95": [
+        0.0235,
+        0.0872
+      ],
+      "p": 0.0,
+      "blocks": 78,
+      "windows": 1157,
+      "holm_threshold": 0.01,
+      "holm_significant": true
+    },
+    "LOW recall: model - clock": {
+      "point": 0.0582,
+      "ci95": [
+        0.0,
+        0.1705
+      ],
+      "p": 0.1004,
+      "blocks": 78,
+      "windows": 1157,
+      "holm_threshold": 0.025,
+      "holm_significant": false
+    },
+    "LOW recall: model - persistence": {
+      "point": -0.4509,
+      "ci95": [
+        -0.6298,
+        -0.1871
+      ],
+      "p": 0.001,
+      "blocks": 78,
+      "windows": 1157,
+      "holm_threshold": 0.0125,
+      "holm_significant": true
+    },
+    "fold A: model - clock": {
+      "point": 0.0792,
+      "ci95": [
+        0.0048,
+        0.1182
+      ],
+      "p": 0.0274,
+      "blocks": 36,
+      "windows": 527,
+      "holm_threshold": 0.0167,
+      "holm_significant": false
+    },
+    "fold B: model - clock": {
+      "point": -0.0084,
+      "ci95": [
+        -0.0228,
+        0.0063
+      ],
+      "p": 0.2554,
+      "blocks": 42,
+      "windows": 630,
+      "holm_threshold": 0.05,
+      "holm_significant": false
+    }
+  },
+  "reported_not_tested": {
+    "each seed": {
+      "seed42": {
+        "macro_f1": 0.473,
+        "minus_clock": 0.0209,
+        "minus_persistence": -0.0666
+      },
+      "seed1": {
+        "macro_f1": 0.4851,
+        "minus_clock": 0.0329,
+        "minus_persistence": -0.0546
+      },
+      "seed7": {
+        "macro_f1": 0.4969,
+        "minus_clock": 0.0447,
+        "minus_persistence": -0.0428
+      }
+    },
+    "each lane": {
+      "west": {
+        "minus_clock": 0.1105,
+        "minus_persistence": -0.135
+      },
+      "north": {
+        "minus_clock": 0.0548,
+        "minus_persistence": -0.0307
+      },
+      "east": {
+        "minus_clock": 0.0289,
+        "minus_persistence": -0.1334
+      }
+    },
+    "each period": {
+      "sunday evening": {
+        "minus_clock": 0.0767,
+        "minus_persistence": 0.0095,
+        "windows": 180
+      },
+      "morning": {
+        "minus_clock": 0.1045,
+        "minus_persistence": -0.1255,
+        "windows": 360
+      },
+      "midday": {
+        "minus_clock": -0.005,
+        "minus_persistence": 0.1123,
+        "windows": 347
+      },
+      "afternoon": {
+        "minus_clock": 0.0021,
+        "minus_persistence": 0.0954,
+        "windows": 270
+      }
+    },
+    "LOW recall against the 0.50 bar (information only)": 0.0582
+  }
+}
