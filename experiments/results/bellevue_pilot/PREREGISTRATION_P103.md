@@ -150,3 +150,44 @@ within this dataset. They **cannot** show universal generalisation.
 ## Licence
 
 Unresolved: research use only, internal engineering, not publishable (S63).
+
+## Amendment 1 — lanes locked and files checked (before any detector run on these cameras)
+
+The project owner placed the lane centres on calibration-hour frames
+(`scripts/p103_lane_page.py`). No detector had run on these cameras. The
+owner revised them after a review overlay, which removed a near-duplicate
+SE38th centre 0.052 from its neighbour. The superseded first placement is
+kept. `scripts/import_lane_centres.py` validated them: four lanes per camera,
+minimum centre separation 0.24 to 0.42, reach 0.25. The centres are ordered
+left to right:
+
+| camera | lane centres (x, y), normalised |
+|---|---|
+| 150th_Eastgate | lane_0 (0.2070, 0.7197); lane_1 (0.2708, 0.2382); lane_2 (0.5599, 0.1530); lane_3 (0.6541, 0.6334) |
+| 150th_Newport | lane_0 (0.1878, 0.4763); lane_1 (0.4768, 0.1242); lane_2 (0.4890, 0.6989); lane_3 (0.6876, 0.2406) |
+| 150th_SE38th | lane_0 (0.1699, 0.3919); lane_1 (0.2948, 0.8347); lane_2 (0.5423, 0.2079); lane_3 (0.7538, 0.5985) |
+
+- **Reviewer:** "unrecorded". The placement was supplied by the project owner
+  in this session, with no name given, and none is filled in on their behalf.
+  Approaches are unnamed.
+- **Stated limitations, from review:**
+  - **Newport lane_2** (0.489, 0.699) lies largely under the foreground signal
+    housing, which hides part of the road, so it is expected to undercount.
+  - **Eastgate lane_1** (0.271, 0.238) covers a roof and a parking area beside
+    its road, so parked vehicles count.
+  - **Eastgate faces the low sun:** heavy glare in its calibration frames and
+    at the 06:08 dawn hour. That is the condition where P99b found ITD-xl's
+    LOW calls least reliable.
+
+  The owner kept all three placements, so they stand as limitations, not
+  exclusions.
+- **Continuity:** all 10 enumerated files (3 calibration, 7 test) pass the
+  burnt-in clock check at start, middle and end. They are 1280 × 720.
+  **SE38th Mon 13:08 is 52.7 min long at the source** and continuous from
+  13:08:33 to 14:01:09. It is kept at its actual length, as P98 kept NE 8th
+  13:08. **No file is excluded.**
+- **The evaluator** (`scripts/p103_eval.py`) is committed with this
+  amendment. It computes the 8 features from one lane's series, because these
+  cameras have four lanes, and `self_check()` proves them identical to
+  `c1L_v1`'s training features. The calibration prior breaks a tie toward the
+  lower class.
