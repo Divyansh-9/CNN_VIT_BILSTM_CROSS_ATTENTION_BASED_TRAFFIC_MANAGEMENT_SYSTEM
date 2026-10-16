@@ -1,0 +1,172 @@
+{
+  "protocol": "PREREGISTRATION_P112.md, Part 1 (with Amendment 1)",
+  "stream": "ground-truth-now (not a forecast)",
+  "checkpoint": "models\\ppo\\ppo_no-forecast_saturated_keep_or_switch_seed42.zip",
+  "checkpoint_contract": "59579c2dd3be10ed",
+  "seeds": {
+    "42": {
+      "decisions": 107,
+      "by_decider": {
+        "forecast": 64,
+        "no_forecast": 37,
+        "webster": 6
+      },
+      "faults": {
+        "F3": 8,
+        "F2": 2,
+        "F4": 3,
+        "F1": 24,
+        "F2b": 3,
+        "F5": 5,
+        "F6": 1
+      },
+      "probe_calls": 64,
+      "transitions": 37,
+      "episode": {
+        "method": "p112_part1",
+        "seed": 42,
+        "regime": "saturated",
+        "steps": 1182,
+        "mean_wait_s": 14.669,
+        "mean_queue": 9.956,
+        "throughput": 1448,
+        "max_wait_s": 80.0,
+        "starvation_events": 0,
+        "phase_switches": 103,
+        "arrived_fraction": 0.9628
+      },
+      "violations": []
+    },
+    "1": {
+      "decisions": 109,
+      "by_decider": {
+        "forecast": 62,
+        "no_forecast": 44,
+        "webster": 3
+      },
+      "faults": {
+        "F2": 7,
+        "F3": 10,
+        "F1": 30,
+        "F2b": 4,
+        "F5": 3,
+        "F4": 2
+      },
+      "probe_calls": 62,
+      "transitions": 41,
+      "episode": {
+        "method": "p112_part1",
+        "seed": 1,
+        "regime": "saturated",
+        "steps": 1151,
+        "mean_wait_s": 16.762,
+        "mean_queue": 11.617,
+        "throughput": 1455,
+        "max_wait_s": 69.0,
+        "starvation_events": 0,
+        "phase_switches": 109,
+        "arrived_fraction": 0.9649
+      },
+      "violations": []
+    },
+    "7": {
+      "decisions": 103,
+      "by_decider": {
+        "forecast": 51,
+        "webster": 9,
+        "no_forecast": 43
+      },
+      "faults": {
+        "F5": 8,
+        "F2b": 3,
+        "F2": 4,
+        "F1": 33,
+        "F3": 8,
+        "F4": 1,
+        "F6": 1
+      },
+      "probe_calls": 51,
+      "transitions": 47,
+      "episode": {
+        "method": "p112_part1",
+        "seed": 7,
+        "regime": "saturated",
+        "steps": 1218,
+        "mean_wait_s": 21.919,
+        "mean_queue": 15.434,
+        "throughput": 1450,
+        "max_wait_s": 92.0,
+        "starvation_events": 0,
+        "phase_switches": 97,
+        "arrived_fraction": 0.9641
+      },
+      "violations": []
+    },
+    "13": {
+      "decisions": 103,
+      "by_decider": {
+        "forecast": 56,
+        "webster": 8,
+        "no_forecast": 39
+      },
+      "faults": {
+        "F2b": 8,
+        "F5": 5,
+        "F1": 31,
+        "F6": 3,
+        "F2": 4,
+        "F3": 7
+      },
+      "probe_calls": 56,
+      "transitions": 45,
+      "episode": {
+        "method": "p112_part1",
+        "seed": 13,
+        "regime": "saturated",
+        "steps": 1194,
+        "mean_wait_s": 21.527,
+        "mean_queue": 15.482,
+        "throughput": 1432,
+        "max_wait_s": 124.0,
+        "starvation_events": 0,
+        "phase_switches": 101,
+        "arrived_fraction": 0.9521
+      },
+      "violations": []
+    },
+    "21": {
+      "decisions": 104,
+      "by_decider": {
+        "forecast": 54,
+        "no_forecast": 42,
+        "webster": 8
+      },
+      "faults": {
+        "F1": 30,
+        "F5": 7,
+        "F2": 8,
+        "F3": 9,
+        "F4": 3,
+        "F2b": 2,
+        "F6": 2
+      },
+      "probe_calls": 54,
+      "transitions": 39,
+      "episode": {
+        "method": "p112_part1",
+        "seed": 21,
+        "regime": "saturated",
+        "steps": 1206,
+        "mean_wait_s": 16.683,
+        "mean_queue": 11.711,
+        "throughput": 1448,
+        "max_wait_s": 110.0,
+        "starvation_events": 0,
+        "phase_switches": 99,
+        "arrived_fraction": 0.9628
+      },
+      "violations": []
+    }
+  },
+  "passed": true
+}

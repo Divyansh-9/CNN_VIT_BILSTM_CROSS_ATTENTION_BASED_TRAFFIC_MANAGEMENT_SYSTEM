@@ -7787,3 +7787,66 @@ rejected, because it trusts stale counts.
 - **`tests/test_p112_harness.py`:** proves the checker can fail. A gate that
   ignores staleness, accepts partial coverage, ignores corrupt counts, or is
   too strict at the 10 s bound is each caught by the matching invariant.
+
+## P113 — P97a step 5, Part 1 passed: the fail-safe gate handled every injected fault, with zero violations (2026-10-16)
+
+**The retrain was verified before scoring** (`scripts/verify_ppo_checkpoint.py`,
+`7230abd`). For `ppo_no-forecast_saturated_keep_or_switch_seed42.zip`,
+SHA-256 `a7f06ba8c21085155bda998e23163846b7432762048b4ad9343a748339e20985`:
+
+- **Training completed:** the model's own `num_timesteps` is **501,760**, 245
+  whole 2,048-step rollouts, at or above 500,000. It is not a smoke run.
+- **The layout matches:** the observation space is 17, contract
+  `59579c2dd3be10ed` is the current digest, and `assert_compatible` passes.
+- **The policy runs:** a legal decision is made.
+
+The 16-dim predecessor stays archived in `models/ppo/_pre_adr020/`.
+
+**Part 1, run once** under `PREREGISTRATION_P112.md` (`702566d`) with
+Amendment 1 and the frozen harness (`fd637db`). Five seeds, saturated,
+1800 s. **The stream is ground-truth-now, not a forecast.**
+
+| seed | decisions | forecast (probe) | no-forecast | fixed cycle | logged changes | violations |
+|---|---|---|---|---|---|---|
+| 42 | 107 | 64 | 37 | 6 | 37 | **0** |
+| 1 | 109 | 62 | 44 | 3 | 41 | **0** |
+| 7 | 103 | 51 | 43 | 9 | 47 | **0** |
+| 13 | 103 | 56 | 39 | 8 | 45 | **0** |
+| 21 | 104 | 54 | 42 | 8 | 39 | **0** |
+| **total** | **526** | **287** | **205** | **34** | **209** | **0** |
+
+**Faults injected:**
+
+| fault | count |
+|---|---|
+| F1 missing message (in bursts) | 148 |
+| F2 stale | 25 |
+| F2b boundary ages (10.0 and 9.9 s) | 20 |
+| F3 approach dropout | 42 |
+| F4 invalid class | 9 |
+| F5 corrupt count | 28 |
+| F6 corrupt queue | 7 |
+
+**Every one of the six invariants held on every decision of every seed:**
+
+| invariant | what held |
+|---|---|
+| I1 | no invalid input reached a forecast-aware decision; all 287 probe calls were on complete, fresh, valid messages |
+| I2 | no missing approach was ever encoded as a class, and the age slot was exact |
+| I3 | every one of the 209 changes of decider was logged with its reason |
+| I4 | every corrupt count or queue (35 faults) went to the degraded-mode fixed cycle, whose action was applied |
+| I5 | recovery happened only on a complete, fresh, valid message, and boundary ages were accepted |
+| I6 | all five episodes completed |
+
+**What this establishes:** the gate and the encoder handle every specified
+fault exactly as ADR-020 (as amended) requires, in these SUMO conditions.
+
+**What it does not establish:**
+
+- **Not forecast accuracy:** the stream is ground truth, not a forecast.
+- **Not non-inferiority:** that is Part 2, which stays **PENDING** until P52,
+  ADR-021 and a forecast-aware policy exist.
+- **Not safe real-world signal control.**
+
+The episodes' delay figures are not a comparison and are not interpreted.
+**The controller stays disconnected from signal timing.**
