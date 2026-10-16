@@ -128,3 +128,195 @@ integration, in Weeks 17-19, with no fallback if it fails.
 **Report the oracle as the result.** It is an upper bound on a quantity nothing
 achieves. Reported as a bound, it is informative; reported as a result, it is
 false.
+
+---
+
+## Amendment 1 — the scenario, the oracle, the quality axis and the outcome (2026-10-16, before any ADR-021 run)
+
+**Decided by the project owner** (D1–D4 of
+[INVESTIGATION-P52](../INVESTIGATION-P52-surrogate-arm.md)). **This is not a
+faculty-guide signature.** The status stays *Proposed*, and the go/no-go above
+still needs the guide. The original text above is kept unedited.
+
+**Why this amendment exists.** P114 measured the existing constant-rate regimes
+before anything was trained:
+
+- at `saturated`, the class 60 s ahead differs from the current class on
+  **6.9%** of approach-decisions;
+- **HIGH never occurs**;
+- persistence already scores more 3-class macro-F1 than the grid's lower
+  points ask for, and with HIGH absent even a perfect forecast scores 0.667.
+
+So the ceiling as written would test a near-constant input, and a null result
+would not be the decisive result §1 says it is.
+
+### A1.1 Scenario: `pulsed`, qualified, replacing "saturated only" in §5
+
+- **What it is:** per-approach piecewise-constant demand with stochastic
+  arrivals.
+  - Levels {300, 700, 1100} veh/h/approach.
+  - Segments of 120–300 s.
+  - Parameter hash `8267da50f659`, frozen at design iteration 1
+    (`experiments/results/scenario_pulsed/`).
+- **It passed every pre-registered criterion of
+  [PREREGISTRATION_P115](../../../experiments/results/scenario_pulsed/PREREGISTRATION_P115.md)**
+  on its one qualification run, seeds 200–219 (P117):
+  - the future class differs from now on **31.4%**;
+  - LOW / MEDIUM / HIGH are **0.229 / 0.380 / 0.391** of oracle labels;
+  - all 20 seeds deterministic, with demand aligned across controllers;
+  - the quality grid delivered within 0.03 of nominal;
+  - arrived fraction **0.938**.
+- **The three constant regimes are unchanged**, and so is every result on
+  them. They are not used for the forecast question, because they have no
+  headroom.
+- **Before any forecast-aware run**, the qualification is repeated with the
+  no-forecast policy trained on `pulsed` (P115 §5.4, seeds 240–259). That
+  policy then becomes the oracle's frozen policy.
+
+### A1.2 The oracle: replayed under the frozen no-forecast policy
+
+**Definition:** the oracle for seed *s* at decision time *t* is the §14.1 class
+of each approach's count at *t* + 60 s, **in the trajectory of the frozen
+no-forecast policy on seed *s***. That episode is run once and recorded every
+second.
+
+**Limitation, stated here as the owner required:**
+
+- **It is conditioned on the frozen policy's trajectory.**
+- **A forecast-aware policy changes traffic through its own actions**, so the
+  oracle is **not necessarily a perfect forecast of the future under that
+  policy**.
+  - What it carries exactly is the exogenous demand: the same vehicles are
+    loaded at the same seconds whichever policy acts (P115 Q4b, 20/20 seeds).
+  - What it carries approximately is the congestion that demand produces under
+    the incumbent policy. That mirrors how a deployed forecaster learns, from
+    footage recorded under the incumbent controller.
+- **Every evaluation that uses the oracle reports** its agreement with the
+  classes actually realised under the policy being evaluated. Every result
+  carries the label **oracle-input, an upper bound, not achievable**.
+
+**Rejected: a SUMO state lookahead from the current state** (P115). It is the
+"truer" oracle, and it is not usable on SUMO 1.27.1:
+
+- about 83× slower (1.4 s per lookahead);
+- two continuations from one loaded state agreed on 0.97 of classes;
+- repeated loads crashed SUMO.
+
+**The replay oracle costs about 3× the environment stepping, about +2.3 h per
+500,000-step run on the team laptop (ADR-003, CPU)**
+(`experiments/results/scenario_pulsed/cost.json`). It depends only on (seed,
+frozen policy), so it is cached and shared by every arm with that training
+seed.
+
+### A1.3 Quality: from persistence (q = 0) to oracle (q = 1), replacing §5's macro-F1 grid
+
+- **Construction:** P115 §3 (`simulation/forecast_quality.py`). The forecast
+  is the oracle while a shared, persistent "informed" chain holds, and the
+  persistence class otherwise.
+- **Errors are lagging ones.** That makes them adjacent-class, lane-correlated
+  and persistent in time, which is §4 satisfied without extra parameters.
+- **Grid:** q ∈ {0, 0.25, 0.5, 0.75, 1.0}. q = 0 is persistence v1 (ADR-027),
+  the deployable control arm; q = 1 is the oracle.
+- **The nominal q is never assumed.** Each run reports its measured skill,
+  (acc − acc_persistence) / (acc_oracle − acc_persistence), against the
+  classes realised in its own evaluation episodes. It also reports accuracy
+  and 3-class macro-F1.
+  - In qualification the delivered skills were 0.00 / 0.25 / 0.52 / 0.71 /
+    1.00.
+  - The macro-F1 values were 0.676 / 0.758 / 0.844 / 0.905 / 1.000.
+- **The curve is reported against both measured skill and macro-F1,** so a
+  measured forecaster (S29) is located on it by its skill over persistence.
+
+### A1.4 Arms, replication and seeds (D4)
+
+| arm | slots 11–14 | role |
+|---|---|---|
+| `no-forecast` | absent (0.0); age 1.0 | the floor |
+| `surrogate(0)` = persistence | the current class | **control**: separates foresight from an extra input channel |
+| `surrogate(q)`, q ∈ {0.25, 0.5, 0.75} | constructed | the sweep: **only if the ceiling clears** |
+| `oracle` = `surrogate(1)` | the replay oracle | the ceiling: an **upper bound** |
+| `mfstnet` | unchanged | not runnable in SUMO |
+
+- **Training:** every arm at **training seeds 42, 1 and 7**, independently,
+  with the same 500,000 steps, hyperparameters, reward, action space and
+  scenario.
+  - The no-forecast arm needs three new runs on `pulsed`. The existing
+    checkpoint was trained on `saturated`.
+  - Training episodes use seeds from 1,000,000 upward (P115 §4), so no
+    training episode shares an evaluation seed's demand.
+- **Evaluation:** seeds 0–29, paired across arms. These seeds are never used
+  in training or design.
+- **The forecast age is real.** The oracle is refreshed every 15 s and carried
+  with its true age (0, 5 or 10 s at the 5 s decisions). The age channel
+  therefore means what ADR-020 says it means.
+
+### A1.5 Outcome: mean total delay, defined exactly
+
+**Primary: `mean_total_delay_s`**, the mean over **every vehicle loaded in the
+episode** of SUMO tripinfo `timeLoss + departDelay`. "Every vehicle" includes
+those still driving and those still waiting to enter when the episode ends
+(`--tripinfo-output.write-unfinished` and `.write-undeparted`).
+`run_episode(..., total_delay=True)` reports it, and a test shows that turning
+it on moves no existing field.
+
+**Why this, and not `mean_wait_s`:**
+
+- §3 says "mean total delay", and SUMO's documented decomposition of a
+  vehicle's total delay is exactly `timeLoss` (against free flow) plus
+  `departDelay` (waiting to be inserted).
+- **`mean_wait_s` is a different quantity:**
+  - it counts stopped time only;
+  - it counts **completed trips only**, which the runner's own docstring
+    records as understating congestion exactly when congestion is worst;
+  - a policy that holds vehicles back can look better on it.
+- **The substitution is made here, documented, and before any run.**
+
+**Secondary, reported and not tested:** `mean_wait_s`, `arrived_fraction`,
+`starvation_events`, throughput and `max_wait_s`.
+
+**P112 Part 2 keeps `mean_wait_s` and its own protocol.** Nothing here amends
+it.
+
+### A1.6 The ceiling decision, fixed now
+
+**The test:**
+
+- **Per evaluation seed,** an arm's value is the mean of `mean_total_delay_s`
+  over its three trained policies.
+- **The comparison:** paired differences over seeds 0–29, by paired t-test at
+  α = 0.05, with Cohen's *d*, a bootstrap 95% CI (10,000 resamples) and Holm
+  correction across the two tests.
+
+**Outcomes:**
+
+- **The ceiling clears** only if `oracle` beats `no-forecast` **and** beats
+  `surrogate(0)`, each with *d* ≥ 0.5.
+  - Beating `no-forecast` alone is reported as "**an input channel helps;
+    foresight not shown**". It does not clear the ceiling.
+- **A null at the ceiling,** on a scenario with qualified headroom, is reported
+  as **"forecast information does not improve control in this simulation"**.
+  That is the decisive result §1 intended.
+- **Per training seed, the three replicates' directions are reported.** A
+  ceiling that clears on the mean while one replicate reverses is reported as
+  fragile.
+
+**§3's X is re-expressed on the q axis:** the lowest swept q at which PPO
+beats Webster on `mean_total_delay_s` by the same test, with *d* ≥ 0.5.
+Webster's ADR-012 saturation-flow sweep is rerun on `pulsed` first, so the
+baseline is tuned to the scenario it is compared on.
+
+### A1.7 Prerequisites still open before any forecast-aware training
+
+1. **Confirmation (A1.1).** It needs the no-forecast policy trained on
+   `pulsed`, at seed 42.
+2. **P116.** The runner and the training environment apply `keep_or_switch`
+   differently:
+   - the runner clamps each 5 s "keep" up to a 10 s green, and never applies
+     the 90 s maximum to a run of keeps;
+   - all arms, PPO and baselines alike, must be evaluated under the rules the
+     policies trained under.
+3. **The forecast producer in the environment,** with a test that two arms'
+   observations differ only at indices 11–14 and 16. **This is what closes
+   P52 in code.**
+4. **`train_ppo.py` refuses an arm whose producer does not exist.**
+5. **Webster's sweep on `pulsed`.**

@@ -7915,3 +7915,187 @@ the inspection was asked to catch.
 
 ADR-021's go/no-go still needs the guide. **Part 1 stays passed (P113), Part 2
 stays PENDING, and the controller stays disconnected from signal timing.**
+
+## P115 — a scenario for ADR-021 pre-registered, and the state-lookahead oracle rejected on measurement (2026-10-16)
+
+The owner approved D1–D4 of
+[INVESTIGATION-P52](INVESTIGATION-P52-surrogate-arm.md):
+
+- **D1:** a separate time-varying scenario;
+- **D2:** an oracle simulated under the frozen no-forecast policy;
+- **D3:** quality from persistence to oracle;
+- **D4:** three training seeds per arm.
+
+`PREREGISTRATION_P115.md` (`b952f20`) was committed before the scenario code
+existed. It fixes four things:
+
+- **the scenario family** (`pulsed`) and its parameter bounds;
+- **a design budget** of 5 logged iterations on seeds 300–309;
+- **a one-time qualification** on seeds 200–219;
+- **six criteria:**
+  - headroom;
+  - class coverage;
+  - not recoverable from the state;
+  - determinism and demand alignment;
+  - an attainable quality grid;
+  - not breakdown.
+
+**The oracle mechanism changed from what P114 proposed, within D2's
+definition.** A SUMO `saveState`/`loadState` lookahead was spiked on the
+constant `saturated` regime, with no scenario data, and rejected:
+
+- **Too slow:** 1.4 s per lookahead, so an 1800 s episode took 522 s against
+  6.3 s (about 83×).
+- **Not reproducible:**
+  - The default state precision is 2 decimals.
+  - Even at 12 decimals with the RNG saved, two continuations from one loaded
+    state agreed on 0.97 of classes and 0.67 of counts.
+- **Crashes:** repeated backward loads crashed SUMO in three configurations.
+
+**Adopted:** the **replay oracle**. Run the frozen policy on the seed once,
+record every second, and read the count at *t* + 60 s. Its determinism is
+verified, not assumed.
+
+**Training-episode seeds moved clear of evaluation.** An episode's seed was
+the training seed plus the episode index, so D4's training seeds 1 and 7
+would have trained on evaluation seeds 1–29. On a scenario where the seed is
+the demand, that is leakage. Scenario episodes now use seeds from 1,000,000
+upward. Constant regimes keep the historical rule, so existing checkpoints
+stay reproducible (tested).
+
+## P116 — two harness facts that bound what existing and future SUMO numbers mean (2026-10-16)
+
+**(a) The runner does not apply `keep_or_switch` the way the training
+environment does. Open; it must be fixed before ADR-021 is evaluated.**
+
+| | `TrafficSignalEnv` (training) | `run_episode` (evaluation) |
+|---|---|---|
+| a "keep" | lasts 5 s | is clamped up to a 10 s green (`min_green_s`) |
+| the 90 s maximum | forces a switch after 90 s of keeps | is applied per request only, so a run of keeps is never forced |
+
+How much this matters depends on the policy:
+
+- **At `saturated`, the current no-forecast policy requests a switch on 96% of
+  decisions** (217 of 227 on seed 100). It is effectively a minimum-green
+  alternation, so the two harnesses behave alike.
+- **At `light`, the same policy keeps on 80% of decisions,** and there they
+  diverge.
+
+A forecast-aware policy that anticipates traffic would hold phases, so
+ADR-021 cannot be evaluated through the runner as it stands. **No committed
+performance result is affected:**
+
+- `benchmark_ppo` used the `phase_duration` checkpoint;
+- P113 Part 1 tested gate integrity, not delay.
+
+**(b) In the constant regimes, a seed does not vary the arrivals.**
+
+- **What a seed does vary:** `build_sumo_demand.py` writes `vehsPerHour`
+  flows, which SUMO inserts evenly spaced. Measured on `saturated`, seeds 1
+  and 2 load **identical vehicles at identical seconds** but draw different
+  vehicle types. A seed therefore varies vehicle mix, lateral placement and
+  driver behaviour, never the demand.
+- **What that means for existing intervals:** the 30-seed CIs on those
+  regimes measure sensitivity to the vehicle mix, not to arrival variability.
+- **What it does not change:** the existing numbers are correct for what was
+  run. The script's docstring ("the 30-seed benchmark varies exactly this") is
+  what is wrong.
+- **How `pulsed` differs:** it uses `probability` flows, so its seeds vary
+  both the schedule and the arrivals.
+
+## P117 — the `pulsed` scenario qualified, on its one run (2026-10-16)
+
+**Design** (`design_log.json`): iteration 1, the pre-registered starting point,
+met all six criteria on seeds 300–309.
+
+- **Parameters:** levels {300, 700, 1100} veh/h/approach, segments 120–300 s,
+  hash `8267da50f659`.
+- **Frozen and committed** (`5b306e4`) before qualification.
+- **Iterations used:** 1 of 5.
+
+**Qualification, run once on seeds 200–219** under the frozen policy
+(sha256 `a7f06ba8…`), with the Q3 classifier fitted on the design seeds:
+
+| | criterion | measured | threshold |
+|---|---|---|---|
+| Q1 | oracle ≠ persistence | **0.314** | ≥ 0.20 |
+| Q2 | LOW / MEDIUM / HIGH share | **0.229 / 0.380 / 0.391** | ≥ 0.10 each |
+| Q3 | state classifier disagrees with oracle | 0.482 | ≥ 0.10 |
+| Q4 | deterministic / demand aligned | **20/20 and 20/20** | all |
+| Q5 | delivered skill at q = 0, .25, .5, .75, 1 | 0.00, 0.25, 0.52, 0.71, 1.00 | within 0.05 |
+| | 3-class macro-F1 along the grid | 0.676, 0.758, 0.844, 0.905, 1.000 | rising, range ≥ 0.15 |
+| Q6 | arrived fraction | **0.938** (`Fixed(30)`: 0.955) | ≥ 0.85 |
+
+**Passed.** For comparison, at the constant `saturated` regime under the same
+policy P114 measured 6.9% for Q1, and HIGH at 0%.
+
+**A weakness in Q3, stated rather than hidden.** The logistic regression
+disagrees with the oracle more often (0.48) than plain persistence does
+(0.31). A linear model on raw counts is a weak learner of thresholded
+classes, so Q3 cleared an easy bar. Q1 is the stronger evidence that the
+state does not already hold the future: persistence is the policy's free
+baseline.
+
+**The D2 cost** (`cost.json`, team laptop, CPU):
+
+- an ordinary 1800 s episode is 1.9 s of environment stepping;
+- the oracle pass is 3.9 s;
+- that is about 3× the stepping, or about **+2.3 h per 500,000-step run**,
+  with PPO's update time excluded;
+- the oracle is cached per (seed, frozen policy), so arms sharing a training
+  seed pay it once.
+
+**Still required:** confirmation with the scenario-trained no-forecast policy
+(seeds 240–259) before anything forecast-aware is trained.
+
+## P118 — ADR-021 Amendment 1: scenario, oracle, quality axis, arms and outcome fixed before any run (2026-10-16)
+
+[ADR-021 Amendment 1](decisions/ADR-021-forecast-quality-as-a-swept-variable.md)
+records the owner's D1–D4 (not a guide signature; the status stays
+*Proposed*).
+
+- **Scenario:** `pulsed`, which replaces "saturated only".
+- **The oracle:** the replay oracle, with the owner's limitation stated in the
+  ADR. It is conditioned on the frozen policy's trajectory, so it is not a
+  perfect forecast under a policy that changes traffic. Its realised agreement
+  is reported in every evaluation, and every result is labelled oracle-input,
+  an upper bound.
+- **The quality axis:** persistence to oracle, q ∈ {0, .25, .5, .75, 1}, with
+  measured skill reported per run.
+- **Arms:**
+  - no-forecast;
+  - persistence (q = 0, the control);
+  - the oracle (q = 1);
+  - the sweep, only if the ceiling clears.
+- **Replication and seeds:** three training seeds each (42, 1, 7), with
+  evaluation on seeds 0–29.
+
+**The outcome is named exactly, with the substitution documented.** ADR-021
+said "mean total delay" and the runner had no such field.
+
+- **`mean_total_delay_s`** is the mean over every vehicle loaded in the
+  episode of tripinfo `timeLoss + departDelay`, including vehicles unfinished
+  or not yet inserted.
+- It is SUMO's decomposition of total delay, and it does not share
+  `mean_wait_s`'s completed-trips-only bias.
+- `run_episode(total_delay=True)` reports it, and a test shows the option
+  moves no existing field.
+- `mean_wait_s` is secondary here.
+- **P112 Part 2 keeps `mean_wait_s` and is not amended.**
+
+**The ceiling decision is fixed now.** The oracle must beat both no-forecast
+and persistence, by paired t-test over seeds 0–29 (Holm across the two), each
+with *d* ≥ 0.5. Beating no-forecast alone is reported as "an input channel
+helps; foresight not shown".
+
+**Open before any forecast-aware training (A1.7):**
+
+1. confirmation;
+2. P116(a);
+3. the forecast producer in the environment, with the arms-differ-only-in-
+   slots test, which closes P52 in code;
+4. `train_ppo.py` refusing an arm without a producer;
+5. Webster's sweep on `pulsed`.
+
+**Nothing has been trained. P97a Part 1 stays passed, Part 2 stays PENDING,
+and the controller stays disconnected from signal timing.**

@@ -90,3 +90,17 @@ def test_construct_endpoints_and_measured_skill():
     assert abs(skill(forecast, persistence, oracle, oracle) - 0.5) < 0.05
     rows = construct(oracle, persistence, 0.5, corruption_rng(1, 0.5)) == oracle
     assert ((rows.all(axis=1)) | (forecast == persistence).all(axis=1)).all()  # lane-correlated
+
+
+def test_total_delay_is_opt_in_and_moves_no_existing_metric():
+    pytest.importorskip("traci")
+    from simulation.controllers import Fixed
+    from simulation.runner import run_episode
+
+    off = run_episode(Fixed(green_s=30), regime="oversaturated", seed=3, duration_s=600).as_row()
+    on = run_episode(Fixed(green_s=30), regime="oversaturated", seed=3, duration_s=600,
+                     total_delay=True).as_row()
+    assert "mean_total_delay_s" not in off
+    assert {k: on[k] for k in off} == off                 # every existing field identical
+    assert on["delay_vehicles"] > on["throughput"]        # unfinished vehicles are counted
+    assert on["mean_total_delay_s"] > 0

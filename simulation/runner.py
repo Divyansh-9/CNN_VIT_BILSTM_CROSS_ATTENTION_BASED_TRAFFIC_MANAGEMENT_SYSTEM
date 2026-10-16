@@ -103,6 +103,7 @@ def run_episode(
     collect_lateral: bool = False,
     emergency_at: int | None = None,
     emergency_approach: str = "N",
+    total_delay: bool = False,
 ) -> EpisodeResult:
     """Run one episode. Returns metrics; writes nothing.
 
@@ -162,6 +163,13 @@ def run_episode(
     ]
     if lateral_resolution:
         command += ["--lateral-resolution", str(lateral_resolution)]
+    if total_delay:
+        # ADR-021 as amended: total delay counts EVERY vehicle loaded in the
+        # episode, including those still driving or still waiting to enter when
+        # it ends. `_read_tripinfo` drops those rows from every other metric, so
+        # turning this on cannot move `mean_wait_s` or `throughput`.
+        command += ["--tripinfo-output.write-unfinished", "true",
+                    "--tripinfo-output.write-undeparted", "true"]
 
     lanes = lane_ids()
 
@@ -301,6 +309,9 @@ def run_episode(
             green_at - raised_at if (green_at is not None and raised_at is not None)
             else None
         )
+    if total_delay:
+        extra["mean_total_delay_s"] = round(trips["mean_total_delay_s"], 3)
+        extra["delay_vehicles"] = trips["delay_vehicles"]
     if collect_lateral:
         for kind, values in sorted(lateral_spread.items()):
             extra[f"lat_mean_{kind}"] = round(sum(values) / len(values), 4)
@@ -333,7 +344,8 @@ def _read_tripinfo(path: Path, ET) -> dict:
     mean wait while completing 70% of trips has not done well.
     """
     if not path.exists() or path.stat().st_size == 0:
-        return {"mean_wait_s": 0.0, "max_wait_s": 0.0, "waits": [], "mean_duration_s": 0.0}
+        return {"mean_wait_s": 0.0, "max_wait_s": 0.0, "waits": [], "mean_duration_s": 0.0,
+                "mean_total_delay_s": 0.0, "delay_vehicles": 0}
 
     try:
         root = ET.parse(path).getroot()
@@ -343,9 +355,19 @@ def _read_tripinfo(path: Path, ET) -> dict:
         text = path.read_text(encoding="utf-8").rstrip()
         root = ET.fromstring(text + "</tripinfos>")
 
-    waits = [float(t.get("waitingTime", 0.0)) for t in root.findall("tripinfo")]
-    durations = [float(t.get("duration", 0.0)) for t in root.findall("tripinfo")]
+    every = root.findall("tripinfo")
+    # Completed trips only. Rows with a negative arrival exist only when the
+    # episode asked for total delay (unfinished or undeparted vehicles), and
+    # they must not leak into the completed-trip metrics.
+    completed = [t for t in every if float(t.get("arrival", 0.0)) >= 0]
+    waits = [float(t.get("waitingTime", 0.0)) for t in completed]
+    durations = [float(t.get("duration", 0.0)) for t in completed]
+    # SUMO's decomposition: timeLoss is delay against free flow on the route
+    # driven so far; departDelay is time spent waiting to be inserted.
+    delays = [float(t.get("timeLoss", 0.0)) + float(t.get("departDelay", 0.0)) for t in every]
     return {
+        "mean_total_delay_s": sum(delays) / len(delays) if delays else 0.0,
+        "delay_vehicles": len(delays),
         "mean_wait_s": sum(waits) / len(waits) if waits else 0.0,
         "max_wait_s": max(waits) if waits else 0.0,
         "mean_duration_s": sum(durations) / len(durations) if durations else 0.0,

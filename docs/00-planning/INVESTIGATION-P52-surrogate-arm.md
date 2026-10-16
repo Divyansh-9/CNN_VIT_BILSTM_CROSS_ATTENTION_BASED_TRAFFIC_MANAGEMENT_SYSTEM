@@ -1,7 +1,9 @@
 # P52 inspection — the surrogate arm, before anything is trained
 
-**Date:** 2026-10-16 · **Status:** inspection complete; **four decisions pending
-with the project owner**, and ADR-021's go/no-go still needs the guide ·
+**Date:** 2026-10-16 · **Status:** inspection complete. **D1–D4 decided by the project owner
+2026-10-16** and carried out in P115–P118 (ADR-021 Amendment 1). D2's oracle is
+replayed rather than looked ahead, on measured evidence (P115). ADR-021's
+go/no-go still needs the guide ·
 **Nothing was trained.** No policy, environment or controller code changed. One
 measurement script was added (`scripts/p52_headroom.py`), with its results in
 `experiments/results/p52/`.

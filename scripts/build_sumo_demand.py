@@ -11,8 +11,11 @@ without anybody intending to.
 
     python scripts/build_sumo_demand.py --regime saturated --seed 42
 
-Seeds matter: `randomTrips`-style demand is stochastic, and the 30-seed benchmark
-(FR-R07) varies exactly this.
+These flows use `vehsPerHour`, which SUMO inserts evenly spaced, so **a seed does
+not vary the arrivals** here: it varies the vehicle-type draws, lateral placement
+and driver behaviour (P116). The 30-seed benchmark's spread on these regimes is
+therefore sensitivity to the vehicle mix. `simulation/scenarios.py` holds the
+time-varying scenario whose seed does draw the demand (P115).
 """
 
 from __future__ import annotations
