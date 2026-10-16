@@ -149,7 +149,9 @@ def thresholds() -> int:
                 pooled = [a + b for a, b in zip(pooled, got)]
         flags = [c for c, k in support["calibrated"].items() if k < FLAG_CAMERA]
         report["cameras"][camera] = {
-            "q33": round(q33, 4), "q67": round(q67, 4),
+            # Full precision: future means are multiples of 1/30 and sit exactly
+            # on these boundaries, so a rounded threshold reclassifies them (P103).
+            "q33": q33, "q67": q67,
             "calibration_windows": len(cal), "test_windows": len(test),
             "test_blocks": len({w["block"] for w in test}),
             "lanes": len(test[0]["future"]), "test_support": support,

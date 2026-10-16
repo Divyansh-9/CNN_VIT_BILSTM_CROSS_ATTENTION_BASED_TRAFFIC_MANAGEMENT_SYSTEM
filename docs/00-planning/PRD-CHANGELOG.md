@@ -7300,3 +7300,14 @@ The conclusion does not depend on either lane.
 
 **Scope:** three cameras, one Sunday and Monday, with per-camera calibration.
 The NE 8th models, P97–P102 and their records are unchanged.
+
+**Disclosed defect in P103's support table.** The committed thresholds were
+stored rounded to four decimals (Eastgate q33 0.1333 for 2/15). The
+pre-scoring support count used the unrounded values. Future means are
+multiples of 1/30, so **21 of 3,152 test decisions (0.7%)**, sitting exactly
+on a boundary, fall one class higher under the committed thresholds: 18 at
+Newport, 3 at Eastgate, 0 at SE38th. Scoring used the committed thresholds,
+as the protocol requires, so the support behind the scores is LOW 543 /
+MEDIUM 943 / HIGH 1,666, against the table's 555 / 940 / 1,657. Against a
+−0.222 difference, this changes no conclusion. `p103_eval.py` now stores
+thresholds at full precision for any future run. P103 is **not** rescored.
