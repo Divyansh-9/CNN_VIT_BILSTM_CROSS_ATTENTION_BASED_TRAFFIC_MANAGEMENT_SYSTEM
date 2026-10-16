@@ -7625,3 +7625,26 @@ pre-registration outline are in
     significantly worse than the no-forecast policy under injected dropout and
     staleness.
 - **Awaiting the project owner's decision.** The controller stays disconnected.
+
+## P109 — P97a Option A: a missing approach is refused or null, never 0.0 (2026-10-16)
+
+**Decision by the project owner after P108:** approve Option A, accept Option
+D as the plan, and amend ADR-020.
+
+- **`CongestionPrediction.to_state_values`** now **refuses** a prediction with
+  a missing approach (`ContractError`, naming it) instead of returning 0.0,
+  which is also LOW. There is no implicit zero left in the contract.
+- **New `to_state_values_or_none`** returns `None` for an absent approach. It
+  is for display and APIs only.
+- **Server:** `state_11_14` in both prediction responses carries **`null`**
+  for an absent approach (Newport-style `[0.5, null, 0.5, 0.5]`), alongside
+  `missing_approaches`.
+- **Tests updated with the behaviour:**
+  - the contract test now asserts the refusal, and that a real LOW stays 0.0
+    beside a `None`;
+  - the live server test now asserts `null`, where it previously pinned
+    "indistinguishable from LOW".
+
+**Unchanged on purpose:** the simulator, `PPOController` and the 16-dim
+layout. The no-forecast arm's 11–14 are the arm's declared world, not a
+substituted value. Option D, under amended ADR-020, changes that layout next.

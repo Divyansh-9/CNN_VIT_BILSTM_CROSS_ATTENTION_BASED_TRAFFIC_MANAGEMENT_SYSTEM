@@ -187,16 +187,23 @@ def test_state_values_come_out_in_lane_order():
     assert pred.to_state_values() == [1.0, 0.5, 0.0, 0.0]
 
 
-def test_a_missing_lane_yields_zero_and_the_vector_keeps_its_length():
-    """FR-A06 zeroes indices 11–14 when MFSTNet is unavailable. Shortening the
-    vector instead would invalidate every trained checkpoint."""
+def test_a_missing_lane_is_refused_never_zero_filled():
+    """P97a, Option A (P109): 0.0 is LOW, so a missing lane must not become 0.0.
+    The state builder refuses rather than substituting it."""
     pred = CongestionPrediction(
         predictions={"N": CongestionClass.HIGH},
         confidences={"N": 0.9}, gate_value=0.5, model="G@0123456789ab",
     )
-    values = pred.to_state_values()
-    assert len(values) == 4
-    assert values == [1.0, 0.0, 0.0, 0.0]
+    with pytest.raises(ContractError, match="not LOW"):
+        pred.to_state_values()
+
+
+def test_absence_stays_visible_and_the_list_keeps_its_length():
+    pred = CongestionPrediction(
+        predictions={"N": CongestionClass.HIGH, "E": CongestionClass.LOW},
+        confidences={"N": 0.9, "E": 0.9}, gate_value=0.5, model="G@0123456789ab",
+    )
+    assert pred.to_state_values_or_none() == [1.0, None, 0.0, None]   # a real LOW stays 0.0
 
 
 # ------------------------------------------------------- round trip --

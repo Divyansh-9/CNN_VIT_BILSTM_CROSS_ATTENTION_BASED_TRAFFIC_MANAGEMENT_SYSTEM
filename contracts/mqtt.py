@@ -316,16 +316,28 @@ class CongestionPrediction(_Payload):
                 f"persistence spec, and nothing else.")
 
     def to_state_values(self, lanes: tuple[str, ...] = ("N", "S", "E", "W")) -> list[float]:
-        """D6. PPO state indices 11–14, in lane order.
+        """D6. PPO state indices 11–14, in lane order — **only if every lane is
+        forecast**.
 
-        A missing lane yields 0.0 — the same value FR-A06 requires when MFSTNet
-        is unavailable. **Never shorten the list**: the vector's dimensionality is
-        a contract, and changing it invalidates every trained checkpoint.
+        P97a (Option A, P109): a missing lane used to become 0.0, which is
+        also LOW, so "no forecast" and "forecast says clear" were the same
+        number. It is now refused. A caller must handle absence explicitly:
+        `to_state_values_or_none` for display, or the controller's own absence
+        encoding (ADR-020 as amended), never an implicit zero.
         """
-        return [
-            self.predictions[l].to_state_value() if l in self.predictions else 0.0
-            for l in lanes
-        ]
+        missing = [l for l in lanes if l not in self.predictions]
+        if missing:
+            raise ContractError(
+                f"no forecast for {missing}. A missing approach is not LOW, so it "
+                f"has no state value; handle absence explicitly (P97a, ADR-020).")
+        return [self.predictions[l].to_state_value() for l in lanes]
+
+    def to_state_values_or_none(
+            self, lanes: tuple[str, ...] = ("N", "S", "E", "W")) -> list[float | None]:
+        """The same values, with `None` where an approach has no forecast. For
+        display and APIs only, where absence must stay visible (P97a)."""
+        return [self.predictions[l].to_state_value() if l in self.predictions else None
+                for l in lanes]
 
     def encode(self) -> str:
         d = {

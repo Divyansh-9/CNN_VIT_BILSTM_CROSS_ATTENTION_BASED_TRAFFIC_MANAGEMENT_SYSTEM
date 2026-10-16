@@ -157,8 +157,8 @@ def test_publishing_without_a_broker_raises_so_fr_a06_can_fire():
 
 
 def test_a_three_lane_camera_reports_its_missing_approach(database):
-    """P97a: south is absent, not LOW. The state still carries 0.0 for it,
-    so the response must say it is missing."""
+    """P97a: south is absent, not LOW. Since P109 the state values carry null
+    for it, never 0.0, and the response also names it as missing."""
     from fastapi.testclient import TestClient
 
     from contracts.mqtt import CongestionClass, CongestionPrediction
@@ -171,5 +171,5 @@ def test_a_three_lane_camera_reports_its_missing_approach(database):
     posted = client.post("/prediction/j3", content=payload.encode(),
                          headers={"content-type": "text/plain"}).json()
     assert posted["missing_approaches"] == ["S"]
-    assert posted["state_11_14"][1] == 0.0          # S, indistinguishable from LOW
+    assert posted["state_11_14"] == [0.5, None, 0.5, 0.5]   # S absent, not LOW
     assert client.get("/prediction/j3/latest").json()["missing_approaches"] == ["S"]
