@@ -7588,3 +7588,40 @@ push.
 - charts, ADR-014's deferred-agreement ribbon and the detection overlay;
 - authentication: the page cannot reach a control endpoint;
 - `dashboard` tests in CI: CI has no Node job, so `npm test` is run locally.
+
+## P108 — P97a investigated: the missing-forecast zero is latent today, exposed in one place, and fixable before it costs anything (2026-10-16)
+
+**Investigation only; no code changed.** The full trace, options and the
+pre-registration outline are in
+[INVESTIGATION-P97a-missing-forecasts.md](INVESTIGATION-P97a-missing-forecasts.md).
+
+- **The defect:** indices 11–14 encode `{LOW, MEDIUM, HIGH} → {0, 0.5, 1}`,
+  and a missing forecast is also 0.0. The spec mandates this
+  (`zero_when_mfstnet_unavailable`), `to_state_values` implements it, and
+  three tests pin it.
+- **Latent:** no path feeds a forecast to any controller today.
+  - The server's `propose()` reads counts only.
+  - `Counts.forecast` and `forecast_age_s` are declared but read by nothing.
+  - `PPOController` zeros 11–14.
+  - The environment refuses live forecasts.
+- **Exposed:** both server prediction responses publish `state_11_14` with 0.0
+  for an absent approach.
+- **Changed since ADR-020:**
+  - **One full PPO checkpoint now exists** (no-forecast arm, 500,000 steps,
+    contract `24ad1c99…`). ADR-020's age channel would invalidate it.
+  - **Absence is now per approach** (ADR-027 cameras that cannot see an
+    approach). ADR-020's reserved zero covers that; its shared age channel
+    still covers staleness.
+  - **Indices 11–14 now carry a role, not MFSTNet.**
+  - **Any forecast-aware PPO is blocked by P52 anyway,** so the encoding can
+    be fixed before anything depends on it.
+- **Recommended:**
+  - **Option A now:** the API reports absence as null, and `to_state_values`
+    refuses to zero-fill implicitly. It invalidates nothing.
+  - **Option D before any forecast-aware training:** ADR-020's encoding,
+    amended for ADR-027, plus a fallback switch to the no-forecast policy when
+    a forecast is absent or older than 10 s. This means retraining the one
+    no-forecast checkpoint, under a pre-registered safety evaluation: never
+    significantly worse than the no-forecast policy under injected dropout and
+    staleness.
+- **Awaiting the project owner's decision.** The controller stays disconnected.
