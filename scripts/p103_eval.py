@@ -205,7 +205,8 @@ def ci(rows, a, b, metric="f1", seed=0) -> dict:
     draws.sort()
     point = scores(rows, a)[metric] - scores(rows, b)[metric]
     p = 2 * min(sum(d <= 0 for d in draws), sum(d >= 0 for d in draws)) / RESAMPLES
-    return {"point": round(point, 4), "ci95": [round(draws[249], 4), round(draws[9749], 4)],
+    lo, hi = int(0.025 * RESAMPLES) - 1, int(0.975 * RESAMPLES) - 1   # 249, 9749 at 10,000
+    return {"point": round(point, 4), "ci95": [round(draws[lo], 4), round(draws[hi], 4)],
             "p": min(1.0, round(p, 4)), "blocks": sum(len(g) for g in groups.values()),
             "windows": len(rows)}
 
@@ -254,6 +255,7 @@ def score() -> int:
                     continue
                 out = {"camera": camera, "clip": w["clip"], "start": w["start"],
                        "block": w["block"],
+                       "future": [round(m, 4) for m in w["future"]],
                        "true": [level(m, low, med) for m in w["future"]],
                        "persistence": [level(m, low, med) for m in w["past"]],
                        "prior": prior}
@@ -294,6 +296,41 @@ def score() -> int:
     secondary["absolute: C1-L - persistence"] = ci(abs_rows, "c1l", "persistence", seed=22)
     holm(secondary)
     report["secondary"] = secondary
+
+    # Amendment 2: limitation lanes, fixed before any count was read. The
+    # thresholds stay as calibrated on all lanes; only the scored lanes change.
+    def without(rows, drops):
+        out = []
+        for w in rows:
+            keep = [j for j in range(len(w["true"])) if (w["camera"], j) not in drops]
+            out.append({**w, **{k: [w[k][j] for j in keep]
+                                for k in ("true", "c1l", "persistence", "prior")}})
+        return out
+    limits = {"Newport lane_2 (signal housing)": {("150th_Newport", 2)},
+              "Eastgate lane_1 (roof and parking)": {("150th_Eastgate", 1)}}
+    limits["both"] = set().union(*limits.values())
+    report["sensitivity"] = {
+        f"without {name}": {"C1-L - persistence": ci(without(cal_rows, drops), "c1l", "persistence", seed=30 + i),
+                            "C1-L - calibration prior": ci(without(cal_rows, drops), "c1l", "prior", seed=40 + i)}
+        for i, (name, drops) in enumerate(limits.items())}
+    report["sensitivity_note"] = "reported, not tested; the pre-registered pooled primary stands"
+
+    # Every lane, measured the same way: a near-constant background shows here.
+    lanes = {}
+    for cam in CAMERAS:
+        mine = [w for w in cal_rows if w["camera"] == cam]
+        for j in range(len(mine[0]["true"])):
+            future = [w["true"][j] for w in mine]
+            sub = [{**w, "true": [w["true"][j]], "c1l": [w["c1l"][j]],
+                    "persistence": [w["persistence"][j]]} for w in mine]
+            truth_means = [w["future"][j] for w in mine]
+            lanes[f"{cam} lane_{j}"] = {
+                "flag": next((n for n, d in limits.items() if n != "both" and (cam, j) in d), ""),
+                "future_mean_avg": round(statistics.fmean(truth_means), 3),
+                "future_mean_std": round(statistics.pstdev(truth_means), 3),
+                "share_in_modal_class": round(max(future.count(c) for c in range(3)) / len(future), 3),
+                "C1-L_minus_persistence_f1": round(scores(sub, "c1l")["f1"] - scores(sub, "persistence")["f1"], 4)}
+    report["per_lane"] = lanes
 
     positive = sum(secondary[f"{cam}: C1-L - persistence"]["point"] > 0 for cam in CAMERAS)
     report["reading"] = (

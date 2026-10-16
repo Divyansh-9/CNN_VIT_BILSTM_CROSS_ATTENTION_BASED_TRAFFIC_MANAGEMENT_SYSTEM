@@ -191,3 +191,34 @@ left to right:
   cameras have four lanes, and `self_check()` proves them identical to
   `c1L_v1`'s training features. The calibration prior breaks a tie toward the
   lower class.
+
+## Amendment 2 — limitation lanes reported separately (before any count is read)
+
+Added at the project owner's request while the detector was still running.
+**No P103 count, threshold or score had been read.**
+
+- **Sensitivity, reported and not tested.** The pooled calibrated comparisons
+  (C1-L − persistence and C1-L − calibration prior) are recomputed in three
+  ways: without **Newport lane_2** (signal housing), without **Eastgate
+  lane_1** (roof and parking), and without both. The same stratified block
+  bootstrap is used. **The thresholds stay as calibrated on all lanes**, so
+  excluding a lane changes only which decisions are scored, never the class
+  boundaries. The pre-registered pooled primary stands as the result. Every
+  sensitivity row is reported, whichever way it goes.
+- **Per-lane profile, for every lane on every camera, measured identically:**
+  - the mean and standard deviation of the 60 s future mean count over the
+    test windows;
+  - the share of windows in the lane's most frequent class;
+  - C1-L − persistence macro-F1 for that lane alone.
+
+  A lane dominated by parked vehicles shows up as a low standard deviation and
+  a high modal share. The two limitation lanes are flagged in the per-camera
+  results.
+- **Dry run:** the evaluator was run end to end on **synthetic** counts in a
+  scratch directory, never on P103 data. That exposed a fixed bootstrap index
+  that held only at 10,000 resamples; the index now comes from the resample
+  count, and is unchanged at 10,000.
+
+**Scope, restated:** this tests transfer to different cameras **with
+per-camera calibration**. It does not show that the model works without
+calibration, or at arbitrary locations.
