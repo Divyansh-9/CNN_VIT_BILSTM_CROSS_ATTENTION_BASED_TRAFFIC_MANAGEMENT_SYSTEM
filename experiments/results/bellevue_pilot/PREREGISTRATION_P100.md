@@ -133,3 +133,20 @@ with hour.
 ## Licence
 
 Unresolved: research use only, internal engineering, not publishable (S63).
+
+## Amendment 1 — "equidistant" means in whole hours (before any run)
+
+Written after building the folds and **before any P100 run or evaluation**. The
+clock prior's nearest-hour rule was checked against the real file start times,
+which jitter by seconds: 06:08:29, 07:08:31, 08:08:31. Measured to the second,
+07:08's neighbours are 3,602 s and 3,600 s away, so a recording artefact of 2 s
+would break every tie the rule means to pool. **Distance is therefore counted
+in whole hours.** The resulting mapping, fixed now:
+
+- **Fold A:** 19 ← 18; 07 ← 06+08; 09 ← 08+10; 11 ← 10+12; 13 ← 12+14;
+  15 ← 14+16.
+- **Fold B:** 18 ← 19; 06 ← 07; 08 ← 07+09; 10 ← 09+11; 12 ← 11+13;
+  14 ← 13+15; 16 ← 15.
+
+The fold support table was reproduced exactly by `scripts/p100_corpus.py`, and
+no test hour reaches either training corpus.
