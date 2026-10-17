@@ -202,6 +202,9 @@ def run_episode(
         # minimum green has run; and the maximum green forces the change, also
         # across a run of keeps. Every other controller is unchanged.
         keep_or_switch = getattr(controller, "decision_mode", None) == "keep_or_switch"
+        # Opt-in: a controller that measures what actually happened (P128) is
+        # shown every second's counts. It cannot act on them; it only records.
+        observe_second = getattr(controller, "observe_second", None)
         remaining = 0 if keep_or_switch else min_green_s
 
         # FR-A05. `green_elapsed` is tracked separately from `remaining` because
@@ -238,6 +241,8 @@ def run_episode(
                 waits[approach] = sum(
                     traci.lane.getWaitingTime(l) for l in group
                 )
+            if observe_second is not None:
+                observe_second(step, dict(counts))
 
             if remaining <= 0:
                 if preempting:

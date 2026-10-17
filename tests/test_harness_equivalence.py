@@ -177,6 +177,12 @@ def test_evaluation_reports_oracle_agreement_with_realised_traffic(tmp_path):
     feeding = ForecastFeeding(Blind(checkpoint, action_space="keep_or_switch"),
                               Surrogate(1.0, oracle, low_max=4, med_max=15), 999)
     run_episode(feeding, regime="pulsed", seed=999, duration_s=DURATION)
-    assert feeding.report()["oracle_realised_agreement"] == 1.0
-    assert feeding.report()["oracle_realised_compared"] > 100
+    report = feeding.report()
+    assert report["oracle_realised_agreement"] == 1.0
+    assert report["oracle_realised_compared"] > 100
+    # At the forecast's own target time, the oracle matches what happened, and
+    # the q = 1 forecast is the oracle; persistence is measurably worse.
+    assert report["realised_targets"] > 100
+    assert report["acc_oracle_realised"] == 1.0 == report["acc_forecast_realised"]
+    assert report["acc_persistence_realised"] < 1.0
     assert NoForecast().message(0, {}) == (None, None)
