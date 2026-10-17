@@ -376,3 +376,34 @@ Before any ceiling evaluation:
   - Seed 999 is a **parity** check.
   - The requalification seeds 240–259 answer a different question: **whether
     the scenario stays informative under the trained policy**.
+
+---
+
+## Amendment 3 — the complete arm list, with a clamped demand-proportional Webster arm (2026-10-17, before any ceiling result)
+
+**Decided by the project owner**, not a faculty-guide signature. The status
+stays *Proposed*.
+
+**When this was decided:**
+- after P124 corrected P122's reading;
+- while the no-forecast replicates were training;
+- **before any forecast-aware policy or ceiling result existed.**
+
+**This is the complete list, frozen.** No arm is added, removed or retuned
+after any ceiling result is seen.
+
+| arm | purpose | how it is fixed |
+|---|---|---|
+| no-forecast PPO | performance without forecast inputs | 3 training seeds (A1.4) |
+| persistence, `surrogate(0)` | whether a simple deployable forecast helps | 3 training seeds |
+| forecast-quality PPO, `surrogate(q)` up to `oracle` | the value of increasingly informative forecasts | A1.3 and A1.4. The sweep runs only if the ceiling clears |
+| tuned Webster | the selected demand-responsive baseline | s = 660 pcu/h/m with 4 s lost time (P122) |
+| fixed-time, 30 s green | the frozen fixed-cycle floor | P124 |
+| **Webster split, clamped cycle** | the distinct controller P124 identified: a clamped cycle length with demand-proportional splits | [PREREGISTRATION_P125](../../../experiments/results/scenario_pulsed/PREREGISTRATION_P125_clamped.md): the exact clamp and split rule, selected from committed tuning data, never from evaluation seeds |
+
+**The primary question is unchanged:** does forecast-aware control improve on
+**both** no-forecast PPO and persistence (A1.6, A2.2)?
+
+**The three baselines strengthen the operational comparison and replace
+nothing.** X stays defined against the tuned Webster. A PPO gain over Webster
+that either other baseline also delivers is named as such.
