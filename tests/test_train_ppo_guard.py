@@ -27,7 +27,7 @@ from simulation.forecast_producer import NoForecast, Surrogate  # noqa: E402
 CONFIG = load_config()
 
 
-def world(tmp_path, *, sidecar=None, requal=None):
+def world(tmp_path, *, sidecar=None, requal=None, lock=None):
     """A frozen policy file, its sidecar and a requalification record, all valid by default."""
     frozen = tmp_path / "frozen.zip"
     frozen.write_bytes(b"weights")
@@ -39,11 +39,22 @@ def world(tmp_path, *, sidecar=None, requal=None):
     Path(str(frozen) + ".provenance.json").write_text(json.dumps(side), encoding="utf-8")
     record = {"passed": True, "frozen_policy_sha256": hashlib.sha256(b"weights").hexdigest()}
     record.update(requal or {})
+    lock_path = tmp_path / "lock.json"
+    lock_body = {"passed": True,
+                 "replicates": {"42": {"checkpoint": str(frozen),
+                                       "sha256": hashlib.sha256(b"weights").hexdigest()}},
+                 "configs_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+                                    for p in (Path("simulation/configs/ppo_config.yaml"),
+                                              Path("mfstnet/configs/spec.yaml"))}}
+    lock_body.update(lock or {})
+    lock_path.write_text(json.dumps(lock_body), encoding="utf-8")
+    record.setdefault("lock_sha256", hashlib.sha256(lock_path.read_bytes()).hexdigest())
     path = tmp_path / "requalification.json"
     path.write_text(json.dumps(record), encoding="utf-8")
     config = copy.deepcopy(CONFIG)
     config["arms"]["surrogate"]["frozen_policy"] = str(frozen)
     config["arms"]["surrogate"]["requalification"] = str(path)
+    config["arms"]["surrogate"]["lock"] = str(lock_path)
     return config
 
 
@@ -90,6 +101,21 @@ def test_an_unfit_frozen_policy_is_refused(tmp_path, sidecar):
 def test_a_failed_or_mismatched_requalification_is_refused(tmp_path, requal):
     with pytest.raises(ProducerRefused):
         build(world(tmp_path, requal=requal))
+
+
+@pytest.mark.parametrize("lock", [
+    {"passed": False},                                            # the audit failed
+    {"replicates": {"42": {"checkpoint": "x.zip", "sha256": "0" * 64}}},  # not this policy
+    {"configs_sha256": {"mfstnet/configs/spec.yaml": "0" * 64}},  # a config changed since
+])
+def test_the_audit_lock_is_enforced(tmp_path, lock):
+    with pytest.raises(ProducerRefused):
+        build(world(tmp_path, lock=lock))
+
+
+def test_a_requalification_against_a_different_lock_is_refused(tmp_path):
+    with pytest.raises(ProducerRefused):
+        build(world(tmp_path, requal={"lock_sha256": "0" * 64}))
 
 
 def test_a_missing_frozen_policy_or_record_is_refused(tmp_path):

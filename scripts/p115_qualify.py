@@ -324,13 +324,27 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("the requalification criteria (Amendment 1) must be committed, "
                              "unchanged, before requalification")
         model, sha = load_trained(args.checkpoint)
+        lock_path = ROOT / "no_forecast_lock.json"
+        if not lock_path.exists():
+            raise SystemExit("no audit lock: run scripts/p126_audit.py first (P126)")
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        if not lock.get("passed") or sha not in {r["sha256"] for r in lock["replicates"].values()}:
+            raise SystemExit(f"{args.checkpoint} is not an audited, locked replicate (P126)")
+        for name, digest in lock["configs_sha256"].items():
+            if hashlib.sha256(Path(name).read_bytes()).hexdigest() != digest:
+                raise SystemExit(f"{name} changed since the lock (P126)")
         print("  fitting Q3's classifier on the design seeds under this policy")
         _, train = measure(DESIGN_SEEDS, model, low_max, med_max)
         report, _ = measure(REQUALIFY_SEEDS, model, low_max, med_max, classifier_train=train)
         write(REQUALIFY, {"protocol": "PREREGISTRATION_P115.md, Amendment 1",
                           "frozen_hash": frozen["hash"], "seeds": list(REQUALIFY_SEEDS),
                           "frozen_policy": str(args.checkpoint), "frozen_policy_sha256": sha,
-                          "lateral_resolution": 0.8, "thresholds": THRESHOLDS, **report})
+                          "lateral_resolution": 0.8, "thresholds": THRESHOLDS,
+                          "lock_sha256": hashlib.sha256(lock_path.read_bytes()).hexdigest(),
+                          "configs_sha256": lock["configs_sha256"],
+                          "commit": subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                                                   capture_output=True, text=True).stdout.strip(),
+                          **report})
         print(json.dumps({"checks": report["checks"], "passed": report["passed"]}, indent=2))
         print(json.dumps(report["metrics"], indent=2))
         return 0 if report["passed"] else 1

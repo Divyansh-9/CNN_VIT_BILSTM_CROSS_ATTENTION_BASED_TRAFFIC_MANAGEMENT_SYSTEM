@@ -158,6 +158,19 @@ def build_producer(config: dict, arm: str, *, quality: float | None, regime: str
     if wrong:
         _refuse(f"{frozen} is not the full scenario-trained no-forecast policy: {wrong}")
 
+    lock_path = Path(spec["lock"])
+    if not lock_path.exists():
+        _refuse(f"no audit lock at {lock_path}; the replicates must pass gates 1-2 (P126)")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    locked = {r["checkpoint"].replace("\\", "/"): r["sha256"]
+              for r in lock.get("replicates", {}).values()}
+    if not lock.get("passed") or locked.get(str(frozen).replace("\\", "/")) != \
+            hashlib.sha256(frozen.read_bytes()).hexdigest():
+        _refuse(f"{frozen} is not the audited, locked checkpoint (P126)")
+    for name, digest in lock.get("configs_sha256", {}).items():
+        if not Path(name).exists() or hashlib.sha256(Path(name).read_bytes()).hexdigest() != digest:
+            _refuse(f"{name} has changed since the replicates were locked (P126)")
+
     requal = Path(spec["requalification"])
     if not requal.exists():
         _refuse(f"no requalification record at {requal}; it must pass first (A1.1)")
@@ -167,6 +180,8 @@ def build_producer(config: dict, arm: str, *, quality: float | None, regime: str
         _refuse(f"the requalification at {requal} did not pass")
     if result.get("frozen_policy_sha256") != sha:
         _refuse(f"the requalification was run on a different policy than {frozen}")
+    if result.get("lock_sha256") != hashlib.sha256(lock_path.read_bytes()).hexdigest():
+        _refuse("the requalification was not run against the current lock (P126)")
 
     from simulation.oracle import ReplayOracle
 

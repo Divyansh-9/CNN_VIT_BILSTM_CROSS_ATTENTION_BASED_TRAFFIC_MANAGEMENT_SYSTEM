@@ -39,6 +39,9 @@ arms:                        # ADR-009, as amended by ADR-021 Amendment 1
     # unless it is the full scenario-trained run and its requalification passed.
     frozen_policy: models/ppo/ppo_no-forecast_pulsed_keep_or_switch_seed42.zip
     requalification: experiments/results/scenario_pulsed/requalification.json
+    # P126: the audited replicates and the configs they were qualified under.
+    # A frozen policy or config that differs from this lock is refused.
+    lock: experiments/results/scenario_pulsed/no_forecast_lock.json
     quality_grid: [0.0, 0.25, 0.5, 0.75, 1.0]   # A1.3; 0 = persistence, 1 = oracle
     max_age_s: 10            # the gate's freshness bound; ages seen are 0, 5, 10 s
     tau_s: 60                # time constant of the informed chain (P115 §3)
