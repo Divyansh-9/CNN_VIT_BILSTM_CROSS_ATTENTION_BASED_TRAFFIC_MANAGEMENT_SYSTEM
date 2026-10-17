@@ -142,7 +142,6 @@ def test_replay_oracle_is_cached_deterministic_and_writes_no_tripinfo(tmp_path):
         pytest.skip("needs a trained no-forecast checkpoint")
     from simulation.oracle import ReplayOracle
 
-    before = set(Path("data/_tripinfo").glob("*.tripinfo.xml"))
     oracle = ReplayOracle(checkpoint, "pulsed", episode_s=120, lateral_resolution=0.8,
                           cache=tmp_path)
     first = oracle.counts(999)
@@ -155,7 +154,10 @@ def test_replay_oracle_is_cached_deterministic_and_writes_no_tripinfo(tmp_path):
     assert np.array_equal(first, fresh)                       # deterministic replay
     assert np.array_equal(oracle.counts(999), first)          # and read back from cache
     assert oracle._env.write_tripinfo is False and oracle._env._tripinfo is None
-    assert set(Path("data/_tripinfo").glob("*.tripinfo.xml")) <= before   # before any sweep
+    # Only this replay environment's own files count: other processes (a training
+    # run, say) may be writing theirs into the same directory concurrently.
+    mine = f"{id(oracle._env):x}_"
+    assert not [f for f in Path("data/_tripinfo").glob(f"{mine}*.tripinfo.xml")]
     oracle._env.close()
 
 
