@@ -9155,3 +9155,107 @@ the real camera:
 3. **V3:** review the 704 flagged files; confirm the toolchain exclusion; make
    the repository private.
 4. **Labellers and the camera window**, both still to be named.
+
+## P135 — the owner's V1/V2/V3 decisions implemented: V2 split frozen and re-run, the V1 gate built and validated, the V3 review classified (2026-10-17)
+
+### V2: criterion 6 split, frozen before any real-camera run
+
+**The owner decided** (`PREREGISTRATION_V2_S65.md`, `cc9a550`):
+
+| part | what it times | passes if |
+|---|---|---|
+| **6a** | the model call alone, `session.run` on the CPU provider: the PRD's "MFSTNet ≤ 150 ms on server CPU via ONNX" | p95 ≤ 150 ms |
+| **6b** | the whole edge step | p95 ≤ 1,000 ms **and** max ≤ 2,000 ms |
+| **6c** | transport | p95 ≤ 200 ms |
+
+p50, p90, p95, p99 and max are reported for each, and the pass statistic is
+fixed in writing. The model call is timed by a pass-through wrapper, so the
+forecaster is unmodified. Everything stays in memory.
+
+**The stand-in re-run** (local footage at camera pace, real ONNX graph, real
+local server). The host: Intel family 6 model 191 CPU, with the backbones on
+an RTX 4050 Laptop GPU and ONNX on the CPU provider.
+
+| part | p50 | p95 | max | result |
+|---|---|---|---|---|
+| **6a** model call | 259.8 ms | **325.9 ms** | 381.9 ms | **FAIL** (150 ms) |
+| 6b edge step | 360.7 ms | 482.3 ms | 1,680 ms | PASS |
+| 6c transport | — | 35.9 ms | — | PASS |
+
+Criteria 2–5 and 7 pass again.
+
+**The split revealed what the single number hid.** The earlier 434.5 ms
+"processing" figure was mostly **the model itself**: MFSTNet's ONNX graph on
+this laptop's CPU runs at about **2× the PRD budget**. The GPU backbones are
+cheap.
+
+This is a stand-in result. It does not close S65, and nothing was tuned
+around it. **Any optimisation would be its own pre-registered change:** INT8
+export (ADR-007), or a GPU execution provider.
+
+### V1: the protocol and the gate, before any human label
+
+- **Design approved:**
+  - same-moment sampling from P105's test hours;
+  - three distinct questions: detector error, deployed-system error, and
+    label-source sensitivity. The third is explicitly **not** a measurement
+    of a human-fed forecaster;
+  - the 30-moment subgroup minimum. Eastgate LOW (n = 8) is descriptive only.
+- **`PREREGISTRATION_V1_DRAFT.md`** is written. It becomes
+  `PREREGISTRATION_V1.md`, which the main set's page requires, only after the
+  inter-rater gate passes.
+- **Q3's four alternatives are fixed now:**
+  - the detector target;
+  - a 6-frame aggregation;
+  - a labeller swap;
+  - imputing unusable frames.
+
+  "Robust" means the sign holds under all four.
+- **The inter-rater gate is code** (`scripts/v1_pilot_agreement.py`):
+  - ICC(2,1), two-way random, absolute agreement, single rater, at least 0.80;
+  - unusable frames excluded pairwise, and flagged above 5%;
+  - κ on moment classes, reported;
+  - one revision and re-pilot allowed, then it stops;
+  - each attempt is scored once.
+- **The ICC implementation is validated against the published Shrout and
+  Fleiss (1979) example:** 0.2898 against the published 0.29.
+
+  **Disclosed:** a first version of that test asserted a value I had guessed
+  instead of computed. It failed, and was replaced by the published example
+  before any commit.
+
+### V3: the review classified, and the public frames listed
+
+- **The 704 flagged files are given a first-pass category,** restrictive
+  first (`experiments/results/publication/v3_review.csv`):
+
+  | category | files |
+  |---|---|
+  | corpus-derived results (LOCO and baseline CSVs) | **645** |
+  | dataset-specific material | **44** |
+  | licence references | **4** |
+  | aggregate results | **4** |
+  | mention only | **7** |
+
+  **A category is not a legal judgement.** The owner's review decides.
+- **The 18 third-party frames already public on `origin/main` are listed**
+  (`already_public_frames.txt`) for the outreach and for removal (V3-5).
+- **The submitted-document toolchain stays excluded, unmodified.**
+- **The repository still reads PUBLIC.** Making it private is the owner's
+  first step, before any push.
+
+### A tooling hazard found and closed
+
+The Bash tool turned `\b` and `\n` inside heredocs into a real backspace and
+a real newline. That silently broke a regex in `build_public_tree.py`, and
+for a while broke a string. A test caught the regex, and the bytes were
+repaired. **A scan of every tracked file found no other backspace bytes.**
+Edits involving escape sequences now go through `chr()` codes or the edit
+tool.
+
+### Still with the owner
+
+1. Name the two labellers.
+2. Set the camera window.
+3. Make the repository private.
+4. Review the classified list, and send the licence outreach.

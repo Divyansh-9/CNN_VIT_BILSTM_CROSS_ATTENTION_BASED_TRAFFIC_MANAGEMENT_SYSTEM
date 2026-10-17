@@ -78,3 +78,38 @@ def test_the_main_set_refuses_before_the_v1_freeze(tmp_path, monkeypatch):
         json.dumps({"pilot": [], "reserve": {}}), encoding="utf-8")
     with pytest.raises(SystemExit, match="pre-registration"):
         v1_label_page.main(["--set", "main", "--per-stratum", "5"])
+
+
+def test_icc_is_one_for_identical_raters_and_falls_with_disagreement():
+    from scripts.v1_pilot_agreement import icc_2_1
+
+    import random
+    rng = random.Random(1)
+    truth = [rng.randint(0, 12) for _ in range(300)]
+    assert icc_2_1([(t, t) for t in truth]) == pytest.approx(1.0)
+    noisy = icc_2_1([(t, t + rng.choice([-3, 0, 3])) for t in truth])
+    biased = icc_2_1([(t, t + 4) for t in truth])           # absolute agreement punishes bias
+    assert noisy < 0.95 and biased < 0.9
+
+
+def test_icc_matches_the_published_shrout_and_fleiss_example():
+    """Shrout and Fleiss (1979), Table 2: 6 subjects x 4 judges; published ICC(2,1) = 0.29."""
+    from scripts.v1_pilot_agreement import icc_2_1
+
+    rows = [(9, 2, 5, 8), (6, 1, 3, 2), (8, 4, 6, 8), (7, 1, 2, 6), (10, 5, 6, 9), (6, 2, 4, 7)]
+    assert icc_2_1(rows) == pytest.approx(0.29, abs=0.005)
+
+
+def test_agreement_excludes_unusable_frames_and_requires_both_exports():
+    from scripts.v1_pilot_agreement import agreement
+
+    items = [{"id": f"i{k}", "moment": f"m{k // 15}", "clip": "Bellevue_150th_Newport__x",
+              "sample": k} for k in range(30)]
+    thresholds = {"150th_Newport": {"q33": 0.25, "q67": 1.1}}
+    a = {f"i{k}": k % 5 for k in range(30)}
+    b = dict(a)
+    b["i3"] = -1
+    result = agreement(items, a, b, thresholds)
+    assert result["unusable"] == 1 and result["frames_scored"] == 29 and result["passed"]
+    with pytest.raises(ValueError, match="missing"):
+        agreement(items, a, {k: v for k, v in b.items() if k != "i0"}, thresholds)

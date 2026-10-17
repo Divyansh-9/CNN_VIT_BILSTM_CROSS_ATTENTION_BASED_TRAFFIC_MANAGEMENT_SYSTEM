@@ -496,7 +496,7 @@ def run(url: str, graph_path: Path, lanes: list[str], device: str,
     print(f"  jitter p50 {row['jitter_ms_p50']} ms, p95 {row['jitter_ms_p95']} ms; "
           f"reconnects {successes}/{attempts}, windows lost {windows_lost}")
     print(f"  criteria 2-4: {'PASS' if row['passed_2_3_4'] else 'FAIL'}   "
-          f"criterion 1: run benchmark_decode.py file on a capture")
+          f"criterion 1: run `decode-throughput` (memory only)")
     print(f"  criterion 5 timestamps: {'PASS' if row['passed_5'] else 'FAIL'} "
           f"(monotonic {row['c5_monotonic']}, spacing ok {row['c5_spacing_ok_share']})")
     print(f"  criterion 6a model call: {'PASS' if row['passed_6a'] else 'FAIL'} "

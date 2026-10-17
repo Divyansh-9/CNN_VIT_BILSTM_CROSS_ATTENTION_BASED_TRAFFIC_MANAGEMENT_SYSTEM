@@ -77,6 +77,31 @@ def excluded(path: str) -> str | None:
     return None
 
 
+import re as _re
+
+AGGREGATE = _re.compile(rb"(?i)(bellevue|P9[5-9]|P10[0-9]|P11[0-9]).{0,200}?\b\d+\.\d{2,4}\b")
+LICENCE = _re.compile(rb"(?i)bellevue.{0,300}?(licen[cs]|redistribut|permission|copyright|terms of use)"
+                      rb"|(licen[cs]|redistribut|permission|copyright).{0,300}?bellevue")
+DATASET = _re.compile(rb"(?i)(_bellevue|bellevue_pilot|fetch_bellevue|corpus_p10[0-9]|drive_id)")
+
+
+def review_category(path: str, content: bytes) -> str:
+    """A first-pass category for the owner's review (P135). Not a legal judgement.
+
+    The order is restrictive first: dataset-specific material, then corpus-derived
+    results, then licence references, then aggregate results, then mention only.
+    """
+    if "bellevue" in path.lower() or DATASET.search(content):
+        return "dataset-specific material"
+    if path.startswith(REVIEW_PREFIXES):
+        return "corpus-derived results"
+    if LICENCE.search(content):
+        return "licence reference"
+    if AGGREGATE.search(content):
+        return "aggregate results"
+    return "mention only"
+
+
 def needs_review(path: str, content: bytes) -> str | None:
     if path.startswith(REVIEW_PREFIXES):
         return "derived from corpus cameras whose licences are unresolved"
@@ -111,7 +136,7 @@ def build(files: list[tuple[str, bytes]], out: Path) -> dict:
         kept.append(path)
         why = needs_review(path, content)
         if why:
-            review.append({"path": path, "why": why})
+            review.append({"path": path, "why": why, "category": review_category(path, content)})
     leaks = [str(p.relative_to(out)).replace("\\", "/") for p in out.rglob("*")
              if p.is_file() and excluded(str(p.relative_to(out)).replace("\\", "/"))]
     manifest = {"what": "sanitised public tree, built locally from git HEAD; NOT published",
@@ -120,6 +145,8 @@ def build(files: list[tuple[str, bytes]], out: Path) -> dict:
                 "kept": len(kept), "excluded": dropped, "review_required": review,
                 "leaks_found_on_rescan": leaks, "passed": not leaks,
                 "public_branch_todo": [PUBLIC_BRANCH_TODO],
+                "review_by_category": {c: sum(r["category"] == c for r in review)
+                                       for c in sorted({r["category"] for r in review})},
                 "note": "does not resolve licensing or authorise publication"}
     (out / "PUBLIC_TREE_MANIFEST.json").write_text(json.dumps(manifest, indent=1),
                                                    encoding="utf-8")
@@ -131,8 +158,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--run-tests", action="store_true",
                         help="run CI's fast suite inside the built tree")
+    parser.add_argument("--review-report", type=Path,
+                        help="also write the review list (path, category, why) as CSV, plus the "
+                             "frames already public on origin/main")
     args = parser.parse_args(argv)
     manifest = build(head_files(), args.out)
+    if args.review_report:
+        import csv
+
+        args.review_report.parent.mkdir(parents=True, exist_ok=True)
+        with args.review_report.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=["category", "path", "why"])
+            writer.writeheader()
+            for r in sorted(manifest["review_required"], key=lambda r: (r["category"], r["path"])):
+                writer.writerow({k: r[k] for k in ("category", "path", "why")})
+        public = subprocess.run(["git", "ls-tree", "-r", "--name-only", "origin/main"],
+                                capture_output=True, text=True).stdout.splitlines()
+        frames = [f for f in public if excluded(f) and f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))]
+        args.review_report.with_name("already_public_frames.txt").write_text(
+            "# third-party frames already public on origin/main (V3-5; removal is the owner's call)\n"
+            + "\n".join(frames) + "\n", encoding="utf-8")
+        print(f"  review by category: {manifest['review_by_category']}; "
+              f"{len(frames)} frames already public")
     print(f"  kept {manifest['kept']}, excluded {len(manifest['excluded'])}, "
           f"flagged for review {len(manifest['review_required'])}, "
           f"rescan leaks {len(manifest['leaks_found_on_rescan'])}")

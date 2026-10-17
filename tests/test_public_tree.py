@@ -62,3 +62,17 @@ def test_build_refuses_a_non_empty_directory(tmp_path):
 def test_review_flags_only_text_mentions():
     assert needs_review("docs/a.md", b"see Bellevue")
     assert needs_review("models/blob.bin", b"Bellevue") is None
+
+
+@pytest.mark.parametrize("path,content,category", [
+    ("scripts/fetch_bellevue.py", b"x", "dataset-specific material"),
+    ("scripts/p105_eval.py", b"ROOT = 'experiments/results/bellevue_pilot'", "dataset-specific material"),
+    ("experiments/results/loco/fold0.csv", b"a,b", "corpus-derived results"),
+    ("docs/note.md", b"The Bellevue licence is unresolved", "licence reference"),
+    ("docs/report.md", b"P105 ridge MAE 0.748 against 0.972", "aggregate results"),
+    ("docs/other.md", b"see the Bellevue cameras", "mention only"),
+])
+def test_review_categories_are_restrictive_first(path, content, category):
+    from scripts.build_public_tree import review_category
+
+    assert review_category(path, content) == category
