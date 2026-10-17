@@ -1,0 +1,684 @@
+{
+  "protocol": "PREREGISTRATION_P132_faw.md section 5",
+  "gate": "C2 power",
+  "seeds": [
+    610,
+    611,
+    612,
+    613,
+    614,
+    615,
+    616,
+    617,
+    618,
+    619,
+    620,
+    621,
+    622,
+    623,
+    624,
+    625,
+    626,
+    627,
+    628,
+    629,
+    630,
+    631,
+    632,
+    633,
+    634,
+    635,
+    636,
+    637,
+    638,
+    639
+  ],
+  "alpha": 0.025,
+  "power": 0.8,
+  "minimum_effect_of_interest": {
+    "fraction_of_w_now_delay": 0.02,
+    "seconds": 0.7566066666666668
+  },
+  "pilot_mean_w_now_delay_s": 37.830333333333336,
+  "paired_sd_oracle_minus_now": 4.5524019573857055,
+  "required_n": 347,
+  "n_max": 200,
+  "passed": false,
+  "evaluation_n_if_authorised": null,
+  "pilot_effects_NOT_EVIDENCE": {
+    "oracle_minus_now_mean_s": 2.8912666666666667,
+    "ridge_minus_now_mean_s": 2.7965
+  },
+  "rows": [
+    {
+      "seed": 610,
+      "now": 32.834,
+      "oracle": 30.834,
+      "ridge": 36.151,
+      "arrived": {
+        "now": 0.9579,
+        "oracle": 0.9608,
+        "ridge": 0.9587
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.09668458781362,
+        "persistence_mae_vs_realised": 2.5540770609318995,
+        "forecast_points": 372
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.117085690031359,
+        "persistence_mae_vs_realised": 2.6926966292134833,
+        "forecast_points": 356
+      }
+    },
+    {
+      "seed": 611,
+      "now": 34.981,
+      "oracle": 36.169,
+      "ridge": 39.323,
+      "arrived": {
+        "now": 0.9767,
+        "oracle": 0.9753,
+        "ridge": 0.9661
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.2857078853046593,
+        "persistence_mae_vs_realised": 2.5696236559139773,
+        "forecast_points": 372
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.5658621861404916,
+        "persistence_mae_vs_realised": 2.857907196969696,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 612,
+      "now": 31.693,
+      "oracle": 41.46,
+      "ridge": 31.038,
+      "arrived": {
+        "now": 0.9615,
+        "oracle": 0.9657,
+        "ridge": 0.9608
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 3.3918458781361993,
+        "persistence_mae_vs_realised": 2.6487903225806466,
+        "forecast_points": 372
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 3.4959252730285413,
+        "persistence_mae_vs_realised": 2.6706912878787876,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 613,
+      "now": 34.463,
+      "oracle": 31.671,
+      "ridge": 38.884,
+      "arrived": {
+        "now": 0.9515,
+        "oracle": 0.9619,
+        "ridge": 0.9459
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.700045787545787,
+        "persistence_mae_vs_realised": 2.518406593406592,
+        "forecast_points": 364
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.445551510793064,
+        "persistence_mae_vs_realised": 2.7281249999999995,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 614,
+      "now": 35.386,
+      "oracle": 43.68,
+      "ridge": 43.215,
+      "arrived": {
+        "now": 0.9797,
+        "oracle": 0.9741,
+        "ridge": 0.9727
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 3.2058243727598557,
+        "persistence_mae_vs_realised": 2.7214605734767,
+        "forecast_points": 372
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.471707094801503,
+        "persistence_mae_vs_realised": 2.74361111111111,
+        "forecast_points": 360
+      }
+    },
+    {
+      "seed": 615,
+      "now": 30.502,
+      "oracle": 35.888,
+      "ridge": 40.451,
+      "arrived": {
+        "now": 0.9746,
+        "oracle": 0.9717,
+        "ridge": 0.9694
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.3413043478260875,
+        "persistence_mae_vs_realised": 2.5467844202898537,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.733475765228732,
+        "persistence_mae_vs_realised": 2.7723352713178304,
+        "forecast_points": 344
+      }
+    },
+    {
+      "seed": 616,
+      "now": 36.894,
+      "oracle": 43.911,
+      "ridge": 44.602,
+      "arrived": {
+        "now": 0.9767,
+        "oracle": 0.9788,
+        "ridge": 0.9745
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.6250896057347686,
+        "persistence_mae_vs_realised": 2.8768369175627235,
+        "forecast_points": 372
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 5.4475403747682645,
+        "persistence_mae_vs_realised": 3.18561046511628,
+        "forecast_points": 344
+      }
+    },
+    {
+      "seed": 617,
+      "now": 27.339,
+      "oracle": 31.171,
+      "ridge": 29.945,
+      "arrived": {
+        "now": 0.9636,
+        "oracle": 0.962,
+        "ridge": 0.9585
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.6846611721611733,
+        "persistence_mae_vs_realised": 2.5409340659340653,
+        "forecast_points": 364
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 3.6084041022129645,
+        "persistence_mae_vs_realised": 2.5465996168582365,
+        "forecast_points": 348
+      }
+    },
+    {
+      "seed": 618,
+      "now": 36.342,
+      "oracle": 46.29,
+      "ridge": 42.71,
+      "arrived": {
+        "now": 0.9381,
+        "oracle": 0.9346,
+        "ridge": 0.9497
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 3.1958796296296317,
+        "persistence_mae_vs_realised": 2.7846759259259253,
+        "forecast_points": 360
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.907679471142671,
+        "persistence_mae_vs_realised": 2.7754310344827573,
+        "forecast_points": 348
+      }
+    },
+    {
+      "seed": 619,
+      "now": 57.963,
+      "oracle": 65.854,
+      "ridge": 49.11,
+      "arrived": {
+        "now": 0.918,
+        "oracle": 0.9206,
+        "ridge": 0.9273
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 5.649454365079366,
+        "persistence_mae_vs_realised": 2.910168650793651,
+        "forecast_points": 336
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 5.186670755219685,
+        "persistence_mae_vs_realised": 2.9828921568627447,
+        "forecast_points": 340
+      }
+    },
+    {
+      "seed": 620,
+      "now": 23.645,
+      "oracle": 28.633,
+      "ridge": 26.641,
+      "arrived": {
+        "now": 0.951,
+        "oracle": 0.9363,
+        "ridge": 0.9346
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.5041213768115944,
+        "persistence_mae_vs_realised": 2.3897192028985517,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 3.0382829876055713,
+        "persistence_mae_vs_realised": 2.392992424242425,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 621,
+      "now": 32.503,
+      "oracle": 35.766,
+      "ridge": 34.086,
+      "arrived": {
+        "now": 0.9644,
+        "oracle": 0.9612,
+        "ridge": 0.9644
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.354487179487179,
+        "persistence_mae_vs_realised": 2.4621336996337004,
+        "forecast_points": 364
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 3.721974032256691,
+        "persistence_mae_vs_realised": 2.391666666666667,
+        "forecast_points": 348
+      }
+    },
+    {
+      "seed": 622,
+      "now": 46.726,
+      "oracle": 43.169,
+      "ridge": 44.032,
+      "arrived": {
+        "now": 0.9668,
+        "oracle": 0.9597,
+        "ridge": 0.9696
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.9561079545454554,
+        "persistence_mae_vs_realised": 2.5520359848484864,
+        "forecast_points": 352
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 3.9009500282662226,
+        "persistence_mae_vs_realised": 2.5543103448275852,
+        "forecast_points": 348
+      }
+    },
+    {
+      "seed": 623,
+      "now": 59.179,
+      "oracle": 56.177,
+      "ridge": 69.732,
+      "arrived": {
+        "now": 0.962,
+        "oracle": 0.962,
+        "ridge": 0.9505
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 4.031758130081304,
+        "persistence_mae_vs_realised": 3.2882621951219533,
+        "forecast_points": 328
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 6.180039842437335,
+        "persistence_mae_vs_realised": 3.4010698198198197,
+        "forecast_points": 296
+      }
+    },
+    {
+      "seed": 624,
+      "now": 34.342,
+      "oracle": 37.391,
+      "ridge": 37.05,
+      "arrived": {
+        "now": 0.9559,
+        "oracle": 0.9509,
+        "ridge": 0.958
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.8088709677419357,
+        "persistence_mae_vs_realised": 2.5798387096774196,
+        "forecast_points": 372
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 3.8010449273520215,
+        "persistence_mae_vs_realised": 2.7058988764044964,
+        "forecast_points": 356
+      }
+    },
+    {
+      "seed": 625,
+      "now": 43.632,
+      "oracle": 45.212,
+      "ridge": 43.338,
+      "arrived": {
+        "now": 0.9505,
+        "oracle": 0.9532,
+        "ridge": 0.9485
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 3.056486742424242,
+        "persistence_mae_vs_realised": 2.8632575757575762,
+        "forecast_points": 352
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 5.315473978368576,
+        "persistence_mae_vs_realised": 2.9965038314176224,
+        "forecast_points": 348
+      }
+    },
+    {
+      "seed": 626,
+      "now": 39.945,
+      "oracle": 47.211,
+      "ridge": 44.243,
+      "arrived": {
+        "now": 0.9545,
+        "oracle": 0.9567,
+        "ridge": 0.9618
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.252152014652016,
+        "persistence_mae_vs_realised": 3.0119505494505496,
+        "forecast_points": 364
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 5.323816080130025,
+        "persistence_mae_vs_realised": 3.1339488636363626,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 627,
+      "now": 41.323,
+      "oracle": 46.452,
+      "ridge": 45.303,
+      "arrived": {
+        "now": 0.9522,
+        "oracle": 0.9556,
+        "ridge": 0.9548
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 3.285304659498205,
+        "persistence_mae_vs_realised": 2.821460573476703,
+        "forecast_points": 372
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.35419115935348,
+        "persistence_mae_vs_realised": 2.9584259259259245,
+        "forecast_points": 360
+      }
+    },
+    {
+      "seed": 628,
+      "now": 39.328,
+      "oracle": 36.495,
+      "ridge": 37.077,
+      "arrived": {
+        "now": 0.9536,
+        "oracle": 0.9679,
+        "ridge": 0.9679
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.8311141304347807,
+        "persistence_mae_vs_realised": 2.6759963768115953,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.507091484252317,
+        "persistence_mae_vs_realised": 2.73816287878788,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 629,
+      "now": 26.956,
+      "oracle": 29.667,
+      "ridge": 28.034,
+      "arrived": {
+        "now": 0.9352,
+        "oracle": 0.9446,
+        "ridge": 0.9287
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.7429347826086956,
+        "persistence_mae_vs_realised": 2.4289855072463764,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 3.36123072730511,
+        "persistence_mae_vs_realised": 2.5516283524904217,
+        "forecast_points": 348
+      }
+    },
+    {
+      "seed": 630,
+      "now": 34.986,
+      "oracle": 37.443,
+      "ridge": 39.967,
+      "arrived": {
+        "now": 0.9601,
+        "oracle": 0.9594,
+        "ridge": 0.9565
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.2923611111111113,
+        "persistence_mae_vs_realised": 2.773935185185185,
+        "forecast_points": 360
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.696129951638548,
+        "persistence_mae_vs_realised": 2.7353927203065123,
+        "forecast_points": 348
+      }
+    },
+    {
+      "seed": 631,
+      "now": 31.101,
+      "oracle": 34.912,
+      "ridge": 37.561,
+      "arrived": {
+        "now": 0.9755,
+        "oracle": 0.9604,
+        "ridge": 0.9626
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.9139492753623195,
+        "persistence_mae_vs_realised": 2.5453804347826092,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.395211937401417,
+        "persistence_mae_vs_realised": 2.853740530303029,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 632,
+      "now": 45.35,
+      "oracle": 41.921,
+      "ridge": 45.804,
+      "arrived": {
+        "now": 0.9713,
+        "oracle": 0.974,
+        "ridge": 0.9698
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.498333333333333,
+        "persistence_mae_vs_realised": 2.761759259259259,
+        "forecast_points": 360
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 5.5939925583791235,
+        "persistence_mae_vs_realised": 3.123532196969695,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 633,
+      "now": 45.239,
+      "oracle": 41.069,
+      "ridge": 53.188,
+      "arrived": {
+        "now": 0.9413,
+        "oracle": 0.9407,
+        "ridge": 0.9387
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.9767518939393938,
+        "persistence_mae_vs_realised": 2.531912878787881,
+        "forecast_points": 352
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.751983808580645,
+        "persistence_mae_vs_realised": 2.981875,
+        "forecast_points": 320
+      }
+    },
+    {
+      "seed": 634,
+      "now": 35.91,
+      "oracle": 37.715,
+      "ridge": 41.594,
+      "arrived": {
+        "now": 0.9519,
+        "oracle": 0.9476,
+        "ridge": 0.9548
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.537545289855073,
+        "persistence_mae_vs_realised": 2.632065217391305,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.289674056443352,
+        "persistence_mae_vs_realised": 2.8415246212121206,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 635,
+      "now": 41.567,
+      "oracle": 39.845,
+      "ridge": 39.413,
+      "arrived": {
+        "now": 0.9557,
+        "oracle": 0.9579,
+        "ridge": 0.9527
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.3427419354838723,
+        "persistence_mae_vs_realised": 2.6198028673835143,
+        "forecast_points": 372
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.185607037400012,
+        "persistence_mae_vs_realised": 2.769176136363637,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 636,
+      "now": 25.348,
+      "oracle": 29.227,
+      "ridge": 32.131,
+      "arrived": {
+        "now": 0.9648,
+        "oracle": 0.9553,
+        "ridge": 0.9611
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.7067028985507238,
+        "persistence_mae_vs_realised": 2.454664855072465,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 3.7520854350501764,
+        "persistence_mae_vs_realised": 2.7190814393939378,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 637,
+      "now": 36.085,
+      "oracle": 48.404,
+      "ridge": 34.604,
+      "arrived": {
+        "now": 0.9709,
+        "oracle": 0.9675,
+        "ridge": 0.9682
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 3.295108695652175,
+        "persistence_mae_vs_realised": 2.6676630434782633,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.026666946789427,
+        "persistence_mae_vs_realised": 2.736174242424243,
+        "forecast_points": 352
+      }
+    },
+    {
+      "seed": 638,
+      "now": 33.535,
+      "oracle": 39.27,
+      "ridge": 37.266,
+      "arrived": {
+        "now": 0.9527,
+        "oracle": 0.9483,
+        "ridge": 0.9478
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 1.9570199275362328,
+        "persistence_mae_vs_realised": 2.6193387681159415,
+        "forecast_points": 368
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 4.669737098657051,
+        "persistence_mae_vs_realised": 2.8523946360153247,
+        "forecast_points": 348
+      }
+    },
+    {
+      "seed": 639,
+      "now": 59.813,
+      "oracle": 58.741,
+      "ridge": 52.312,
+      "arrived": {
+        "now": 0.9764,
+        "oracle": 0.969,
+        "ridge": 0.9757
+      },
+      "oracle_transfer": {
+        "forecast_mae_vs_realised": 2.8730691056910556,
+        "persistence_mae_vs_realised": 2.7700203252032516,
+        "forecast_points": 328
+      },
+      "ridge_transfer": {
+        "forecast_mae_vs_realised": 5.207329258625231,
+        "persistence_mae_vs_realised": 3.086078431372547,
+        "forecast_points": 340
+      }
+    }
+  ]
+}

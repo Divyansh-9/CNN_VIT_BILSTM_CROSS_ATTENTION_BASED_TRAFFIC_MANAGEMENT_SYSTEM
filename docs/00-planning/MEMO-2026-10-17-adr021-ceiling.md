@@ -89,3 +89,28 @@ measured.
 
 **Not requested:** rerunning or reanalysing the completed experiment. Its
 result is frozen.
+
+## Addendum, same day: decision 3 resolved itself at its own gate
+
+The owner approved the forecast-assisted Webster study for its design,
+feasibility and power stages only. **It stopped at the power gate,** as its
+pre-registration required (P132). No evaluation was run.
+
+**Feasibility passed.** A perfect next-minute forecast changes 83% of the
+controller's green splits.
+
+**Power failed.** Resolving a 2% delay improvement would need 347 paired
+seeds, against a pre-set maximum of 200. The paired SD is 4.55 s, because once
+one green differs, the rest of the episode's traffic differs.
+
+**The pilot, which is not evidence,** pointed the wrong way:
+- +2.9 s delay with the perfect forecast;
+- +2.8 s with the deployable ridge forecaster.
+
+The ridge forecaster was also worse than persistence on simulated counts.
+
+**Decision 3 therefore no longer needs your approval.** The study is closed.
+**Decisions 1 and 2 still stand.** The finding strengthens the recommended C1
+wording: in this simulation, neither a learned nor a classical controller has
+shown a delay benefit from traffic forecasts.
+

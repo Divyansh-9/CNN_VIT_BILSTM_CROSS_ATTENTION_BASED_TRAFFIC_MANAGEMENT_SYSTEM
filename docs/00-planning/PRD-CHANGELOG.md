@@ -8866,3 +8866,94 @@ It is a new question on new seeds, and it is **not** a rescue of P130.
 - a stronger RL controller, first milestone "match tuned Webster with no
   forecast";
 - the rest of the roadmap, unchanged.
+
+## P132 — forecast-assisted Webster split (FAW): design built, feasibility passed, power gate STOPPED the study (2026-10-17)
+
+**Scope approved by the owner:** design, feasibility and power only.
+`PREREGISTRATION_P132_faw.md` and its code (`d99cbee`) were committed before
+any FAW episode.
+
+**The question:** can a next-minute count forecast improve an already
+competitive controller? It is a new question, **not a rescue of P130.**
+
+**C0, the design:**
+- **Arms,** all on the P125 Webster split (s = 600, 0 s lost time, clamped
+  cycle). They differ only in the demand the rule reads:
+  - **W-now:** the observed counts;
+  - **W-oracle:** the realised next-minute mean, from W-now's own
+    trajectory;
+  - **W-ridge:** the frozen ADR-027 forecaster.
+- **Webster** gained a pure `green_for` and an optional demand source. Its
+  default is byte-identical, tested over 15,000 random decisions, and a
+  committed P122 episode re-runs to exactly the same numbers.
+- **The runner** now records interphase seconds for opt-in observers. A test
+  shows this changes no outcome.
+
+**C1, the feasibility gate, run once on design seeds 600–609: PASSED.**
+- **The perfect forecast changes 637 of 765 W-now green splits (0.833)** by at
+  least 1 s, against a 0.10 threshold.
+- The mean change is 3.0 s, and half of the changes are at least 3 s.
+- **The timing rule is sensitive to foresight.**
+
+**Reported, not gating.** The frozen ridge forecaster is **worse than
+persistence** on SUMO approach counts:
+- ridge MAE against the realised next-minute mean: **4.17**;
+- persistence MAE: **2.72**.
+
+It was trained on Bellevue camera-lane counts.
+
+**C2, the power gate, run once on pilot seeds 610–639: STOPPED.**
+
+| quantity | value |
+|---|---|
+| paired SD of W-oracle − W-now total delay | **4.55 s** |
+| minimum effect of interest (2% of W-now's 37.83 s) | **0.76 s** |
+| pairs needed for power 0.80 at α = 0.025, two-sided | **347** |
+| pre-registered maximum | 200 |
+
+**Under the pre-registered rule, the study ends here:** *not adequately
+powered within its budget.* The evaluation (C4) is not run, and no C3 is
+written.
+
+**Why a deterministic controller still varies.** There is no training spread
+here. The paired SD comes from trajectories diverging: once W-oracle times a
+single green differently, the rest of the episode's traffic differs.
+
+**Pilot effects (labelled "not evidence", and used for n only):**
+
+| comparison | pilot mean total delay |
+|---|---|
+| W-oracle − W-now | **+2.89 s** |
+| W-ridge − W-now | **+2.80 s** |
+
+Both pilot means are in the **unfavourable** direction:
+- under W-oracle, the oracle's error against the traffic W-oracle actually
+  produced was 2.48, against persistence's 2.67;
+- every arm completed about 0.958 of its trips.
+
+**Not done, and why.** The minimum effect, the seed budget and the arms were
+not changed after seeing these numbers. Doing so would be the forking path
+the protocol exists to prevent. Two further points:
+- **The pilot points the wrong way,** so a larger study would most likely
+  measure a null or a harm, not a benefit.
+- **Any further FAW work would be a new decision made with knowledge of this
+  pilot,** and would have to say so.
+
+**What this establishes:**
+- a perfect next-minute count forecast **does** change this controller's
+  decisions;
+- the delay effect of those changes is **below what 200 paired seeds can
+  resolve** at a 2% minimum effect;
+- the pilot did not suggest a benefit.
+
+**What it does not establish:**
+- that forecasts cannot help a signal controller;
+- anything about a better-calibrated forecaster on SUMO, since ridge did not
+  transfer here.
+
+**Status:**
+- the study is closed at its gate;
+- the guide is informed by an addendum to MEMO-2026-10-17;
+- P130 and P131 are unchanged;
+- ADR-023 and `CLAIMS.yaml` are untouched;
+- the controller stays disconnected from signal timing.
