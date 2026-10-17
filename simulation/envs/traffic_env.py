@@ -60,29 +60,67 @@ _SPEC = Path(__file__).resolve().parents[2] / "mfstnet" / "configs" / "spec.yaml
 SUMO_START_ATTEMPTS = 5
 
 
-def start_sumo(traci, command: list[str], attempts: int = SUMO_START_ATTEMPTS) -> None:
-    """Start SUMO, retrying a port race between parallel processes (P126).
+def _discard(traci, label: str, proc) -> None:
+    """Undo a failed start without blocking, and without touching any other process.
 
-    `traci.start` picks a free port and hands it to SUMO. With several
-    trainings in parallel, another process can take that port first. SUMO then
-    exits with "Address already in use" and the handshake fails, which killed a
-    500,000-step run part-way. A retry starts a fresh SUMO with the same
-    command, the same seed and a new port. Nothing about the simulation
-    differs, so the episode is unchanged.
+    `traci.close()` must not be used here: it sends a close command over a
+    socket that may be dead, then waits forever on the SUMO it started (P126).
     """
-    import struct
+    from traci import connection
 
-    from traci.exceptions import FatalTraCIError, TraCIException
+    con = connection._connections.get(label)                 # private, deliberately
+    if con is not None:
+        sock = getattr(con, "_socket", None)
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
+        connection._connections.pop(label, None)
+        if connection._connections.get("") is con:
+            connection._connections.pop("", None)
+    if proc.poll() is None:                                   # only the process we started
+        proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except Exception:                                         # noqa: BLE001
+        pass
+
+
+def start_sumo(traci, command: list[str], attempts: int = SUMO_START_ATTEMPTS,
+               label: str = "default") -> None:
+    """Start SUMO and connect to it, safe against parallel trainings (P126).
+
+    Parallel processes race for a free port. The race can end in two ways, and
+    both are handled:
+
+    - **our SUMO cannot bind the port.** It exits, and the handshake fails;
+    - **our client reaches another process's SUMO** on that port. A clean
+      handshake there would silently drive the wrong simulation, so once
+      connected, our own SUMO must still be running. If it is not, the
+      connection is someone else's, and it is discarded.
+
+    SUMO is started here rather than by `traci.start`, so this function always
+    holds its own process. A failed attempt kills that process and only that
+    one, never blocks, and retries with a new port and the same command and
+    seed. After the last attempt the error is raised: an episode is never
+    skipped, re-seeded or run with a different configuration.
+    """
+    import subprocess
+
+    from sumolib.miscutils import getFreeSocketPort
 
     for attempt in range(1, attempts + 1):
+        port = getFreeSocketPort()
+        proc = subprocess.Popen(list(command) + ["--remote-port", str(port)])
         try:
-            traci.start(command)
+            traci.init(port, label=label, proc=proc)
+            if proc.poll() is not None:
+                raise ConnectionError(f"our SUMO exited; port {port} belongs to "
+                                      f"another process")
             return
-        except (FatalTraCIError, TraCIException, struct.error, ConnectionError, OSError):
-            try:
-                traci.close()
-            except Exception:                                  # noqa: BLE001
-                pass
+        except Exception:                                     # noqa: BLE001
+            _discard(traci, label, proc)
             if attempt == attempts:
                 raise
 

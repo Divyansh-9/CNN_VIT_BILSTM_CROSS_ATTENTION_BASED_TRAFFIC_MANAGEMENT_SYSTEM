@@ -106,30 +106,113 @@ def test_total_delay_is_opt_in_and_moves_no_existing_metric():
     assert on["mean_total_delay_s"] > 0
 
 
-def test_sumo_start_retries_a_port_race_then_gives_up():
-    """P126: a parallel training lost its run to "Address already in use"."""
-    import struct
+def _sumo_command():
+    from simulation.sumo_tools import ensure_sumo_home, sumo_binary
 
-    pytest.importorskip("traci")
+    ensure_sumo_home()
+    net = "simulation/networks"
+    return [str(sumo_binary("sumo")), "-n", f"{net}/intersection.net.xml",
+            "-r", f"{net}/demand_saturated.rou.xml", "-a", f"{net}/vtypes.add.xml",
+            "--no-step-log", "true", "--no-warnings", "true"]
+
+
+def test_sumo_start_recovers_from_a_real_port_race_and_leaks_nothing(monkeypatch):
+    """P126, with real SUMO: the first port is taken by a squatter that hangs up.
+
+    This is the failure that killed a 500,000-step run. The first fix only
+    passed a test with a fake TraCI; for real it blocked forever and leaked SUMO.
+    """
+    import socket
+    import subprocess
+    import threading
+
+    traci = pytest.importorskip("traci")
+    import sumolib.miscutils as misc
+
     from simulation.envs.traffic_env import start_sumo
 
-    class FlakyTraci:
-        def __init__(self, failures):
-            self.failures, self.starts, self.closes = failures, 0, 0
+    squatter = socket.socket()
+    squatter.bind(("localhost", 0))
+    squatter.listen()
+    taken = squatter.getsockname()[1]
 
-        def start(self, command):
-            self.starts += 1
-            if self.starts <= self.failures:
-                raise struct.error("unpack requires a buffer of 3 bytes")
+    def hang_up():
+        while True:
+            try:
+                conn, _ = squatter.accept()
+                conn.close()
+            except OSError:
+                return
 
-        def close(self):
-            self.closes += 1
+    threading.Thread(target=hang_up, daemon=True).start()
+    real, picks = misc.getFreeSocketPort, []
 
-    flaky = FlakyTraci(failures=2)
-    start_sumo(flaky, ["sumo"])
-    assert flaky.starts == 3 and flaky.closes == 2
+    def first_taken():
+        picks.append(taken if not picks else real())
+        return picks[-1]
 
-    hopeless = FlakyTraci(failures=99)
-    with pytest.raises(struct.error):
-        start_sumo(hopeless, ["sumo"], attempts=3)
-    assert hopeless.starts == 3
+    monkeypatch.setattr(misc, "getFreeSocketPort", first_taken)
+    started = []
+    real_popen = subprocess.Popen
+
+    def recording_popen(*args, **kwargs):
+        started.append(real_popen(*args, **kwargs))
+        return started[-1]
+
+    monkeypatch.setattr(subprocess, "Popen", recording_popen)
+    try:
+        start_sumo(traci, _sumo_command(), label="race_test")
+        traci.switch("race_test")
+        traci.simulationStep()
+        assert traci.simulation.getTime() == 1.0
+        assert len(picks) >= 2                                # it really retried
+        assert all(p.poll() is not None for p in started[:-1])   # no SUMO leaked
+        traci.close()
+    finally:
+        squatter.close()
+        for p in started:
+            if p.poll() is None:
+                p.kill()
+
+
+def test_sumo_start_gives_up_explicitly_after_its_attempts(monkeypatch):
+    """Exhausted retries raise; an episode is never silently skipped."""
+    traci = pytest.importorskip("traci")
+    import sumolib.miscutils as misc
+
+    from simulation.envs.traffic_env import start_sumo
+
+    monkeypatch.setattr(traci, "init", lambda *a, **k: (_ for _ in ()).throw(
+        traci.exceptions.FatalTraCIError("no server")))
+    with pytest.raises(traci.exceptions.FatalTraCIError):
+        start_sumo(traci, _sumo_command(), attempts=2, label="give_up_test")
+    assert misc.getFreeSocketPort                             # module untouched
+
+
+def test_a_connection_to_someone_elses_sumo_is_refused(monkeypatch):
+    """If our SUMO died, a working connection on its port belongs to another process."""
+    import subprocess
+
+    traci = pytest.importorskip("traci")
+    from simulation.envs.traffic_env import start_sumo
+
+    class FakeProc:
+        def __init__(self, alive):
+            self.alive, self.killed = alive, False
+
+        def poll(self):
+            return None if self.alive else 1
+
+        def kill(self):
+            self.killed = True
+
+        def wait(self, timeout=None):
+            return 0
+
+    procs = iter([FakeProc(alive=False), FakeProc(alive=True)])
+    made = []
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: made.append(next(procs)) or made[-1])
+    monkeypatch.setattr(traci, "init", lambda *a, **k: None)   # the handshake "succeeds"
+    start_sumo(traci, ["sumo"], label="hijack_test")
+    assert len(made) == 2                                      # first connection refused
+    assert made[1].alive and not made[1].killed
