@@ -129,8 +129,11 @@ def audit(seed: int, log: Path | None, ppo_config: dict) -> dict:
         checks["training log ends without a traceback"] = "Traceback" not in text
     return {"checkpoint": str(path), "sha256": sha256(path), "sidecar_sha256": sha256(side),
             "num_timesteps": int(model.num_timesteps), "git_commit": sidecar.get("git_commit"),
-            "verify_output": out.getvalue().splitlines(), "checks": checks,
-            "passed": all(checks.values())}
+            "verify_output": out.getvalue().splitlines(),
+            # Plain bools: numpy's bool_ is not JSON-serialisable, and the first
+            # full audit failed on exactly that when writing the lock.
+            "checks": {k: bool(v) for k, v in checks.items()},
+            "passed": all(bool(v) for v in checks.values())}
 
 
 def write_atomically(path: Path, body: dict) -> None:
