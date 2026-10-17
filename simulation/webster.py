@@ -95,6 +95,9 @@ class Webster:
     observation_window_s: int = 120
 
     name: str = "webster"
+    # P132: optional demand source, observation -> counts per approach. None
+    # reads the observed counts; every existing caller is unchanged.
+    demand_source: object = field(default=None, repr=False, compare=False)
     clamps: int = field(default=0, init=False)
     decisions: int = field(default=0, init=False)
 
@@ -117,8 +120,27 @@ class Webster:
         self._phase = EW
 
     def decide(self, observation: dict) -> tuple[int, int]:
-        counts = observation["counts"]
+        # P132: the demand the rule reads. None is the observed counts, exactly
+        # as before. A forecast-assisted variant supplies next-minute counts.
+        counts = (observation["counts"] if self.demand_source is None
+                  else self.demand_source(observation))
+        self.decisions += 1
+        # Alternate, then size this phase's green from its own flow ratio. Serving
+        # whichever direction is busier would make this a queue-responsive rule
+        # wearing Webster's name — the alternation is what makes it Webster.
+        self._phase = EW if self._phase == NS else NS
+        green, clamped = self.green_for(counts, self._phase)
+        if clamped:
+            self.clamps += 1
+        return self._phase, green
 
+    def green_for(self, counts: dict, phase: int) -> tuple[int, bool]:
+        """The green this rule gives `phase` for `counts`, and whether the cycle clamped.
+
+        Pure: it touches no counter and no phase. `decide` is this plus the
+        alternation and the clamp count, so a counterfactual green (P132's
+        feasibility gate) is computed by the identical arithmetic.
+        """
         # Counts are an instantaneous occupancy, so scale to an hourly rate over
         # the observation window. Crude, and stated as such — the alternative is
         # an induction-loop model the network does not have.
@@ -133,24 +155,18 @@ class Webster:
         lost_time = 2 * (self.lost_time_startup_s + self.all_red_s)
         cycle = optimum_cycle(total_y, lost_time)
 
-        self.decisions += 1
+        clamped = False
         if cycle == float("inf") or cycle > self.max_cycle_s:
             cycle = float(self.max_cycle_s)
-            self.clamps += 1
+            clamped = True
         elif cycle < self.min_cycle_s:
             cycle = float(self.min_cycle_s)
-            self.clamps += 1
+            clamped = True
 
         effective_green = max(0.0, cycle - lost_time)
-
-        # Alternate, then size this phase's green from its own flow ratio. Serving
-        # whichever direction is busier would make this a queue-responsive rule
-        # wearing Webster's name — the alternation is what makes it Webster.
-        self._phase = EW if self._phase == NS else NS
-        share = y_ns if self._phase == NS else y_ew
+        share = y_ns if phase == NS else y_ew
         green = effective_green * (share / total_y) if total_y > 0 else effective_green / 2
-
-        return self._phase, int(max(self.min_green_s, min(self.max_green_s, green)))
+        return int(max(self.min_green_s, min(self.max_green_s, green))), clamped
 
 
 # --------------------------------------------------------- selecting "best" --

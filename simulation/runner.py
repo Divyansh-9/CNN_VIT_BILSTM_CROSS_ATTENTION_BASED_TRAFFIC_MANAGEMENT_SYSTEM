@@ -205,6 +205,10 @@ def run_episode(
         # Opt-in: a controller that measures what actually happened (P128) is
         # shown every second's counts. It cannot act on them; it only records.
         observe_second = getattr(controller, "observe_second", None)
+
+        def read_counts() -> dict:
+            return {a: sum(traci.lane.getLastStepVehicleNumber(l) for l in g)
+                    for a, g in lanes.items()}
         remaining = 0 if keep_or_switch else min_green_s
 
         # FR-A05. `green_elapsed` is tracked separately from `remaining` because
@@ -272,7 +276,9 @@ def run_episode(
                 if phase != current_phase:
                     phase_switches += 1
                     gone, done = _run_interphase(
-                        traci, current_phase, yellow_s, all_red_s
+                        traci, current_phase, yellow_s, all_red_s,
+                        on_step=(None if observe_second is None else
+                                 lambda k, s=step: observe_second(s + k, read_counts()))
                     )
                     departed += gone
                     arrived += done
@@ -399,7 +405,7 @@ def _read_tripinfo(path: Path, ET) -> dict:
 
 
 def _run_interphase(
-    traci, phase: int, yellow_s: int, all_red_s: int
+    traci, phase: int, yellow_s: int, all_red_s: int, on_step=None
 ) -> tuple[int, int]:
     """Yellow then all-red, always, between any two greens (FR-A04).
 
@@ -420,4 +426,6 @@ def _run_interphase(
         traci.simulationStep()
         departed += traci.simulation.getDepartedNumber()
         arrived += traci.simulation.getArrivedNumber()
+        if on_step is not None:          # P132: read-only, after each interphase second
+            on_step(_ + 1)
     return departed, arrived
