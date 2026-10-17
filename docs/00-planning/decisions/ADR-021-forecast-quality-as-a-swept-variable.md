@@ -320,3 +320,59 @@ baseline is tuned to the scenario it is compared on.
    P52 in code.**
 4. **`train_ppo.py` refuses an arm whose producer does not exist.**
 5. **Webster's sweep on `pulsed`.**
+
+---
+
+## Amendment 2 — the comparators are frozen, a fixed-cycle arm is added, and the three readings are named (2026-10-17, before any ceiling result)
+
+**Decided by the project owner**, not a faculty-guide signature. The status
+stays *Proposed*.
+
+**When this was decided:**
+- items 2–5 of A1.7 were closed (P119–P122);
+- the no-forecast replicates were training;
+- **no forecast-aware policy existed, and no ADR-021 result existed.**
+
+### A2.1 Baselines, frozen
+
+- **Webster:** s = 660 pcu/h/m with 4 s start-up lost time (P122), chosen once
+  on tuning seeds 400–419 by mean total delay.
+- **Fixed cycle (new):** the green chosen once under
+  [PREREGISTRATION_P123](../../../experiments/results/scenario_pulsed/PREREGISTRATION_P123_fixed.md),
+  on the same seeds by the same rule.
+  - **Why:** P122 found short fixed cycles about 2% better than the selected
+    Webster on `pulsed`. Without this arm, a PPO gain over Webster could be a
+    gain that any well-chosen fixed cycle also delivers.
+- **Nothing is retuned after any PPO result is seen.**
+
+### A2.2 Three readings, named before the result
+
+A1.6's test decides between them. Each is reported in these words:
+
+| outcome | reading |
+|---|---|
+| `oracle` beats `no-forecast` and `surrogate(0)`, each with *d* ≥ 0.5 | **forecast information adds control value beyond the current deployable forecast**: the ceiling clears |
+| `oracle` beats `no-forecast` but not `surrogate(0)` | **a forecast input channel helps; foresight beyond persistence is not shown** |
+| `oracle` beats neither | **no demonstrated control benefit from forecasts under the tested conditions** |
+
+**Each is simulation evidence only.** None shows safe real-world signal
+control, and the controller stays disconnected from signal timing.
+
+**The baselines' role.** Webster and the fixed cycle are reported beside every
+arm, with the same statistics. A1.6's X uses Webster. A gain over Webster that
+the fixed cycle also delivers is named as such.
+
+### A2.3 Evaluation parity is a gate, not an assumption
+
+Before any ceiling evaluation:
+
+- **Every checkpoint passes `verify_ppo_checkpoint.py`,** with:
+  - `--expect-regime pulsed`;
+  - its arm;
+  - `--equivalence-seed 999`.
+- **Parity covers the forecast arms too.** A forecast-aware policy must act
+  identically in training and evaluation, with its forecast messages, on a
+  non-evaluation seed.
+  - Seed 999 is a **parity** check.
+  - The requalification seeds 240–259 answer a different question: **whether
+    the scenario stays informative under the trained policy**.
