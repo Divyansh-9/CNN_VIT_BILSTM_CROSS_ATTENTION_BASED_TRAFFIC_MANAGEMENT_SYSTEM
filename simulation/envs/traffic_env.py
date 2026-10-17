@@ -119,9 +119,13 @@ def start_sumo(traci, command: list[str], attempts: int = SUMO_START_ATTEMPTS,
                 raise ConnectionError(f"our SUMO exited; port {port} belongs to "
                                       f"another process")
             return
-        except Exception:                                     # noqa: BLE001
+        except BaseException as error:
+            # Every path out of a failed attempt cleans up our own process,
+            # identified by the handle we hold, never by a port or a PID
+            # lookup. An interrupt is not retried: it is cleaned up, then
+            # re-raised at once.
             _discard(traci, label, proc)
-            if attempt == attempts:
+            if not isinstance(error, Exception) or attempt == attempts:
                 raise
 
 

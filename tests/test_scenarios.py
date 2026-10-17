@@ -216,3 +216,34 @@ def test_a_connection_to_someone_elses_sumo_is_refused(monkeypatch):
     start_sumo(traci, ["sumo"], label="hijack_test")
     assert len(made) == 2                                      # first connection refused
     assert made[1].alive and not made[1].killed
+
+
+def test_an_interrupt_during_the_handshake_kills_our_sumo_and_is_not_retried(monkeypatch):
+    """Every failure path cleans up the process we started, and only that one."""
+    import subprocess
+
+    traci = pytest.importorskip("traci")
+    from simulation.envs.traffic_env import start_sumo
+
+    class FakeProc:
+        killed = False
+
+        def poll(self):
+            return None if not self.killed else -9
+
+        def kill(self):
+            self.killed = True
+
+        def wait(self, timeout=None):
+            return -9
+
+    made = []
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: made.append(FakeProc()) or made[-1])
+
+    def interrupted(*a, **k):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(traci, "init", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        start_sumo(traci, ["sumo"], label="interrupt_test")
+    assert len(made) == 1 and made[0].killed                  # cleaned up, not retried
