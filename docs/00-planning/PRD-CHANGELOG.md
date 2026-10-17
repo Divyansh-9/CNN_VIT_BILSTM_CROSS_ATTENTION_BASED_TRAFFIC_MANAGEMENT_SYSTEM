@@ -8614,3 +8614,73 @@ a seed share oracle cache entries.
 - A difference raises an error.
 
 Both behaviours are tested.
+
+## P129 — episode 0 of every training run used the training seed as its demand seed; the ceiling's primary set becomes 28 seeds (2026-10-17, before any ceiling result)
+
+**Found** while the six forecast replicates were training. The oracle cache
+held replays for episode seeds **1, 7 and 42**, and the rule (P115 §4) cannot
+produce those.
+
+**The cause, read from SB3's source.**
+- `PPO(seed = s)` calls `env.seed(s)`.
+- `DummyVecEnv.reset` then passes `seed = s` to the first `reset`.
+- `TrafficSignalEnv` uses an explicit seed as given, so episode 0 ran on SUMO
+  seed *s*.
+- Every later episode follows the rule (1,000,000 + 10,000 *s* + *e*).
+
+**This was a deviation from P115 §4 in every training run so far:**
+- the three locked no-forecast replicates;
+- the six forecast replicates in progress.
+
+**What it means for each training seed:**
+- **seeds 1 and 7:** each trained **one of about 2,119 episodes** on the
+  demand of evaluation seeds 1 and 7. That breaks A1.4's separation.
+- **seed 42:** demand seed 42 belongs to no reserved set.
+
+That covers the oracle policy too, and the requalification, which used seed
+42's policy on seeds 240–259, is unaffected.
+
+**The records are kept as they were.** The sidecars and the lock are
+unchanged. Their `episode_seed_rule` states the rule, and this entry records
+the exception.
+
+**Decision (owner, option B): correct the evaluation population, and retrain
+nothing.** P128 Amendment 1, committed before any ceiling episode, sets the
+**primary evaluation set to {0, …, 29} \ {1, 7}**, 28 paired seeds. It is
+frozen literally in `ceiling_eval.py`, which asserts that set shares no seed
+with any training seed.
+
+**All 30 seeds are still run.** The all-30 analysis is reported as a
+**contaminated, secondary sensitivity analysis**:
+- it is not independent validation;
+- it can never override the primary decision;
+- a test shows that a large gain confined to seeds 1 and 7 does not clear the
+  ceiling.
+
+**Unchanged:**
+- the statistical procedure;
+- the threshold *d* ≤ −0.5;
+- Holm;
+- the operational gate;
+- the readings;
+- the arms.
+
+**Rejected: option A,** which would fix the seeding, retrain no-forecast seeds
+1 and 7, re-lock, and restart the six forecast runs.
+- **Its cost:** about three more hours of training, and the forecast runs
+  already in progress.
+- **What it would have bought:** literal compliance with P115 §4 for future
+  runs only.
+- **Why B is better:** B removes the contamination from the decision
+  directly, and keeps every arm's training procedure identical, including any
+  future sweep arm.
+
+**Enforced in code.** `tests/test_seed_separation.py` builds the training stack
+through `train_ppo.build_model`, the function `train()` now uses itself. It
+resets the stack as SB3 does, and checks the **actual** SUMO seeds used,
+including the seeded first reset, against every reserved set. A test of the
+configured rule alone would have missed this.
+- **Behaviour check:** a smoke run through the refactored `train()` audited
+  4,191 observations, as before.
+- **Record:** the environment now records every episode's SUMO seed
+  (`run_seeds`).

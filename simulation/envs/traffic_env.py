@@ -188,6 +188,9 @@ class TrafficSignalEnv(gym.Env):
         # no-forecast arm, exactly the behaviour before producers existed.
         self.forecast = forecast
         self.write_tripinfo = tripinfo
+        # P129: the SUMO seed of every episode actually run, so the demand a
+        # training run saw can be checked rather than inferred from the rule.
+        self.run_seeds: list[int] = []
         self.use_mfstnet = use_mfstnet
         self.starvation_penalty = starvation_penalty
         self.switch_penalty = switch_penalty
@@ -263,6 +266,7 @@ class TrafficSignalEnv(gym.Env):
         # kept clear of the evaluation seeds; constant regimes are unchanged.
         run_seed = (episode_seed(self.regime, self.base_seed, self._episode)
                     if seed is None else seed)
+        self.run_seeds.append(int(run_seed))
         self._episode += 1
         # Before this environment's SUMO starts: a replay oracle runs its own
         # episode to answer, and must not share a live connection.

@@ -46,8 +46,18 @@ STATS = ROOT / "ceiling_stats.json"
 FORECAST_LOCK = ROOT / "forecast_lock.json"
 NO_FORECAST_LOCK = Path("experiments/results/scenario_pulsed/no_forecast_lock.json")
 REGIME, DURATION_S = "pulsed", 1800
-EVAL_SEEDS = tuple(range(30))
+EVAL_SEEDS = tuple(range(30))          # every seed is run; all 30 rows are kept
 TRAINING_SEEDS = (42, 1, 7)
+# P128 Amendment 1 (P129): SB3 seeds a training run's first reset with the
+# training seed, so episode 0 of every replicate used SUMO seed 42, 1 or 7.
+# Training seeds 1 and 7 therefore saw one episode of evaluation seeds 1 and 7.
+# The PRIMARY analysis uses the 28 evaluation seeds no training run touched,
+# frozen literally here. The all-30 analysis is a contaminated, secondary
+# sensitivity check that can never override the primary.
+PRIMARY_SEEDS = (0, 2, 3, 4, 5, 6, *range(8, 30))
+CONTAMINATED_SEEDS = (1, 7)
+assert set(PRIMARY_SEEDS) == set(EVAL_SEEDS) - set(CONTAMINATED_SEEDS) and len(PRIMARY_SEEDS) == 28
+assert not set(PRIMARY_SEEDS) & set(TRAINING_SEEDS), "a primary seed was used in training"
 PARITY_SEED = 999
 METRIC = "mean_total_delay_s"
 D_MIN = 0.5
@@ -144,12 +154,31 @@ def decide(primary: dict, operational: dict, transfer: float | None,
 
 
 def analyse(rows: list[dict]) -> dict:
-    """Every pre-registered statistic, from the per-episode rows alone."""
+    """The primary analysis on the 28 uncontaminated seeds; the 30-seed one is secondary.
+
+    The decision is the primary analysis's, always. The sensitivity analysis is
+    reported beside it, labelled as containing a known training/evaluation
+    overlap, and cannot override it (P128 Amendment 1).
+    """
+    primary = _core(rows, PRIMARY_SEEDS)
+    sensitivity = _core(rows, EVAL_SEEDS)
+    return {**primary,
+            "primary_evaluation_seeds": list(PRIMARY_SEEDS),
+            "sensitivity_all_30_seeds_CONTAMINATED": {
+                "note": ("includes evaluation seeds 1 and 7, whose demand training seeds 1 and 7 "
+                         "each saw for one episode (P129). Secondary; cannot override the "
+                         "primary decision."),
+                "decision": sensitivity["decision"], "primary": sensitivity["primary"],
+                "arms": sensitivity["arms"]}}
+
+
+def _core(rows: list[dict], seeds) -> dict:
+    """Every pre-registered statistic over `seeds`, from the per-episode rows alone."""
     from experiments.statistics import bootstrap_ci
 
     def per_seed(arm: str, policy=None) -> list[float]:
         out = []
-        for s in EVAL_SEEDS:
+        for s in seeds:
             vals = [float(r[METRIC]) for r in rows if r["arm"] == arm and int(r["eval_seed"]) == s
                     and (policy is None or r["policy"] == str(policy))]
             if not vals:
@@ -191,8 +220,8 @@ def analyse(rows: list[dict]) -> dict:
                             "max_wait_s", "clamp_rate", "oracle_realised_agreement",
                             "acc_forecast_realised", "acc_oracle_realised",
                             "acc_persistence_realised", "producer_informed_share")}}
-    return {"protocol": "PREREGISTRATION_P128_ceiling.md", "metric": METRIC,
-            "eval_seeds": list(EVAL_SEEDS), "decision": decision, "primary": primary,
+    return {"protocol": "PREREGISTRATION_P128_ceiling.md (with Amendment 1)", "metric": METRIC,
+            "eval_seeds": list(seeds), "decision": decision, "primary": primary,
             "operational_gate": operational, "replicate_directions": directions,
             "secondary_descriptive_unadjusted": secondary, "arms": summary}
 

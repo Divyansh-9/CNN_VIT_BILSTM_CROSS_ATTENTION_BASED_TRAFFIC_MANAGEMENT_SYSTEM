@@ -92,8 +92,7 @@ def test_harm_is_named():
 
 def test_a_missing_episode_breaks_the_pairing_rather_than_being_dropped():
     data = [r for r in rows({"no-forecast": 0, "persistence": 0, "oracle": -3})
-            if not (r["arm"] == "oracle" and r["eval_seed"] == 7 and r["policy"] == "1")]
-    data = [r for r in data if not (r["arm"] == "oracle" and r["eval_seed"] == 7)]
+            if not (r["arm"] == "oracle" and r["eval_seed"] == 8)]
     with pytest.raises(ValueError, match="pairing is broken"):
         analyse(data)
 
@@ -104,3 +103,26 @@ def test_every_baseline_and_both_primary_tests_are_reported():
     assert all("holm_significant" in e for e in result["primary"].values())
     assert len(result["secondary_descriptive_unadjusted"]) == len(PPO_ARMS) * len(BASELINES)
     assert set(result["arms"]) == set(PPO_ARMS) | set(BASELINES)
+
+
+def test_the_primary_analysis_uses_exactly_the_28_uncontaminated_seeds():
+    """P128 Amendment 1: {0..29} minus {1, 7}; the statistics are computed on 28 pairs."""
+    from scripts.ceiling_eval import PRIMARY_SEEDS
+
+    assert set(PRIMARY_SEEDS) == set(range(30)) - {1, 7}
+    result = analyse(rows({"no-forecast": 0, "persistence": 0, "oracle": -3}))
+    assert result["primary_evaluation_seeds"] == list(PRIMARY_SEEDS)
+    assert all(e["n"] == 28 for e in result["primary"].values())
+    sens = result["sensitivity_all_30_seeds_CONTAMINATED"]
+    assert all(e["n"] == 30 for e in sens["primary"].values()) and "Secondary" in sens["note"]
+
+
+def test_the_contaminated_seeds_cannot_carry_the_decision():
+    """A large oracle gain on seeds 1 and 7 alone must not clear the ceiling."""
+    data = rows({"no-forecast": 0, "persistence": 0, "oracle": 0})
+    for r in data:
+        if r["arm"] == "oracle" and r["eval_seed"] in (1, 7):
+            r["mean_total_delay_s"] -= 60.0
+    result = analyse(data)
+    assert not result["decision"]["cleared"]
+    assert result["decision"]["reading"].startswith("no demonstrated control benefit")

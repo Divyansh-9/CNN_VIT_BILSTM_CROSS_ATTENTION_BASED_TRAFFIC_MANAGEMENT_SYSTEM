@@ -255,55 +255,20 @@ def forecast_audit(env, producer):
     return ForecastAudit(env)
 
 
-def train(
-    arm: str = "no-forecast",
-    *,
-    timesteps: int | None = None,
-    regime: str = "saturated",
-    seed: int | None = None,
-    episode_s: int | None = None,
-    out: Path = Path("models/ppo"),
-    smoke: bool = False,
-    action_space: str = "phase_duration",
-    force: bool = False,
-    quality: float | None = None,
-) -> dict:
+def build_model(config: dict, arm: str, *, regime: str, seed: int, episode_s: int,
+                action_space: str, producer):
+    """The training environment stack and the PPO model, exactly as `train` builds them.
+
+    Shared with `tests/test_seed_separation.py`, so the seed check exercises the
+    real construction path. That path includes SB3 seeding the first `reset`
+    with the training seed (P129).
+    """
     from stable_baselines3 import PPO
     from stable_baselines3.common.monitor import Monitor
 
     from simulation.envs.traffic_env import TrafficSignalEnv
 
-    config = load_config()
-    # P126: the sidecar's git_commit is HEAD when the sidecar is written, at
-    # the END of training; a run launched hours earlier ran older code. Record
-    # what ran: the commit at launch, and whether the code it imports was dirty.
-    import subprocess
-
-    def _git(*args):
-        return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
-
-    code_at_start = {"commit": _git("rev-parse", "--short", "HEAD"),
-                     "dirty_paths": _git("status", "--porcelain", "--", "simulation",
-                                         "scripts/train_ppo.py", "mfstnet/configs",
-                                         "contracts").splitlines()}
     ppo = config["ppo"]
-    seed = seed if seed is not None else config["seed"]
-    timesteps = timesteps or (3_000 if smoke else ppo["total_timesteps"])
-    episode_s = episode_s or (300 if smoke else config["env"]["episode_s"])
-
-    # Fail closed before anything else (P52): a forecast arm without a valid
-    # producer does not train at all.
-    producer = build_producer(config, arm, quality=quality, regime=regime,
-                              action_space=action_space, episode_s=episode_s)
-
-    # Before the env, before the model, before an hour of learning: the run
-    # has to be allowed to write its result at all (P47).
-    out.mkdir(parents=True, exist_ok=True)
-    zip_path = checkpoint_zip(out, arm, regime, action_space, seed, quality)
-    path = zip_path.with_name(zip_path.name.removesuffix(".zip"))
-    guard_checkpoint(zip_path, timesteps, force=force)
-
-    set_seed(seed)
     audited = forecast_audit(
         TrafficSignalEnv(
             regime=regime,
@@ -345,6 +310,57 @@ def train(
         # what NFR-07 and the 30-seed benchmark need.
         device="cpu",
     )
+    return model, audited
+
+
+def train(
+    arm: str = "no-forecast",
+    *,
+    timesteps: int | None = None,
+    regime: str = "saturated",
+    seed: int | None = None,
+    episode_s: int | None = None,
+    out: Path = Path("models/ppo"),
+    smoke: bool = False,
+    action_space: str = "phase_duration",
+    force: bool = False,
+    quality: float | None = None,
+) -> dict:
+    config = load_config()
+    # P126: the sidecar's git_commit is HEAD when the sidecar is written, at
+    # the END of training; a run launched hours earlier ran older code. Record
+    # what ran: the commit at launch, and whether the code it imports was dirty.
+    import subprocess
+
+    def _git(*args):
+        return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+
+    code_at_start = {"commit": _git("rev-parse", "--short", "HEAD"),
+                     "dirty_paths": _git("status", "--porcelain", "--", "simulation",
+                                         "scripts/train_ppo.py", "mfstnet/configs",
+                                         "contracts").splitlines()}
+    ppo = config["ppo"]
+    seed = seed if seed is not None else config["seed"]
+    timesteps = timesteps or (3_000 if smoke else ppo["total_timesteps"])
+    episode_s = episode_s or (300 if smoke else config["env"]["episode_s"])
+
+    # Fail closed before anything else (P52): a forecast arm without a valid
+    # producer does not train at all.
+    producer = build_producer(config, arm, quality=quality, regime=regime,
+                              action_space=action_space, episode_s=episode_s)
+
+    # Before the env, before the model, before an hour of learning: the run
+    # has to be allowed to write its result at all (P47).
+    out.mkdir(parents=True, exist_ok=True)
+    zip_path = checkpoint_zip(out, arm, regime, action_space, seed, quality)
+    path = zip_path.with_name(zip_path.name.removesuffix(".zip"))
+    guard_checkpoint(zip_path, timesteps, force=force)
+
+    set_seed(seed)
+    model, audited = build_model(config, arm, regime=regime, seed=seed,
+                                 episode_s=episode_s, action_space=action_space,
+                                 producer=producer)
+    env = model.get_env()
     model.learn(total_timesteps=timesteps, progress_bar=False)
 
     # Fail closed after training too: a surrogate run whose producer never sent

@@ -186,3 +186,74 @@ alone.
   controller stays disconnected from signal timing.**
 - Anything about **P97a Part 2**, which keeps its own protocol and its
   `mean_wait_s` outcome.
+
+## Amendment 1 — the primary evaluation set excludes two contaminated seeds (2026-10-17, before any ceiling result)
+
+**Decided by the project owner (option B).** Committed while the six forecast
+replicates were training, **before any ceiling episode was run**.
+
+### What was found (P129)
+
+**What SB3 does.** SB3 seeds a training run's first environment reset with the
+PPO training seed. `PPO(seed = s)` calls `env.seed(s)`, and the vector
+environment passes that seed to its first `reset`. `TrafficSignalEnv` uses an
+explicit seed as given.
+
+**The result:** episode 0 of every training run used the training seed itself
+as its SUMO demand seed (42, 1 or 7), bypassing the P115 §4 rule. Every
+later episode follows the rule.
+
+**What this affected:**
+- **every replicate trained so far,** in every arm:
+  - the three locked no-forecast replicates;
+  - the six forecast replicates now training.
+- **training seeds 1 and 7:** each saw **one episode of about 2,119** on the
+  demand of **evaluation seeds 1 and 7**. That breaks A1.4's separation for
+  those two seeds.
+- **training seed 42:** its episode 0 used demand seed 42, which belongs to no
+  reserved set.
+
+**The historical record is not rewritten.** The rule was not followed for
+episode 0, and the sidecars' `episode_seed_rule` describes the rule, not that
+exception.
+
+### What changes
+
+- **The primary evaluation set is exactly {0, …, 29} \ {1, 7}: 28 paired
+  seeds.**
+  - `ceiling_eval.py` freezes it literally as `PRIMARY_SEEDS`.
+  - The script asserts that it shares no seed with any training seed.
+- **All 30 seeds are still run, and every row is kept.**
+- **The all-30 analysis is a secondary sensitivity analysis.**
+  - It is labelled **"contaminated: includes evaluation seeds 1 and 7, whose
+    demand training seeds 1 and 7 each saw for one episode"**.
+  - It is not independent validation, and **it can never override the primary
+    decision**. A test shows a large gain confined to seeds 1 and 7 does not
+    clear the ceiling.
+
+### What does not change
+
+- **The decision machinery:**
+  - the paired comparisons;
+  - the A1.6 statistics, with Cohen's *d* ≤ −0.5;
+  - the bootstrap procedure;
+  - Holm across the two primary tests.
+- **The readings and qualifiers:** the operational gate, the named outcomes,
+  and the qualifiers.
+- **The six frozen arms,** and every baseline.
+
+**Uncertainty** is recomputed on the 28 eligible pairs. **No threshold is
+relaxed because the sample is smaller.**
+
+### Enforced in code
+
+`tests/test_seed_separation.py` builds the training stack through
+`train_ppo.build_model`, the path `train()` itself uses, and resets it as SB3
+does. It checks the SUMO seeds **actually used**, including the seeded first
+reset, against every reserved set:
+- the primary evaluation seeds;
+- qualification and requalification, 200–259;
+- design, 300–309;
+- tuning, 400–419.
+
+A test of the configured rule alone would have missed this.
