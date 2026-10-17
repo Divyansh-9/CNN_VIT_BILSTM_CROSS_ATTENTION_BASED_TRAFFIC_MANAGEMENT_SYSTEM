@@ -20,6 +20,7 @@ from scripts.build_public_tree import build, excluded, needs_review  # noqa: E40
     "data/corpus/counts.csv", "data/corpus/detections.csv",
     "data/lanes/cam_preview.jpg", "data/lanes_k4/x/y.png", "data/clip.mp4",
     "docs/demo/MFSTNet-Synopsis-Report.docx",
+    "scripts/synopsis_content.py", "scripts/build_synopsis_pptx.py", "tests/test_deck_geometry.py",
 ])
 def test_restricted_files_are_excluded_with_a_reason(path):
     assert excluded(path)

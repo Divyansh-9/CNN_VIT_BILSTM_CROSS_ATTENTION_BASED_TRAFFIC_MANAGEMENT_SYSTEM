@@ -186,4 +186,5 @@ def test_the_evaluation_finds_checkpoints_by_the_training_name():
 
     assert checkpoint("oracle", 7) == checkpoint_zip(Path("models/ppo"), "surrogate", "pulsed",
                                                      "keep_or_switch", 7, 1.0)
-    assert checkpoint("no-forecast", 42).exists()                  # the locked replicate
+    # The name, not the file: weights are gitignored, so CI has none (V3 found this).
+    assert checkpoint("no-forecast", 42).name == "ppo_no-forecast_pulsed_keep_or_switch_seed42.zip"

@@ -56,6 +56,7 @@ def test_p103_difference_is_reported_in_the_direction_of_its_label(evidence):
     assert row["ci95"] == [-primary["ci95"][1], -primary["ci95"][0]]
 
 
+@needs_bellevue
 def test_every_study_names_its_file_and_commit_and_is_labelled_historical(evidence):
     assert "Not a live performance guarantee" in evidence["label"]
     assert any("P97a" in limit for limit in evidence["limitations"])

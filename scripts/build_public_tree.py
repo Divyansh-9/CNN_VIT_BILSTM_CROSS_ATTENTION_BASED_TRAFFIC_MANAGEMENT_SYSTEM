@@ -55,7 +55,15 @@ EXCLUDE = (
     ("data/*.png", "third-party frame"), ("data/*.webp", "third-party frame"),
     ("data/*.mp4", "third-party video"),
     ("docs/demo/MFSTNet-*", "submitted synopsis documents: personal identity; owner's call"),
-)
+) + tuple((p, "submitted-document toolchain: holds personal identity (names, roll numbers); "
+              "hands-off; owner's call") for p in (
+    "scripts/synopsis_content.py", "scripts/synopsis_phase1_content.py",
+    "scripts/phase1_progress_content.py", "scripts/build_synopsis*.py",
+    "scripts/build_phase1_progress_*.py", "scripts/check_synopsis.py",
+    "scripts/check_progress_report.py", "scripts/build_review_pptx.py", "scripts/docx_writer.py",
+    "tests/test_deck_geometry.py", "tests/test_progress_report.py"))
+PUBLIC_BRANCH_TODO = ("remove the synopsis and progress-report build and check steps from "
+                      ".github/workflows/tests.yml in the public branch (their scripts are excluded)")
 REVIEW_MARKERS = (b"Bellevue", b"bellevue")
 REVIEW_PREFIXES = ("experiments/results/loco", "experiments/results/baselines_loco")
 TEXT_SUFFIXES = {".md", ".py", ".json", ".yaml", ".yml", ".csv", ".txt", ".jsx", ".js", ".html"}
@@ -111,6 +119,7 @@ def build(files: list[tuple[str, bytes]], out: Path) -> dict:
                                          capture_output=True, text=True).stdout.strip(),
                 "kept": len(kept), "excluded": dropped, "review_required": review,
                 "leaks_found_on_rescan": leaks, "passed": not leaks,
+                "public_branch_todo": [PUBLIC_BRANCH_TODO],
                 "note": "does not resolve licensing or authorise publication"}
     (out / "PUBLIC_TREE_MANIFEST.json").write_text(json.dumps(manifest, indent=1),
                                                    encoding="utf-8")
@@ -130,6 +139,12 @@ def main(argv: list[str] | None = None) -> int:
     if not manifest["passed"]:
         return 1
     if args.run_tests:
+        # A published branch is a git repository, and some tests ask git; build
+        # the single squashed commit the public branch would be.
+        for command in (["git", "init", "-q"], ["git", "add", "-A"],
+                        ["git", "-c", "user.name=public-tree", "-c", "user.email=public-tree@local",
+                         "commit", "-q", "-m", "sanitised public tree (local, never pushed)"]):
+            subprocess.run(command, cwd=args.out, check=True, capture_output=True)
         ignore = ["test_encoders.py", "test_model.py", "test_cache.py", "test_sumo_network.py",
                   "test_simulation.py", "test_checkpoint_guard.py", "test_video_sampling.py"]
         result = subprocess.run([sys.executable, "-m", "pytest", "tests/", "-q", "-p",
