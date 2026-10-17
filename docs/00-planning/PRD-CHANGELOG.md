@@ -8351,3 +8351,44 @@ configurations deserve a reported "short-cycle proportional" arm in ADR-021 is
 a scope question for the owner. Adding one now, after seeing these numbers,
 would be selection after the fact. Any such arm would have to be
 pre-registered before the ceiling runs.
+
+## P125 — a clamped, demand-proportional Webster arm, pre-registered and selected from tuning data; ADR-021 Amendment 3 freezes the complete arm list (2026-10-17)
+
+The owner approved reporting the controller P124 identified as a separate
+ADR-021 arm. Its pre-registration (`PREREGISTRATION_P125_clamped.md`,
+`ee429ef`) was committed before any selection, and fixes the controller
+exactly:
+
+| setting | value |
+|---|---|
+| base | `Webster` as committed, with 0 s start-up lost time |
+| cycle | the cycle formula, clamped to [32, 192] s |
+| green split | demand-proportional, `effective green × y_phase / Y` |
+| green bounds | [10, 90] s, plus the runner's interphase |
+
+The selection rule applies to the committed P122 tuning rows: among the
+0 s lost-time configurations, the lowest mean total delay, subject to ADR-021's
+survivorship floor. The clamp rule is deliberately not applied.
+
+**Selected: s = 600 pcu/h/m, 0 s lost time.** Mean total delay 38.49 s, clamp
+91%, arrived 0.951. The figures are computed by
+`scripts/select_clamped_webster.py` into `clamped_selection.json`.
+
+- **No episode was run, and evaluation seeds 0–29 were never used.**
+- **The selection is among near-ties:** s = 525 gave 38.51 s and s = 900
+  gave 38.60 s. The choice of s barely matters for this arm, which is itself
+  informative: when the cycle length is clamped, the saturation flow
+  contributes little.
+
+**ADR-021 Amendment 3 freezes the complete arm list** before any ceiling
+result:
+- no-forecast PPO;
+- persistence;
+- forecast-quality PPO, up to the oracle;
+- tuned Webster;
+- fixed 30 s;
+- Webster split with a clamped cycle.
+
+**The primary question stays** forecast-aware against both no-forecast and
+persistence. The baselines strengthen the operational comparison. X stays
+defined against the tuned Webster.

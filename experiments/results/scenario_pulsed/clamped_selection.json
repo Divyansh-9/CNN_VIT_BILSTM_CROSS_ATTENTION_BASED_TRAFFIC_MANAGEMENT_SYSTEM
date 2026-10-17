@@ -1,0 +1,81 @@
+{
+  "protocol": "PREREGISTRATION_P125_clamped.md",
+  "source": "experiments\\results\\scenario_pulsed\\webster_tuning.csv",
+  "label": "Webster split, clamped cycle (s, 0 s lost time)",
+  "rule": "lowest mean mean_total_delay_s among 0 s lost-time configurations with arrived fraction >= 0.85; clamp rule not applied; ties to lower s",
+  "selected": {
+    "saturation_flow": 600,
+    "lost_time_startup_s": 0.0,
+    "seeds": 20,
+    "mean_total_delay_s": 38.4887,
+    "mean_wait_s": 22.6355,
+    "clamp_rate": 0.906,
+    "arrived_fraction": 0.9506
+  },
+  "rejected": [],
+  "summary": [
+    {
+      "saturation_flow": 525,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 38.5082,
+      "mean_wait_s": 22.92,
+      "clamp_rate": 0.8656,
+      "arrived_fraction": 0.95
+    },
+    {
+      "saturation_flow": 600,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 38.4887,
+      "mean_wait_s": 22.6355,
+      "clamp_rate": 0.906,
+      "arrived_fraction": 0.9506
+    },
+    {
+      "saturation_flow": 660,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 39.3577,
+      "mean_wait_s": 22.9417,
+      "clamp_rate": 0.9362,
+      "arrived_fraction": 0.9471
+    },
+    {
+      "saturation_flow": 750,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 39.3845,
+      "mean_wait_s": 22.9107,
+      "clamp_rate": 0.9711,
+      "arrived_fraction": 0.9487
+    },
+    {
+      "saturation_flow": 900,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 38.6022,
+      "mean_wait_s": 22.2719,
+      "clamp_rate": 0.993,
+      "arrived_fraction": 0.9471
+    },
+    {
+      "saturation_flow": 1050,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 39.4184,
+      "mean_wait_s": 22.9442,
+      "clamp_rate": 1.0,
+      "arrived_fraction": 0.9496
+    },
+    {
+      "saturation_flow": 1283,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 46.2998,
+      "mean_wait_s": 23.161,
+      "clamp_rate": 0.9896,
+      "arrived_fraction": 0.9424
+    }
+  ]
+}
