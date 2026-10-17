@@ -185,3 +185,38 @@ def test_the_oracle_answers_every_decision_of_an_episode_including_the_overrun(t
     finally:
         env.close()
         oracle._env.close()
+
+
+def _racing_oracle(tmp_path, monkeypatch, winner):
+    """An oracle whose rename loses to another process that wrote `winner` meanwhile."""
+    from simulation.oracle import ReplayOracle
+
+    series = np.arange(40, dtype=np.uint16).reshape(10, 4)
+    oracle = object.__new__(ReplayOracle)
+    oracle.cache, oracle.key = tmp_path, "k"
+
+    def replay(seed):
+        np.save(tmp_path / f"k_{seed}.npy", winner)           # the other process finishes first
+        return {"counts": series}
+
+    oracle._replay = replay
+
+    def busy(self, target):
+        raise PermissionError("the other process is reading it")
+
+    monkeypatch.setattr(Path, "replace", busy)
+    return oracle, series
+
+
+def test_a_cache_write_that_loses_a_race_keeps_the_identical_copy(tmp_path, monkeypatch):
+    """Two trainings at one seed build the same oracle entry at once (P128)."""
+    winner = np.arange(40, dtype=np.uint16).reshape(10, 4)
+    oracle, series = _racing_oracle(tmp_path, monkeypatch, winner)
+    assert np.array_equal(oracle.counts(3), series)
+    assert not list(tmp_path.glob("*.tmp.npy"))               # its own temp file removed
+
+
+def test_a_race_between_different_replays_is_an_error_not_a_silent_pick(tmp_path, monkeypatch):
+    oracle, _ = _racing_oracle(tmp_path, monkeypatch, np.zeros((10, 4), dtype=np.uint16))
+    with pytest.raises(RuntimeError, match="not deterministic"):
+        oracle.counts(3)

@@ -127,9 +127,22 @@ class ReplayOracle:
             return np.load(path)
         series = np.asarray(self._replay(int(seed))["counts"], dtype=np.uint16)
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp.npy")
+        # Parallel trainings sharing a training seed build the same entry. Each
+        # writes its own temporary file. A rename that loses the race (Windows
+        # refuses to replace a file another process is reading) keeps the copy
+        # already there. The replay is deterministic, so the two are identical,
+        # and that is checked rather than assumed.
+        import os
+
+        tmp = path.with_name(f"{path.stem}.{os.getpid()}.tmp.npy")
         np.save(tmp, series)
-        tmp.replace(path)
+        try:
+            tmp.replace(path)
+        except PermissionError:
+            tmp.unlink(missing_ok=True)
+            if not np.array_equal(np.load(path), series):
+                raise RuntimeError(f"two replays of {path.name} differ: the oracle is not "
+                                   f"deterministic") from None
         return series
 
     def _replay(self, seed: int) -> dict:

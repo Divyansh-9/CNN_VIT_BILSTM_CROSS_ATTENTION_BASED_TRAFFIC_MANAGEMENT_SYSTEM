@@ -8536,3 +8536,81 @@ the locked artifacts and the frozen arm list (ADR-021 Amendments 1–3).
 - **Nothing forecast-aware has been trained.**
 - **It is held for the owner's go.**
 - **ADR-021's go/no-go remains a guide-level decision.**
+
+## P128 — the ceiling pre-registered with its code, an ADR-021 decision record, and a real-policy smoke test that caught two defects (2026-10-17)
+
+The owner approved the ceiling stage on three conditions:
+1. the evaluation is pre-registered first;
+2. a real-policy smoke test passes;
+3. the ADR-021 decision record is committed before training.
+
+**1. Pre-registration (`83f3af0`).**
+- **The document:** `experiments/results/ceiling/PREREGISTRATION_P128_ceiling.md`
+  is committed with `scripts/ceiling_eval.py`.
+- **It fixes:**
+  - the six frozen arms;
+  - paired evaluation seeds 0–29;
+  - mean total delay;
+  - the two primary tests, oracle against no-forecast and oracle against
+    persistence, using a paired t-test, Holm across the two, *d* ≤ −0.5, and
+    a 10,000-resample bootstrap CI;
+  - an operational gate: arrived ≥ 0.85, and starvation no more than
+    no-forecast's plus 1;
+  - the five readings and four qualifiers;
+  - episode-failure handling: re-run once, then stop; nothing dropped;
+  - the oracle-versus-realised report.
+- **The rule as code:** `decide()` is tested on synthetic data for every
+  reading and qualifier (`tests/test_ceiling_eval.py`, 11 tests).
+- **The audit:** the six forecast checkpoints must each pass a forecast audit
+  (gate 1 plus seed-999 parity with messages) before a lock is written.
+- **The runner change:** an opt-in per-second hook, so that each message is
+  scored against the class realised at its own target time.
+
+**2. ADR-021 decision record (`974e10d`).** It records:
+- what has passed, naming the lock and the requalification record by hash;
+- what the owner's go authorises and what it does not.
+
+It is not a guide signature, and the guide is to be informed before any
+ceiling result is cited.
+
+**3. The smoke test, run twice.**
+
+**The first run found a naming defect (`4fd04a8`).** The label
+`surrogate-q1.00` contains a dot:
+- `Path.with_suffix` read `.00_pulsed...` as the suffix;
+- the overwrite guard and the sidecar went to `ppo_surrogate-q1.zip`, **shared
+  by q = 0 and q = 1 at the same seed**;
+- SB3 saved the weights without `.zip`.
+
+**The fix:** quality is now written in hundredths (`q100`, `q025`), paths are
+explicit, and the evaluation finds checkpoints by the same function that names
+them. The locked no-forecast names are unchanged.
+
+**The second run passed every check:**
+- the names are right;
+- the producer replays the locked seed-42 policy (`8829979d…`);
+- the delivered quality is exactly 1.0 and 0.0;
+- the code was clean at launch;
+- ages were 0, 5 and 10 s, with about 1% in between at episode ends;
+- parity with messages is identical;
+- **all 1,054 model and committed-result files are unchanged, and none were
+  added.**
+
+**An informative side result from the smoke test.** On an evaluation-style
+episode (seed 999), a barely trained policy (3,000 steps) moves traffic far
+from the frozen trajectory:
+- the oracle's accuracy against what actually happened was **0.60**;
+- persistence's was **0.92**.
+
+That is the A1.2 limitation measured. The pre-registered "oracle transfer
+weak" qualifier exists for this case. A trained policy should deviate less,
+and the real runs will show it.
+
+**One more race closed before the parallel runs.** The q = 0 and q = 1 arms at
+a seed share oracle cache entries.
+- Each process now writes its own temporary file.
+- A rename that loses the race keeps the copy already there, after checking
+  the two replays are identical.
+- A difference raises an error.
+
+Both behaviours are tested.
