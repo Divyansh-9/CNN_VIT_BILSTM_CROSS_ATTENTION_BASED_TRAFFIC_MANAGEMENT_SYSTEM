@@ -104,3 +104,32 @@ def test_total_delay_is_opt_in_and_moves_no_existing_metric():
     assert {k: on[k] for k in off} == off                 # every existing field identical
     assert on["delay_vehicles"] > on["throughput"]        # unfinished vehicles are counted
     assert on["mean_total_delay_s"] > 0
+
+
+def test_sumo_start_retries_a_port_race_then_gives_up():
+    """P126: a parallel training lost its run to "Address already in use"."""
+    import struct
+
+    pytest.importorskip("traci")
+    from simulation.envs.traffic_env import start_sumo
+
+    class FlakyTraci:
+        def __init__(self, failures):
+            self.failures, self.starts, self.closes = failures, 0, 0
+
+        def start(self, command):
+            self.starts += 1
+            if self.starts <= self.failures:
+                raise struct.error("unpack requires a buffer of 3 bytes")
+
+        def close(self):
+            self.closes += 1
+
+    flaky = FlakyTraci(failures=2)
+    start_sumo(flaky, ["sumo"])
+    assert flaky.starts == 3 and flaky.closes == 2
+
+    hopeless = FlakyTraci(failures=99)
+    with pytest.raises(struct.error):
+        start_sumo(hopeless, ["sumo"], attempts=3)
+    assert hopeless.starts == 3

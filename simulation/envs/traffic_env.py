@@ -57,6 +57,36 @@ NS, EW = 0, 1
 _SPEC = Path(__file__).resolve().parents[2] / "mfstnet" / "configs" / "spec.yaml"
 
 
+SUMO_START_ATTEMPTS = 5
+
+
+def start_sumo(traci, command: list[str], attempts: int = SUMO_START_ATTEMPTS) -> None:
+    """Start SUMO, retrying a port race between parallel processes (P126).
+
+    `traci.start` picks a free port and hands it to SUMO. With several
+    trainings in parallel, another process can take that port first. SUMO then
+    exits with "Address already in use" and the handshake fails, which killed a
+    500,000-step run part-way. A retry starts a fresh SUMO with the same
+    command, the same seed and a new port. Nothing about the simulation
+    differs, so the episode is unchanged.
+    """
+    import struct
+
+    from traci.exceptions import FatalTraCIError, TraCIException
+
+    for attempt in range(1, attempts + 1):
+        try:
+            traci.start(command)
+            return
+        except (FatalTraCIError, TraCIException, struct.error, ConnectionError, OSError):
+            try:
+                traci.close()
+            except Exception:                                  # noqa: BLE001
+                pass
+            if attempt == attempts:
+                raise
+
+
 def _load_spec() -> dict:
     import yaml
 
@@ -198,7 +228,7 @@ class TrafficSignalEnv(gym.Env):
             self.forecast.reset(run_seed)
         self._traci = traci
 
-        traci.start([
+        start_sumo(traci, [
             str(sumo_binary("sumo")),
             "-n", str(self.net_dir / "intersection.net.xml"),
             "-r", str(demand_path(self.net_dir, self.regime, run_seed)),
