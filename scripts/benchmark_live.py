@@ -42,11 +42,15 @@ and bitrate are the camera's own, and nothing touches disk.
 5. **Timestamp correctness.** The stream's own presentation timestamps, read
    from ffmpeg's `showinfo`, are strictly increasing within each connection.
    At least 99% of sample spacings are within 25% of `step_s`.
-6. **End-to-end latency.** It runs from frame arrival, to prediction ready, to
-   the server acknowledging it, with `--server` pointing at the real FastAPI
-   server. Pass if processing p95 ≤ 150 ms (the PRD's MFSTNet budget, on
-   **this** host; ADR-003) **and** transport p95 ≤ 200 ms (the PRD's MQTT
-   budget, over the HTTP stand-in).
+6. **Latency, split three ways** (owner decision, P135; frozen in
+   `experiments/results/v2/PREREGISTRATION_V2_S65.md`). Each part has a stated
+   pass statistic; p50, p90, p95, p99 and max are always reported.
+
+   | part | what is timed | passes if |
+   |---|---|---|
+   | **6a** model call | `session.run` alone: the PRD's "MFSTNet ≤ 150 ms on server CPU via ONNX" (CPU provider, on **this** host; ADR-003) | p95 ≤ 150 ms |
+   | **6b** whole edge step | every `forecaster.step`: both backbones, the ring, and the model whenever the window is full | p95 ≤ 1,000 ms (half the 2 s step) **and** max ≤ 2,000 ms (no step longer than the sampling interval) |
+   | **6c** transport | publish to the server's acknowledgement, with `--server` | p95 ≤ 200 ms (the PRD's MQTT budget, over the HTTP stand-in) |
 7. **Prediction freshness at the consumer.** `GET /prediction/{id}/latest` is
    polled every second. Pass if at least 99% of polls after the first
    prediction report an age of 10 s or less, the gate's freshness bound
@@ -129,7 +133,7 @@ def probe_stream(url: str, *, realtime: bool) -> dict:
 
 
 SPACING_TOLERANCE, SPACING_SHARE = 0.25, 0.99
-PROCESSING_P95_MS, TRANSPORT_P95_MS = 150.0, 200.0
+MODEL_CALL_P95_MS, STEP_P95_MS, STEP_MAX_MS, TRANSPORT_P95_MS = 150.0, 1000.0, 2000.0, 200.0
 FRESH_AGE_S, FRESH_SHARE = 10.0, 0.99
 
 
@@ -150,28 +154,56 @@ def timestamp_report(segments: list[list[float]], step_s: float) -> dict:
             "passed_5": monotonic and ok >= SPACING_SHARE}
 
 
-def latency_report(samples: list[tuple[float, float, float | None]]) -> dict:
-    """Criterion 6 from (arrival, ready, acknowledged) times in seconds.
+def distribution(ms: list[float]) -> dict:
+    """p50, p90, p95, p99 and max of a list of milliseconds, nearest-rank."""
+    if not ms:
+        return {k: None for k in ("p50", "p90", "p95", "p99", "max")}
+    s = sorted(ms)
 
-    `acknowledged` is None when no server was configured, and the transport
-    part is then not measured.
+    def q(f):
+        return round(s[int(f * (len(s) - 1))], 1)
+
+    return {"p50": q(0.50), "p90": q(0.90), "p95": q(0.95), "p99": q(0.99), "max": round(s[-1], 1)}
+
+
+def latency_report(model_call_s: list[float], step_s: list[float],
+                   transport_s: list[float | None]) -> dict:
+    """Criterion 6 in three frozen parts (P135). Inputs are durations in seconds.
+
+    `transport_s` holds None for each prediction published without a server, and
+    6c is then not measured.
     """
-    processing = [(r - a) * 1000 for a, r, _ in samples]
-    transport = [(k - r) * 1000 for _, r, k in samples if k is not None]
-    total = [(k - a) * 1000 for a, _, k in samples if k is not None]
-    measured = bool(transport) and len(transport) == len(samples)
-    out = {"c6_predictions": len(samples),
-           "c6_processing_p50_ms": round(statistics.median(processing), 1) if processing else None,
-           "c6_processing_p95_ms": round(_p95(processing), 1) if processing else None,
-           "c6_transport_p95_ms": round(_p95(transport), 1) if transport else None,
-           "c6_total_p50_ms": round(statistics.median(total), 1) if total else None,
-           "c6_total_p95_ms": round(_p95(total), 1) if total else None,
-           "c6_total_max_ms": round(max(total), 1) if total else None,
-           "c6_transport_measured": measured}
-    out["passed_6"] = (measured and out["c6_processing_p95_ms"] is not None
-                       and out["c6_processing_p95_ms"] <= PROCESSING_P95_MS
-                       and out["c6_transport_p95_ms"] <= TRANSPORT_P95_MS)
+    a = distribution([x * 1000 for x in model_call_s])
+    b = distribution([x * 1000 for x in step_s])
+    measured = bool(transport_s) and all(x is not None for x in transport_s)
+    c = distribution([x * 1000 for x in transport_s if x is not None])
+    out = {**{f"c6a_model_call_{k}_ms": v for k, v in a.items()},
+           **{f"c6b_edge_step_{k}_ms": v for k, v in b.items()},
+           **{f"c6c_transport_{k}_ms": v for k, v in c.items()},
+           "c6_model_calls": len(model_call_s), "c6_edge_steps": len(step_s),
+           "c6c_transport_measured": measured}
+    out["passed_6a"] = a["p95"] is not None and a["p95"] <= MODEL_CALL_P95_MS
+    out["passed_6b"] = (b["p95"] is not None and b["p95"] <= STEP_P95_MS
+                        and b["max"] <= STEP_MAX_MS)
+    out["passed_6c"] = measured and c["p95"] is not None and c["p95"] <= TRANSPORT_P95_MS
+    out["passed_6"] = out["passed_6a"] and out["passed_6b"] and out["passed_6c"]
     return out
+
+
+class TimedSession:
+    """Pass-through over an onnxruntime session that times `run` alone (6a)."""
+
+    def __init__(self, inner, sink: list[float]) -> None:
+        self._inner, self._sink = inner, sink
+
+    def run(self, *args, **kwargs):
+        begun = time.perf_counter()
+        result = self._inner.run(*args, **kwargs)
+        self._sink.append(time.perf_counter() - begun)
+        return result
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
 
 
 def freshness_report(ages: list[float]) -> dict:
@@ -325,7 +357,10 @@ def run(url: str, graph_path: Path, lanes: list[str], device: str,
     deadline = started + seconds
     arrivals, step_ms, predicted_at = [], [], []
     stamp_segments: list[list[float]] = []
-    latency: list[tuple[float, float, float | None]] = []
+    model_call_s: list[float] = []
+    edge_step_s: list[float] = []
+    transport_s: list[float | None] = []
+    forecaster.session = TimedSession(forecaster.session, model_call_s)
     ages: list[float] = []
     stop_polling, first_prediction = threading.Event(), threading.Event()
     poller = None
@@ -372,12 +407,13 @@ def run(url: str, graph_path: Path, lanes: list[str], device: str,
             frame = np.frombuffer(buffer, np.uint8).reshape(height, width, 3)
             begun = time.perf_counter()
             prediction = forecaster.step(frame)
+            ready = time.perf_counter()
+            edge_step_s.append(ready - begun)
             if prediction is not None:
-                ready = time.perf_counter()
                 acked_before = len(getattr(transport, "acknowledged", []))
                 node.publish_prediction(prediction)
                 acks = getattr(transport, "acknowledged", [])
-                latency.append((begun, ready, acks[-1] if len(acks) > acked_before else None))
+                transport_s.append(acks[-1] - ready if len(acks) > acked_before else None)
                 first_prediction.set()
                 predicted_at.append(time.perf_counter() - started)
                 step_ms.append((time.perf_counter() - begun) * 1000.0)
@@ -434,7 +470,7 @@ def run(url: str, graph_path: Path, lanes: list[str], device: str,
         "criterion_1": "measured by decode-throughput (memory only)",
         "server": redact(server) if server else "",
         **timestamp_report(stamp_segments, step_s),
-        **latency_report(latency),
+        **latency_report(model_call_s, edge_step_s, transport_s),
         **freshness_report(ages),
     }
     interval_ok = (row["interval_p95_s"] != ""
@@ -463,8 +499,14 @@ def run(url: str, graph_path: Path, lanes: list[str], device: str,
           f"criterion 1: run benchmark_decode.py file on a capture")
     print(f"  criterion 5 timestamps: {'PASS' if row['passed_5'] else 'FAIL'} "
           f"(monotonic {row['c5_monotonic']}, spacing ok {row['c5_spacing_ok_share']})")
-    print(f"  criterion 6 latency: {'PASS' if row['passed_6'] else 'FAIL'} (processing p95 "
-          f"{row['c6_processing_p95_ms']} ms, transport p95 {row['c6_transport_p95_ms']} ms)")
+    print(f"  criterion 6a model call: {'PASS' if row['passed_6a'] else 'FAIL'} "
+          f"(p50 {row['c6a_model_call_p50_ms']}, p95 {row['c6a_model_call_p95_ms']}, "
+          f"max {row['c6a_model_call_max_ms']} ms)")
+    print(f"  criterion 6b edge step: {'PASS' if row['passed_6b'] else 'FAIL'} "
+          f"(p50 {row['c6b_edge_step_p50_ms']}, p95 {row['c6b_edge_step_p95_ms']}, "
+          f"max {row['c6b_edge_step_max_ms']} ms)")
+    print(f"  criterion 6c transport: {'PASS' if row['passed_6c'] else 'FAIL'} "
+          f"(p95 {row['c6c_transport_p95_ms']} ms)")
     print(f"  criterion 7 freshness: {'PASS' if row['passed_7'] else 'FAIL'} "
           f"({row['c7_polls']} polls, fresh {row['c7_fresh_share']})")
     print(f"  wrote {out}")

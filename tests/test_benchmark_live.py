@@ -68,16 +68,36 @@ def test_timestamps_pass_only_when_monotonic_and_evenly_spaced():
     assert not timestamp_report([], 2.0)["passed_5"]                  # nothing measured
 
 
-def test_latency_needs_the_transport_measured_and_both_budgets_met():
+def test_latency_is_judged_in_three_frozen_parts():
     from scripts.benchmark_live import latency_report
 
-    fast = [(t, t + 0.05, t + 0.08) for t in range(100)]
-    assert latency_report(fast)["passed_6"]
-    assert not latency_report([(t, t + 0.05, None) for t in range(100)])["passed_6"]  # no server
-    slow_model = [(t, t + 0.30, t + 0.32) for t in range(100)]
-    assert not latency_report(slow_model)["passed_6"]
-    slow_link = [(t, t + 0.05, t + 0.40) for t in range(100)]
-    assert not latency_report(slow_link)["passed_6"]
+    ok = latency_report([0.05] * 100, [0.4] * 100, [0.03] * 100)
+    assert ok["passed_6a"] and ok["passed_6b"] and ok["passed_6c"] and ok["passed_6"]
+    assert set(k for k in ok if k.startswith("c6a_model_call_")) >= {
+        "c6a_model_call_p50_ms", "c6a_model_call_p99_ms", "c6a_model_call_max_ms"}
+    assert not latency_report([0.2] * 100, [0.4] * 100, [0.03] * 100)["passed_6a"]
+    assert not latency_report([0.05] * 100, [1.2] * 100, [0.03] * 100)["passed_6b"]
+    one_stall = latency_report([0.05] * 100, [0.4] * 99 + [2.5], [0.03] * 100)
+    assert one_stall["c6b_edge_step_p95_ms"] == 400.0 and not one_stall["passed_6b"]   # max bound
+    assert not latency_report([0.05] * 100, [0.4] * 100, [0.3] * 100)["passed_6c"]
+    no_server = latency_report([0.05] * 100, [0.4] * 100, [None] * 100)
+    assert not no_server["passed_6c"] and not no_server["passed_6"]
+
+
+def test_the_model_call_timer_is_a_pass_through():
+    from scripts.benchmark_live import TimedSession
+
+    class Fake:
+        def run(self, names, feed):
+            return [feed["x"] * 2]
+
+        def get_inputs(self):
+            return ["x"]
+
+    sink = []
+    timed = TimedSession(Fake(), sink)
+    assert timed.run(None, {"x": 3}) == [6] and len(sink) == 1
+    assert timed.get_inputs() == ["x"]
 
 
 def test_freshness_counts_an_unreachable_server_as_stale():
