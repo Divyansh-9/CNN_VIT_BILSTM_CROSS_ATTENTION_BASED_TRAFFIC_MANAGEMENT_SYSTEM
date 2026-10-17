@@ -8684,3 +8684,119 @@ configured rule alone would have missed this.
   4,191 observations, as before.
 - **Record:** the environment now records every episode's SUMO seed
   (`run_seeds`).
+
+## P130 — the ADR-021 ceiling, run once: no demonstrated control benefit from forecasts under the tested conditions (2026-10-17)
+
+**The procedure.** P128 with Amendment 1 (`5f0ef86`, frozen before any ceiling
+episode):
+- **six forecast replicates,** persistence (q = 0) and oracle (q = 1) at seeds
+  42, 1 and 7, audited at 30/30 checks each, including seed-999 parity with
+  forecast messages;
+- **locked** (`forecast_lock.json`, `b6b02f8`), with both locks re-verified;
+- **evaluated once:** 12 arm-policy combinations × 30 seeds, all 360 rows
+  kept (`ceiling_runs.csv` with its sidecar; `ceiling_stats.json`);
+- **decided** on the 28 primary seeds, {0, …, 29} \ {1, 7}.
+
+**Primary result.** The outcome is mean total delay; a negative difference
+means the oracle arm has the lower delay.
+
+| comparison | mean difference | bootstrap 95% CI | *d* | p | Holm |
+|---|---|---|---|---|---|
+| oracle − no-forecast | **+5.41 s** | [−0.91, +16.81] | +0.19 | 0.33 | n.s. |
+| oracle − persistence | **+2.38 s** | [−6.35, +15.38] | +0.08 | 0.69 | n.s. |
+
+**Reading (pre-registered): "no demonstrated control benefit from forecasts
+under the tested conditions."** The ceiling does not clear.
+
+The point estimates go the **wrong way**: the oracle arm has more delay than
+both comparators. Neither difference is significant.
+
+**Qualifiers attached:**
+- **oracle transfer weak:** the oracle arm's realised accuracy was 0.774,
+  under 0.80;
+- **"oracle-input: an upper bound, not achievable; simulation evidence
+  only".**
+
+**The operational gate passed:**
+- arrived fraction 0.946;
+- 0 starvation events in every arm.
+
+**Contaminated 30-seed sensitivity analysis (secondary, decides nothing):**
+- **the same reading;**
+- oracle − no-forecast: +5.08 s (*d* +0.18);
+- oracle − persistence: −2.90 s (*d* −0.07).
+
+**Per training seed** (oracle − comparator, mean over the 28 seeds):
+
+| seed | vs no-forecast | vs persistence |
+|---|---|---|
+| 42 | +0.03 s | −2.57 s |
+| 1 | **+17.29 s** | **+12.25 s** |
+| 7 | −1.10 s | −2.55 s |
+
+One replicate (seed 1) is far worse. The other two are close to zero, and
+slightly favour the oracle against persistence. **The variance between
+training seeds is as large as any effect,** which is why the intervals are
+wide.
+
+**The oracle against what actually happened (A1.2).** Accuracy is measured at
+each message's own target time.
+
+| arm | forecast sent | oracle | persistence | oracle agreement at decision times |
+|---|---|---|---|---|
+| oracle | 0.774 | 0.774 | 0.632 | 0.775 |
+| persistence | 0.645 | 0.772 | 0.645 | 0.769 |
+
+- **The oracle's information was genuinely better than persistence,** by
+  about 13–14 points of accuracy against the realised future.
+- **The policy did not convert it into lower delay.**
+- **Under the trained forecast-aware policies, the oracle matched realised
+  traffic about 77% of the time.** That is lower than under the frozen
+  policy, which is exactly the limitation A1.2 named.
+
+**The arms, mean total delay over the 28 primary seeds:**
+
+| arm | delay (95% CI) | wait | arrived |
+|---|---|---|---|
+| Webster split, clamped cycle (s = 600, 0 s; clamp 94%) | **37.37 s** [34.10, 40.92] | 21.15 s | 0.957 |
+| tuned Webster (660, 4 s; clamp 31%) | 39.81 s [36.06, 43.94] | 23.09 s | 0.957 |
+| no-forecast PPO | 43.72 s [38.75, 49.40] | 24.37 s | 0.952 |
+| fixed 30 s | 45.69 s [41.20, 50.98] | 28.11 s | 0.951 |
+| persistence PPO | 46.75 s [40.47, 54.95] | 24.85 s | 0.944 |
+| oracle PPO | 49.13 s [39.92, 62.22] | 24.03 s | 0.946 |
+
+**Descriptive, unadjusted (P128 §7).** **Every PPO arm has more delay than
+both Webster arms.**
+- **No-forecast PPO against tuned Webster:** +3.91 s, *d* +0.61, p = 0.003.
+- **No-forecast PPO against the clamped split:** +6.35 s, *d* +0.87.
+- **No-forecast PPO against fixed 30 s:** a tie (−1.96 s, n.s.).
+
+**What this establishes:**
+- **Within this simulation, at 500,000 steps with this reward and state, an
+  oracle 60-second congestion-class forecast did not improve PPO control**
+  over no forecast, or over persistence.
+- That is the decisive null §1 of ADR-021 intended, now on a scenario
+  qualified to have headroom.
+- **The X sweep is not run** (A1.4).
+
+**What it does not establish, stated so the null is not over-read:**
+- **The controller itself is the binding constraint.** The PPO policies do
+  not beat a tuned Webster, or the clamped demand-proportional split, even
+  with no forecast. A learner that cannot match simple adaptive timing is a
+  weak instrument for detecting a forecast's value.
+  - The null therefore reads "**not shown with this controller**". It does
+    not read "forecasts cannot help control".
+- **The replicate spread is large:** one oracle replicate is 17 s worse.
+- **The oracle is the frozen policy's future,** and it matched realised
+  traffic only 77% of the time under the forecast-aware policies.
+
+**Consequences, all for the owner and the guide:**
+- **The RL claim narrows, under ADR-021's go/no-go,** which is a guide-level
+  decision. The supported statement is the measured null, with the
+  qualifications above.
+- **P97a Part 2's eligibility conditions are now formally met:** the
+  surrogate arm exists, the ceiling has run, and a forecast-aware policy is
+  trained. It still needs its pre-registered amendment (regime and forecast
+  stream) before any run. Whether it is still worth running after a null
+  ceiling is the owner's call.
+- **The controller stays disconnected from signal timing.**

@@ -1,0 +1,510 @@
+{
+  "protocol": "PREREGISTRATION_P128_ceiling.md (with Amendment 1)",
+  "metric": "mean_total_delay_s",
+  "eval_seeds": [
+    0,
+    2,
+    3,
+    4,
+    5,
+    6,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "decision": {
+    "cleared": false,
+    "reading": "no demonstrated control benefit from forecasts under the tested conditions",
+    "qualifiers": [
+      "oracle transfer weak: realised accuracy 0.774 < 0.8",
+      "oracle-input: an upper bound, not achievable; simulation evidence only"
+    ],
+    "beats_no_forecast": false,
+    "beats_persistence": false
+  },
+  "primary": {
+    "oracle_vs_no_forecast": {
+      "n": 28,
+      "mean_a": 49.13191666666666,
+      "mean_b": 43.72413095238095,
+      "mean_diff": 5.407785714285714,
+      "ci95": [
+        -0.904500000000003,
+        16.80927380952381
+      ],
+      "t": 0.992713002217342,
+      "p": 0.3296636891064716,
+      "d": 0.18760512336624274,
+      "holm_threshold": 0.025,
+      "holm_significant": false
+    },
+    "oracle_vs_persistence": {
+      "n": 28,
+      "mean_a": 49.13191666666666,
+      "mean_b": 46.75361904761905,
+      "mean_diff": 2.3782976190476197,
+      "ci95": [
+        -6.352892857142857,
+        15.382738095238096
+      ],
+      "t": 0.4035677607692242,
+      "p": 0.6897090204894794,
+      "d": 0.07626713801132685,
+      "holm_threshold": 0.05,
+      "holm_significant": false
+    }
+  },
+  "operational_gate": {
+    "oracle_arrived": 0.9458355555555557,
+    "oracle_starvation": 0.0,
+    "no_forecast_starvation": 0.0,
+    "passed": true
+  },
+  "replicate_directions": {
+    "42": {
+      "vs_no_forecast": 0.030142857142856933,
+      "vs_persistence": -2.5656785714285713
+    },
+    "1": {
+      "vs_no_forecast": 17.289642857142855,
+      "vs_persistence": 12.253857142857141
+    },
+    "7": {
+      "vs_no_forecast": -1.096428571428572,
+      "vs_persistence": -2.553285714285714
+    }
+  },
+  "secondary_descriptive_unadjusted": {
+    "no-forecast_vs_webster_s660_lost4": {
+      "n": 28,
+      "mean_a": 43.72413095238095,
+      "mean_b": 39.813857142857145,
+      "mean_diff": 3.9102738095238103,
+      "ci95": [
+        1.7354047619047621,
+        6.312107142857145
+      ],
+      "t": 3.248247553823921,
+      "p": 0.0031002154221671375,
+      "d": 0.6138610874422848
+    },
+    "no-forecast_vs_fixed_30": {
+      "n": 28,
+      "mean_a": 43.72413095238095,
+      "mean_b": 45.68589285714285,
+      "mean_diff": -1.9617619047619042,
+      "ci95": [
+        -5.538345238095237,
+        1.7635833333333346
+      ],
+      "t": -1.0331213367862948,
+      "p": 0.31071276568030237,
+      "d": -0.19524158080651013
+    },
+    "no-forecast_vs_webster_split_clamped_s600_lost0": {
+      "n": 28,
+      "mean_a": 43.72413095238095,
+      "mean_b": 37.374857142857145,
+      "mean_diff": 6.34927380952381,
+      "ci95": [
+        3.8802261904761894,
+        9.102976190476191
+      ],
+      "t": 4.628693090407121,
+      "p": 8.261232375021513e-05,
+      "d": 0.8747407723185893
+    },
+    "persistence_vs_webster_s660_lost4": {
+      "n": 28,
+      "mean_a": 46.75361904761905,
+      "mean_b": 39.813857142857145,
+      "mean_diff": 6.939761904761904,
+      "ci95": [
+        3.6140952380952376,
+        12.411833333333334
+      ],
+      "t": 2.8270733648583164,
+      "p": 0.008739666150302023,
+      "d": 0.5342666472535481
+    },
+    "persistence_vs_fixed_30": {
+      "n": 28,
+      "mean_a": 46.75361904761905,
+      "mean_b": 45.68589285714285,
+      "mean_diff": 1.06772619047619,
+      "ci95": [
+        -2.4123452380952393,
+        5.046595238095238
+      ],
+      "t": 0.5565498353144107,
+      "p": 0.5824190173698548,
+      "d": 0.10517803260399172
+    },
+    "persistence_vs_webster_split_clamped_s600_lost0": {
+      "n": 28,
+      "mean_a": 46.75361904761905,
+      "mean_b": 37.374857142857145,
+      "mean_diff": 9.378761904761904,
+      "ci95": [
+        5.566940476190475,
+        15.167940476190477
+      ],
+      "t": 3.6634713458538273,
+      "p": 0.001070333791130423,
+      "d": 0.692331008310023
+    },
+    "oracle_vs_webster_s660_lost4": {
+      "n": 28,
+      "mean_a": 49.13191666666666,
+      "mean_b": 39.813857142857145,
+      "mean_diff": 9.318059523809525,
+      "ci95": [
+        2.4572380952380954,
+        21.224178571428574
+      ],
+      "t": 1.6938051495797806,
+      "p": 0.10180974146830722,
+      "d": 0.32009908537061854
+    },
+    "oracle_vs_fixed_30": {
+      "n": 28,
+      "mean_a": 49.13191666666666,
+      "mean_b": 45.68589285714285,
+      "mean_diff": 3.4460238095238096,
+      "ci95": [
+        -4.453345238095237,
+        15.955202380952382
+      ],
+      "t": 0.6142138585582324,
+      "p": 0.5442153016539014,
+      "d": 0.11607550868246318
+    },
+    "oracle_vs_webster_split_clamped_s600_lost0": {
+      "n": 28,
+      "mean_a": 49.13191666666666,
+      "mean_b": 37.374857142857145,
+      "mean_diff": 11.757059523809525,
+      "ci95": [
+        4.410678571428571,
+        23.951154761904764
+      ],
+      "t": 2.1235871712236007,
+      "p": 0.04301512192145573,
+      "d": 0.40132025303034186
+    }
+  },
+  "arms": {
+    "no-forecast": {
+      "mean_total_delay_s": 43.72413095238095,
+      "ci95": [
+        38.7485,
+        49.40094047619048
+      ],
+      "mean_wait_s": 24.372600000000002,
+      "arrived_fraction": 0.9517644444444444,
+      "starvation_events": 0.0,
+      "throughput": 1331.1,
+      "max_wait_s": 136.84444444444443,
+      "clamp_rate": null,
+      "oracle_realised_agreement": null,
+      "acc_forecast_realised": null,
+      "acc_oracle_realised": null,
+      "acc_persistence_realised": null,
+      "producer_informed_share": null
+    },
+    "persistence": {
+      "mean_total_delay_s": 46.75361904761905,
+      "ci95": [
+        40.47313095238095,
+        54.952214285714284
+      ],
+      "mean_wait_s": 24.8492,
+      "arrived_fraction": 0.9437233333333334,
+      "starvation_events": 0.0,
+      "throughput": 1312.5333333333333,
+      "max_wait_s": 141.84444444444443,
+      "clamp_rate": null,
+      "oracle_realised_agreement": 0.7690955555555555,
+      "acc_forecast_realised": 0.6454155555555556,
+      "acc_oracle_realised": 0.7715399999999999,
+      "acc_persistence_realised": 0.6454155555555556,
+      "producer_informed_share": 0.0
+    },
+    "oracle": {
+      "mean_total_delay_s": 49.13191666666666,
+      "ci95": [
+        39.91682142857143,
+        62.21785714285714
+      ],
+      "mean_wait_s": 24.031022222222223,
+      "arrived_fraction": 0.9458355555555557,
+      "starvation_events": 0.0,
+      "throughput": 1319.9888888888888,
+      "max_wait_s": 129.34444444444443,
+      "clamp_rate": null,
+      "oracle_realised_agreement": 0.77471,
+      "acc_forecast_realised": 0.7741233333333333,
+      "acc_oracle_realised": 0.7741233333333333,
+      "acc_persistence_realised": 0.6324733333333333,
+      "producer_informed_share": 1.0
+    },
+    "webster_s660_lost4": {
+      "mean_total_delay_s": 39.813857142857145,
+      "ci95": [
+        36.060964285714284,
+        43.94035714285714
+      ],
+      "mean_wait_s": 23.0934,
+      "arrived_fraction": 0.9573033333333334,
+      "starvation_events": 0.0,
+      "throughput": 1339.0,
+      "max_wait_s": 164.4,
+      "clamp_rate": 0.30508,
+      "oracle_realised_agreement": null,
+      "acc_forecast_realised": null,
+      "acc_oracle_realised": null,
+      "acc_persistence_realised": null,
+      "producer_informed_share": null
+    },
+    "fixed_30": {
+      "mean_total_delay_s": 45.68589285714285,
+      "ci95": [
+        41.20171428571428,
+        50.97710714285714
+      ],
+      "mean_wait_s": 28.11143333333333,
+      "arrived_fraction": 0.95139,
+      "starvation_events": 0.0,
+      "throughput": 1330.0666666666666,
+      "max_wait_s": 213.66666666666666,
+      "clamp_rate": null,
+      "oracle_realised_agreement": null,
+      "acc_forecast_realised": null,
+      "acc_oracle_realised": null,
+      "acc_persistence_realised": null,
+      "producer_informed_share": null
+    },
+    "webster_split_clamped_s600_lost0": {
+      "mean_total_delay_s": 37.374857142857145,
+      "ci95": [
+        34.10353571428571,
+        40.91992857142857
+      ],
+      "mean_wait_s": 21.15,
+      "arrived_fraction": 0.95746,
+      "starvation_events": 0.0,
+      "throughput": 1339.6,
+      "max_wait_s": 141.9,
+      "clamp_rate": 0.9421333333333333,
+      "oracle_realised_agreement": null,
+      "acc_forecast_realised": null,
+      "acc_oracle_realised": null,
+      "acc_persistence_realised": null,
+      "producer_informed_share": null
+    }
+  },
+  "primary_evaluation_seeds": [
+    0,
+    2,
+    3,
+    4,
+    5,
+    6,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "sensitivity_all_30_seeds_CONTAMINATED": {
+    "note": "includes evaluation seeds 1 and 7, whose demand training seeds 1 and 7 each saw for one episode (P129). Secondary; cannot override the primary decision.",
+    "decision": {
+      "cleared": false,
+      "reading": "no demonstrated control benefit from forecasts under the tested conditions",
+      "qualifiers": [
+        "oracle transfer weak: realised accuracy 0.774 < 0.8",
+        "oracle-input: an upper bound, not achievable; simulation evidence only"
+      ],
+      "beats_no_forecast": false,
+      "beats_persistence": false
+    },
+    "primary": {
+      "oracle_vs_no_forecast": {
+        "n": 30,
+        "mean_a": 47.8774,
+        "mean_b": 42.79697777777778,
+        "mean_diff": 5.080422222222222,
+        "ci95": [
+          -0.8067222222222239,
+          15.760155555555555
+        ],
+        "t": 0.9994623700389061,
+        "p": 0.3258378161046551,
+        "d": 0.18247602848262812,
+        "holm_threshold": 0.025,
+        "holm_significant": false
+      },
+      "oracle_vs_persistence": {
+        "n": 30,
+        "mean_a": 47.8774,
+        "mean_b": 50.77851111111111,
+        "mean_diff": -2.901111111111109,
+        "ci95": [
+          -17.83654444444444,
+          12.538533333333337
+        ],
+        "t": -0.38363406827708346,
+        "p": 0.7040479239238899,
+        "d": -0.07004167767427856,
+        "holm_threshold": 0.05,
+        "holm_significant": false
+      }
+    },
+    "arms": {
+      "no-forecast": {
+        "mean_total_delay_s": 42.79697777777778,
+        "ci95": [
+          37.85132222222223,
+          48.23287777777777
+        ],
+        "mean_wait_s": 24.372600000000002,
+        "arrived_fraction": 0.9517644444444444,
+        "starvation_events": 0.0,
+        "throughput": 1331.1,
+        "max_wait_s": 136.84444444444443,
+        "clamp_rate": null,
+        "oracle_realised_agreement": null,
+        "acc_forecast_realised": null,
+        "acc_oracle_realised": null,
+        "acc_persistence_realised": null,
+        "producer_informed_share": null
+      },
+      "persistence": {
+        "mean_total_delay_s": 50.77851111111111,
+        "ci95": [
+          41.102066666666666,
+          63.58065555555556
+        ],
+        "mean_wait_s": 24.8492,
+        "arrived_fraction": 0.9437233333333334,
+        "starvation_events": 0.0,
+        "throughput": 1312.5333333333333,
+        "max_wait_s": 141.84444444444443,
+        "clamp_rate": null,
+        "oracle_realised_agreement": 0.7690955555555555,
+        "acc_forecast_realised": 0.6454155555555556,
+        "acc_oracle_realised": 0.7715399999999999,
+        "acc_persistence_realised": 0.6454155555555556,
+        "producer_informed_share": 0.0
+      },
+      "oracle": {
+        "mean_total_delay_s": 47.8774,
+        "ci95": [
+          38.98661111111111,
+          60.14981111111111
+        ],
+        "mean_wait_s": 24.031022222222223,
+        "arrived_fraction": 0.9458355555555557,
+        "starvation_events": 0.0,
+        "throughput": 1319.9888888888888,
+        "max_wait_s": 129.34444444444443,
+        "clamp_rate": null,
+        "oracle_realised_agreement": 0.77471,
+        "acc_forecast_realised": 0.7741233333333333,
+        "acc_oracle_realised": 0.7741233333333333,
+        "acc_persistence_realised": 0.6324733333333333,
+        "producer_informed_share": 1.0
+      },
+      "webster_s660_lost4": {
+        "mean_total_delay_s": 39.29156666666667,
+        "ci95": [
+          35.667633333333335,
+          43.20923333333334
+        ],
+        "mean_wait_s": 23.0934,
+        "arrived_fraction": 0.9573033333333334,
+        "starvation_events": 0.0,
+        "throughput": 1339.0,
+        "max_wait_s": 164.4,
+        "clamp_rate": 0.30508,
+        "oracle_realised_agreement": null,
+        "acc_forecast_realised": null,
+        "acc_oracle_realised": null,
+        "acc_persistence_realised": null,
+        "producer_informed_share": null
+      },
+      "fixed_30": {
+        "mean_total_delay_s": 44.88803333333333,
+        "ci95": [
+          40.50523333333333,
+          49.8449
+        ],
+        "mean_wait_s": 28.11143333333333,
+        "arrived_fraction": 0.95139,
+        "starvation_events": 0.0,
+        "throughput": 1330.0666666666666,
+        "max_wait_s": 213.66666666666666,
+        "clamp_rate": null,
+        "oracle_realised_agreement": null,
+        "acc_forecast_realised": null,
+        "acc_oracle_realised": null,
+        "acc_persistence_realised": null,
+        "producer_informed_share": null
+      },
+      "webster_split_clamped_s600_lost0": {
+        "mean_total_delay_s": 36.69423333333334,
+        "ci95": [
+          33.45323333333333,
+          40.147000000000006
+        ],
+        "mean_wait_s": 21.15,
+        "arrived_fraction": 0.95746,
+        "starvation_events": 0.0,
+        "throughput": 1339.6,
+        "max_wait_s": 141.9,
+        "clamp_rate": 0.9421333333333333,
+        "oracle_realised_agreement": null,
+        "acc_forecast_realised": null,
+        "acc_oracle_realised": null,
+        "acc_persistence_realised": null,
+        "producer_informed_share": null
+      }
+    }
+  }
+}

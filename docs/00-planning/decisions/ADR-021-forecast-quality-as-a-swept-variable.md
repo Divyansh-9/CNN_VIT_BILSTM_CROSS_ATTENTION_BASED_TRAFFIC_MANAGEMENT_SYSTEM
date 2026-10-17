@@ -454,3 +454,25 @@ result is cited.**
 - **The sidecars' `git_commit` is the commit at the end of training.** From
   now on, `code_at_start` records what actually ran.
 - **P97a Part 2 is separate** and still pending.
+
+### Ceiling result (P130), appended 2026-10-17
+
+The run was made once under P128 with Amendment 1, deciding on 28 primary
+seeds.
+
+| comparison | mean difference | *d* | Holm |
+|---|---|---|---|
+| oracle − no-forecast | +5.41 s | +0.19 | n.s. |
+| oracle − persistence | +2.38 s | +0.08 | n.s. |
+
+**Reading: no demonstrated control benefit from forecasts under the tested
+conditions.** The ceiling does not clear, so the sweep and X are not run.
+
+**Qualifiers:**
+- oracle transfer weak (0.774);
+- oracle-input, simulation only;
+- the PPO controllers trail both Webster arms even with no forecast, so the
+  null is "not shown with this controller", not "forecasts cannot help".
+
+**The go/no-go in §3, which narrows the RL claim, is now for the guide.**
+
