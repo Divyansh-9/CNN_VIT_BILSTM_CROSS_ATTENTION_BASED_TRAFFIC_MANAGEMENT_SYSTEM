@@ -8257,3 +8257,46 @@ wait, so every existing caller is unchanged.
 - on failure, pause and investigate, with no threshold changes.
 
 `p115_qualify.py requalify` enforces it.
+
+## P122 — Webster tuned on `pulsed`, once: s = 660 pcu/h/m with 4 s lost time (2026-10-17)
+
+The run was made once under `PREREGISTRATION_P121_webster.md` (`78be804`):
+- tuning seeds 400–419;
+- 1800 s episodes with the sublane model at 0.8;
+- `total_delay=True`.
+
+The files are `webster_tuning.csv` (280 rows, with a provenance sidecar) and
+`webster_selection.json`.
+
+**Selected: saturation flow 660 pcu/h/m, start-up lost time 4 s.**
+
+| measure | value |
+|---|---|
+| mean total delay | 39.42 s |
+| mean wait | 23.48 s |
+| clamp rate | 26% |
+| arrived fraction | 0.950 |
+
+**The mean-wait rule ADR-012 used would have selected the same
+configuration,** so the choice of metric did not decide the baseline. This
+configuration is now fixed for every ADR-021 evaluation on `pulsed`.
+
+**Eight of the 14 configurations were disqualified.**
+- **All seven with 0 s lost time clamp on 87–100% of decisions.** With no lost
+  time the cycle formula asks for cycles shorter than the 32 s minimum, so
+  these run as fixed short cycles under Webster's name.
+- **s = 1283 with 4 s lost time clamps on 59%.**
+
+**Recorded rather than hidden.** Those clamped configurations post a
+**slightly lower** total delay than the selected Webster: 38.49–39.42 s, about
+2% lower at best.
+
+- **On `pulsed`,** a short fixed cycle is therefore competitive with genuine
+  Webster.
+- **ADR-012's rule** keeps them out of "Webster's best" because they are not
+  Webster.
+- **ADR-021's evaluation** should still report a fixed-cycle arm beside
+  Webster, so that a PPO gain over Webster cannot be a gain that any short
+  fixed cycle also delivers.
+
+Evaluation seeds 0–29 were not used.
