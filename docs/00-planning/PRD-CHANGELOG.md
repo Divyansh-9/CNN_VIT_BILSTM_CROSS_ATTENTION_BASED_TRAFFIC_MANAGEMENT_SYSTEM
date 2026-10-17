@@ -8392,3 +8392,85 @@ result:
 **The primary question stays** forecast-aware against both no-forecast and
 persistence. The baselines strengthen the operational comparison. X stays
 defined against the tuned Webster.
+
+## P126 — seed 1 lost to a SUMO port race and is rerun; the first retry fix was itself defective; the replicates are audited and locked before requalification (2026-10-17)
+
+**What happened.** The three no-forecast replicates trained in parallel from
+10:10. Seed 1 died part-way, at about 11:23, with no checkpoint saved.
+
+- **The error:** its own SUMO reported `Unable to create listening socket:
+  Address already in use`, and its TraCI handshake then failed with
+  `struct.error`.
+- **The cause:** TraCI picks a free port and hands it to SUMO, and another
+  SUMO took the port first. My concurrent test runs were starting SUMOs at
+  the time.
+- **The crash log is kept** as `train_1_crashed_port_race.log`, separate from
+  the rerun's.
+
+**Seeds 42 and 7 were not affected.** Their logs contain no race, retry or
+connection line. TraCI prints those when it retries, so every episode of both
+runs ran on its own SUMO. Both completed:
+- 500,000 steps;
+- 503,820 and 503,791 audited observations;
+- no traceback.
+
+**The rerun.** Seed 1 was rerun from scratch at 11:50, with the same seed and
+configuration. It is an infrastructure rerun, not a selection: no result of
+the crashed run existed or was looked at.
+
+**The first fix, `0644e26`, was defective.** It wrapped `traci.start` in a
+retry, and passed a test that used a fake TraCI.
+
+Reproduced against real SUMO, with a squatter taking the first port and
+hanging up, it **hung**:
+- the retry called `traci.close()`, which sends a close command over a dead
+  socket and then waits forever on the SUMO it started;
+- that SUMO also leaked, and an orphaned process was found and killed.
+
+The rerun of seed 1 started under this code. A second race there would hang,
+which is visible as stalled progress, rather than corrupt anything.
+
+**Reading TraCI's code found a second, worse risk.** In a port race, the
+client can connect to **another process's** SUMO. A handshake that succeeded
+there would silently drive the wrong simulation, with the wrong seed's
+demand.
+
+**The fix, `1d1a799`.** `start_sumo` starts SUMO itself, so it always holds
+the process. A failed attempt:
+- closes the socket;
+- kills only that process, without blocking;
+- unregisters the connection;
+- retries with a new port and the same command and seed.
+
+A connection made while our own SUMO has exited belongs to someone else and
+is refused. After five attempts the error is raised: an episode is never
+skipped, re-seeded or reconfigured.
+
+**Tested against a real race:** it recovers, and no SUMO is left running. A
+mock covers the foreign-SUMO refusal. Parity is unchanged.
+
+**The audit and the lock (`cc72fc3`, `5c5dd49`).** `scripts/p126_audit.py`
+runs gate 1 and gate 2 on each replicate:
+- the final full run;
+- the sidecar;
+- the architecture and hyperparameters against `ppo_config.yaml`;
+- at least 500,000 audited observations;
+- a clean log;
+- seed-999 parity.
+
+Only if all three pass does it write `no_forecast_lock.json`, atomically. The
+lock holds:
+- the checkpoint and sidecar SHA-256s;
+- the config SHA-256s;
+- the contract digest;
+- the commit.
+
+The lock binds what follows it:
+- **requalification** refuses an unlocked policy, and records the lock's hash;
+- **`train_ppo.py`** refuses the surrogate arm unless the frozen policy, the
+  configs and the requalification all match the lock;
+- **`--verify`** re-checks it, because a hash proves identity and only the
+  audit's checks prove correctness.
+
+**Early dry run (nothing written):** seeds 42 and 7 pass every check,
+including seed-999 parity over a full 1800 s episode.
