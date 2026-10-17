@@ -3,7 +3,7 @@
 **Date:** 2026-10-17
 **Owner:** project owner
 **Decisions with the guide:** [MEMO-2026-10-17](MEMO-2026-10-17-adr021-ceiling.md)
-**Status:** Track A is done; Tracks B–E wait on the decisions named in each.
+**Status:** Track A is done. **Track C ran (P132)** and stopped at its power gate; the forecast-for-control line is closed (P133). Track B waits on the guide, and Track D is parked. **Track E is superseded by [PLAN-2026-10-17-validation-and-publication](PLAN-2026-10-17-validation-and-publication.md).**
 
 This plan does three things:
 - **closes the forecast-for-control experiment** without changing it;

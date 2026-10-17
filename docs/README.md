@@ -41,6 +41,7 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 | [INVESTIGATION-P52](00-planning/INVESTIGATION-P52-surrogate-arm.md) | The surrogate arm inspected before training: what exists, how the forecast-aware policy would be compared, and why the ceiling needs a scenario with headroom first (P114) |
 | [MEMO-2026-10-17](00-planning/MEMO-2026-10-17-adr021-ceiling.md) | **For the guide**: the forecast-for-control ceiling returned a measured null; three decisions requested (P130, P131) |
 | [PLAN-2026-10-17](00-planning/PLAN-2026-10-17-after-ceiling.md) | What follows the ceiling: close-out, Part 2 deferred, the FAW study with its stop gates, and the parked tracks |
+| [PLAN-2026-10-17-validation](00-planning/PLAN-2026-10-17-validation-and-publication.md) | **The current plan**: V1 human-verified prediction quality, V2 live-camera validation, V3 publication and licensing; tasks, gates, owners |
 | [PUBLICATION-READINESS](00-planning/PUBLICATION-READINESS.md) | **Why this branch is not on GitHub yet**: a public repo, the unresolved Bellevue licence, third-party frames, and the CI audit |
 
 ### Requirements

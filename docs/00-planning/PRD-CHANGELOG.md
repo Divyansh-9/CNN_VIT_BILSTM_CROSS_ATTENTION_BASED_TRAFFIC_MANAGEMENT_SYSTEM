@@ -8957,3 +8957,64 @@ the protocol exists to prevent. Two further points:
 - P130 and P131 are unchanged;
 - ADR-023 and `CLAIMS.yaml` are untouched;
 - the controller stays disconnected from signal timing.
+
+## P133 — the overall forecast-for-control conclusion; P132's wording corrected; the line is closed; plan for validation and publication (2026-10-17)
+
+**A correction to P132, made here rather than by editing P132.**
+
+P132 said the delay effect is "**below what 200 paired seeds can resolve** at
+a 2% minimum effect". **That over-states it.** The power calculation says
+only this: under the **pilot's estimated variability** (paired SD 4.55 s) and
+the **pre-registered statistical assumptions** (two-sided, α = 0.025,
+power 0.80), detecting the specified 2% improvement would need about **347
+paired seeds**.
+
+The pilot's effect estimates (+2.89 s and +2.80 s) are **exploratory**:
+- they are not confirmatory evidence of harm;
+- they are not evidence about the true effect size in general.
+
+The defensible statements are:
+- **the pre-registered power gate failed;**
+- **no confirmatory evaluation was justified.**
+
+**What P132 supports:**
+
+| finding | defensible interpretation |
+|---|---|
+| 83.3% of green splits changed; average change 3.0 s | perfect count forecasts materially influence the controller's decisions |
+| 347 paired seeds needed against a maximum of 200 | the pre-registered power gate failed; no confirmatory evaluation was justified |
+| pilot +2.89 s (oracle), +2.80 s (ridge) | exploratory, not confirmatory evidence of harm |
+| ridge MAE 4.17 against persistence's 2.72 | the Bellevue-trained forecaster does not transfer adequately to these simulated counts |
+| completion about 0.958 in every arm | similar completion rates do not establish a delay benefit |
+
+**The overall conclusion, adopted (owner's wording):**
+
+> Across the tested simulation experiments, neither the learned PPO controller nor the classical Webster controller demonstrated a delay benefit from forecast inputs under the specified conditions. Forecasts changed controller decisions, but the proposed follow-up study failed its preregistered power gate. These findings do not establish that forecasts cannot improve traffic control under other controllers, scenarios, or better-calibrated forecasting systems.
+
+**The forecast-for-control line is closed under the current protocol.**
+Reopening it requires a genuinely new rationale and a new pre-registration.
+
+**The governance state, explicit:**
+- **P130 and P131:** frozen and unchanged.
+- **P132:** its power-gate stop is recorded, and no confirmatory evaluation was
+  run.
+- **ADR-023 and `CLAIMS.yaml`:** unchanged until Ms Pokhriyal decides the
+  claim wording.
+- **Part 2:** deferred, and not started automatically.
+- **The controller:** disconnected from signal timing.
+- **Publication:** nothing is pushed, and the licence remains a gate.
+
+**The next work is `PLAN-2026-10-17-validation-and-publication.md`,** three
+workstreams:
+- **V1, human-verified prediction quality.** It separates detector error from
+  forecasting error, by comparing the forecaster fed detector counts, and fed
+  human counts, against human next-minute targets.
+  - The breakdowns are by camera, traffic level and horizon.
+  - Its gates come first: a target-fidelity check on detector data, an
+    inter-rater pilot, and a pre-registration before scoring.
+- **V2, live-camera validation (S65).** It adds three criteria the current
+  tooling lacks: timestamp correctness, end-to-end latency, and prediction
+  freshness at the consumer. The 300 s recording is deleted after
+  measurement, under NFR-13.
+- **V3, publication.** Private first (an owner action), then the CI-checked
+  draft PR, licence outreach, a sanitised public tree, and preview removal.

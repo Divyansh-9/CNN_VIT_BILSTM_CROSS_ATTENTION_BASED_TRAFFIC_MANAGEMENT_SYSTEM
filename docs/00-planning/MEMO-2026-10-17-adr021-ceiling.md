@@ -114,3 +114,16 @@ The ridge forecaster was also worse than persistence on simulated counts.
 wording: in this simulation, neither a learned nor a classical controller has
 shown a delay benefit from traffic forecasts.
 
+**A wording correction to the addendum above (P133).** The 347-seed figure
+holds **under the pilot's estimated variability and the pre-registered
+statistical assumptions**. It does not show that the effect is too small to
+resolve in general. The pilot's effects are exploratory, not confirmatory
+evidence of harm.
+
+**The overall conclusion, as recorded:**
+
+> Across the tested simulation experiments, neither the learned PPO controller nor the classical Webster controller demonstrated a delay benefit from forecast inputs under the specified conditions. Forecasts changed controller decisions, but the proposed follow-up study failed its preregistered power gate. These findings do not establish that forecasts cannot improve traffic control under other controllers, scenarios, or better-calibrated forecasting systems.
+
+**The forecast-for-control line is closed** under the current protocol.
+**Decisions 1 and 2 remain with you.**
+

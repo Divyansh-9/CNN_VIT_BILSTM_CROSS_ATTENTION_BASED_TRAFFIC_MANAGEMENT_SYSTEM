@@ -504,3 +504,15 @@ signal timing.
 exclusions, thresholds and analysis are not revised. The guide was informed
 before any wider citation
 ([MEMO-2026-10-17](../MEMO-2026-10-17-adr021-ceiling.md)).
+
+### The forecast-for-control line is closed (P132, P133; 2026-10-17)
+
+The follow-up study P132 (forecast-assisted Webster split) passed its
+feasibility gate, then stopped at its pre-registered power gate. **The overall
+conclusion:**
+
+> Across the tested simulation experiments, neither the learned PPO controller nor the classical Webster controller demonstrated a delay benefit from forecast inputs under the specified conditions. Forecasts changed controller decisions, but the proposed follow-up study failed its preregistered power gate. These findings do not establish that forecasts cannot improve traffic control under other controllers, scenarios, or better-calibrated forecasting systems.
+
+**The line is closed under the current protocol.** Reopening it needs a new
+rationale and a new pre-registration.
+
