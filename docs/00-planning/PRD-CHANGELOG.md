@@ -8300,3 +8300,54 @@ configuration is now fixed for every ADR-021 evaluation on `pulsed`.
   fixed cycle also delivers.
 
 Evaluation seeds 0–29 were not used.
+
+## P124 — the fixed-cycle comparator tuned once: 30 s green; and P122's reading corrected (2026-10-17)
+
+The run was made once under `PREREGISTRATION_P123_fixed.md` (`e6aa330`), on
+seeds 400–419 with the same harness as P122. The files are
+`fixed_tuning.csv`, its sidecar, and `fixed_selection.json`.
+
+| green | mean total delay | mean wait | arrived |
+|---|---|---|---|
+| 10 s | 58.10 s | 32.84 s | 0.935 |
+| 15 s | 76.57 s | 27.33 s | 0.916 |
+| 20 s | 46.37 s | 28.14 s | 0.942 |
+| **30 s** | **44.88 s** | 28.08 s | 0.944 |
+| 45 s | 46.11 s | 30.61 s | 0.943 |
+| 60 s | 50.77 s | 34.25 s | 0.941 |
+
+**Selected: a 30 s green.** It is now ADR-021's fixed-cycle comparator
+(Amendment 2, A2.1). It is also the existing benchmark's fixed arm, and
+FR-A06's degraded-mode cycle. The 15 s row is non-monotone, and is reported
+as measured.
+
+**P122's interpretation was wrong, and is corrected here.** P122 read the
+disqualified zero-lost-time Webster configurations as "fixed short cycles",
+and concluded that a short fixed cycle is competitive on `pulsed`. The data
+here contradict that:
+
+- **The best fixed cycle (44.88 s) is 13.8% worse than the selected Webster
+  (39.42 s),** and about 16% worse than those clamped configurations
+  (≈ 38.5 s).
+- **What the clamp rule catches is fixed cycle *length*, not fixed splits.**
+  - At a clamped cycle, `Webster.decide` still divides the green between the
+    phases in proportion to each direction's measured flow ratio.
+  - So those configurations are a fixed-length cycle with demand-responsive
+    splits: adaptive, not fixed-time.
+- **The supported reading** is that, on `pulsed`, **a short fixed-length cycle
+  with demand-proportional splits is competitive with genuine Webster.** A
+  fixed-time cycle is not.
+
+**What stays as decided.**
+- **ADR-012's disqualification rule** was applied as pre-registered, and the
+  selected Webster stands.
+- **The fixed-cycle arm** remains in ADR-021 as a floor, and is reported as
+  one.
+
+**Noted for the owner, and not acted on.** ADR-012 calls a fully clamped
+configuration "a fixed cycle wearing Webster's name". On `pulsed` that
+description is inaccurate, because the splits still adapt. Whether such
+configurations deserve a reported "short-cycle proportional" arm in ADR-021 is
+a scope question for the owner. Adding one now, after seeing these numbers,
+would be selection after the fact. Any such arm would have to be
+pre-registered before the ceiling runs.
