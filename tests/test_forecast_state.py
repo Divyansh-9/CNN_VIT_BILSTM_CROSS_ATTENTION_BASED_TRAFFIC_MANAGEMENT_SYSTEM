@@ -132,6 +132,7 @@ def test_the_policy_input_refuses_a_missing_count_rather_than_reading_zero():
     controller = object.__new__(PPOController)       # no checkpoint needed to build a state
     controller.state_spec, controller.index = STATE, STATE["index_map"]
     controller.norm, controller.dim = STATE["normalisers"], STATE["dim"]
+    controller.action_space = "phase_duration"         # index 10 is not under test here
     good = {"counts": FULL, "queues": FULL, "phase": 0}
     vector = controller.observe(good)
     assert len(vector) == 17 and vector[16] == 1.0 and all(vector[i] == 0.0 for i in (11, 12, 13, 14))

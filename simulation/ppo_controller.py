@@ -53,6 +53,8 @@ class PPOController:
         self.sidecar = assert_compatible(checkpoint, action_space=action_space)
         self.model = PPO.load(str(checkpoint).removesuffix(".zip"), device="cpu")
         self.action_space = action_space
+        # The runner applies the decision rules this policy trained under (P116).
+        self.decision_mode = action_space
         self.name = name or Path(checkpoint).stem
 
         spec = yaml.safe_load(
@@ -79,6 +81,8 @@ class PPOController:
         # `keep_or_switch` holds each phase for one decision interval; the
         # duration is not in the action. Default matches TrafficSignalEnv's.
         self.decision_interval_s = int(signal.get("decision_interval_s", 5))
+        self.min_green_s = int(signal["min_green_s"])
+        self.max_green_s = int(signal["max_green_s"])
 
     def reset(self) -> None:
         pass
@@ -105,6 +109,21 @@ class PPOController:
         phase = observation["phase"]
         vector[self.index["phase_NS"]] = 1.0 if phase == NS else 0.0
         vector[self.index["phase_EW"]] = 1.0 if phase == EW else 0.0
+        # P120: under keep_or_switch, index 10 is the time left before max green,
+        # exactly as TrafficSignalEnv computes it, and the policy trained on it.
+        # Leaving it at 0 handed every evaluated policy an input it never saw.
+        # The environment's first observation carries its reset value, the
+        # minimum green, and that is reproduced too. Missing elapsed time is
+        # refused: a silent 0 is the defect this replaces.
+        if self.action_space == "keep_or_switch":
+            elapsed = observation.get("green_elapsed")
+            if not _valid_number(elapsed):
+                raise ValueError("keep_or_switch needs green_elapsed to build "
+                                 "phase_remaining (P120)")
+            remaining = (self.min_green_s if observation["step"] == 0 and elapsed == 0
+                         else max(0, self.max_green_s - elapsed))
+            vector[self.index["phase_remaining"]] = (
+                remaining / self.norm["phase_remaining_divisor"])
         # ADR-020 as amended: the forecast slots come from the one encoder.
         # With no forecast message (the no-forecast policy's world) every class
         # slot reads "absent" and the age reads 1.0; never a class.

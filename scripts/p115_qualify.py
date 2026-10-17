@@ -51,6 +51,9 @@ CHECKPOINT_SHA = "a7f06ba8c21085155bda998e23163846b7432762048b4ad9343a748339e209
 SCENARIO = "pulsed"
 DESIGN_SEEDS = tuple(range(300, 310))
 QUALIFY_SEEDS = tuple(range(200, 220))
+REQUALIFY_SEEDS = tuple(range(240, 260))      # P115 §5.4 and Amendment 1
+REQUALIFY = ROOT / "requalification.json"
+PREREG = ROOT / "PREREGISTRATION_P115.md"
 MAX_ITERATIONS = 5
 EPISODE_S, HORIZON_S = 1800, 60
 APPROACHES = ("N", "S", "E", "W")
@@ -58,60 +61,27 @@ THRESHOLDS = {"Q1": 0.20, "Q2": 0.10, "Q3": 0.10, "Q5_tolerance": 0.05,
               "Q5_range": 0.15, "Q6": 0.85}
 
 
-class Recording:
-    """Pass-through over the TraCI module that records after every simulated second."""
+def run(seed: int, policy: str, model=None, *, episode_s: int = EPISODE_S) -> dict:
+    """One episode on the scenario. `policy` is 'frozen' or 'fixed30'.
 
-    def __init__(self, traci, lanes) -> None:
-        self._traci, self._lanes = traci, lanes
-        self.counts = [self._counts()]           # index = simulation time in s
-        self.loaded: list[tuple] = []
-        self.arrived = self.departed = 0
-
-    def __getattr__(self, name):
-        return getattr(self._traci, name)
-
-    def _counts(self) -> tuple:
-        lane = self._traci.lane
-        return tuple(sum(lane.getLastStepVehicleNumber(l) for l in self._lanes[a])
-                     for a in APPROACHES)
-
-    def simulationStep(self, *args):
-        self._traci.simulationStep(*args)
-        sim = self._traci.simulation
-        self.loaded.append(tuple(sim.getLoadedIDList()))
-        self.arrived += sim.getArrivedNumber()
-        self.departed += sim.getDepartedNumber()
-        self.counts.append(self._counts())
-
-
-def run(seed: int, policy: str, model=None) -> dict:
-    """One 1800 s episode on the scenario. `policy` is 'frozen' or 'fixed30'."""
+    Recorded by `simulation.oracle.run_recorded`, the same code that produces
+    the oracle a forecast-aware policy trains on.
+    """
     from simulation.envs.traffic_env import TrafficSignalEnv
-    from simulation.runner import lane_ids
+    from simulation.oracle import run_recorded
 
-    env = TrafficSignalEnv(regime=SCENARIO, seed=seed, episode_s=EPISODE_S,
+    env = TrafficSignalEnv(regime=SCENARIO, seed=seed, episode_s=episode_s,
                            action_space="keep_or_switch")
-    obs, _ = env.reset(seed=seed)
-    rec = Recording(env._traci, lane_ids())
-    env._traci = rec
-    decisions = []
+    if policy == "frozen":
+        def act(obs, env):
+            return int(model.predict(obs, deterministic=True)[0])
+    else:
+        def act(obs, env):
+            return 1 if env._green_elapsed >= 30 else 0
     try:
-        while True:
-            queues = tuple(sum(rec.lane.getLastStepHaltingNumber(l) for l in lane_ids()[a])
-                           for a in APPROACHES)
-            decisions.append({"t": env._step_s, "queues": queues, "phase": env._phase})
-            if policy == "frozen":
-                action = int(model.predict(obs, deterministic=True)[0])
-            else:
-                action = 1 if env._green_elapsed >= 30 else 0
-            obs, _, terminated, truncated, _ = env.step(action)
-            if terminated or truncated:
-                break
+        return {**run_recorded(env, seed, act), "policy": policy}
     finally:
         env.close()
-    return {"seed": seed, "policy": policy, "counts": rec.counts, "loaded": rec.loaded,
-            "decisions": decisions,
-            "arrived_fraction": rec.arrived / rec.departed if rec.departed else 0.0}
 
 
 def class_of(n: int, low_max: int, med_max: int) -> int:
@@ -234,6 +204,25 @@ def load_model():
     return PPO.load(str(CHECKPOINT).removesuffix(".zip"), device="cpu")
 
 
+def load_trained(checkpoint: Path):
+    """The scenario-trained no-forecast policy, refused unless it is the full run (Amendment 1)."""
+    from stable_baselines3 import PPO
+
+    from simulation.contract import contract_digest
+
+    sidecar = json.loads(Path(str(checkpoint) + ".provenance.json").read_text(encoding="utf-8"))
+    model = PPO.load(str(checkpoint).removesuffix(".zip"), device="cpu")
+    wanted = {"arm": "no-forecast", "regime": SCENARIO, "action_space": "keep_or_switch",
+              "lateral_resolution": 0.8, "smoke": False,
+              "observation_contract": contract_digest()}
+    wrong = {k: sidecar.get(k) for k, v in wanted.items() if sidecar.get(k) != v}
+    if int(sidecar.get("timesteps", 0)) < 500_000 or model.num_timesteps < 500_000:
+        wrong["timesteps"] = (sidecar.get("timesteps"), model.num_timesteps)
+    if wrong:
+        raise SystemExit(f"{checkpoint} is not the full scenario-trained no-forecast policy: {wrong}")
+    return model, hashlib.sha256(Path(checkpoint).read_bytes()).hexdigest()
+
+
 def spec_thresholds() -> tuple[int, int]:
     import yaml
 
@@ -265,7 +254,9 @@ def write(path: Path, obj) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("mode", choices=("design", "freeze", "qualify", "cost"))
+    parser.add_argument("mode", choices=("design", "freeze", "qualify", "requalify", "cost"))
+    parser.add_argument("--checkpoint", type=Path,
+                        help="requalify: the scenario-trained no-forecast policy (seed 42)")
     args = parser.parse_args(argv)
     low_max, med_max = spec_thresholds()
     log = json.loads(DESIGN_LOG.read_text(encoding="utf-8")) if DESIGN_LOG.exists() else []
@@ -317,6 +308,29 @@ def main(argv: list[str] | None = None) -> int:
                        "frozen_hash": frozen["hash"], "seeds": list(QUALIFY_SEEDS),
                        "frozen_policy": str(CHECKPOINT), "frozen_policy_sha256": CHECKPOINT_SHA,
                        "thresholds": THRESHOLDS, **report})
+        print(json.dumps({"checks": report["checks"], "passed": report["passed"]}, indent=2))
+        print(json.dumps(report["metrics"], indent=2))
+        return 0 if report["passed"] else 1
+
+    if args.mode == "requalify":
+        if REQUALIFY.exists():
+            raise SystemExit(f"{REQUALIFY} exists: requalification runs once (Amendment 1)")
+        if args.checkpoint is None:
+            raise SystemExit("requalify needs --checkpoint, the scenario-trained policy")
+        frozen = json.loads(FROZEN.read_text(encoding="utf-8"))
+        if params_now()["hash"] != frozen["hash"]:
+            raise SystemExit("scenarios.yaml differs from the frozen parameters")
+        if "## Amendment 1" not in PREREG.read_text(encoding="utf-8") or                 not committed_unchanged(PREREG, FROZEN, Path("simulation/configs/scenarios.yaml")):
+            raise SystemExit("the requalification criteria (Amendment 1) must be committed, "
+                             "unchanged, before requalification")
+        model, sha = load_trained(args.checkpoint)
+        print("  fitting Q3's classifier on the design seeds under this policy")
+        _, train = measure(DESIGN_SEEDS, model, low_max, med_max)
+        report, _ = measure(REQUALIFY_SEEDS, model, low_max, med_max, classifier_train=train)
+        write(REQUALIFY, {"protocol": "PREREGISTRATION_P115.md, Amendment 1",
+                          "frozen_hash": frozen["hash"], "seeds": list(REQUALIFY_SEEDS),
+                          "frozen_policy": str(args.checkpoint), "frozen_policy_sha256": sha,
+                          "lateral_resolution": 0.8, "thresholds": THRESHOLDS, **report})
         print(json.dumps({"checks": report["checks"], "passed": report["passed"]}, indent=2))
         print(json.dumps(report["metrics"], indent=2))
         return 0 if report["passed"] else 1

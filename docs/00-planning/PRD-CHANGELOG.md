@@ -8099,3 +8099,161 @@ helps; foresight not shown".
 
 **Nothing has been trained. P97a Part 1 stays passed, Part 2 stays PENDING,
 and the controller stays disconnected from signal timing.**
+
+## P119 — the training environment never ran the sublane model; every PPO policy trained on different traffic than it was evaluated on (2026-10-17)
+
+**Found** while fixing P116(a): `TrafficSignalEnv` started SUMO without
+`--lateral-resolution`, while `run_episode` applies 0.8 by default.
+
+- **The consequence:** every PPO checkpoint trained on lane-disciplined
+  traffic, which is ADR-010's (b) arm. Every evaluation, meanwhile, ran on the
+  sublane model ADR-010 adopted as the model of Indian traffic.
+- **How it showed up:** with identical decisions, the two harnesses' counts
+  diverge within the first minute. On `pulsed` seed 999 they first differ at
+  decision 11 (t = 67 s).
+
+**Fixed.**
+- **The environment:** it takes `lateral_resolution`, defaulting to 0.8, and
+  `ppo_config.yaml` declares it (`env.lateral_resolution`).
+- **The sidecar:** `train_ppo.py` records it in every new checkpoint's
+  sidecar, and the surrogate arm refuses a frozen policy trained under a
+  different value.
+
+**What it affects:**
+- **The existing checkpoints** stay as trained, and their sidecars say nothing
+  about the sublane model, which means none was used.
+- **The committed `benchmark_ppo` numbers** come from a `phase_duration`
+  policy trained without the sublane model and evaluated with it. Those
+  numbers are correct for what was run; they are not a matched comparison.
+- **P115's qualification** ran in the environment without the sublane model.
+  Its result stands for those dynamics, and the binding check is now the
+  requalification (P115 Amendment 1).
+
+## P120 — evaluation now reproduces training decision for decision, and the surrogate arm exists and fails closed (2026-10-17)
+
+The owner approved four code items before any training. Items 1–3 are here,
+and item 4 is P121.
+
+**Item 1: the `keep_or_switch` mismatch (P116a), plus a fourth mismatch it
+uncovered.**
+
+- **The runner now applies the rules a `keep_or_switch` policy trained
+  under,** for any controller declaring `decision_mode = "keep_or_switch"`:
+  - it decides from t = 0;
+  - a "keep" lasts 5 s, not a minimum green;
+  - a switch is refused until 10 s of green;
+  - 90 s of green forces the change, also across a run of keeps.
+
+  Every other controller is unchanged.
+- **`PPOController` never filled index 10 (`phase_remaining`).** Under
+  `keep_or_switch` the environment sets it to the time left before max green
+  (P11), so every evaluated policy saw a constant 0 there that it never saw in
+  training.
+  - The runner now passes `green_elapsed`, and the controller builds index 10
+    exactly as the environment does, including the environment's reset value
+    at t = 0.
+  - A `keep_or_switch` observation without it is refused rather than read as
+    0.
+- **Verified:** `simulation/equivalence.py` traces a policy in both harnesses.
+  - **With the real no-forecast checkpoint,** on full 1800 s episodes in
+    `light`, `pulsed`, `saturated` and `oversaturated`, the traces are
+    **identical in time, phase, counts and every element of the 17-dim
+    observation, at every decision**.
+  - **Before the fixes,** they differed at decision 0 (index 10).
+  - **The guards can fail:** reverting the runner fix fails three of the
+    regression tests, and removing the sublane model from the environment
+    diverges at decision 11.
+- **Regression tests** (`tests/test_harness_equivalence.py`) cover scripted
+  reactive, always-keep and always-switch policies on two regimes, the 5 s
+  keep, the 10 s refusal, the forced change at 90 s, and the real checkpoint
+  on two regimes.
+
+**Item 2: the forecast producer (P52 closed in code).**
+
+- **`simulation/forecast_producer.py`:**
+  - `NoForecast` sends nothing.
+  - `Surrogate(q)` mixes the replay oracle with persistence (P115 §3) and is
+    carried with its true age.
+  - A message is refreshed when it would be older than 10 s. That gives ages
+    0, 5 and 10 s, plus about 1% in between, at episode ends.
+- **`simulation/oracle.py`:**
+  - It holds the one per-second recorder, now shared by P115's qualification
+    and the training-time oracle.
+  - It replays the frozen policy per seed, caches the result under a key
+    covering the scenario parameters, policy weights and dynamics, and writes
+    no trip records.
+- **Two problems the integration smoke caught before any real run:**
+  - **An episode's last step can end past `episode_s`.** A switch runs its
+    6 s interphase first, so the oracle could not answer the final decision.
+    The producer raised instead of going quiet, and the replay now runs 15 s
+    longer.
+  - **The replay environment was still writing trip records.**
+- **Tests** cover the two key properties:
+  - the no-forecast and surrogate arms' observations, on the same seed and
+    actions, are **identical everywhere except indices 11–14 and 16**;
+  - the persistence arm reports the class of the counts it was made from.
+- **The 17-dim contract is unchanged** (digest `59579c2dd3be10ed`).
+
+**Item 3: `train_ppo.py` fails closed.** `build_producer` refuses, before any
+environment or model exists, a surrogate run in any of these cases:
+
+| refused when | detail |
+|---|---|
+| the quality is missing or off the grid | the grid is pre-registered |
+| the regime or action space is wrong | a constant regime, or not `keep_or_switch` |
+| the frozen policy is absent or unfit | the frozen policy fails if its sidecar is missing, it was a smoke run, it is short, it is the wrong arm or regime, it lacks the sublane model, or it has a stale contract |
+| requalification is not established | the record is missing, it failed, or it names a different policy's SHA-256 |
+
+It also refuses the `mfstnet` arm and unknown arms.
+
+- **During training,** `forecast_audit` checks **every observation**:
+  - no-forecast must read absent with age 1.0;
+  - a surrogate must read a class with an age within the bound.
+
+  The first violation stops training.
+- **After training,** a surrogate run that sent no message is not saved.
+- **Checkpoint naming:** surrogate checkpoints are named
+  `ppo_surrogate-q{q}_...`.
+- **The sidecar records:**
+  - the producer;
+  - its statistics;
+  - the number of audited observations;
+  - the sublane setting;
+  - the episode-seed rule.
+- **Tested:** 20 refusal and audit tests (`tests/test_train_ppo_guard.py`).
+
+**Verified end to end:**
+- **A no-forecast smoke run** on `pulsed` audited 4,191 observations, all
+  absent, and recorded the sublane value and the P115 seed rule.
+- **A surrogate smoke run** at q = 0.5, with a stand-in frozen policy, trained
+  through PPO with 1,048 audited observations. 231 of 463 messages came from
+  the oracle (0.50).
+
+The four new suites join CI's `model` job.
+
+## P121 — Webster's tuning on `pulsed` pre-registered before any run (2026-10-17)
+
+`PREREGISTRATION_P121_webster.md` fixes the protocol:
+
+- **Search space:** ADR-012's seven saturation flows × start-up lost time
+  {0, 4} s, 14 configurations.
+- **Seeds:** tuning seeds 400–419, disjoint from every other use.
+- **Disqualifications:** ADR-012's, clamp rate > 0.50 or arrived fraction
+  < 0.85.
+- **Selection:** the lowest mean `mean_total_delay_s`. The baseline is tuned
+  on the outcome it is compared on (ADR-021 A1.5), and the configuration the
+  mean-wait rule would have picked is reported beside it.
+- **Runs once.**
+
+`select_best` gained a `metric` argument whose default keeps ADR-012's mean
+wait, so every existing caller is unchanged.
+
+**P115 Amendment 1, the requalification, is frozen in the same commit:**
+- seeds 240–259;
+- the full scenario-trained no-forecast policy at seed 42, under the
+  corrected dynamics;
+- unchanged criteria and thresholds;
+- Q3 refitted on design seeds;
+- on failure, pause and investigate, with no threshold changes.
+
+`p115_qualify.py requalify` enforces it.

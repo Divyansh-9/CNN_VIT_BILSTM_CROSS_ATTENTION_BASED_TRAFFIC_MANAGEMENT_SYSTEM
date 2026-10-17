@@ -22,22 +22,33 @@ env:
                              # oversaturation; that is the weakness this penalty
                              # exists to make a learned policy avoid
   switch_penalty: 0.05       # discourages churn without forbidding adaptation
+  lateral_resolution: 0.8    # ADR-010 sublane model, as run_episode applies it (P119)
 
-arms:                        # ADR-009
+arms:                        # ADR-009, as amended by ADR-021 Amendment 1
   no-forecast:
     use_mfstnet: false
+    forecast: none
     note: >
-      State indices 11-14 zeroed. The honest floor, and the only arm that can
-      run before MFSTNet exists. Any claim that the forecast helps is measured
+      Indices 11-14 read absent (0.0) and the age reads 1.0 (ADR-020 as
+      amended). The honest floor. Any claim that the forecast helps is measured
       against THIS.
   surrogate:
     use_mfstnet: false
+    forecast: surrogate      # simulation.forecast_producer.Surrogate, --quality q
+    # The oracle replays this frozen no-forecast policy (A1.2). It is refused
+    # unless it is the full scenario-trained run and its requalification passed.
+    frozen_policy: models/ppo/ppo_no-forecast_pulsed_keep_or_switch_seed42.zip
+    requalification: experiments/results/scenario_pulsed/requalification.json
+    quality_grid: [0.0, 0.25, 0.5, 0.75, 1.0]   # A1.3; 0 = persistence, 1 = oracle
+    max_age_s: 10            # the gate's freshness bound; ages seen are 0, 5, 10 s
+    tau_s: 60                # time constant of the informed chain (P115 §3)
     note: >
-      ADR-009. A SUMO-derived congestion proxy fills 11-14 so the RL half is not
-      blocked on the vision half. It is a proxy and is labelled as one — it is
-      NOT evidence that MFSTNet helps.
+      ADR-021 A1.4. The replay oracle mixed with persistence at quality q.
+      q = 1 is an UPPER BOUND, labelled oracle-input, never an achievable
+      result. It is NOT evidence that MFSTNet helps.
   mfstnet:
     use_mfstnet: true
+    forecast: mfstnet        # not runnable in SUMO: there are no frames
     note: >
       The real forecast in the loop. Phase 3 (PRD §2.4) — not before Phase 1
       converges.

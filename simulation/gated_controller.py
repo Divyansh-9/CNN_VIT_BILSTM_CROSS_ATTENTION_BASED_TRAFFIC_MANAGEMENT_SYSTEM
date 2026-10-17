@@ -77,6 +77,11 @@ class GatedController:
             self.state_spec = yaml.safe_load(
                 Path("mfstnet/configs/spec.yaml").read_text(encoding="utf-8"))["ppo_state"]
 
+    @property
+    def decision_mode(self) -> str | None:
+        """The PPO policies' rules govern actuation (P116); the fixed cycle obeys them too."""
+        return getattr(self.no_forecast, "decision_mode", None)
+
     def reset(self) -> None:
         for policy in (self.no_forecast, self.degraded, self.forecast_aware):
             policy.reset()

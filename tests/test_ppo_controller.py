@@ -101,7 +101,7 @@ def test_the_real_checkpoint_loads_and_decides():
     phase, green = controller.decide({
         "counts": {"N": 12, "S": 3, "E": 20, "W": 1},
         "queues": {"N": 8, "S": 1, "E": 15, "W": 0},
-        "waits": {}, "phase": NS, "step": 5})
+        "waits": {}, "phase": NS, "step": 5, "green_elapsed": 5})
     assert phase in (NS, EW)
     assert green == controller.decision_interval_s
 
@@ -116,13 +116,33 @@ def test_the_observation_is_built_from_the_spec_not_a_literal():
     vector = controller.observe({
         "counts": {"N": 50, "S": 0, "E": 0, "W": 0},
         "queues": {"N": 0, "S": 0, "E": 0, "W": 0},
-        "waits": {}, "phase": NS, "step": 0})
+        "waits": {}, "phase": NS, "step": 0, "green_elapsed": 0})
     assert len(vector) == controller.dim
     assert vector[controller.index["count_N"]] == pytest.approx(1.0)
     assert vector[controller.index["phase_NS"]] == 1.0
     # P53: forecast indices are zeroed for the no-forecast arm.
     for approach in ("N", "S", "E", "W"):
         assert vector[controller.index[f"mfst_pred_{approach}"]] == 0.0
+
+
+def test_keep_or_switch_phase_remaining_matches_the_environment():
+    """P120: index 10 is built as TrafficSignalEnv builds it, and never silently 0."""
+    found = discover_checkpoints()
+    if not found:
+        pytest.skip("no PPO checkpoint on disk")
+    from simulation.ppo_controller import PPOController
+
+    controller = PPOController(found[0], action_space="keep_or_switch")
+    base = {"counts": {a: 1 for a in "NSEW"}, "queues": {a: 0 for a in "NSEW"},
+            "waits": {}, "phase": NS}
+    div = controller.norm["phase_remaining_divisor"]
+    at = lambda step, g: controller.observe({**base, "step": step, "green_elapsed": g})[  # noqa: E731
+        controller.index["phase_remaining"]]
+    assert at(0, 0) == pytest.approx(10 / div)          # the environment's reset value
+    assert at(25, 15) == pytest.approx(75 / div)
+    assert at(200, 90) == 0.0
+    with pytest.raises(ValueError):
+        controller.observe({**base, "step": 5})         # elapsed missing: refused
 
 
 def test_the_benchmark_now_offers_a_ppo_arm():

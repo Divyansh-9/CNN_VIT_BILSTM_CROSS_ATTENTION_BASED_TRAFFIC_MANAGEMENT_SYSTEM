@@ -196,7 +196,13 @@ def run_episode(
         # controller says otherwise (pending item P15).
         traci.trafficlight.setPhase("C", current_phase * 3)
         traci.trafficlight.setPhaseDuration("C", 100_000)
-        remaining = min_green_s
+        # P116: a `keep_or_switch` controller is run under the rules it trained
+        # under (`TrafficSignalEnv.step`). It decides from t = 0; a "keep" lasts
+        # its own hold, not a minimum green; a switch is refused until the
+        # minimum green has run; and the maximum green forces the change, also
+        # across a run of keeps. Every other controller is unchanged.
+        keep_or_switch = getattr(controller, "decision_mode", None) == "keep_or_switch"
+        remaining = 0 if keep_or_switch else min_green_s
 
         # FR-A05. `green_elapsed` is tracked separately from `remaining` because
         # preemption may cut a green short, and the minimum-green guarantee is
@@ -242,11 +248,21 @@ def run_episode(
                     phase, green = controller.decide({
                         "counts": counts, "queues": queues, "waits": waits,
                         "phase": current_phase, "step": step,
+                        # P120: a keep_or_switch policy observes the time left
+                        # before max green, so it needs how long this green has run.
+                        "green_elapsed": green_elapsed,
                     })
                 # Clamping happens HERE, not in the controller. A policy that
                 # has learned to request a 300 s green is still a policy that
                 # gets 90 (PRD §9.6).
-                green = max(min_green_s, min(max_green_s, int(green)))
+                if keep_or_switch and not preempting:
+                    if phase != current_phase and green_elapsed < min_green_s:
+                        phase = current_phase              # refused: min green not yet run
+                    elif phase == current_phase and green_elapsed >= max_green_s:
+                        phase = EW if current_phase == NS else NS   # max green forces it
+                    green = max(1, min(max_green_s, int(green)))
+                else:
+                    green = max(min_green_s, min(max_green_s, int(green)))
 
                 if phase != current_phase:
                     phase_switches += 1
@@ -268,6 +284,8 @@ def run_episode(
             step += 1
             remaining -= 1
             green_elapsed += 1
+            if keep_or_switch and green_elapsed >= max_green_s:
+                remaining = min(remaining, 0)              # decide now; the switch is forced
 
             departed += traci.simulation.getDepartedNumber()
             arrived += traci.simulation.getArrivedNumber()

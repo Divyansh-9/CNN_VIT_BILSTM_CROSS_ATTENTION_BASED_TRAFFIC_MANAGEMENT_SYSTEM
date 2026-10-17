@@ -97,6 +97,131 @@ Pass --force if replacing it is what you mean.""")
 
 
 
+class ProducerRefused(SystemExit):
+    """A forecast arm whose producer is absent, disabled or invalid (P52, fail closed)."""
+
+
+def _refuse(message: str):
+    raise ProducerRefused(f"refusing to train: {message}. A surrogate-named checkpoint "
+                          f"must never silently be a no-forecast policy (P52).")
+
+
+def build_producer(config: dict, arm: str, *, quality: float | None, regime: str,
+                   action_space: str, episode_s: int):
+    """The forecast producer for `arm`, or a refusal naming what is wrong.
+
+    Fail closed: every check below is a reason not to train at all.
+    """
+    import hashlib
+
+    import yaml
+
+    from simulation.forecast_producer import NoForecast, Surrogate
+    from simulation.scenarios import is_scenario
+
+    if arm not in config["arms"]:
+        _refuse(f"unknown arm {arm!r}; expected one of {list(config['arms'])}")
+    spec = config["arms"][arm]
+    kind = spec.get("forecast")
+    if kind == "none":
+        if quality is not None:
+            _refuse(f"--quality means nothing for the {arm} arm")
+        return NoForecast()
+    if kind == "mfstnet":
+        _refuse("the mfstnet arm needs camera frames, which SUMO does not produce (Phase 3)")
+    if kind != "surrogate":
+        _refuse(f"arm {arm!r} declares no known forecast producer ({kind!r})")
+
+    if quality is None:
+        _refuse("the surrogate arm needs --quality")
+    grid = [float(q) for q in spec["quality_grid"]]
+    if float(quality) not in grid:
+        _refuse(f"quality {quality} is not on the pre-registered grid {grid} (ADR-021 A1.3)")
+    if action_space != "keep_or_switch":
+        _refuse("the surrogate arm is defined for keep_or_switch decisions only")
+    if not is_scenario(regime):
+        _refuse(f"{regime!r} is a constant regime with no qualified headroom (P114, A1.1)")
+
+    frozen = Path(spec["frozen_policy"])
+    if not frozen.exists():
+        _refuse(f"the oracle's frozen policy {frozen} does not exist")
+    side = sidecar_path(frozen)
+    if not side.exists():
+        _refuse(f"{frozen} has no provenance sidecar")
+    recorded = json.loads(side.read_text(encoding="utf-8"))
+    wanted = {"arm": "no-forecast", "regime": regime, "action_space": "keep_or_switch",
+              "smoke": False, "observation_contract": contract_digest(),
+              "lateral_resolution": config["env"]["lateral_resolution"]}
+    wrong = {k: recorded.get(k) for k, v in wanted.items() if recorded.get(k) != v}
+    if int(recorded.get("timesteps", 0)) < int(config["ppo"]["total_timesteps"]):
+        wrong["timesteps"] = recorded.get("timesteps")
+    if wrong:
+        _refuse(f"{frozen} is not the full scenario-trained no-forecast policy: {wrong}")
+
+    requal = Path(spec["requalification"])
+    if not requal.exists():
+        _refuse(f"no requalification record at {requal}; it must pass first (A1.1)")
+    result = json.loads(requal.read_text(encoding="utf-8"))
+    sha = hashlib.sha256(frozen.read_bytes()).hexdigest()
+    if not result.get("passed"):
+        _refuse(f"the requalification at {requal} did not pass")
+    if result.get("frozen_policy_sha256") != sha:
+        _refuse(f"the requalification was run on a different policy than {frozen}")
+
+    from simulation.oracle import ReplayOracle
+
+    congestion = yaml.safe_load(
+        Path("mfstnet/configs/spec.yaml").read_text(encoding="utf-8"))["congestion"]
+    oracle = ReplayOracle(frozen, regime, episode_s=episode_s,
+                          lateral_resolution=config["env"]["lateral_resolution"])
+    return Surrogate(float(quality), oracle, low_max=congestion["low_max"],
+                     med_max=congestion["med_max"], max_age_s=float(spec["max_age_s"]),
+                     tau_s=float(spec["tau_s"]))
+
+
+def forecast_audit(env, producer):
+    """Checks every observation the policy is trained on; raises on the first violation.
+
+    No-forecast: 11-14 read absent and 16 reads 1.0. Surrogate: 11-14 hold a
+    class value, never absent, and 16 is an age within the gate's bound.
+    """
+    import gymnasium as gym
+    import numpy as np
+
+    from simulation.forecast_producer import NoForecast
+
+    plain = isinstance(producer, NoForecast)
+    classes = np.array([1 / 3, 2 / 3, 1.0])
+
+    class ForecastAudit(gym.Wrapper):
+        def __init__(self, inner):
+            super().__init__(inner)
+            self.checked = 0
+
+        def _check(self, obs):
+            slots, age = np.asarray(obs[11:15], dtype=float), float(obs[16])
+            if plain:
+                ok = bool((slots == 0.0).all()) and age == 1.0
+            else:
+                ok = (bool((np.abs(slots[:, None] - classes) < 1e-6).any(axis=1).all())
+                      and 0.0 <= age <= 1.0)
+            if not ok:
+                raise RuntimeError(f"forecast audit failed for {producer.name}: slots "
+                                   f"{slots.tolist()}, age {age} (P52)")
+            self.checked += 1
+            return obs
+
+        def reset(self, **kwargs):
+            obs, info = self.env.reset(**kwargs)
+            return self._check(obs), info
+
+        def step(self, action):
+            obs, *rest = self.env.step(action)
+            return (self._check(obs), *rest)
+
+    return ForecastAudit(env)
+
+
 def train(
     arm: str = "no-forecast",
     *,
@@ -108,6 +233,7 @@ def train(
     smoke: bool = False,
     action_space: str = "phase_duration",
     force: bool = False,
+    quality: float | None = None,
 ) -> dict:
     from stable_baselines3 import PPO
     from stable_baselines3.common.monitor import Monitor
@@ -120,18 +246,21 @@ def train(
     timesteps = timesteps or (3_000 if smoke else ppo["total_timesteps"])
     episode_s = episode_s or (300 if smoke else config["env"]["episode_s"])
 
-    if arm not in config["arms"]:
-        raise ValueError(f"unknown arm {arm!r}; expected one of {list(config['arms'])}")
+    # Fail closed before anything else (P52): a forecast arm without a valid
+    # producer does not train at all.
+    producer = build_producer(config, arm, quality=quality, regime=regime,
+                              action_space=action_space, episode_s=episode_s)
 
     # Before the env, before the model, before an hour of learning: the run
     # has to be allowed to write its result at all (P47).
     out.mkdir(parents=True, exist_ok=True)
     suffix = "" if action_space == "phase_duration" else f"_{action_space}"
-    path = out / f"ppo_{arm}_{regime}{suffix}_seed{seed}"
+    label = arm if quality is None else f"{arm}-q{float(quality):.2f}"
+    path = out / f"ppo_{label}_{regime}{suffix}_seed{seed}"
     guard_checkpoint(path.with_suffix(".zip"), timesteps, force=force)
 
     set_seed(seed)
-    env = Monitor(
+    audited = forecast_audit(
         TrafficSignalEnv(
             regime=regime,
             seed=seed,
@@ -140,8 +269,10 @@ def train(
             # ADR-015. The screening arm the guide is being asked to choose
             # between; see DECISION-BRIEF item 1.
             action_space=action_space,
-        )
-    )
+            lateral_resolution=config["env"]["lateral_resolution"],
+            forecast=producer,
+        ), producer)
+    env = Monitor(audited)
 
     model = PPO(
         "MlpPolicy",
@@ -172,6 +303,12 @@ def train(
     )
     model.learn(total_timesteps=timesteps, progress_bar=False)
 
+    # Fail closed after training too: a surrogate run whose producer never sent
+    # a message is a no-forecast policy, and is not saved under this name.
+    stats = dict(getattr(producer, "stats", {}))
+    if quality is not None and not stats.get("messages"):
+        raise ProducerRefused("the surrogate producer sent no message during training; "
+                              "nothing saved (P52)")
     model.save(path)
     env.close()
 
@@ -188,6 +325,16 @@ def train(
         # length and changes the meaning, and nothing raises on that by itself.
         "observation_contract": contract_digest(),
         "checkpoint": str(path) + ".zip",
+        # P119 and P115: the dynamics and the seeds the policy trained under.
+        "lateral_resolution": config["env"]["lateral_resolution"],
+        "episode_seed_rule": ("seed + episode"
+                              if regime in ("light", "saturated", "oversaturated")
+                              else "offset + stride * seed + episode (P115 section 4)"),
+        "quality": quality,
+        "forecast_producer": producer.describe(),
+        "forecast_audit_observations": audited.checked,
+        "forecast_producer_stats": {k: (v if k != "ages" else {str(a): n for a, n in v.items()})
+                                    for k, v in stats.items()},
     }
     # The weights and the facts that give them meaning, written together. P38
     # put PPO on the CPU deliberately; the sidecar is where that is recorded,
@@ -209,6 +356,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--regime", default="saturated")
     parser.add_argument("--timesteps", type=int)
     parser.add_argument("--seed", type=int)
+    parser.add_argument("--quality", type=float,
+                        help="surrogate arm only: forecast quality q on the ADR-021 grid")
     parser.add_argument("--smoke", action="store_true",
                         help="short run that exercises the same code path")
     parser.add_argument("--force", action="store_true",
@@ -219,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     info = train(
         args.arm, timesteps=args.timesteps, regime=args.regime,
         seed=args.seed, smoke=args.smoke, action_space=args.action_space,
-        force=args.force,
+        force=args.force, quality=args.quality,
     )
     for key, value in info.items():
         print(f"  {key:12} {value}")

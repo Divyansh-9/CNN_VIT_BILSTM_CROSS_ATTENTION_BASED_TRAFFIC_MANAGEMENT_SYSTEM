@@ -86,6 +86,9 @@ class TrafficSignalEnv(gym.Env):
         switch_penalty: float = 0.05,
         action_space: str = "phase_duration",
         decision_interval_s: int = 5,
+        lateral_resolution: float | None = 0.8,
+        forecast=None,
+        tripinfo: bool = True,
     ) -> None:
         super().__init__()
         spec = _load_spec()
@@ -105,6 +108,14 @@ class TrafficSignalEnv(gym.Env):
         self.regime = regime
         self.base_seed = seed
         self.episode_s = episode_s
+        # P119: the sublane model (ADR-010), exactly as `run_episode` applies it.
+        # Before this the environment never passed it, so every policy trained on
+        # lane-disciplined traffic and was evaluated on sublane traffic.
+        self.lateral_resolution = lateral_resolution
+        # P52, ADR-021 A1.4: what fills indices 11-14 and 16. None is the
+        # no-forecast arm, exactly the behaviour before producers existed.
+        self.forecast = forecast
+        self.write_tripinfo = tripinfo
         self.use_mfstnet = use_mfstnet
         self.starvation_penalty = starvation_penalty
         self.switch_penalty = switch_penalty
@@ -172,13 +183,20 @@ class TrafficSignalEnv(gym.Env):
         ensure_sumo_home()
         import traci
 
-        self._tripinfo = self._tripinfo_dir / f"ep{self._episode:06d}.tripinfo.xml"
-        self._traci = traci
+        # Unique per instance: a replay environment (simulation.oracle) can run
+        # in the same process as the one training.
+        self._tripinfo = (self._tripinfo_dir / f"{id(self):x}_ep{self._episode:06d}.tripinfo.xml"
+                          if self.write_tripinfo else None)
         # P115: on a scenario the seed is the demand, so training episodes are
         # kept clear of the evaluation seeds; constant regimes are unchanged.
         run_seed = (episode_seed(self.regime, self.base_seed, self._episode)
                     if seed is None else seed)
         self._episode += 1
+        # Before this environment's SUMO starts: a replay oracle runs its own
+        # episode to answer, and must not share a live connection.
+        if self.forecast is not None:
+            self.forecast.reset(run_seed)
+        self._traci = traci
 
         traci.start([
             str(sumo_binary("sumo")),
@@ -196,8 +214,9 @@ class TrafficSignalEnv(gym.Env):
             # shaping signal and then benchmarking on tripinfo would be a
             # comparison of two different quantities, and could pick the wrong
             # arm. `mean_wait_s()` reads this after an episode ends.
-            "--tripinfo-output", str(self._tripinfo),
-        ])
+        ] + (["--tripinfo-output", str(self._tripinfo)] if self._tripinfo else [])
+          + (["--lateral-resolution", str(self.lateral_resolution)]
+             if self.lateral_resolution else []))
 
         self._lanes = lane_ids()
         self._step_s = 0
@@ -286,10 +305,12 @@ class TrafficSignalEnv(gym.Env):
     def _observe(self) -> np.ndarray:
         state = np.zeros(STATE_DIM, dtype=np.float32)
         index = self._index_map
+        counts = {}
 
         for approach in APPROACHES:
             group = self._lanes[approach]
             count = sum(self._traci.lane.getLastStepVehicleNumber(l) for l in group)
+            counts[approach] = count
             queue = sum(self._traci.lane.getLastStepHaltingNumber(l) for l in group)
             state[index[f"count_{approach}"]] = count / self._norm["count_divisor"]
             state[index[f"queue_{approach}"]] = queue / self._norm["queue_divisor"]
@@ -322,7 +343,10 @@ class TrafficSignalEnv(gym.Env):
                 "forecast indices read 'no forecast', which is the declared "
                 "fallback behaviour (FR-A06), not a stub."
             )
-        for i, value in forecast_slots(self._state_spec, None, None).items():
+        # P52: the producer answers; `forecast_slots` is still the only encoder.
+        message, age = ((None, None) if self.forecast is None
+                        else self.forecast.message(self._step_s, counts))
+        for i, value in forecast_slots(self._state_spec, message, age).items():
             state[i] = value
 
         return state

@@ -227,6 +227,7 @@ def select_best(
     *,
     max_clamp_rate: float = MAX_CLAMP_RATE,
     min_arrived_fraction: float = MIN_ARRIVED_FRACTION,
+    metric: str = "mean_wait_s",
 ) -> Selection:
     """Best Webster configuration — with two disqualifications that matter.
 
@@ -266,12 +267,14 @@ def select_best(
         else:
             qualified.append(row)
 
-    best = min(qualified, key=lambda r: r["mean_wait_s"]) if qualified else None
+    # `metric` is ADR-012's mean wait by default. ADR-021 A1.6 tunes on the
+    # outcome Webster is compared on, `mean_total_delay_s` (P121).
+    best = min(qualified, key=lambda r: r[metric]) if qualified else None
     return Selection(
         best=best,
         rejected=rejected,
         rule=(
-            f"lowest mean wait among configurations with clamp rate <= "
+            f"lowest {metric} among configurations with clamp rate <= "
             f"{max_clamp_rate:.0%} and arrived fraction >= {min_arrived_fraction:.0%}"
         ),
     )

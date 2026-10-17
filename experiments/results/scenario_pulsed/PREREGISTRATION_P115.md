@@ -188,3 +188,52 @@ whichever policy acts.
 - **The env/runner `keep_or_switch` mismatch** (recorded separately, P116).
   It must be resolved before ADR-021's evaluation, not before this
   qualification.
+
+## Amendment 1 — requalification under the corrected dynamics (2026-10-17, before any training on `pulsed`)
+
+**Committed before:**
+- any PPO policy is trained on `pulsed`;
+- any requalification episode is run.
+
+**Why the dynamics changed.** After qualification passed (P117), P119 found
+that `TrafficSignalEnv` never passed `--lateral-resolution`. Every policy had
+trained on lane-disciplined SUMO and was then evaluated, in `run_episode`, on
+the ADR-010 sublane model. The environment now applies 0.8, as the runner
+does.
+
+- **The qualification above ran without the sublane model.** Its result stands
+  as recorded, for those dynamics.
+- **The binding check is now §5.4's confirmation,** run under the corrected
+  dynamics.
+
+**Fixed now:**
+
+1. **The frozen policy** is `models/ppo/ppo_no-forecast_pulsed_keep_or_switch_seed42.zip`.
+   `scripts/p115_qualify.py` refuses it unless its sidecar records all of:
+   - arm `no-forecast`;
+   - regime `pulsed`;
+   - `keep_or_switch`;
+   - sublane 0.8;
+   - not a smoke run;
+   - 500,000 steps (also checked against the model's own `num_timesteps`);
+   - the current observation contract.
+2. **Seeds 240–259,** run once.
+3. **Criteria Q1–Q6 and their thresholds are unchanged** from §6. All must
+   hold.
+4. **Q3's classifier is fitted on design seeds 300–309,** re-run under this
+   policy and these dynamics. Design seeds only, as in qualification.
+5. **The oracle is produced by `simulation.oracle`,** the code that also
+   produces the training-time oracle. The requalification therefore checks the
+   oracle the forecast-aware policies will be trained on.
+6. **On failure:**
+   - pause and investigate;
+   - **no threshold changes, and no forecast-aware training**;
+   - report to the owner.
+
+   `scripts/train_ppo.py` refuses the surrogate arm unless this record exists,
+   passed, and names the frozen policy's SHA-256.
+7. **Training order, as approved by the owner:**
+   - the three no-forecast replicates (training seeds 42, 1 and 7) train once
+     the code fixes are verified, because requalification needs seed 42's
+     policy;
+   - **nothing forecast-aware trains** until requalification passes.

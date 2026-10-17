@@ -16,6 +16,13 @@ the checkpoint **is**. Every check must pass, and it exits 1 otherwise:
    digest, and the policy's observation space has `spec.dim` inputs.
 4. **The policy runs.** One decision is made on a state built by the
    controller from a valid observation, and it is a legal action.
+5. **With `--expect-regime`:** the sidecar records that regime, the arm
+   (`--expect-arm`), and the sublane setting the environment trains under now
+   (P119).
+6. **With `--equivalence-seed N`:** the policy acts identically in training
+   (`TrafficSignalEnv`) and evaluation (`run_episode` + `PPOController`) on
+   seed N for a full episode, decision for decision, including every
+   observation (P116, P119, P120). Never use an evaluation seed (0-29).
 
 It prints a record suitable for the changelog and writes nothing.
 """
@@ -45,7 +52,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--expect-steps", type=int, required=True)
     parser.add_argument("--action-space", default="keep_or_switch")
+    parser.add_argument("--expect-regime")
+    parser.add_argument("--expect-arm", default="no-forecast")
+    parser.add_argument("--equivalence-seed", type=int)
     args = parser.parse_args(argv)
+    if args.equivalence_seed is not None and 0 <= args.equivalence_seed < 30:
+        raise SystemExit("seeds 0-29 are evaluation seeds; verify on another seed")
 
     spec = yaml.safe_load(Path("mfstnet/configs/spec.yaml").read_text(encoding="utf-8"))
     sidecar = json.loads(Path(str(args.checkpoint) + ".provenance.json").read_text(encoding="utf-8"))
@@ -67,11 +79,27 @@ def main(argv: list[str] | None = None) -> int:
         controller = PPOController(args.checkpoint, action_space=args.action_space)
         phase, green = controller.decide({"counts": {a: 3 for a in "NSEW"},
                                           "queues": {a: 1 for a in "NSEW"},
-                                          "waits": {}, "phase": 0, "step": 0})
+                                          "waits": {}, "phase": 0, "step": 0,
+                                          "green_elapsed": 0})
         checks["a decision is made"] = phase in (0, 1) and green > 0
     except Exception as error:                                  # noqa: BLE001
         checks["a decision is made"] = False
         print(f"  decision failed: {type(error).__name__}: {error}")
+
+    if args.expect_regime:
+        ppo = yaml.safe_load(Path("simulation/configs/ppo_config.yaml").read_text(encoding="utf-8"))
+        checks["sidecar regime"] = sidecar.get("regime") == args.expect_regime
+        checks["sidecar arm"] = sidecar.get("arm") == args.expect_arm
+        checks["sublane as configured (P119)"] = (
+            sidecar.get("lateral_resolution") == ppo["env"]["lateral_resolution"])
+    if args.equivalence_seed is not None:
+        from simulation.equivalence import compare, trace_env, trace_runner
+
+        regime = args.expect_regime or sidecar.get("regime")
+        result = compare(trace_env(model, regime, args.equivalence_seed, 1800),
+                         trace_runner(args.checkpoint, regime, args.equivalence_seed, 1800))
+        checks["training and evaluation identical (P116, P119, P120)"] = result["identical"]
+        print(f"  equivalence     {result}")
 
     print(f"  checkpoint      {args.checkpoint}")
     print(f"  num_timesteps   {model.num_timesteps} (expected >= {args.expect_steps})")
