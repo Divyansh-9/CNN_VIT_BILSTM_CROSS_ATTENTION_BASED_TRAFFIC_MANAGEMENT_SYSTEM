@@ -256,6 +256,18 @@ def train(
     from simulation.envs.traffic_env import TrafficSignalEnv
 
     config = load_config()
+    # P126: the sidecar's git_commit is HEAD when the sidecar is written, at
+    # the END of training; a run launched hours earlier ran older code. Record
+    # what ran: the commit at launch, and whether the code it imports was dirty.
+    import subprocess
+
+    def _git(*args):
+        return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+
+    code_at_start = {"commit": _git("rev-parse", "--short", "HEAD"),
+                     "dirty_paths": _git("status", "--porcelain", "--", "simulation",
+                                         "scripts/train_ppo.py", "mfstnet/configs",
+                                         "contracts").splitlines()}
     ppo = config["ppo"]
     seed = seed if seed is not None else config["seed"]
     timesteps = timesteps or (3_000 if smoke else ppo["total_timesteps"])
@@ -341,6 +353,7 @@ def train(
         "observation_contract": contract_digest(),
         "checkpoint": str(path) + ".zip",
         # P119 and P115: the dynamics and the seeds the policy trained under.
+        "code_at_start": code_at_start,
         "lateral_resolution": config["env"]["lateral_resolution"],
         "episode_seed_rule": ("seed + episode"
                               if regime in ("light", "saturated", "oversaturated")
