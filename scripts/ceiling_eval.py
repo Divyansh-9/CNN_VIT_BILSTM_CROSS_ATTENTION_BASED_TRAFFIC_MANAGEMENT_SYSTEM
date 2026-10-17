@@ -236,11 +236,20 @@ def committed_unchanged(path: Path) -> bool:
 
 
 def verify_lock(lock_path: Path) -> list[str]:
+    """Re-hash every checkpoint, sidecar and config a lock names, and find its commit."""
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
     problems = [] if lock.get("passed") else [f"{lock_path} does not record a pass"]
     for seed, r in lock["replicates"].items():
-        if sha256(Path(r["checkpoint"])) != r["sha256"]:
+        path = Path(r["checkpoint"])
+        side = Path(str(path) + ".provenance.json")
+        if not path.exists() or sha256(path) != r["sha256"]:
             problems.append(f"{r['checkpoint']} differs from {lock_path}")
+        if "sidecar_sha256" in r and (not side.exists() or sha256(side) != r["sidecar_sha256"]):
+            problems.append(f"{side} differs from {lock_path}")
+    commit = lock.get("commit")
+    if not commit or subprocess.run(["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+                                    capture_output=True).returncode != 0:
+        problems.append(f"{lock_path} names commit {commit!r}, which does not exist")
     for name, digest in lock["configs_sha256"].items():
         if sha256(Path(name)) != digest:
             problems.append(f"{name} differs from {lock_path}")
@@ -348,8 +357,14 @@ def restat() -> int:
 
 # ------------------------------------------------------------- the audit --
 
-def audit() -> int:
-    """Gates 1-2 for the six forecast checkpoints, then the forecast lock (atomic)."""
+def audit(logs: dict[str, Path] | None = None) -> int:
+    """Gates 1-2 for the six forecast checkpoints, then the forecast lock (atomic).
+
+    `logs` maps `oracle_42`-style keys to training logs. Each given log must
+    end without a traceback and name the audited checkpoint; all six are
+    required for a lock.
+    """
+    logs = logs or {}
     import yaml
     from stable_baselines3 import PPO
 
@@ -404,6 +419,12 @@ def audit() -> int:
                                  trace_runner(path, REGIME, PARITY_SEED, DURATION_S,
                                               producer=make_producer(q, oracle)))
                 checks["seed-999 parity with forecast messages"] = bool(result["identical"])
+                log = logs.get(f"{arm}_{seed}")
+                checks["training log given"] = log is not None and Path(log).exists()
+                if checks["training log given"]:
+                    text = Path(log).read_text(encoding="utf-8", errors="replace")
+                    checks["training log ends without a traceback"] = "Traceback" not in text
+                    checks["training log names this checkpoint"] = path.name in text
             checks = {k: bool(v) for k, v in checks.items()}
             report[f"{arm}_{seed}"] = {
                 "checkpoint": str(path), "checks": checks, "passed": all(checks.values()),
@@ -432,8 +453,12 @@ def audit() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("mode", choices=("audit", "run", "restat"))
+    parser.add_argument("--log", action="append", default=[],
+                        help="audit: ARM_SEED=PATH, e.g. oracle_42=train.log (all six required)")
     args = parser.parse_args(argv)
-    return {"audit": audit, "run": run, "restat": restat}[args.mode]()
+    if args.mode == "audit":
+        return audit({k: Path(v) for k, v in (item.split("=", 1) for item in args.log)})
+    return {"run": run, "restat": restat}[args.mode]()
 
 
 if __name__ == "__main__":

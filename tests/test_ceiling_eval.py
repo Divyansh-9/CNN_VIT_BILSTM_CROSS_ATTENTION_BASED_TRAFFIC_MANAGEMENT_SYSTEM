@@ -126,3 +126,34 @@ def test_the_contaminated_seeds_cannot_carry_the_decision():
     result = analyse(data)
     assert not result["decision"]["cleared"]
     assert result["decision"]["reading"].startswith("no demonstrated control benefit")
+
+
+def test_lock_verification_rehashes_sidecars_and_finds_the_commit(tmp_path):
+    import hashlib
+    import json
+    import subprocess
+
+    from scripts.ceiling_eval import verify_lock
+
+    ckpt = tmp_path / "c.zip"
+    ckpt.write_bytes(b"w")
+    side = tmp_path / "c.zip.provenance.json"
+    side.write_text("{}", encoding="utf-8")
+    head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                          text=True).stdout.strip()
+
+    def lock(**over):
+        body = {"passed": True, "commit": head, "configs_sha256": {},
+                "replicates": {"x": {"checkpoint": str(ckpt),
+                                     "sha256": hashlib.sha256(b"w").hexdigest(),
+                                     "sidecar_sha256": hashlib.sha256(b"{}").hexdigest()}}}
+        body.update(over)
+        path = tmp_path / "lock.json"
+        path.write_text(json.dumps(body), encoding="utf-8")
+        return path
+
+    assert verify_lock(lock()) == []
+    side.write_text('{"edited": true}', encoding="utf-8")
+    assert any("provenance" in p for p in verify_lock(lock()))
+    side.write_text("{}", encoding="utf-8")
+    assert any("commit" in p for p in verify_lock(lock(commit="0000000")))
