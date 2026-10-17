@@ -8800,3 +8800,69 @@ both Webster arms.**
   stream) before any run. Whether it is still worth running after a null
   ceiling is the owner's call.
 - **The controller stays disconnected from signal timing.**
+
+## P131 — the ceiling's conclusion adopted, the guide informed, Part 2 deferred, and a plan for what follows (2026-10-17)
+
+**The conclusion.** The owner's wording is adopted verbatim as the ADR-021
+record ("Conclusion", appended to the ADR):
+- a **measured null for forecast benefit with the tested controller and
+  experimental conditions**;
+- not evidence that forecasts are inherently unhelpful.
+
+The limits it names:
+- weak oracle transfer (0.774);
+- the spread between training seeds;
+- PPO trailing both Webster arms.
+
+**P130 stays frozen and authoritative:** no rerun, no reanalysis, and no new
+exclusion or threshold.
+
+**The guide is informed** in `MEMO-2026-10-17-adr021-ceiling.md`, with a reply
+requested by 2026-10-24, **before any wider citation.** It asks for three
+decisions:
+1. **Narrow claim C1 (ADR-023).** Keep the count-forecaster half (P104–P106),
+   and report the RL half as the measured null. **`CLAIMS.yaml` and ADR-023
+   are not edited until the guide decides.**
+2. **Whether P97a Part 2 should run at all.** Its preconditions are now met,
+   but its motivating benefit was not shown.
+3. **Whether to start one new study at its design stage.**
+
+**The quality sweep is not run (A1.4).**
+
+**P97a Part 2 is deferred, not run.** If the guide wants the narrower safety
+question answered, a frozen amendment to P112 must first fix seven things:
+- the scenario;
+- the forecast source;
+- the controller and baseline;
+- the endpoints and margins;
+- training-seed variability;
+- fresh seeds;
+- the interpretation if safety is non-inferior but delay does not improve.
+
+**The plan:** `PLAN-2026-10-17-after-ceiling.md`. Its main proposal is a new
+study, **forecast-assisted Webster split (FAW)**. It is designed so that each
+of P130's three weaknesses is gone by construction:
+
+| P130 weakness | how FAW removes it |
+|---|---|
+| training-seed variance | the controller is **deterministic**, so there is nothing to train and no replicate spread |
+| an oracle taken from a different policy's trajectory | the oracle is a **replay under the baseline controller itself** |
+| a 3-class label | a **next-minute count** forecast: the quantity Webster's flow ratios use, and ADR-027's ridge role |
+
+**FAW's arms:** W-now (the P125 arm), W-oracle, and W-ridge (the frozen
+deployable forecaster).
+
+**Its gates:**
+- **C1, feasibility on design seeds:** stop if the oracle changes fewer than
+  10% of the green splits.
+- **C2, pilot and power on pilot seeds:** stop if detecting a 2% minimum
+  effect needs more than 200 seeds.
+- **C3:** the pre-registration, committed before anything is evaluated.
+- **C4:** one evaluation on fresh seeds (700 onward).
+
+It is a new question on new seeds, and it is **not** a rescue of P130.
+
+**The plan also parks two items:**
+- a stronger RL controller, first milestone "match tuned Webster with no
+  forecast";
+- the rest of the roadmap, unchanged.

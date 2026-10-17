@@ -476,3 +476,31 @@ conditions.** The ceiling does not clear, so the sweep and X are not run.
 
 **The go/no-go in §3, which narrows the RL claim, is now for the guide.**
 
+### Conclusion (owner's wording, adopted 2026-10-17; P131)
+
+Under the preregistered 28-seed primary evaluation, providing the tested PPO
+controller with a perfect 60-second congestion forecast did not demonstrate a
+reduction in mean total delay relative to either PPO without forecasts or PPO
+using persistence forecasts. Both point estimates favored the corresponding
+comparison policy, and neither comparison was statistically significant after
+Holm correction.
+
+The result is a **measured null for forecast benefit with the tested
+controller and experimental conditions**. It does not establish that traffic
+forecasts are inherently unhelpful.
+
+Interpretation is limited by weak oracle transfer (77.4% agreement against a
+preregistered 80% threshold), substantial variation across training seeds, and
+the fact that no-forecast PPO also underperformed the tested Webster
+baselines. The experiment therefore does not establish that forecast
+information cannot help a stronger controller.
+
+The preregistered quality sweep will not proceed. The safety non-inferiority
+experiment remains pending and requires a separate decision and protocol
+amendment before execution. The controller remains disconnected from real
+signal timing.
+
+**P130 and its frozen results are the authoritative record.** The hypothesis,
+exclusions, thresholds and analysis are not revised. The guide was informed
+before any wider citation
+([MEMO-2026-10-17](../MEMO-2026-10-17-adr021-ceiling.md)).
