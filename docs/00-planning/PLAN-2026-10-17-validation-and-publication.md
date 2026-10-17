@@ -237,3 +237,14 @@ network failure is distinguishable from a pipeline failure.
 - Part 2;
 - MEMO-2026-08-22 (the six-viewpoint set), which overlaps V1 and would give
   V1 Indian footage.
+
+---
+
+## Status (2026-10-17, evening; P134)
+
+| workstream | done | waiting on |
+|---|---|---|
+| V1 | fidelity check (*K* = 15); sample drawn; blind pilot page built; draft instructions | two labellers; the owner's call on the paired P105-hours design and the label-source decomposition |
+| V2 | criteria 5–7 built and tested; memory-only criterion 1; local run: 2–5 and 7 pass, 6 fails as specified | the criterion-6 mapping decision; the camera window |
+| V3 | sanitised tree: 0 leaks, fast suite passes inside it | repo private (owner); review of 704 flagged files; licence outreach |
+

@@ -9018,3 +9018,140 @@ workstreams:
   measurement, under NFR-13.
 - **V3, publication.** Private first (an owner action), then the CI-checked
   draft PR, licence outreach, a sanitised public tree, and preview removal.
+
+## P134 — validation and publication: the approved local work is done; four decisions surfaced (2026-10-17)
+
+**Approved by the owner:**
+- V1's fidelity check;
+- V1's sampling and labelling code;
+- V2's three criteria on a local stream;
+- V3's public-copy builder.
+
+**The boundaries held:**
+- V1 used detector data only, and nothing was scored;
+- V2 used a local stand-in, with no raw video on disk;
+- V3 built locally, and nothing was pushed.
+
+P130–P132 are frozen. ADR-023 and `CLAIMS.yaml` are untouched. The controller
+stays disconnected.
+
+### V1: human-verified prediction quality
+
+**Target fidelity** (`v1_target_fidelity.json`), committed with its criteria
+before it ran. The data were detector series only: P105's test hours, 56,240
+lane-moments.
+
+| frames per minute | MAE against the 30-sample mean | class agreement | result |
+|---|---|---|---|
+| 6 | 0.259 | 0.905 | fail |
+| 10 | 0.158 | 0.935 | fail |
+| **15** | **0.102** | **0.956** | **pass**: chosen |
+| one frame at t + 60 s | 1.223 | 0.667 | reported only |
+
+**Two design proposals for the V1 freeze (the owner's decision), both made
+before any label:**
+
+1. **Draw the sample from P105's test hours.**
+   - No model was fitted or selected on them, so the hours are eligible.
+   - P105's detector-label results exist for the same moments, so V1 becomes
+     a **paired label-source comparison**: the same forecasts, scored against
+     detector labels and against human ones.
+   - No new footage is needed, which the standing rules forbid in any case.
+2. **Replace "forecaster fed human counts" with "label-source effect".**
+   - Ridge's input is 60 samples, two minutes. Feeding it human counts would
+     mean **60 human-counted frames per lane per moment**, which is
+     unaffordable.
+   - The 15 future frames still yield:
+     - detector-versus-human error on the same frames;
+     - end-to-end forecast error against the human target;
+     - how far the conclusion moves when the label source changes.
+
+**The sample** (`v1_sample_manifest.json`): ids and sample indices only.
+- **Eligible:** 608 lane-moments in 9 camera × class strata. Moments of one
+  lane are non-overlapping on a 90-sample grid.
+- **Drawn:** a 40-moment pilot, plus an ordered reserve.
+- **Note:** Eastgate has only **8 LOW** moments, so that stratum falls under
+  the plan's n < 30 rule. The main set's page refuses before the V1 freeze.
+
+**The pilot page.** It is built, and lives only in the gitignored `data/v1/`.
+- **Content:** 600 frames, 66.5 MB after downscaling to 960 px.
+- **Verified:** it contains no clip name, moment id, time or count. The id key
+  is kept from the labellers.
+- **The draft counting instructions** are committed, and frozen after the
+  inter-rater pilot.
+
+### V2: the live-camera criteria
+
+The owner decided that no raw camera video is written to disk. So:
+- `capture` refuses unless explicitly authorised;
+- **`decode-throughput`** measures criterion 1 from encoded packets **held in
+  memory**. On the local stand-in (720p H.264) it ran at **60× real time,
+  PASS, with 0 video files written**.
+
+**Criteria 5–7 are implemented, each with a test that it can fail.** The run
+was end to end: a 300 s local stand-in played at camera pace, the real ONNX
+graph, and a real local server.
+
+| criterion | result |
+|---|---|
+| 2–4 (lag, interval, no lost sample) | **PASS**: 150/150 samples, lag growth 0.0 s |
+| 5 timestamps (stream PTS) | **PASS**: monotonic, 100% within tolerance |
+| 6 latency | **FAIL**: processing p95 **434.5 ms** against 150 ms; transport p95 34 ms, passing |
+| 7 freshness at the consumer | **PASS**: 176 polls, 100% at 10 s or less |
+
+**Criterion 6 is reported as measured.** The threshold has not been
+changed. But the mapping looks wrong, and the owner should decide it before
+the real camera:
+- the 150 ms budget is the PRD's figure for **MFSTNet inference on the server
+  CPU**;
+- "processing" measures the whole edge step, running **both backbones on a
+  720p frame** plus the model.
+
+**Proposal:**
+- time the ONNX graph call alone, against 150 ms;
+- separately require that the whole step keeps up in real time, for example
+  p95 ≤ 50% of `step_s`.
+
+### V3: the sanitised public tree
+
+`scripts/build_public_tree.py` reads `git archive HEAD` only.
+
+**Excluded, each with its reason in a manifest:**
+- Bellevue-derived results;
+- corpus per-frame data derived from third-party footage;
+- third-party frames;
+- **the submitted-document toolchain:** synopsis and progress-report
+  builders, their content files, checkers and tests. They hold personal
+  identity and are hands-off. They are excluded **unmodified**, and their
+  publication is the owner's call.
+
+**Verified:**
+- 1,176 kept and 388 excluded;
+- **0 leaks** on re-scan;
+- **CI's fast suite passes inside the sanitised tree,** run as the single
+  squashed commit a public branch would be.
+
+**What running the suite there found and fixed:**
+- **A test that would also have failed in GitHub CI:** it asserted that
+  gitignored weights exist.
+- **Bellevue-reading tests** now skip where their files are absent, and run
+  everywhere else.
+
+**Still the owner's:**
+- **704 kept files mention Bellevue,** mostly code and documents quoting
+  aggregates. They are listed for review, because whether aggregates may be
+  published is part of the licence decision.
+- **The public branch's workflow** must drop the synopsis steps. This is
+  recorded as a to-do in the manifest.
+
+**This builder does not resolve licensing or authorise publication.**
+
+### Decisions now with the owner
+
+1. **V1 design:** the paired P105-hours sample, and label-source effect
+   replacing human-fed forecasts.
+2. **V2 criterion 6:** split it into ONNX-call ≤ 150 ms and whole step ≤ 50% of
+   `step_s`, before the real camera.
+3. **V3:** review the 704 flagged files; confirm the toolchain exclusion; make
+   the repository private.
+4. **Labellers and the camera window**, both still to be named.
