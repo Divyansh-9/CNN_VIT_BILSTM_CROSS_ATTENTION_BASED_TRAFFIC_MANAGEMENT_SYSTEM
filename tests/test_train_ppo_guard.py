@@ -164,3 +164,26 @@ def test_the_audit_passes_valid_observations_and_counts_them():
     env.reset()
     env.step(0)
     assert env.checked == 2
+
+
+def test_checkpoint_names_have_no_dot_and_differ_by_quality():
+    """P128: q1.00 once made the guard, sidecar and weights land on the wrong names."""
+    from scripts.train_ppo import checkpoint_zip
+
+    names = {q: checkpoint_zip(Path("m"), "surrogate", "pulsed", "keep_or_switch", 42, q)
+             for q in (0.0, 0.25, 0.5, 0.75, 1.0)}
+    assert len(set(names.values())) == 5
+    for path in names.values():
+        assert path.suffix == ".zip" and path.name.count(".") == 1
+    assert names[1.0].name == "ppo_surrogate-q100_pulsed_keep_or_switch_seed42.zip"
+    assert checkpoint_zip(Path("m"), "no-forecast", "pulsed", "keep_or_switch", 42).name == \
+        "ppo_no-forecast_pulsed_keep_or_switch_seed42.zip"           # the locked names stand
+
+
+def test_the_evaluation_finds_checkpoints_by_the_training_name():
+    from scripts.ceiling_eval import checkpoint
+    from scripts.train_ppo import checkpoint_zip
+
+    assert checkpoint("oracle", 7) == checkpoint_zip(Path("models/ppo"), "surrogate", "pulsed",
+                                                     "keep_or_switch", 7, 1.0)
+    assert checkpoint("no-forecast", 42).exists()                  # the locked replicate

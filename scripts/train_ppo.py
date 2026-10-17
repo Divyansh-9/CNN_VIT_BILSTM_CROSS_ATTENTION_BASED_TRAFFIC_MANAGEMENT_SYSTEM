@@ -97,6 +97,24 @@ Pass --force if replacing it is what you mean.""")
 
 
 
+def checkpoint_zip(out: Path, arm: str, regime: str, action_space: str, seed: int,
+                   quality: float | None = None) -> Path:
+    """The one place a checkpoint is named (P128).
+
+    **No dots before `.zip`.** A label such as `surrogate-q1.00` made
+    `Path.with_suffix` read `.00_pulsed...` as the suffix. The overwrite guard and
+    the sidecar then went to `ppo_surrogate-q1.zip`, shared by q = 0 and q = 1,
+    and SB3 saved the weights with no `.zip` at all. Quality is written in
+    hundredths instead: q = 1 is `q100`, q = 0.25 is `q025`.
+    """
+    label = arm if quality is None else f"{arm}-q{round(float(quality) * 100):03d}"
+    suffix = "" if action_space == "phase_duration" else f"_{action_space}"
+    name = f"ppo_{label}_{regime}{suffix}_seed{seed}"
+    if "." in name:
+        raise ValueError(f"checkpoint name {name!r} contains a dot")
+    return Path(out) / f"{name}.zip"
+
+
 class ProducerRefused(SystemExit):
     """A forecast arm whose producer is absent, disabled or invalid (P52, fail closed)."""
 
@@ -281,10 +299,9 @@ def train(
     # Before the env, before the model, before an hour of learning: the run
     # has to be allowed to write its result at all (P47).
     out.mkdir(parents=True, exist_ok=True)
-    suffix = "" if action_space == "phase_duration" else f"_{action_space}"
-    label = arm if quality is None else f"{arm}-q{float(quality):.2f}"
-    path = out / f"ppo_{label}_{regime}{suffix}_seed{seed}"
-    guard_checkpoint(path.with_suffix(".zip"), timesteps, force=force)
+    zip_path = checkpoint_zip(out, arm, regime, action_space, seed, quality)
+    path = zip_path.with_name(zip_path.name.removesuffix(".zip"))
+    guard_checkpoint(zip_path, timesteps, force=force)
 
     set_seed(seed)
     audited = forecast_audit(
@@ -336,7 +353,7 @@ def train(
     if quality is not None and not stats.get("messages"):
         raise ProducerRefused("the surrogate producer sent no message during training; "
                               "nothing saved (P52)")
-    model.save(path)
+    model.save(zip_path)
     env.close()
 
     info = {
@@ -367,7 +384,7 @@ def train(
     # The weights and the facts that give them meaning, written together. P38
     # put PPO on the CPU deliberately; the sidecar is where that is recorded,
     # so a benchmark can check that two arms were measured on one device.
-    sidecar = sidecar_path(path.with_suffix(".zip"))
+    sidecar = sidecar_path(zip_path)
     sidecar.write_text(
         json.dumps(environment(**info, device="cpu"), indent=2) + chr(10),
         encoding="utf-8")

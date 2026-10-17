@@ -69,9 +69,13 @@ def sha256(path: Path) -> str:
 
 
 def checkpoint(arm: str, seed: int) -> Path:
+    """Named by the same function that names it at training time (P128)."""
+    from scripts.train_ppo import checkpoint_zip
+
     if arm == "no-forecast":
-        return Path(f"models/ppo/ppo_no-forecast_pulsed_keep_or_switch_seed{seed}.zip")
-    return Path(f"models/ppo/ppo_surrogate-q{PPO_ARMS[arm]:.2f}_pulsed_keep_or_switch_seed{seed}.zip")
+        return checkpoint_zip(Path("models/ppo"), "no-forecast", REGIME, "keep_or_switch", seed)
+    return checkpoint_zip(Path("models/ppo"), "surrogate", REGIME, "keep_or_switch", seed,
+                          PPO_ARMS[arm])
 
 
 # ------------------------------------------------------------- the rule ----
