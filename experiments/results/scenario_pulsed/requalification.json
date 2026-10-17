@@ -1,0 +1,267 @@
+{
+  "protocol": "PREREGISTRATION_P115.md, Amendment 1",
+  "frozen_hash": "8267da50f659",
+  "seeds": [
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259
+  ],
+  "frozen_policy": "models\\ppo\\ppo_no-forecast_pulsed_keep_or_switch_seed42.zip",
+  "frozen_policy_sha256": "8829979d7b293f19813ed583fb56f5b359ed776fe9e3c1e786276f4861401d28",
+  "lateral_resolution": 0.8,
+  "thresholds": {
+    "Q1": 0.2,
+    "Q2": 0.1,
+    "Q3": 0.1,
+    "Q5_tolerance": 0.05,
+    "Q5_range": 0.15,
+    "Q6": 0.85
+  },
+  "lock_sha256": "d4ba4d579bbaac7272e88faf58cd13e3bb6855f7b5c0804cf520acef5785f1fa",
+  "configs_sha256": {
+    "simulation\\configs\\ppo_config.yaml": "2ba58c4b01ed454140aca5583c149a95080f649f73cd319ab0c13b3f3afe068e",
+    "mfstnet\\configs\\spec.yaml": "78712f5a95d035552af24b2fdba02a4eb59c0fe2874d0108431eaa9d04350334",
+    "simulation\\configs\\scenarios.yaml": "238b3039ada168577a5b8906d20b3ca2698e99988b8ba6236c1d6c2b86ea204d"
+  },
+  "commit": "7b8f5d6",
+  "metrics": {
+    "Q1_oracle_differs_from_persistence": 0.3621,
+    "Q2_oracle_class_share": {
+      "LOW": 0.2864,
+      "MEDIUM": 0.4866,
+      "HIGH": 0.2271
+    },
+    "Q3_state_classifier_disagrees": 0.4551,
+    "Q4a_deterministic_seeds": "20/20",
+    "Q4b_demand_aligned_seeds": "20/20",
+    "Q5_grid": {
+      "0.0": {
+        "skill": 0.0,
+        "accuracy": 0.6379,
+        "macro_f1_3class": 0.6459
+      },
+      "0.25": {
+        "skill": 0.2413,
+        "accuracy": 0.7253,
+        "macro_f1_3class": 0.7317
+      },
+      "0.5": {
+        "skill": 0.5007,
+        "accuracy": 0.8192,
+        "macro_f1_3class": 0.8225
+      },
+      "0.75": {
+        "skill": 0.7743,
+        "accuracy": 0.9183,
+        "macro_f1_3class": 0.9198
+      },
+      "1.0": {
+        "skill": 1.0,
+        "accuracy": 1.0,
+        "macro_f1_3class": 1.0
+      }
+    },
+    "Q6_mean_arrived_fraction": 0.9533,
+    "reported_arrived_fraction_fixed30": 0.9525,
+    "reported_transitions": {
+      "LOW->LOW": 3449,
+      "LOW->MEDIUM": 2584,
+      "LOW->HIGH": 71,
+      "MEDIUM->MEDIUM": 5873,
+      "MEDIUM->HIGH": 1298,
+      "MEDIUM->LOW": 1992,
+      "HIGH->LOW": 102,
+      "HIGH->HIGH": 3026,
+      "HIGH->MEDIUM": 961
+    },
+    "rows": 19356
+  },
+  "checks": {
+    "Q1": true,
+    "Q2": true,
+    "Q3": true,
+    "Q4": true,
+    "Q5": true,
+    "Q6": true
+  },
+  "passed": true,
+  "per_seed": {
+    "240": {
+      "decisions": 239,
+      "rows": 928,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9458,
+      "arrived_fraction_fixed30": 0.9598
+    },
+    "241": {
+      "decisions": 245,
+      "rows": 948,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9704,
+      "arrived_fraction_fixed30": 0.9676
+    },
+    "242": {
+      "decisions": 240,
+      "rows": 924,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9694,
+      "arrived_fraction_fixed30": 0.9645
+    },
+    "243": {
+      "decisions": 249,
+      "rows": 956,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9644,
+      "arrived_fraction_fixed30": 0.9523
+    },
+    "244": {
+      "decisions": 260,
+      "rows": 1012,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9143,
+      "arrived_fraction_fixed30": 0.9283
+    },
+    "245": {
+      "decisions": 258,
+      "rows": 996,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9747,
+      "arrived_fraction_fixed30": 0.9662
+    },
+    "246": {
+      "decisions": 244,
+      "rows": 944,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9739,
+      "arrived_fraction_fixed30": 0.9657
+    },
+    "247": {
+      "decisions": 254,
+      "rows": 988,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9606,
+      "arrived_fraction_fixed30": 0.9545
+    },
+    "248": {
+      "decisions": 249,
+      "rows": 964,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9656,
+      "arrived_fraction_fixed30": 0.9656
+    },
+    "249": {
+      "decisions": 237,
+      "rows": 916,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9612,
+      "arrived_fraction_fixed30": 0.954
+    },
+    "250": {
+      "decisions": 261,
+      "rows": 1008,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9542,
+      "arrived_fraction_fixed30": 0.9595
+    },
+    "251": {
+      "decisions": 256,
+      "rows": 988,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9659,
+      "arrived_fraction_fixed30": 0.962
+    },
+    "252": {
+      "decisions": 248,
+      "rows": 960,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9489,
+      "arrived_fraction_fixed30": 0.9521
+    },
+    "253": {
+      "decisions": 238,
+      "rows": 920,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.8831,
+      "arrived_fraction_fixed30": 0.8925
+    },
+    "254": {
+      "decisions": 248,
+      "rows": 964,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9563,
+      "arrived_fraction_fixed30": 0.9569
+    },
+    "255": {
+      "decisions": 275,
+      "rows": 1068,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.951,
+      "arrived_fraction_fixed30": 0.9476
+    },
+    "256": {
+      "decisions": 261,
+      "rows": 1016,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9496,
+      "arrived_fraction_fixed30": 0.9481
+    },
+    "257": {
+      "decisions": 241,
+      "rows": 928,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9634,
+      "arrived_fraction_fixed30": 0.9606
+    },
+    "258": {
+      "decisions": 258,
+      "rows": 1000,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9584,
+      "arrived_fraction_fixed30": 0.9592
+    },
+    "259": {
+      "decisions": 240,
+      "rows": 928,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9342,
+      "arrived_fraction_fixed30": 0.9336
+    }
+  }
+}

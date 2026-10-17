@@ -8474,3 +8474,65 @@ The lock binds what follows it:
 
 **Early dry run (nothing written):** seeds 42 and 7 pass every check,
 including seed-999 parity over a full 1800 s episode.
+
+## P127 — the replicates are locked, and `pulsed` requalifies under the trained policy: all six criteria pass (2026-10-17)
+
+**Gate 1 and gate 2: the three-seed audit (`p126_audit.py`).**
+
+| seed | checks passed | steps learned | SHA-256 (prefix) |
+|---|---|---|---|
+| 42 | 18/18 | 501,760 | `8829979d7b293f19` |
+| 1 (rerun) | 18/18 | 501,760 | `668cca36fe2668eb` |
+| 7 | 18/18 | 501,760 | `76bfd71e9597d988` |
+
+**The checks** covered:
+- the final full run;
+- the sidecar;
+- the architecture and every hyperparameter against `ppo_config.yaml`;
+- at least 500,000 audited observations (503,820, 503,698 and 503,791);
+- a clean log;
+- **seed-999 parity**: identical behaviour in training and evaluation over a
+  full 1800 s episode, at every decision, on all 17 inputs.
+
+**The first full attempt failed only when writing.** It passed all three
+replicates, but a numpy `bool_` could not be serialised, so nothing was
+written. That was fixed (`df6fac9`) and the audit re-run; its output is kept.
+
+**The lock** (`no_forecast_lock.json`, `f84d9d7`) was written atomically.
+`--verify` reports **every locked artifact, config and the commit match**.
+
+**Provenance caveat.**
+- **What the sidecar actually records:** `git_commit` is HEAD when the
+  sidecar is written, at the end of training. Seeds 42 and 7 record
+  `cc72fc3` but launched at `95a496e`; seed 1 records `94d1b9e` but launched
+  at `0644e26`.
+- **Why no result is affected:** no commit in between changed the
+  no-forecast training path.
+- **The fix:** new runs record `code_at_start`, the commit at launch and any
+  dirty code (`7b8f5d6`).
+
+**Gate 3: requalification, run once** (P115 Amendment 1). The run used:
+- seeds 240–259;
+- the locked seed-42 policy, trained on `pulsed` under the sublane model;
+- Q3 refitted on design seeds;
+- the lock's hash, recorded in `requalification.json`.
+
+| | criterion | qualification (P117, without the sublane model, saturated-trained policy) | **requalification** | threshold |
+|---|---|---|---|---|
+| Q1 | oracle ≠ persistence | 0.314 | **0.362** | ≥ 0.20 |
+| Q2 | LOW / MED / HIGH | 0.229 / 0.380 / 0.391 | **0.286 / 0.487 / 0.227** | ≥ 0.10 each |
+| Q3 | state classifier disagrees | 0.482 | 0.455 | ≥ 0.10 |
+| Q4 | deterministic / demand aligned | 20/20, 20/20 | **20/20, 20/20** | all |
+| Q5 | delivered skill | 0, .25, .52, .71, 1 | **0, .24, .50, .77, 1** | within 0.05 |
+| | macro-F1 along the grid | .676 → 1.000 | **.646 → 1.000**, rising | range ≥ 0.15 |
+| Q6 | arrived fraction | 0.938 | **0.953** (fixed 30 s: 0.953) | ≥ 0.85 |
+
+**Passed.** The scenario stays informative under the policy that will
+generate the oracle. The future class now differs from the present slightly
+**more** often (0.362).
+
+**The frozen decision rule's next step is forecast-aware training,** under
+the locked artifacts and the frozen arm list (ADR-021 Amendments 1–3).
+- **Nothing forecast-aware has been trained.**
+- **It is held for the owner's go.**
+- **ADR-021's go/no-go remains a guide-level decision.**
