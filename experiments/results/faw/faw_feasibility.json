@@ -1,0 +1,76 @@
+{
+  "protocol": "PREREGISTRATION_P132_faw.md section 4",
+  "gate": "C1 feasibility",
+  "seeds": [
+    600,
+    601,
+    602,
+    603,
+    604,
+    605,
+    606,
+    607,
+    608,
+    609
+  ],
+  "decisions_counted": 765,
+  "changed_split_definition": "|green_oracle - green_now| >= 1 s",
+  "changed_oracle": 637,
+  "changed_share_oracle": 0.8326797385620915,
+  "threshold": 0.1,
+  "passed": true,
+  "reported": {
+    "share_changed_by_3s_or_more": 0.4993464052287582,
+    "mean_abs_delta_green_s": 2.981699346405229,
+    "ridge_ready_decisions": 707,
+    "ridge_ready_share": 0.9241830065359478,
+    "changed_share_ridge_over_ready": 0.8359264497878359,
+    "mae_vs_realised_next_minute_mean": {
+      "ridge": 4.170426081342842,
+      "persistence": 2.71989651416122
+    },
+    "w_now_clamp_rate": 0.9493120246443609
+  },
+  "per_seed": {
+    "600": {
+      "decisions_counted": 78,
+      "changed_oracle": 65
+    },
+    "601": {
+      "decisions_counted": 58,
+      "changed_oracle": 39
+    },
+    "602": {
+      "decisions_counted": 81,
+      "changed_oracle": 73
+    },
+    "603": {
+      "decisions_counted": 83,
+      "changed_oracle": 70
+    },
+    "604": {
+      "decisions_counted": 85,
+      "changed_oracle": 66
+    },
+    "605": {
+      "decisions_counted": 83,
+      "changed_oracle": 65
+    },
+    "606": {
+      "decisions_counted": 84,
+      "changed_oracle": 80
+    },
+    "607": {
+      "decisions_counted": 50,
+      "changed_oracle": 39
+    },
+    "608": {
+      "decisions_counted": 81,
+      "changed_oracle": 73
+    },
+    "609": {
+      "decisions_counted": 82,
+      "changed_oracle": 67
+    }
+  }
+}
