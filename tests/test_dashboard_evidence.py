@@ -21,12 +21,18 @@ import server.app as server  # noqa: E402
 
 RESULTS = Path("experiments/results/bellevue_pilot")
 
+# V3: Bellevue-derived files are absent from the sanitised public tree; the tests
+# that read them skip there, and run everywhere the files exist.
+needs_bellevue = pytest.mark.skipif(not RESULTS.exists(),
+                                     reason="Bellevue-derived file absent (public tree)")
+
 
 @pytest.fixture
 def evidence():
     return TestClient(server.app).get("/evidence").json()
 
 
+@needs_bellevue
 def test_p105_numbers_are_the_committed_ones(evidence):
     p105 = json.loads((RESULTS / "p105_results.json").read_text(encoding="utf-8"))
     study = next(s for s in evidence["studies"] if s["id"] == "P105")
@@ -41,6 +47,7 @@ def test_p105_numbers_are_the_committed_ones(evidence):
     assert study["scope"]["excluded_cameras"] == ["116th_NE12th"]
 
 
+@needs_bellevue
 def test_p103_difference_is_reported_in_the_direction_of_its_label(evidence):
     p103 = json.loads((RESULTS / "p103_results.json").read_text(encoding="utf-8"))
     (row,) = next(s for s in evidence["studies"] if s["id"] == "P103")["rows"]

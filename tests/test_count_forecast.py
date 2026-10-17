@@ -26,6 +26,11 @@ from edge.node import EdgeNode, RecordingTransport  # noqa: E402
 from edge.samples import SampleError  # noqa: E402
 
 SPEC = Path("experiments/results/bellevue_pilot/p105_ridge_v1.json")
+
+# V3: Bellevue-derived files are absent from the sanitised public tree; the tests
+# that read them skip there, and run everywhere the files exist.
+needs_bellevue = pytest.mark.skipif(not SPEC.exists(),
+                                     reason="Bellevue-derived file absent (public tree)")
 MAPPING = {"lane_0": "W", "lane_1": "N", "lane_2": "E"}
 
 
@@ -55,6 +60,7 @@ def test_features_are_p105s_features():
         assert change_features(v[s:s + 60]) == pytest.approx(scored(v, s), abs=1e-12)
 
 
+@needs_bellevue
 def test_the_forecast_is_p105s_forecast():
     from scripts.p105_freeze import recent_mean
 
@@ -67,6 +73,7 @@ def test_the_forecast_is_p105s_forecast():
     assert out.model == "ridge@" + "73532968dcf2"
 
 
+@needs_bellevue
 def test_only_the_frozen_spec_is_served(tmp_path):
     tampered = tmp_path / "ridge.json"
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
@@ -78,12 +85,14 @@ def test_only_the_frozen_spec_is_served(tmp_path):
 
 # ---------------------------------------------------- operational checks --
 
+@needs_bellevue
 def test_no_forecast_from_less_than_two_minutes():
     f = RidgeCountForecaster(SPEC, MAPPING)
     assert fill(f, [3] * 59) is None
     assert f.step({lane: 3 for lane in MAPPING}, ts=118.0) is not None
 
 
+@needs_bellevue
 def test_a_gap_resets_the_window_instead_of_joining_two_stretches():
     f = RidgeCountForecaster(SPEC, MAPPING)
     fill(f, [3] * 60)
@@ -92,6 +101,7 @@ def test_a_gap_resets_the_window_instead_of_joining_two_stretches():
     assert not f.ready and "gap" in f.buffer.last_reset_reason
 
 
+@needs_bellevue
 def test_out_of_order_samples_are_refused():
     f = RidgeCountForecaster(SPEC, MAPPING)
     f.step({lane: 1 for lane in MAPPING}, ts=10.0)
@@ -103,6 +113,7 @@ def test_out_of_order_samples_are_refused():
                                  {"lane_0": -1, "lane_1": 1, "lane_2": 1},   # negative
                                  {"lane_0": 1.5, "lane_1": 1, "lane_2": 1},  # not a count
                                  {"lane_0": 999, "lane_1": 1, "lane_2": 1}]) # impossible
+@needs_bellevue
 def test_implausible_or_incomplete_samples_are_refused(bad):
     with pytest.raises(SampleError):
         RidgeCountForecaster(SPEC, MAPPING).step(bad, ts=0.0)

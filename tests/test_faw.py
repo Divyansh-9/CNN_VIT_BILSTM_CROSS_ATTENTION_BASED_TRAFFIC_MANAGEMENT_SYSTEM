@@ -13,6 +13,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from simulation.webster import (EW, EW_APPROACHES, NS, NS_APPROACHES, Webster,  # noqa: E402
                                 critical_flow_ratio, optimum_cycle)
 
+# V3: Bellevue-derived files are absent from the sanitised public tree; the tests
+# that read them skip there, and run everywhere the files exist.
+needs_bellevue = pytest.mark.skipif(not Path("experiments/results/bellevue_pilot/p105_ridge_v1.json").exists(),
+                                     reason="Bellevue-derived file absent (public tree)")
+
 
 def reference_decide(w: Webster, counts: dict):
     """The pre-P132 `decide` arithmetic, verbatim, as the oracle for byte-identity."""
@@ -67,6 +72,7 @@ def test_a_demand_source_replaces_only_the_counts_read():
     assert phase == NS and green == w.green_for({"N": 30, "S": 30, "E": 1, "W": 1}, NS)[0]
 
 
+@needs_bellevue
 def test_the_ridge_adapter_matches_the_edge_forecaster():
     from edge.count_forecast import RidgeCountForecaster
     from simulation.count_forecasts import RIDGE_SPEC, RidgeCountDemand

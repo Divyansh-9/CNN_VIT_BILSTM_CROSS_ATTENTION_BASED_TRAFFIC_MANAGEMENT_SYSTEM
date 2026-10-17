@@ -23,6 +23,11 @@ from edge.node import EdgeNode, RecordingTransport  # noqa: E402
 from edge.persistence import WINDOW, PersistenceForecaster, calibrate, classify, load_spec  # noqa: E402
 
 SPEC = Path("experiments/results/bellevue_pilot/persistence_v1.json")
+
+# V3: Bellevue-derived files are absent from the sanitised public tree; the tests
+# that read them skip there, and run everywhere the files exist.
+needs_bellevue = pytest.mark.skipif(not SPEC.exists(),
+                                     reason="Bellevue-derived file absent (public tree)")
 MAPPING = {"lane_0": "W", "lane_1": "N", "lane_2": "E", "lane_3": "S"}
 
 
@@ -30,6 +35,7 @@ def forecaster(camera="150th_Newport"):
     return PersistenceForecaster(SPEC, camera, MAPPING)
 
 
+@needs_bellevue
 def test_it_waits_for_a_full_minute():
     f = forecaster()
     for _ in range(WINDOW - 1):
@@ -37,6 +43,7 @@ def test_it_waits_for_a_full_minute():
     assert f.step({lane: 1 for lane in MAPPING}) is not None
 
 
+@needs_bellevue
 def test_the_forecast_is_the_class_of_the_last_minutes_mean():
     f = forecaster()
     spec, _ = load_spec(SPEC)
@@ -49,6 +56,7 @@ def test_the_forecast_is_the_class_of_the_last_minutes_mean():
     assert out.predictions["S"] == CongestionClass.HIGH
 
 
+@needs_bellevue
 def test_a_boundary_mean_is_classed_at_full_precision():
     # Newport's q33 is 0.5333…; a mean of 16/30 sits exactly on it and is LOW.
     # P103 found a four-decimal threshold (0.5333) moved such decisions up a class.
@@ -61,6 +69,7 @@ def test_a_boundary_mean_is_classed_at_full_precision():
     assert f.predict().predictions["W"] == CongestionClass.LOW
 
 
+@needs_bellevue
 def test_the_model_id_names_the_frozen_spec_and_passes_the_contract():
     out = forecaster()
     for _ in range(WINDOW):
@@ -78,6 +87,7 @@ def test_the_contract_still_refuses_any_other_model_name():
                                  confidences={"N": 0.5}, gate_value=None, model=bad)
 
 
+@needs_bellevue
 def test_confidence_is_the_measured_precision_of_the_called_class():
     spec, _ = load_spec(SPEC)
     f = forecaster()
@@ -87,6 +97,7 @@ def test_confidence_is_the_measured_precision_of_the_called_class():
     assert out.confidences["N"] == spec["confidence_is_measured_precision"]["LOW"]
 
 
+@needs_bellevue
 def test_a_persistence_forecast_never_reads_as_mfstnet_active():
     node = EdgeNode("junction-1", RecordingTransport())
     f = forecaster()
@@ -96,6 +107,7 @@ def test_a_persistence_forecast_never_reads_as_mfstnet_active():
     assert node.forecasting is False
 
 
+@needs_bellevue
 def test_an_uncalibrated_camera_is_refused():
     with pytest.raises(ValueError, match="calibrate"):
         PersistenceForecaster(SPEC, "116th_NE12th", MAPPING)
@@ -107,6 +119,7 @@ def test_calibrate_is_q33_q67_at_full_precision():
     assert isinstance(low, float)
 
 
+@needs_bellevue
 @pytest.mark.skipif(not Path("data/corpus_p103").is_dir(), reason="needs the local P103 corpus")
 def test_it_reproduces_p103s_persistence_decisions():
     from scripts import p103_eval as ev

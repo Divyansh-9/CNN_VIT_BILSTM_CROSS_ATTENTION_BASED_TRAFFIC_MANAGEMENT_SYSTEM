@@ -96,6 +96,8 @@ data/dev_footage/
 data/_tripinfo/
 data/_demand/
 data/_oracle/
+# V1 labelling pages embed footage (licence unresolved): never committed
+data/v1/
 
 # Third-party model weights — ITD (IIT Roorkee, CC BY-NC 4.0).
 # NOT committed. The authors gate these behind a request form with a download

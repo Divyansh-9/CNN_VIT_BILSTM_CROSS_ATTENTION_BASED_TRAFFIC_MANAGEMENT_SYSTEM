@@ -125,6 +125,7 @@ jobs:
           tests/test_scenarios.py tests/test_harness_equivalence.py
           tests/test_forecast_producer.py tests/test_train_ppo_guard.py tests/test_ceiling_eval.py
           tests/test_seed_separation.py tests/test_faw.py
+          tests/test_v1.py
 
       - name: Overfit check (S26)
         # The cheapest decisive test in the model track. A graph that cannot
