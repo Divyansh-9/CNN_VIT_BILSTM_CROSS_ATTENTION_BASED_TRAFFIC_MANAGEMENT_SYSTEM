@@ -25,12 +25,14 @@ __all__ = ["trace_env", "trace_runner", "compare"]
 APPROACHES = ("N", "S", "E", "W")
 
 
-def trace_env(model, regime: str, seed: int, duration_s: int) -> list[tuple]:
+def trace_env(model, regime: str, seed: int, duration_s: int, *,
+              forecast=None) -> list[tuple]:
+    """`forecast` is the producer the environment feeds, as in training."""
     from simulation.envs.traffic_env import TrafficSignalEnv
     from simulation.runner import lane_ids
 
     env = TrafficSignalEnv(regime=regime, seed=seed, episode_s=duration_s,
-                           action_space="keep_or_switch")
+                           action_space="keep_or_switch", forecast=forecast)
     obs, _ = env.reset(seed=seed)
     lanes, trace = lane_ids(), []
     try:
@@ -47,11 +49,27 @@ def trace_env(model, regime: str, seed: int, duration_s: int) -> list[tuple]:
     return trace
 
 
-def trace_runner(checkpoint: Path, regime: str, seed: int, duration_s: int) -> list[tuple]:
+def trace_runner(checkpoint: Path, regime: str, seed: int, duration_s: int, *,
+                 producer=None) -> list[tuple]:
+    """`producer`, if given, feeds forecast messages as in evaluation (A2.3).
+
+    The recorded observation is the vector the policy itself built and acted
+    on, captured inside `PPOController.observe`.
+    """
+    from simulation.forecast_eval import ForecastFeeding
     from simulation.ppo_controller import PPOController
     from simulation.runner import run_episode
 
-    inner = PPOController(checkpoint, action_space="keep_or_switch")
+    policy = PPOController(checkpoint, action_space="keep_or_switch")
+    seen = {}
+    built = policy.observe
+
+    def observe(observation):
+        seen["vector"] = built(observation)
+        return seen["vector"]
+
+    policy.observe = observe
+    inner = policy if producer is None else ForecastFeeding(policy, producer, seed)
 
     class Tracing:
         decision_mode = inner.decision_mode
@@ -65,14 +83,15 @@ def trace_runner(checkpoint: Path, regime: str, seed: int, duration_s: int) -> l
             self.trace = []
 
         def decide(self, observation):
-            obs = inner.observe(observation)
+            action = inner.decide(observation)
             counts = tuple(observation["counts"][a] for a in APPROACHES)
             self.trace.append((observation["step"], observation["phase"], counts,
-                               tuple(np.round(obs, 6))))
-            return inner.decide(observation)
+                               tuple(np.round(seen["vector"], 6))))
+            return action
 
     tracing = Tracing()
     run_episode(tracing, regime=regime, seed=seed, duration_s=duration_s)
+    tracing.feeding = inner if producer is not None else None
     return tracing.trace
 
 

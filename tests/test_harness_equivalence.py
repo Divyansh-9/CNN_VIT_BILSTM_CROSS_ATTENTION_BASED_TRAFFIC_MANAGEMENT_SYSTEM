@@ -127,3 +127,56 @@ def test_a_switch_is_refused_until_ten_seconds_of_green():
     # decisions at 0 and 5 are refused; the switch at 10 is honoured
     assert phases[:3] == [NS, NS, NS] and times[:3] == [0, 5, 10]
     assert phases[3] == EW and times[3] == 10 + 6 + 5
+
+
+@pytest.mark.parametrize("q", [0.0, 0.5, 1.0])
+def test_a_forecast_fed_policy_acts_identically_in_training_and_evaluation(q, tmp_path):
+    """ADR-021 A2.3: parity holds with forecast messages too, every input, every decision."""
+    checkpoint = Path("models/ppo/ppo_no-forecast_saturated_keep_or_switch_seed42.zip")
+    if not checkpoint.exists():
+        pytest.skip("needs a trained keep_or_switch checkpoint (stand-in policy)")
+    from stable_baselines3 import PPO
+
+    from simulation.equivalence import compare, trace_env, trace_runner
+    from simulation.forecast_producer import Surrogate
+    from simulation.oracle import ReplayOracle
+
+    def producer():
+        oracle = ReplayOracle(checkpoint, "pulsed", episode_s=DURATION,
+                              lateral_resolution=0.8, cache=tmp_path)
+        return Surrogate(q, oracle, low_max=4, med_max=15)
+
+    model = PPO.load(str(checkpoint).removesuffix(".zip"), device="cpu")
+    a = trace_env(model, "pulsed", 999, DURATION, forecast=producer())
+    b = trace_runner(checkpoint, "pulsed", 999, DURATION, producer=producer())
+    result = compare(a, b)
+    assert result["identical"], result
+    assert any(row[3][11] > 0 for row in b)                   # a forecast really was fed
+
+
+def test_evaluation_reports_oracle_agreement_with_realised_traffic(tmp_path):
+    """A1.2: under the frozen policy itself the oracle matches what happened."""
+    checkpoint = Path("models/ppo/ppo_no-forecast_saturated_keep_or_switch_seed42.zip")
+    if not checkpoint.exists():
+        pytest.skip("needs a trained keep_or_switch checkpoint")
+    from simulation.forecast_eval import ForecastFeeding
+    from simulation.forecast_producer import NoForecast, Surrogate
+    from simulation.oracle import ReplayOracle
+    from simulation.ppo_controller import PPOController
+
+    class Blind(PPOController):
+        """The frozen policy, deliberately blind to the forecast, so traffic matches the replay."""
+
+        def decide(self, observation):
+            plain = {k: v for k, v in observation.items()
+                     if k not in ("forecast", "forecast_age_s")}
+            return super().decide(plain)
+
+    oracle = ReplayOracle(checkpoint, "pulsed", episode_s=DURATION, lateral_resolution=0.8,
+                          cache=tmp_path)
+    feeding = ForecastFeeding(Blind(checkpoint, action_space="keep_or_switch"),
+                              Surrogate(1.0, oracle, low_max=4, med_max=15), 999)
+    run_episode(feeding, regime="pulsed", seed=999, duration_s=DURATION)
+    assert feeding.report()["oracle_realised_agreement"] == 1.0
+    assert feeding.report()["oracle_realised_compared"] > 100
+    assert NoForecast().message(0, {}) == (None, None)
