@@ -407,3 +407,50 @@ after any ceiling result is seen.
 **The three baselines strengthen the operational comparison and replace
 nothing.** X stays defined against the tuned Webster. A PPO gain over Webster
 that either other baseline also delivers is named as such.
+
+---
+
+## Decision record — the go for the ceiling stage (2026-10-17)
+
+**Who decided.** The project owner approved proceeding to the ceiling stage.
+**This is not a faculty-guide signature.** ADR-021 stays *Proposed*.
+
+The go/no-go in §3, which decides whether the RL claim narrows, remains a
+guide-level decision. **The guide should be informed before any ceiling
+result is cited.**
+
+**What was established first, all recorded:**
+
+| gate | record | result |
+|---|---|---|
+| scenario qualified | P117, `scenario_pulsed/qualification.json` | all six criteria passed (seeds 200–219) |
+| training and evaluation reproduce each other | P116a, P119, P120 | identical in time, phase, counts and all 17 inputs, every decision, 4 regimes |
+| no-forecast replicates audited and locked | P126, P127, `no_forecast_lock.json` (SHA-256 `d4ba4d57…`) | seeds 42, 1 and 7 at 18/18, including seed-999 parity; `--verify` OK |
+| requalification under the trained policy | P127, `requalification.json` (SHA-256 `2ae820f8…`) | all six criteria passed (seeds 240–259); oracle ≠ persistence 0.362 |
+| the oracle's frozen policy | locked seed 42, SHA-256 `8829979d7b293f19…` | used by every forecast arm |
+| baselines frozen | P122, P124, P125 | Webster (660, 4 s), fixed 30 s, Webster split with a clamped cycle (600, 0 s) |
+| evaluation pre-registered with its code | P128, `PREREGISTRATION_P128_ceiling.md` (SHA-256 `d16ef310…`) | committed before any forecast-aware training |
+
+**What the go authorises:**
+- a real-policy smoke test into scratch;
+- six training runs: persistence (q = 0) and oracle (q = 1) at seeds 42, 1
+  and 7;
+- their audit and lock (P128 §4);
+- **one** evaluation on paired seeds 0–29 under P128.
+
+**What it does not authorise:**
+- the quality sweep, which runs only if the ceiling clears, and still subject
+  to the guide's go/no-go;
+- any change to the protocol after a result is seen;
+- any claim about achievable forecasts, real cameras or real signal timing.
+
+**The controller stays disconnected from signal timing.**
+
+**Limits carried into every result:**
+- **The oracle is an upper bound,** conditioned on the frozen policy's
+  trajectory (A1.2).
+- **One simulated intersection, one scenario family,** with the §14.1
+  thresholds.
+- **The sidecars' `git_commit` is the commit at the end of training.** From
+  now on, `code_at_start` records what actually ran.
+- **P97a Part 2 is separate** and still pending.
