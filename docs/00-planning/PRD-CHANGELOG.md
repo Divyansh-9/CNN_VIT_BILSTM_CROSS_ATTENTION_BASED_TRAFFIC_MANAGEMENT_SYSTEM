@@ -9259,3 +9259,62 @@ tool.
 2. Set the camera window.
 3. Make the repository private.
 4. Review the classified list, and send the licence outreach.
+
+## P136 — the repository is private (verified); the owner's disposition is applied to the public copy (2026-10-18)
+
+**V3-1 is done by the owner, and verified here** (`gh repo view`):
+- **PRIVATE**;
+- **0 forks**;
+- no GitHub Pages site;
+- no releases.
+
+The repository was public until now. **The 18 third-party frames are still in
+`main`'s history** (`already_public_frames.txt`), and deleting them from the
+tip would not remove them from history. They stay tracked for the removal and
+licensing work. **Nothing has been pushed.**
+
+**The owner's preliminary disposition of the 704 flagged files** (not a legal
+clearance):
+
+| category | files | disposition |
+|---|---|---|
+| corpus-derived results | 645 | keep **excluded** until the dataset terms are reviewed |
+| dataset-specific material | 44 | keep excluded pending a file-level rights review |
+| licence references | 4 | review individually |
+| aggregate results | 4 | review individually |
+| mention only | 7 | likely retain if no restricted data or unsupported claim |
+
+**How it is applied** (`build_public_tree.py`):
+- **The corpus-derived results** (`loco/`, `baselines_loco/`, `loco_*.csv`)
+  are excluded.
+- **The Bellevue pipeline scripts** are excluded: the p9x/p10x builders and
+  evaluators, the audit pages, the fetchers and the V1 scripts. So are the
+  tests of those scripts.
+- **A blanket exclusion of all 44 "dataset-specific" files would have removed
+  `server/app.py` and `simulation/count_forecasts.py`** and broken the public
+  build. These stay in, flagged, each with its disposition:
+  - core code that only **names** a restricted path: kept, flagged for
+    file-level review;
+  - project records that quote aggregates (the build log, this changelog, the
+    publication-readiness note): kept, flagged for redaction review before
+    any release.
+
+**The result:**
+- **499 kept and 1,070 excluded;**
+- **28 flagged,** each carrying its disposition in `v3_review.csv`;
+- **0 leaks** on re-scan;
+- **CI's fast suite passes inside the public copy.**
+
+**A process slip, disclosed.** One commit (`2407ac1`, P136's first) landed with a
+test failing, because piping pytest through `tail` hid its exit code. It was
+corrected in `d43b93b`. **Commits now follow a check of pytest's own exit
+status.**
+
+**Still with the owner:**
+- the labellers;
+- the camera window;
+- the file-level review of the 28;
+- the licence outreach;
+- **the go for V3-2:** push the feature branch only, open a draft PR, and read
+  the CI. The repository is now private, so this is unblocked, but it is
+  still a push.
