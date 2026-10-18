@@ -53,7 +53,8 @@ def fill(forecaster, values, *, ts0=0.0):
 # ------------------------------------------------------------ the method --
 
 def test_features_are_p105s_features():
-    from scripts.p105_freeze import change_features as scored
+    # The P105 pipeline script is absent from the public copy (P136); skip there.
+    scored = pytest.importorskip("scripts.p105_freeze").change_features
 
     v = series()
     for s in (0, 37, 120):
@@ -62,7 +63,7 @@ def test_features_are_p105s_features():
 
 @needs_bellevue
 def test_the_forecast_is_p105s_forecast():
-    from scripts.p105_freeze import recent_mean
+    recent_mean = pytest.importorskip("scripts.p105_freeze").recent_mean
 
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
     v = series(seed=4)

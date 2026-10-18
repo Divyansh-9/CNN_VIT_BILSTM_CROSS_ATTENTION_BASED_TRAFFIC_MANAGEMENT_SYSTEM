@@ -42,11 +42,12 @@ def test_build_drops_restricted_files_flags_mentions_and_rescans(tmp_path):
              ("docs/notes.md", b"Bellevue aggregate 0.224"),
              ("experiments/results/loco/fold0.csv", b"a,b\n")]
     manifest = build(files, tmp_path / "out")
-    assert manifest["passed"] and manifest["kept"] == 3
+    assert manifest["passed"] and manifest["kept"] == 2
     assert {d["path"] for d in manifest["excluded"]} == {
-        "experiments/results/bellevue_pilot/a.json", "data/lanes/p.jpg"}
-    assert {r["path"] for r in manifest["review_required"]} == {
-        "docs/notes.md", "experiments/results/loco/fold0.csv"}
+        "experiments/results/bellevue_pilot/a.json", "data/lanes/p.jpg",
+        "experiments/results/loco/fold0.csv"}
+    # P136: corpus-derived results are now excluded, not merely flagged.
+    assert {r["path"] for r in manifest["review_required"]} == {"docs/notes.md"}
     assert not (tmp_path / "out/experiments/results/bellevue_pilot").exists()
     saved = json.loads((tmp_path / "out/PUBLIC_TREE_MANIFEST.json").read_text(encoding="utf-8"))
     assert saved["note"].startswith("does not resolve licensing")

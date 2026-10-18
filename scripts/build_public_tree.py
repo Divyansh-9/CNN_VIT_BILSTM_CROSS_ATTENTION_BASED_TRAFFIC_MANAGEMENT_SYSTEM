@@ -79,7 +79,8 @@ EXCLUDE = EXCLUDE + tuple((p, "owner disposition (P136): corpus-derived results,
     "scripts/detector_benchmark.py", "scripts/horizon_eval.py", "scripts/rehorizon_corpus.py",
     "scripts/sustained_corpus.py", "scripts/target_diagnostic.py",
     "scripts/v1_label_page.py", "scripts/v1_target_fidelity.py", "scripts/v1_sample.py",
-    "scripts/v1_pilot_agreement.py", "tests/test_v1.py"))
+    "scripts/v1_pilot_agreement.py", "tests/test_v1.py",
+    "tests/test_rehorizon_corpus.py", "tests/test_sustained_corpus.py"))
 CORE_REVIEW = {"server/app.py", "simulation/count_forecasts.py", "scripts/build_public_tree.py",
                "data/cameras.json", "tests/test_count_forecast.py",
                "tests/test_dashboard_evidence.py", "tests/test_faw.py",
