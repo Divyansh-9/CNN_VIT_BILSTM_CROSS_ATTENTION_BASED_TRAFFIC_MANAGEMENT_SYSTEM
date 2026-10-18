@@ -101,9 +101,12 @@ jobs:
         run: |
           pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           pip install pytest pyyaml timm onnxruntime onnx psutil fastapi httpx paho-mqtt amqtt
-          pip install gymnasium stable-baselines3
+          pip install gymnasium==1.3.0 stable-baselines3==2.9.0
           pip install nbformat nbclient ipykernel pandas matplotlib
-          pip install eclipse-sumo traci sumolib
+          # Pinned to requirements.txt: every committed SUMO result was produced on
+          # 1.27.1, and an unpinned install drew 1.28.0, which simulates differently
+          # (P137).
+          pip install eclipse-sumo==1.27.1 traci==1.27.1 sumolib==1.27.1
           pip install opencv-python-headless
 
       - name: Fail if torch is missing rather than skipping
