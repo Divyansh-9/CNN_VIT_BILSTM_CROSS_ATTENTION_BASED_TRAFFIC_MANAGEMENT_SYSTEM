@@ -62,6 +62,31 @@ EXCLUDE = (
     "scripts/build_phase1_progress_*.py", "scripts/check_synopsis.py",
     "scripts/check_progress_report.py", "scripts/build_review_pptx.py", "scripts/docx_writer.py",
     "tests/test_deck_geometry.py", "tests/test_progress_report.py"))
+# P136: the owner's disposition of the review list. Corpus-derived results and
+# the Bellevue pipeline scripts stay out of the public copy until their terms
+# are reviewed. Core code that only names a restricted path cannot be left out
+# without breaking the public build, so it stays in and is flagged for
+# file-level review instead, as are the records that quote aggregates.
+EXCLUDE = EXCLUDE + tuple((p, "owner disposition (P136): corpus-derived results, excluded until "
+                              "the dataset terms are reviewed") for p in (
+    "experiments/results/loco/*", "experiments/results/baselines_loco/*",
+    "experiments/results/loco_foreign/*")) + tuple(
+    (p, "owner disposition (P136): Bellevue pipeline script, excluded pending a file-level "
+        "rights review") for p in (
+    "scripts/p9[0-9]_*.py", "scripts/p9[0-9]b_*.py", "scripts/p10[0-9]_*.py",
+    "scripts/fetch_bellevue.py", "scripts/count_audit_page.py", "scripts/compare_audit*.py",
+    "scripts/c1_freeze.py", "scripts/c1L_freeze.py", "scripts/persistence_freeze.py",
+    "scripts/detector_benchmark.py", "scripts/horizon_eval.py", "scripts/rehorizon_corpus.py",
+    "scripts/sustained_corpus.py", "scripts/target_diagnostic.py",
+    "scripts/v1_label_page.py", "scripts/v1_target_fidelity.py", "scripts/v1_sample.py",
+    "scripts/v1_pilot_agreement.py", "tests/test_v1.py"))
+CORE_REVIEW = {"server/app.py", "simulation/count_forecasts.py", "scripts/build_public_tree.py",
+               "data/cameras.json", "tests/test_count_forecast.py",
+               "tests/test_dashboard_evidence.py", "tests/test_faw.py",
+               "tests/test_persistence_forecaster.py", "tests/test_public_tree.py"}
+RECORD_REVIEW = {"BUILD-LOG.md", "docs/00-planning/PRD-CHANGELOG.md",
+                 "docs/00-planning/PUBLICATION-READINESS.md"}
+
 PUBLIC_BRANCH_TODO = ("remove the synopsis and progress-report build and check steps from "
                       ".github/workflows/tests.yml in the public branch (their scripts are excluded)")
 REVIEW_MARKERS = (b"Bellevue", b"bellevue")
@@ -83,6 +108,19 @@ AGGREGATE = _re.compile(rb"(?i)(bellevue|P9[5-9]|P10[0-9]|P11[0-9]).{0,200}?\b\d
 LICENCE = _re.compile(rb"(?i)bellevue.{0,300}?(licen[cs]|redistribut|permission|copyright|terms of use)"
                       rb"|(licen[cs]|redistribut|permission|copyright).{0,300}?bellevue")
 DATASET = _re.compile(rb"(?i)(_bellevue|bellevue_pilot|fetch_bellevue|corpus_p10[0-9]|drive_id)")
+
+
+def disposition(path: str, category: str) -> str:
+    """The owner's preliminary disposition for a kept, flagged file (P136). Not a clearance."""
+    if path in CORE_REVIEW:
+        return "kept: core code naming a restricted path; file-level review"
+    if path in RECORD_REVIEW:
+        return "kept: project record quoting aggregates; redaction review before any release"
+    return {"licence reference": "review individually; generic citations may be publishable",
+            "aggregate results": "review individually for disclosure restrictions",
+            "mention only": "likely retain if no restricted data or unsupported claim",
+            "dataset-specific material": "kept pending a file-level rights review",
+            }.get(category, "review")
 
 
 def review_category(path: str, content: bytes) -> str:
@@ -136,7 +174,9 @@ def build(files: list[tuple[str, bytes]], out: Path) -> dict:
         kept.append(path)
         why = needs_review(path, content)
         if why:
-            review.append({"path": path, "why": why, "category": review_category(path, content)})
+            category = review_category(path, content)
+            review.append({"path": path, "why": why, "category": category,
+                           "disposition": disposition(path, category)})
     leaks = [str(p.relative_to(out)).replace("\\", "/") for p in out.rglob("*")
              if p.is_file() and excluded(str(p.relative_to(out)).replace("\\", "/"))]
     manifest = {"what": "sanitised public tree, built locally from git HEAD; NOT published",
@@ -168,10 +208,10 @@ def main(argv: list[str] | None = None) -> int:
 
         args.review_report.parent.mkdir(parents=True, exist_ok=True)
         with args.review_report.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["category", "path", "why"])
+            writer = csv.DictWriter(handle, fieldnames=["category", "disposition", "path", "why"])
             writer.writeheader()
             for r in sorted(manifest["review_required"], key=lambda r: (r["category"], r["path"])):
-                writer.writerow({k: r[k] for k in ("category", "path", "why")})
+                writer.writerow({k: r[k] for k in ("category", "disposition", "path", "why")})
         public = subprocess.run(["git", "ls-tree", "-r", "--name-only", "origin/main"],
                                 capture_output=True, text=True).stdout.splitlines()
         frames = [f for f in public if excluded(f) and f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))]

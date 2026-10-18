@@ -76,3 +76,20 @@ def test_review_categories_are_restrictive_first(path, content, category):
     from scripts.build_public_tree import review_category
 
     assert review_category(path, content) == category
+
+
+@pytest.mark.parametrize("path", [
+    "experiments/results/loco/fold0/x.csv", "experiments/results/baselines_loco/a.csv",
+    "scripts/p105_eval.py", "scripts/p99b_compare.py", "scripts/fetch_bellevue.py",
+    "scripts/v1_label_page.py",
+])
+def test_the_owners_disposition_excludes_corpus_results_and_pipeline_scripts(path):
+    assert excluded(path) and "P136" in excluded(path)
+
+
+@pytest.mark.parametrize("path", ["server/app.py", "simulation/count_forecasts.py", "BUILD-LOG.md"])
+def test_core_code_and_records_stay_in_and_are_flagged_not_dropped(path):
+    from scripts.build_public_tree import disposition
+
+    assert excluded(path) is None
+    assert disposition(path, "dataset-specific material").startswith("kept")
