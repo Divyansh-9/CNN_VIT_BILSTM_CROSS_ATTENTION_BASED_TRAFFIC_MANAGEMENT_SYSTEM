@@ -70,7 +70,8 @@ EXCLUDE = (
 EXCLUDE = EXCLUDE + tuple((p, "owner disposition (P136): corpus-derived results, excluded until "
                               "the dataset terms are reviewed") for p in (
     "experiments/results/loco/*", "experiments/results/baselines_loco/*",
-    "experiments/results/loco_foreign/*")) + tuple(
+    "experiments/results/loco_foreign/*", "experiments/results/loco_*.csv",
+    "experiments/results/baselines_loco*.csv")) + tuple(
     (p, "owner disposition (P136): Bellevue pipeline script, excluded pending a file-level "
         "rights review") for p in (
     "scripts/p9[0-9]_*.py", "scripts/p9[0-9]b_*.py", "scripts/p10[0-9]_*.py",
