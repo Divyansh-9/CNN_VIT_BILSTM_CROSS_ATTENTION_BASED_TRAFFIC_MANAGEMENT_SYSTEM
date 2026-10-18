@@ -109,6 +109,11 @@ jobs:
           pip install eclipse-sumo==1.27.1 traci==1.27.1 sumolib==1.27.1
           pip install opencv-python-headless
 
+      - name: Simulation stack matches requirements.txt (P137)
+        # Every committed SUMO and PPO result came from the pinned versions; an
+        # unpinned install drew SUMO 1.28.0 and a committed episode changed.
+        run: python scripts/check_sim_versions.py
+
       - name: Fail if torch is missing rather than skipping
         # Without this the suites `importorskip` away and the job passes green
         # over completely untested code.

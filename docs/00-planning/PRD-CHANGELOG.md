@@ -9318,3 +9318,68 @@ status.**
 - **the go for V3-2:** push the feature branch only, open a draft PR, and read
   the CI. The repository is now private, so this is unblocked, but it is
   still a push.
+
+## P137 — the first CI run on the private branch: an environment reproducibility finding, and the fix (2026-10-18)
+
+**Context.** The owner authorised one private push of the feature branch, a
+draft PR (#1) to `main` for CI only, and the CI review. Nothing was merged,
+released or made public.
+
+**The pre-push checks were limited, and are stated as such:**
+- **The credential scan** found only the deliberate fake URL in the redaction
+  test (`admin:hunter2`). That shows only what the scan's patterns checked;
+  **it is not proof that no secret exists.**
+- **No file is over 20 MB.** That says nothing about the rights to the 18
+  third-party frames, or to the Bellevue-derived material in the branch's
+  history. Both remain tracked blockers.
+
+**Run 1, at `5c6566a`** (workflow runs 39098344382 and 39098349916): fast, dashboard, docs
+and GitGuardian passed. **The model job failed one test:**
+`tests/test_faw.py::test_a_committed_webster_tuning_row_reproduces_exactly`.
+This re-runs P122's committed tuning episode: Webster at s = 660 pcu/h/m with
+4 s lost time, on `pulsed`, seed 400, 1800 s, sublane 0.8, `total_delay=True`.
+
+| metric | committed (Windows, SUMO 1.27.1) | CI run 1 (Linux, SUMO 1.28.0) | difference |
+|---|---|---|---|
+| `mean_total_delay_s` | 28.814 | 29.499 | +0.685 (+2.38%) |
+| `mean_wait_s` | 16.263 | 16.698 | +0.435 (+2.67%) |
+| `throughput` | 1,370 | 1,366 | −4 |
+| `phase_switches` | 97 | 97 | 0 |
+
+**The cause.** The model job installed `eclipse-sumo traci sumolib` unpinned,
+and drew **1.28.0**. `requirements.txt` pins **1.27.1**, which produced every
+committed SUMO result. `gymnasium` and `stable-baselines3` were unpinned in
+the same job.
+
+**The fix (`b7b891a`).** The job now installs `eclipse-sumo==1.27.1`,
+`traci==1.27.1`, `sumolib==1.27.1`, `gymnasium==1.3.0` and
+`stable-baselines3==2.9.0`. **The assertion was not changed.**
+
+**Run 2, at `b7b891a`** (workflow runs 39098681046 and 39098683810): **every job passed.**
+- **The versions installed, read from the run log:** exactly the five pins.
+- **The reproduction test ran, and was not skipped.** Its only skip condition
+  is a missing `traci`. The same test failed in run 1. The run-2 progress
+  output shows no failure.
+
+**What this establishes:**
+- **Under SUMO 1.27.1, the committed Windows row reproduces exactly on the
+  CI's Linux runner** (Python 3.12), in that tested environment.
+- **The committed row does not reproduce under SUMO 1.28.0.** This is shown
+  for **this one episode**.
+
+**What it does not establish:**
+- that every result changes between 1.27.1 and 1.28.0;
+- that 1.28.0 is wrong;
+- that other environment differences could never matter.
+
+**It is now enforced.** `scripts/check_sim_versions.py` reads the five pins
+from `requirements.txt` and compares them with what is installed. It exits 1
+on any mismatch, naming each one. It runs in the model job before the
+simulation suites, so drift becomes an explicit failure. A test checks that
+it names every mismatch.
+
+**Unchanged:**
+- P130–P132 stay frozen;
+- the forecasting claims and the baselines are untouched;
+- the publication status is unchanged;
+- PR #1 stays a draft, for CI only.

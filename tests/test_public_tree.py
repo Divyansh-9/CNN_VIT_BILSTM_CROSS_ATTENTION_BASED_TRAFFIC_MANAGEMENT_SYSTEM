@@ -94,3 +94,24 @@ def test_core_code_and_records_stay_in_and_are_flagged_not_dropped(path):
 
     assert excluded(path) is None
     assert disposition(path, "dataset-specific material").startswith("kept")
+
+
+def test_the_simulation_version_preflight_names_every_mismatch():
+    """P137: an unpinned SUMO once changed a committed result; drift must fail loudly."""
+    from importlib import metadata
+
+    from scripts.check_sim_versions import PACKAGES, mismatches, pins
+
+    pinned = pins("eclipse-sumo==1.27.1  # pinned\ntraci==1.27.1\nsumolib==1.27.1\n"
+                  "gymnasium==1.3.0\nstable_baselines3==2.9.0\n")
+    exact = {**pinned}
+    assert mismatches(pinned, lambda p: exact[p]) == []
+    drifted = {**exact, "eclipse-sumo": "1.28.0"}
+    assert mismatches(pinned, lambda p: drifted[p]) == [
+        "eclipse-sumo: installed 1.28.0, requirements.txt pins 1.27.1"]
+
+    def missing(p):
+        raise metadata.PackageNotFoundError(p)
+
+    assert len(mismatches(pinned, missing)) == len(PACKAGES)
+    assert mismatches({}, lambda p: "x")[0].endswith("not pinned in requirements.txt")
