@@ -336,9 +336,9 @@ Two consequences:
 
 - **Weights are gitignored.** Their SHA-256 manifest is committed
   (`experiments/results/model_artifacts.sha256`).
-- **The committed manifest is stale.** It covers 83 of 301 artifacts, and it
-  stays stale until P139 is approved and applied. P139 is a proposed change,
-  not the current state of the repository.
+- **The committed manifest covers every artifact (P139).** It lists all 301
+  under the five model folders; the earlier manifest covered 83. `pack` and
+  `check` refuse a manifest that disagrees with the disk.
 - **A cloud backup of the 301-artifact inventory was reported as downloaded
   and verified by the owner on 2026-10-18** (S66). The verification output
   was not retained. The checks before upload are recorded in P139: an
@@ -405,7 +405,7 @@ are the ones that set the structure:
 2. **The domain claim is red.** No fold-eligible camera is Indian (P58).
    Class coverage is also red (P57).
 3. **The historical "PPO beats Webster by 19.4%" (P82) is not a matched
-   comparison,** and is citable only with its qualifications (P138, proposed).
+   comparison,** and is citable only with its qualifications (P138).
 4. **The MFSTNet model call misses its latency budget** on laptop CPU (6a).
 5. **The server's command endpoint is a placeholder rule** (§6.3).
 6. **The clean-machine reproduction has not been run.** No Docker Compose
@@ -424,8 +424,9 @@ are the ones that set the structure:
      private. A merge or a visibility change would carry them too.
 
    The repository is private.
-8. **The backup tool in the repository is unsafe until P139 is approved and
-   applied** (§6.4).
+8. **The cloud backup's download check is owner-reported** and its output
+   was not retained (§6.4). The backup tool itself covers every artifact
+   since P139.
 9. **The safety contract is a bound under the tested conditions, not a
    proof** (§6.2).
 10. **At `1967e55`, a malformed current-schema payload is not refused

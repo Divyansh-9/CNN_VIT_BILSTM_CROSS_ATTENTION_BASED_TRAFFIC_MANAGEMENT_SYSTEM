@@ -9384,6 +9384,233 @@ it names every mismatch.
 - the publication status is unchanged;
 - PR #1 stays a draft, for CI only.
 
+## P138 — the 19.4% (P82) is correct for what was run, and citable only as a qualified historical result; its qualifications in one place (2026-10-18)
+
+**Status: applied 2026-10-21**, after the owner's review approved it. It
+edits nothing in P82, does not reopen P130–P132, and changes no CSV, ADR-023
+or `CLAIMS.yaml`.
+
+**What P82 measured.** The figure "PPO beats Webster by 19.4%, d = −1.34" comes
+from `experiments/results/benchmark_ppo/`, written at `30c82bb` under SUMO
+1.27.1. It compares:
+- **the policy:** one PPO policy, no-forecast, `phase_duration` action space,
+  training seed 42, 500,000 steps;
+- **the baseline:** best-tuned Webster;
+- **the conditions:** 30 evaluation seeds in the constant `saturated` regime;
+- **the outcome:** `mean_wait_s`, where the lower value is better.
+
+**The numbers are correct for what was run.** P119 already said so. The
+problem is that the qualifications were recorded in four separate places, while
+the sentence travelled on its own: README.md line 37 and BUILD-LOG S38 quoted it
+unqualified until this entry.
+
+### The qualifications that apply, collected
+
+1. **The comparison is not matched (P119).** The policy trained without the
+   sublane model and was evaluated with it (`--lateral-resolution 0.8`). So the
+   policy was scored on traffic dynamics it never trained on. We never measured
+   how far this moves the 19.4%, in either direction.
+2. **The arrival-time pattern is the same across all 30 seeds (P116 b).** In
+   the constant regimes, `vehsPerHour` flows insert vehicles evenly spaced. Two
+   seeds load identical vehicles at identical seconds and differ only in vehicle
+   type, lateral placement and driver behaviour. So the bootstrap 95% CI of
+   the paired difference in mean wait, [−3.41, −1.98] s, measures sensitivity
+   to the vehicle mix. It does not
+   measure demand variability.
+3. **It is one policy, one regime and one arm (P82's own limits).** It has one
+   training seed, so it ranks one initialisation against Webster, not the
+   method (compare P54 on seed spread). It covers the saturated regime only, and
+   the no-forecast arm only.
+4. **The outcome is not ADR-021's.** `mean_wait_s` averages over completed
+   trips only. ADR-021's protocol adopted `mean_total_delay_s`:
+   `timeLoss + departDelay` over every vehicle, including unfinished and
+   undeparted ones (ADR-021 Amendment 1).
+
+### What does not apply, stated so the record is not over-corrected
+
+- **The `keep_or_switch` actuation mismatch (P116 a) does not apply.** P82
+  evaluated a `phase_duration` policy, and P116 already recorded that no
+  committed performance result was affected.
+- **The index-10 defect (P120) does not apply.** Under `phase_duration`,
+  `phase_remaining` is structurally 0 in both harnesses (P11). Training and
+  evaluation therefore agreed on it.
+
+### P130: a different protocol, not a replication
+
+P130 evaluated PPO and Webster with the training and evaluation sublane
+configuration matched for its own protocol: `pulsed`, a `keep_or_switch`
+action space, and 28 primary seeds. **It is evidence about that protocol, not
+a direct replication of P82.** Under it, **every PPO arm had more delay than
+both Webster arms.**
+- **No-forecast PPO against tuned Webster:** +3.91 s of mean total delay,
+  d +0.61, p = 0.003. This is descriptive and unadjusted (P128 §7).
+- **On mean wait, the metric P82 used:** 24.37 s against 23.09 s. These are
+  arm means only; no test was run on this metric.
+
+P130 differs from P82 in traffic regime, action space, training seeds and
+outcome metric. It therefore **neither replicates nor refutes P82**.
+
+### What follows
+
+- **The 19.4% figure may be cited only as a qualified historical result for
+  the specific P82 experiment.** It must not be presented as evidence that PPO
+  generally outperforms Webster. The citable form is:
+  > Under constant saturated demand, a phase-duration PPO policy, trained
+  > without the sublane model and evaluated with it, had 19.4% lower mean wait
+  > than best-tuned Webster. This was over 30 evaluation seeds that varied the
+  > vehicle mix but not the arrivals, with one training seed (P82). Under the
+  > distinct `pulsed` protocol, with training and evaluation matched, no PPO
+  > arm had lower delay than either Webster arm (P130).
+- **C1 is not changed by this entry.** Narrowing C1 already waits on the guide
+  (MEMO-2026-10-17, S63zm). This entry adds evidence to that decision and does
+  not make it.
+- **Where the sentence appears:**
+
+  | Place | Action |
+  |---|---|
+  | `README.md` | Refreshed with this entry; the figure appears only in its qualified form |
+  | `BUILD-LOG.md` S38 | Notes rewritten to the qualified form, citing this entry |
+  | The submitted synopsis report | Untouched, because the synopsis is hands-off. The owner decides whether anything changes there |
+
+  The synopsis report states the comparison through `synopsis_content.py` from
+  `benchmark_ppo/benchmark_stats.csv`.
+
+### Optional resolution: a new study, not a rerun
+
+The way to replace the qualified number with a matched one is a
+**pre-registered re-measurement**:
+1. Retrain the `phase_duration` no-forecast policy with the sublane model, on
+   training seeds 42, 1 and 7.
+2. Evaluate it against the tuned Webster arm, with `mean_total_delay_s` as the
+   primary outcome, on the regime or regimes named before any result.
+
+It would be a new entry with its own lock, and P82's CSVs would stay as
+committed. Whether to run it is the owner's call.
+
+## P139 — the model backup would have saved under a quarter of the artifacts and then reported PASS (2026-10-18)
+
+**Status: applied 2026-10-21**, after the owner's review approved it. The fix
+is in `scripts/backup_models.py`, the test is `tests/test_backup_models.py`,
+and the regenerated manifest is `experiments/results/model_artifacts.sha256`.
+Before this entry, the repository's script was the unpatched one; the S66
+archive was built by the patched copy, from outside the repository.
+
+**What was found.** `backup_models.py pack` copies the files the committed
+manifest lists, and `verify` re-hashes the copy against that same manifest.
+The manifest was last written on 2026-10-15 (`5ac3722`), and it covers only
+`models/mfstnet` and `models/onnx`.
+
+A read-only comparison against `models/` today found **218 artifacts, 1,063
+MB, outside the manifest**. The manifest covers 83 files and 312 MB. No listed
+file was missing from disk, and no hash had changed.
+
+| directory | files not covered | what they are |
+|---|---|---|
+| `models/ppo` | 36 | every PPO checkpoint and sidecar, **including the nine the ceiling locks fingerprint** (P126, P128) |
+| `models/mfstnet` | 172 | the Bellevue, P99 and P100 checkpoints (P92–P106) |
+| `models/onnx` | 3 | the P99 export |
+| `models/detector` | 3 | the S11, S14 and S15 trained YOLOv8s weights |
+| `models/external` | 4 | third-party weights, including `best_xl_ITD_v1.2.pt`, on which the corpus pipeline depends |
+
+**Why it matters.** S66 described the backup as "83 files, 312 MB, against
+the committed manifest". A pack run that day would have copied those 83 files
+and printed `PASS`. A later disk failure would then have lost:
+- the evidence that P130's locks point to;
+- every model trained since 2026-10-15.
+
+### The fix
+
+| Safeguard | What it does |
+|---|---|
+| **Coverage** | `SOURCES` names all five model folders: `mfstnet`, `onnx`, `ppo`, `detector`, `external` |
+| **No packing from a stale manifest** | `check` compares the manifest with the disk and names three kinds of disagreement: a file not in the manifest, a file gone from disk, and a changed hash. `pack` runs `check` first and copies nothing if it fails |
+| **No silent drops** | Regenerating the manifest refuses to drop an artifact the previous manifest recorded. A vanished file must be named with `--allow-removed`, or nothing is written |
+| **The copy matches the inventory exactly** | `verify` fails on each of the following: a missing file, a corrupt file, a file in the copy's model folders that the manifest does not list, and a copy whose own manifest is not the committed one |
+
+Together, `pack` = `check` (manifest = disk) + copy + `verify` (copy =
+manifest). A backup that passes is therefore the complete current inventory,
+with no file added and none left out.
+
+### Tests
+
+`tests/test_backup_models.py` has 12 cases: **all 12 fail against the current
+script, and all 12 pass against the patched one.** They cover:
+- every source folder is covered;
+- a fresh manifest passes;
+- each kind of staleness is named;
+- `pack` refuses a stale manifest and copies nothing;
+- `pack` + `verify` succeed on a current manifest;
+- a regenerated manifest refuses to drop a recorded artifact unless it is
+  named;
+- `verify` fails on a missing file, a corrupt file, an unexpected file, and a
+  foreign manifest.
+
+### The real inventory, checked read-only (2026-10-18)
+
+| | committed manifest | fresh manifest |
+|---|---|---|
+| entries | 83 | **301** (252 mfstnet, 6 onnx, 36 ppo, 3 detector, 4 external) |
+| size | 312 MB | 1,375 MB |
+| `check` against the five folders | **FAIL**: 218 not in the manifest | **PASS** |
+| committed entries kept, with identical hash | — | 83 of 83 |
+| locked hashes matching the disk (9 checkpoints, 9 sidecars) | 0 of 18 listed | **18 of 18** |
+
+Regeneration started from the committed manifest, so any dropped entry would
+have been refused. None was dropped.
+
+**Where the inventory comes from.** Every fresh inventory was hashed directly
+from the five source folders under `models/`, never from the archive.
+- **The packer** (`make_trained_weight.py`, step 1):
+  1. hashes `artifacts()` on disk;
+  2. refuses if any committed entry is gone or has changed;
+  3. builds the archive from that validated inventory.
+- **An independent re-hash of the source folders** afterwards produced 301
+  files, **identical to the archive's record**, with all 83 committed entries
+  present at the same hash.
+
+The chain is therefore:
+
+| Link | What holds |
+|---|---|
+| source folders → fresh manifest | removals need explicit authorisation |
+| manifest → archive | the build used the validated inventory |
+| archive → manifest | `verify` passed |
+| cloud copy → archive | the owner's download check |
+
+### It has already been used once, from outside the repository (S66)
+
+The patched script ran from a scratch copy against the real `models/` folders.
+It produced `trained_weight.zip`:
+- **contents:** 301 artifacts, 1,375 MB;
+- **sha256:** `0745587bf7b0348acec518f1c35b6d54eb46b25d39d11bfcdc3cf4562ea519d3`;
+- **checks before upload:** `check` passed, `pack` verified its own copy, and
+  a separate standalone verifier extracted and re-hashed all 301 files.
+
+The archive was uploaded to the owner's private Google Drive. **The owner
+reports** downloading and checking it. That check is owner-reported: its
+output was not retained, and it was not independently audited.
+
+### Applied (2026-10-21)
+
+| Step | Result |
+|---|---|
+| `check` against the committed 83-entry manifest, before regenerating | **FAIL**, 218 disagreements, as found on 2026-10-18 |
+| `backup_models.py manifest` | 301 entries, 1,375 MB, **identical** to the inventory the S66 archive recorded on 2026-10-18 |
+| The 83 prior entries | **83 of 83** kept, every one at its identical hash |
+| `check` against the regenerated manifest | **PASS** |
+| Locked hashes (9 PPO checkpoints, 9 sidecars) against the manifest | **18 of 18** |
+| `p126_audit.py --verify`; `ceiling_eval.verify_lock` on both locks | OK; OK, OK |
+| `tests/test_backup_models.py` | 12 of 12 |
+
+Future backups go through `pack`, which runs `check` first, and an
+independent `verify`.
+
+**What this does not do:**
+- **It publishes nothing.** The destination is the owner's own storage.
+- **It does not settle any licence.** The Bellevue-derived checkpoints and the
+  third-party weights are backed up for recovery only, and their licence
+  status is unchanged.
+
 ## P140 — a malformed payload crashed the server path instead of being refused (2026-10-18, revised 2026-10-21)
 
 **Status: applied 2026-10-21** in the integration batch, after the owner's review approved it. Test: `tests/test_contract_malformed.py`. The review evidence (patch, run
