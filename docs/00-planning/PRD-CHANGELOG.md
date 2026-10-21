@@ -9383,3 +9383,560 @@ it names every mismatch.
 - the forecasting claims and the baselines are untouched;
 - the publication status is unchanged;
 - PR #1 stays a draft, for CI only.
+
+## P140 — a malformed payload crashed the server path instead of being refused (2026-10-18, revised 2026-10-21)
+
+**Status: applied 2026-10-21** in the integration batch, after the owner's review approved it. Test: `tests/test_contract_malformed.py`. The review evidence (patch, run
+outputs, mutation script) is held outside the repository.
+
+**Found** while checking the SAD's forecast-validation wording against the
+code.
+
+**Revision 3** (finding D): the refusal message no longer includes the
+underlying exception's text, which could quote the offending value. The tests
+now assert that a planted marker is absent from the `ContractError` message
+and from the HTTP response. Two related problems that P140 does **not**
+change are recorded as P141 candidates (see the end).
+
+**Revision 2** adds:
+- top-level non-object JSON and invalid UTF-8 (review finding A);
+- a separate record for processing failures (finding B);
+- the test coverage finding C asked for.
+
+### The defect
+
+`contracts.mqtt.decode` refused a wrong schema version cleanly. Several other
+malformed payloads escaped as bare Python exceptions instead of
+`ContractError`:
+
+| Payload | Escaped as | Why |
+|---|---|---|
+| unknown class, mode or source | `ValueError` | the enum conversion ran outside the `try` |
+| missing `predictions` | `KeyError` | the field was read outside the `try` |
+| `predictions` not a mapping | `AttributeError` | `.items()` ran outside the `try` |
+| top-level `[]` or `null` | `AttributeError` | `data.pop("v")` assumed a JSON object |
+| invalid UTF-8 bytes | `UnicodeDecodeError` | only `JSONDecodeError` was caught |
+
+### Consequences
+
+| Path | What happened | Evidence |
+|---|---|---|
+| `POST /prediction/{id}` | **HTTP 500, not 422** | Reproduced on the current code: unknown class, missing `predictions`, `[]` and `null` |
+| `server/mqtt_ingest.py` | `_on_message` caught only `ContractError`. With paho-mqtt 2.1.0, `suppress_exceptions` defaults to `False`, and paho re-raises a callback's exception in the network thread that `loop_start()` runs. **Expected effect: one malformed message stops all forecast ingest, silently** | Read from paho's source and the installed default. **Not reproduced against a live broker** |
+
+No stored data was affected: decoding fails before anything is written.
+
+### The fix
+
+1. **Decoding.**
+   - `UnicodeDecodeError` is caught next to `JSONDecodeError`.
+   - A parsed value that is not a JSON object is refused before `.pop`.
+   - The enum conversions and field reads move inside the refusal. There,
+     `TypeError`, `ValueError`, `KeyError` and `AttributeError` become
+     `ContractError`.
+   - **The new refusal messages name only the exception type,** never its
+     text, which can quote the offending value; this applies to both the JSON
+     and the schema refusal. `from exc` keeps the detail for in-process
+     debugging. The messages reach HTTP 422 responses.
+   - A `ContractError` raised by a payload's own validation passes through
+     unchanged.
+   - `ContractError` is itself a `ValueError`, so existing callers that catch
+     `ValueError` keep working.
+2. **The ingest: refusals and failures are kept apart.**
+   - **`refused`** holds `ContractError` only. That is a malformed message,
+     the producer's fault.
+   - **`failed`** is new. It holds any other exception, such as a locked
+     database. That is the server's own processing failure, and the message
+     may well have been valid.
+   - Each failure is recorded as `(topic, "ExceptionType, N bytes")` and
+     logged at ERROR level through the `server.mqtt_ingest` logger, with the
+     topic, the exception type and the size only.
+   - Neither list nor the log ever holds payload content (NFR-13). The
+     exception message is not recorded either, because it can quote the
+     payload.
+   - Nothing escapes the callback, so the network thread keeps running.
+   - **Retrying a failed store is a separate design decision, not made
+     here.** A failed message is observable but dropped.
+
+The wire format, the schema version and every valid payload are unchanged.
+
+### Tests
+
+`tests/test_contract_malformed.py` has 18 cases.
+- **Against the current code:** 17 fail. The one that passes is the
+  valid-payload control, which is expected.
+- **With the patch:** all 18 pass.
+
+| Group | Cases |
+|---|---|
+| `decode` raises `ContractError` | 8: unknown class, missing `predictions`, `predictions` not a mapping, top-level array, top-level `null`, invalid UTF-8, unknown heartbeat mode, unknown command source |
+| A valid payload still decodes | 1 (the control) |
+| HTTP answers 422 | 4: unknown class, **missing `predictions`**, top-level array, top-level `null` |
+| Ingest: a malformed message, then a valid one | 4: unknown class, array, `null`, invalid UTF-8. Each asserts 1 refused, **1 stored** (ingest still works) and 0 failed |
+| Ingest: a storage failure, then a valid message | 1. Asserts 1 failed, 0 refused and 1 stored, and that the failure is logged |
+
+**Planted-marker checks.** These cases put a marker string where it could
+leak, and assert it is absent:
+
+| Case | Marker placed in | Asserted absent from |
+|---|---|---|
+| unknown class, unknown mode, unknown source, invalid UTF-8 | the payload | the `ContractError` message |
+| unknown class over HTTP | the payload | the HTTP 422 body |
+| unknown class and invalid UTF-8 through the ingest | the payload | the ingest records and the captured log |
+| storage failure | the exception text | the `failed` record and the captured log |
+
+Some cases carry no marker, because there is no content to leak: missing
+`predictions`, `predictions` not a mapping, top-level array and `null`. The
+tests use a temporary SQLite file, never the server's own database.
+
+**The marker checks are a real guard.** Putting `{exc}` back into the refusal
+message makes 4 tests fail: the unknown class, mode and source `decode` cases,
+and the HTTP unknown-class case. `mutate_exc.py` is the mutation script.
+
+**Regression check.** It ran in a `git archive HEAD` snapshot with the patch
+applied. Eight related suites passed (142 passed, 3 skipped):
+- contract, server and safety;
+- edge node, persistence forecaster, count forecaster and edge forecaster;
+- live MQTT, which skips without a broker.
+
+One suite was left out: `test_dashboard_evidence.py` fails in the snapshot
+**with and without** the patch. It reads commit metadata, and an archive has
+no `.git`. It passes in the repository, in the local full run on 2026-10-18
+(1,206 passed, 3 skipped).
+
+### To apply, once approved
+
+1. Apply the patch and add the test.
+2. Run the full suite in the repository.
+3. Commit them together: the contract fix, the ingest handling and the test,
+   nothing else.
+
+### Not changed by P140: two P141 candidates
+
+These were found while checking finding D. Both are pre-existing, and both are
+outside P140's narrow scope. They are recorded so P140's wording does not
+imply them away. They were probed over HTTP in the snapshot, with a temporary
+database.
+
+1. **Some existing validation messages echo payload values into the HTTP
+   422 body.** These include:
+   - the schema version (`v{version}`);
+   - the `model` field (`got {model!r}`);
+   - the prediction keys.
+
+   A marker placed in each was echoed back to the sender. The message goes
+   only to the client that sent the payload; the ingest records and logs
+   never hold it.
+2. **Three fields are not type-checked:** `confidences`, `horizon_sec` and
+   `ts`. A string in any of them was accepted (HTTP 200) and stored in SQLite
+   (3 of 3 rows). The 4,096-byte payload cap bounds this, but free text up to
+   that size can cross the edge boundary. The SAD's statement that schema v2
+   admits no free text is therefore too strong. The SAD draft has been
+   corrected.
+
+## P141 — the two network-facing payloads are typed to the field, and a refusal no longer repeats what the sender wrote (2026-10-21)
+
+**Status: applied 2026-10-21** in the integration batch, after the owner's review approved it. It is applied on top of P140.
+Test: `tests/test_contract_fields.py`.
+
+### Scope
+
+The server decodes only two payload types, through
+`POST /prediction/{id}`, `POST /count_forecast/{id}` and the MQTT ingest:
+- `CongestionPrediction`;
+- `CountForecast`.
+
+They are therefore where schema v2's aim, "no free text across the edge
+boundary", has to hold. P141 changes **only the validation and the refusal
+messages of these two types**, plus `decode`'s version message and its
+exception net. The wire format, the schema version and every other payload
+type are unchanged.
+
+### What changes
+
+| Field or message | Before (P140 base) | After |
+|---|---|---|
+| `confidences` values | any value accepted and stored | a finite number in [0, 1]; `bool` refused |
+| `horizon_sec` (prediction) | unchecked | the integer 60 (PRD §8.2) |
+| `horizon_sec` (count forecast) | `!= 60`, so `60.0` passed | the integer 60; `60.0`, `"60"` and `True` refused |
+| `ts` (both) | unchecked | a finite number, `0 < ts < 4,102,444,800` (2100-01-01) |
+| `gate_value` | `true` passed, since `bool` is an `int` | a finite number in [0, 1], or null |
+| count values | `true` passed | a finite number in [0, 200] |
+| model id (both) | `re.match` with `$`, so a trailing `\n` passed | `fullmatch` |
+| a JSON integer beyond float range, e.g. `10**400` | `OverflowError`: HTTP 500, filed by the ingest as the server's own failure | refused as `ContractError`: HTTP 422, filed as `refused` |
+| refusal messages | quoted the submitted version, model, approach keys, lane names and values | name the field and the rule only |
+
+**Kept stable,** because existing tests match on them: "never MED",
+"Version mismatch", "gate_value", "same lanes", "config@12-hex" and
+"approaches".
+
+### Why each bound is what it is
+
+- **`confidences` in [0, 1].** Every producer emits a probability: MFSTNet's
+  softmax maximum, or persistence's measured precision. So does the PRD §17
+  example.
+- **`horizon_sec = 60`.** This is PRD §8.2's horizon. `CountForecast` already
+  required it, and no producer overrides the default.
+- **`ts < 2100-01-01`.**
+  - **Why an upper bound:** without one, a JSON integer of ~300 digits passed,
+    and `encode` stored every digit. That was about 128 chosen bytes per
+    message.
+  - **Why no lower epoch bound:** existing fixtures use `ts=1.0`
+    (`test_mqtt_contract.py`, lines 236 and 246).
+  - **What is left:** `ts` and every other float field still carry about 8
+    bytes of chosen precision each. That is inherent in a numeric field, and
+    it is stated here rather than claimed away.
+
+### Tests
+
+`tests/test_contract_fields.py` has 115 cases.
+
+| Run | Result |
+|---|---|
+| With P141 | **115 pass** |
+| On the P140 base | **83 fail, 32 pass** |
+
+The 32 that pass on the base are expected:
+- **9 compatibility controls** must pass on both: the valid payloads, the
+  three real producers' shapes, and a valid store over HTTP.
+- **23 are regression pins** for refusals the old code already made: the
+  count horizon, the gate range, the count range, and the "same lanes" and
+  missing-`v` messages.
+
+| Group | What it proves |
+|---|---|
+| Bounds | Bad `confidences` (10 values), `horizon_sec` (9 × 2 topics), `ts` (12 × 2 topics), `gate_value` (7) and count values (7) are each refused with a message naming the field |
+| Model id | A trailing newline is refused on both topics |
+| No echo, `decode` | 16 cases, each with a planted marker. They cover every rewritten message, plus "same lanes", missing version and overflow, pinned so a later edit cannot start quoting. The marker is absent from the `ContractError` |
+| No echo, HTTP | The same 16 cases: 422, the marker absent from the body, and **zero rows stored**. The old check could not fail, because the database is created only after a successful decode; it now counts rows |
+| Overflow | `10**400` in a confidence, the gate, the ts, a count, or a count's ts: HTTP 422, and the ingest gives refused 1, failed 0, stored 0 |
+| Compatibility | Valid payloads, integer bounds (0, 1), an integer epoch `ts` (PRD §17), a null gate, and the three real producers' shapes round-trip. A valid store over HTTP gives exactly 1 row per table |
+
+**Mutation check** (`mutate_p141.py`). Each of the 7 behaviours was reverted
+one at a time, and **all 7 were caught**:
+- the gate accepting `bool`;
+- a count accepting `bool`;
+- the count horizon accepting `60.0`;
+- no upper bound on `ts`;
+- `match` restored for each model pattern (two mutants);
+- overflow escaping.
+
+The two `bool` mutants are caught by the `True` and `False` cases themselves,
+not only by the overflow case.
+
+**Regression check** in a `git archive HEAD` snapshot with P140 and P141
+applied: 10 suites, **275 passed, 3 skipped**. The suites:
+- P141's and P140's new tests;
+- contract and server;
+- edge node, persistence, count forecast and edge forecaster;
+- live MQTT, which skips without a broker;
+- safety.
+
+`test_dashboard_evidence.py` was left out as before: it needs `.git`, and it
+passes in the repository.
+
+### Compatibility, checked
+
+| Area | Finding |
+|---|---|
+| **Producers** | No in-repo producer or consumer breaks: `edge/persistence.py`, `edge/forecaster.py`, `edge/count_forecast.py`, `edge/node.py`, the scripts and the dashboard. An independent review read all of them, and both real forecasters round-trip under P141 |
+| **Intended tightenings on the wire** | A payload with `horizon_sec` sent as `60.0`, or with `ts` 0, was accepted before and is now refused with 422. No in-repo producer sends either |
+| **numpy scalars** | `np.float64` is accepted, because it subclasses `float`. `np.float32`, `np.int64` and `np.int32` are now refused at construction. **Before P141 they failed anyway**, at `encode()` ("not JSON serializable"), so none could reach the wire. Producers convert with `float(...)` and `round(...)` |
+| **Stored rows** | `GET /…/latest` re-decodes the stored payload. A row stored before P141 that P141 refuses (a string `ts`, say) would make that endpoint return 500. **No server database exists on this machine** (`data/server/` is gitignored and absent), so no real row is affected. Any database carried over from an earlier deployment should be checked before P141 is applied |
+
+### Not changed by P141: a P142 candidate, found by the same review
+
+These are outside the two payload types, so they are left for P142. They are
+listed so that no document claims the boundary is closed while they remain.
+
+| Issue | Severity | Detail |
+|---|---|---|
+| **The intersection id is unvalidated free text** | must-fix | It comes from the URL path, or from the MQTT topic level. It is stored in SQLite and echoed in responses, and the 4,096-byte cap does not apply to it. A 12,000-character path id and a 48,000-character topic id were both accepted and stored. The ingest also logs the full topic, which therefore carries this text. **This is the largest remaining free-text channel.** The fix is a closed id pattern, checked in `route()` and in every handler that takes an id |
+| **Framework-level echoes on the same endpoints** | should-fix | With `Content-Type: application/json`, FastAPI's own 422 quotes the whole submitted body. `/history?limit=` quotes its input. The 404 replies from `/…/latest`, and `/history`, quote the id |
+| **`/observation`** | adjacent | `emergency_approach` is free text, stored in the `reason` column and echoed. An unknown approach key is quoted in its 422 |
+
+## P142 — the intersection id is a closed pattern wherever it enters, and no framework path repeats what the sender wrote (2026-10-21)
+
+**Status: applied 2026-10-21** in the integration batch, on top of P140 and
+P141, after the owner's review approved revision 2. Test:
+`tests/test_intersection_boundary.py`.
+
+**Integration fix (2026-10-21), found by the full suite before the commit.**
+- **The failure.** Revision 2 imported `Mount` from `starlette.routing`, in
+  `server/app.py` and in the test. Starlette is only a transitive dependency
+  of FastAPI and is not pinned, so `test_requirements_complete.py` failed
+  (NFR-08, clean-machine reproduction).
+- **Why the review runs missed it.** Those runs covered the related suites,
+  not this test.
+- **The fix.** Both imports now use `fastapi.routing.Mount`, the identical
+  class, through the pinned `fastapi`. There is no new dependency and no
+  change in behaviour.
+
+**Revision 2 (2026-10-21)** closes the access-log gap the P142 review found.
+- **The gap.** The filter logged any path made of plain tokens that matched a
+  route. But a route can match an id the contract refuses:
+  `/history/SECRETMARKER.x`, where `.` is allowed in a segment but not in an
+  id. And a static mount matches any sub-path: `/dashboard/SECRETMARKER`.
+- **The fix.** An API route's path is now logged only when every path
+  parameter is an `intersection_id` that passes `INTERSECTION_ID`. A mount is
+  logged as `<mount>/<static>`, never with its sub-path.
+
+- **The patch** is `P142-boundary.patch`: 472 lines, 8 files, diffed against
+  the P141-patched tree.
+- **The test** is `tests/test_intersection_boundary.py`.
+
+Both are held outside the repository.
+
+**Applying it.** The stack P140 → P141 → P142 applies cleanly to `HEAD`
+(`1967e55`). The result is identical to the tested tree, apart from line
+endings: the checkout uses CRLF.
+
+### Why
+
+The intersection id travels **outside** every payload:
+- in the URL path of five endpoints;
+- in the MQTT topic level;
+- in the `/observation` body.
+
+So the 4,096-byte payload cap never applied to it. P141's review stored a
+48,000-character id through the MQTT topic. P142's own review then found
+three more echo channels outside the application code, plus three unbounded
+fields on `/observation`, one of which was a safety bypass.
+
+### What changes
+
+| Area | Before | After |
+|---|---|---|
+| **The id** | Any text of any length, stored, echoed and logged | `INTERSECTION_ID = [A-Za-z0-9_-]{1,32}`, matched in full and defined once in `contracts/mqtt.py`. It is checked in both store functions (shared by HTTP and MQTT), in both `GET …/latest` handlers, in `/history`, in the `/observation` body (pydantic pattern) and in `route()` |
+| **Edge** | A node with a bad id published, and the server dropped every message silently | `EdgeNode` refuses a bad id at start-up |
+| **Trailing-slash redirect** | Starlette answered `/history/<anything>/` with a 307. Its `Location` header repeated the raw path (48 KB in a test), the query string and the `Host` header, before any check ran | `redirect_slashes=False`: a plain 404 with no `Location` |
+| **FastAPI's 422** | It quoted the submitted value (`input`), and named sender-chosen keys in `loc` | One handler keeps `type`, `loc[:2]` and `msg`. It drops `input` and `ctx` |
+| **uvicorn access log** | It logged every refused id and every query string verbatim; one line was 6,057 characters | A filter rewrites the logged target. **An API route's path is logged only if every path parameter is an `intersection_id` passing the contract's rule**; otherwise it is `<refused path>`. **A static mount is logged as `/dashboard/<static>`**, never with its sender-chosen sub-path. No route matched: `<unmatched path>`. A query becomes `?<query>`. The filter is installed when the module is imported, and is verified under real uvicorn |
+| **404 replies** | Quoted the id | Fixed text |
+| **`/history?limit=`** | `-1` returned every row, because SQLite reads `LIMIT -1` as no limit | `limit ≥ 1`; still clamped at 500 |
+| **`/observation`, counts and queues** | Any signed 64-bit integer was stored and returned by `/history`; `10**30` gave a 500 | Integers in 0 to 10,000 (`MAX_OBSERVED`) |
+| **`/observation`, heartbeat age** | Unbounded: `1e300` produced a 381-character stored `reason`. **`NaN` compared false against the timeout, so it skipped the FR-A06 fallback** | Finite and in 0 to 1,000,000 s |
+| **`/observation`, emergency approach** | Free text, stored in `reason` and echoed | `N`, `S`, `E` or `W`. Lower case is normalised, as `SignalGuard` always has done |
+| **`/observation`, `forecast` and `forecast_age_s`** | Unbounded, and unused by the server | Closed and bounded the same way; still unused |
+| **Ingest** | Records and logs held the raw topic; a refusal was not logged at all | Topics are labelled `<unrouted topic>` until the id checks out. Refusals are logged as a warning with the label, type and size |
+| **Dashboard** | Accepted an id of any length; a 33-character id showed an error | Same 32-character limit as the server |
+
+### One existing test changed — please review
+
+`tests/test_server_app.py::test_an_unknown_approach_is_refused` asserted that
+the bad key ("NORTH") **was** echoed in the 422. That echo is what P142
+removes.
+- **What still holds:** the test's purpose, that a typo'd key is refused
+  rather than read as zero traffic. It still asserts the 422.
+- **What it now also checks:** that the error names the `counts` field and
+  lists the allowed approaches.
+- **What is reversed:** only the echo assertion. It now requires "NORTH" to be
+  absent.
+
+### Tests
+
+`tests/test_intersection_boundary.py` has 118 cases.
+
+| Run | Result |
+|---|---|
+| With P142 | **118 pass** |
+| On the P141 base | **94 fail, 24 pass** |
+| **The 9 cases added in revision 2, against revision 1's filter** | **7 fail**: the 3 dotted-id paths and the 4 static-mount paths. The other 2 are a 33-character id, which revision 1 already refused, and a 32-character id, which must still be logged |
+
+The 24 that pass on the base are all compatibility controls: valid ids,
+valid observations, uppercase and lowercase emergency approaches, the stale
+heartbeat fallback, the clamp, valid ingest and a valid edge node. They must
+pass both before and after.
+
+The cases cover:
+- **Ids:** seven invalid kinds, plus a trailing-newline case:
+  - too long;
+  - 12,000 characters;
+  - a dot, a space, non-ASCII, `+` or `%`.
+
+  Each is checked across all five HTTP endpoints, `/observation`, the MQTT
+  ingest (records **and** log), `route()`, `intersection_of()` and
+  `EdgeNode`.
+- **Framework echoes:** a JSON-typed body, unknown keys, broken JSON, a bad
+  `limit`, trailing-slash redirects (including a reflected `Host` header), and
+  **the formatted access-log line** for 13 targets.
+- **Static mount:** 4 targets under a real static mount, which the fixture
+  adds the way `server.app` does when `dist` exists.
+- **`/observation` bounds:** 13 out-of-bound cases, `NaN`/`Infinity`
+  heartbeats, and 5 in-bound cases.
+
+**"Stores nothing" is checked by counting rows.** The clamp test inserts 600
+rows and asserts that exactly 500 come back.
+
+**Probes the HTTP tests rely on:**
+- **Ids reach the handler.** A spy on `check_intersection_id` shows that
+  percent-encoded ids arrive decoded (`'SECRETMARKER\n'`), so the refusal is
+  the server's, not the client's.
+- **The log filter works under real uvicorn**, with a built `dist`, so the
+  static mount exists. `probe_access_log.py` starts the server with uvicorn's
+  default logging and sends 10 hostile requests and 1 valid one, including
+  `/history/SECRETMARKER.x`, `/prediction/SECRETMARKER.x/latest`,
+  `/dashboard/SECRETMARKER` and `/dashboard/SECRETMARKER/x.js?q=…`.
+  - **What was logged:** `<refused path>`, `/dashboard/<static>` and
+    `/dashboard/<static>?<query>`.
+  - **No `Location` header came back**, and **no marker appeared in any log
+    line**.
+  - **Output:** `probe-access-log-stacked.txt`.
+
+**Mutation check** (`mutate_p142.py`; output in `p142-mutation.txt`). Each of
+the **29 protections** was reverted one at a time, and **all 29 were caught**.
+That includes:
+- **the two gaps the review found, put back:** trusting a route match, and
+  logging a mount's sub-path;
+- the redirect;
+- each part of the access-log filter;
+- each `/observation` bound;
+- the lowercase normalisation;
+- the edge check;
+- the refusal log;
+- the `match`-with-`$` mistake.
+
+All files are restored byte for byte after the run.
+
+**Regression check** in the patched snapshot: 11 Python suites give **384
+passed, 3 skipped**. The dashboard's vitest gives **13 of 13**, including the
+new length case. `test_dashboard_evidence.py` was left out as before: it needs
+`.git`, and it passes in the repository.
+
+### Compatibility
+
+| Area | Finding |
+|---|---|
+| **Ids in use** | Every id in the repo fits the pattern: `j1`, `j3`, `j7`, `j9`, `live`, `verify`, `bench`, `int01`, `a`, `b`, `x`, `nowhere`, and the dashboard's default `j1`. The `+` subscriptions still render |
+| **Clients** | Nothing in the repo parses a 422 or 404 body. The dashboard maps 404 to "unavailable" by status alone |
+| **Stored data** | Rows stored before P142 under an id outside the pattern can no longer be read: `GET …/latest` now returns 422 for them. No server database exists on this machine, so no real row is affected; a carried-over database should be checked first, as for P141 |
+| **Wire tightenings** | A lowercase emergency approach keeps working. Counts above 10,000, negative counts, and non-finite or negative ages are now refused. No in-repo producer sends any of them |
+
+### What remains, stated rather than claimed away
+
+1. **A valid id is still a small channel.** A matching id is stored and
+   echoed: about 24 chosen bytes per message. Only a configured registry of
+   known intersections closes that, and it is not proposed here. One
+   `SignalGuard` per distinct valid id is also kept in memory, without bound.
+2. **Numeric fields still carry a few bytes each** through their digits (as
+   recorded in P141).
+3. **Two 422 shapes.** A bad path id gives a string `detail`; framework
+   validation gives a list. Nothing parses either.
+4. **Kept on purpose:**
+   - The unknown-count-key check in `/observation` is now unreachable, but is
+     kept as a second line and no longer quotes the key.
+   - Dropping `ctx` currently removes nothing sensitive; it is a precaution.
+5. **The static `/dashboard` mount**, which exists only when `dashboard/dist`
+   is built, was probed with a throwaway `dist` (removed afterwards).
+   - **No redirect and no echo.** `/dashboard?q=<marker>` with a hostile
+     `Host`, `/dashboard/assets?q=<marker>` and `/dashboard/<marker>` all
+     returned a plain 404, with no `Location` and no marker.
+   - **One usability change.** `/dashboard` without the slash is now a 404
+     where it used to redirect, so the dashboard URL is `/dashboard/`.
+     - The only place the URL is written without the slash is P107's
+       changelog entry. That entry is historical and is left as it is.
+     - The TIM, when it is written, should give `/dashboard/`.
+6. **The vitest run went through a junction** to the repo's
+   `dashboard/node_modules`, so it may have refreshed its gitignored `.vite`
+   cache. No tracked file changed.
+
+## D1–D2 — the two Phase C integration findings, fixed narrowly (2026-10-21)
+
+**Status: applied 2026-10-21** in the integration batch, on top of P142, after
+the owner's review approved it. Tests: `tests/test_edge_classes.py`, and the
+banner assertions in `dashboard/src/dashboard.test.jsx`.
+
+By the owner's direction, these Phase C findings carry no P-number.
+
+### D1 — the edge could not publish counts from the deployed detector
+
+**The defect.** The ITD detector says 'two wheeler', 'autorickshaw', 'LCV',
+'bicycle' and 'pedestrain'. `VehicleCount` accepts PRD §12.2's eight classes
+only. So `EdgeNode.tick` raised an uncaught `ContractError` on the first
+two-wheeler. That ended the edge loop, and with it FR-A06's local cycle.
+
+**No new taxonomy decision.** The mapping the project already uses is applied:
+
+| Detector class | Contract class | Where it was already decided |
+|---|---|---|
+| two wheeler | motorcycle | `scripts/pseudo_label.py` `ITD_TO_OURS` |
+| autorickshaw | auto-rickshaw | the same; the wire spelling uses a hyphen |
+| car, bus, truck | unchanged | the same |
+| LCV | **truck** | the same, and DATASETS §6: "`Truck`+`LCV` to `truck`" is a merge of like things. PRD §12.2's truck includes "tempos" |
+| pedestrain | pedestrian | the same (ITD's spelling) |
+| bicycle | **dropped, never merged** | `class_mapping.yaml` and `ITD_TO_OURS`: a bicycle's PCE is not a motorcycle's |
+
+**No PCU weighting is introduced.** A kept vehicle counts one.
+
+#### What changed
+
+- **The mapping lives once**, in `indiatrafficnet/class_mapping.yaml` under
+  `itd_mapping` (the project's "versioned, not remembered" authority). Every
+  ITD class has an explicit entry. A test keeps the yaml equal to
+  `pseudo_label.ITD_TO_OURS`, so the two cannot drift.
+- **`edge/classes.py`** is new. `load_itd_mapping()` reads the mapping and
+  converts it to wire spelling, and refuses a target the contract lacks.
+  `normalise()` is **total**: every name ends up kept, dropped by decision, or
+  unknown. It never raises.
+- **`EdgeNode`** gains two fields:
+  - `detector_classes`, the mapping. The default is `None`, meaning the
+    caller already speaks contract names, so existing callers are unchanged.
+  - `excluded`, a tally of dropped or unknown classes. It is diagnostic only
+    and never goes on the wire.
+- **`EdgeNode.publish_counts` never raises:**
+  - **A dropped class** (bicycle) is left out, and the rest is published.
+  - **A class with no decision at all** withholds that lane's count, with a
+    warning. Publishing the rest would report fewer vehicles than were seen,
+    which is the missing-as-zero error P97a forbids.
+  - **Any remaining `ContractError`** is logged and returns `False`.
+  - **A withheld publish is not an acknowledgement.** So a node whose counts
+    can never be delivered **still falls back after 10 s** (FR-A06), rather
+    than dying or appearing healthy.
+- **The forecasters' input is unchanged.** Persistence and ridge still read
+  the detector's lane totals, which include bicycles: the corpus counted them,
+  and the frozen specs were calibrated on them. Only the `vehicle_count`
+  per-class breakdown follows the contract's taxonomy, and that topic is not
+  ingested by the server.
+- **The two counts are documented as separate, deliberately.** This is the
+  review point.
+  - **Where:** `edge/classes.py`'s docstring, and the SAD's new §4.3, which
+    has a table of both counts.
+  - **The rule:** never feed the forecasters the filtered count, and never
+    publish the raw totals as a contract count.
+
+#### Evidence
+
+| Check | Result |
+|---|---|
+| `tests/test_edge_classes.py` | 10 cases: **10 pass with D1, 0 pass without it** |
+| Related suites (P140–P142 tests, contract, server, edge node, forecasters, safety, vehicle ids, IDD mapping) | **421 passed, 1 skipped** |
+| Live-broker test (`test_mqtt_live.py`) | 4 of 4 |
+| **Phase C re-run on the full stack, with no harness adapter** (the node maps classes itself) | 300 samples. **0 of 900 lane count publishes undelivered.** 224 bicycle detections excluded (see the note below). 271 + 241 forecasts stored byte-identical. Dashboard matches the API. F1 to F4 all pass. **The forecast values are identical to the `HEAD` run.** Report: `phaseC/out-stacked/` |
+
+**About those 224 bicycles.** At NE8th they are mostly the painted
+bicycle-lane symbol that P95 documented: detected as a bicycle in nearly every
+frame, inside the west lane. Dropping bicycles from `vehicle_count` removes
+that artefact from the wire. **The forecasters still see it, as they did in
+calibration.**
+
+### D2 — the dashboard's safety banner was out of date
+
+| | Text |
+|---|---|
+| **Before** | "Open safety issue P97a: the controller's state contract encodes a missing approach as 0.0, the same value as LOW." That stopped being true at P110 |
+| **After** | "In the controller's state, 0.0 means an approach has no forecast and LOW is encoded as 1/3 (ADR-020 as amended, P110). Still open: P97a Part 2, the controller's behaviour under forecast faults, which is deferred." |
+
+**Also updated:** `dashboard/README.md`, which repeated the old sentence.
+
+**Left as written:** P107's changelog entry, which is historical.
+
+**Tested:** a dashboard test now asserts the new wording and the absence of
+the old. It passes 13 of 13 with D2, and fails on the old banner. The banner
+is visible in `phaseC/out-stacked/dashboard_after_run.png`.
+
+### Not changed by D1–D2
+
+`CLAUDE.md`, the project instruction file, still says: "The P97a
+missing-approach representation issue remains unresolved by this dashboard."
+That was stale in the same way the banner was. The same batch corrects it,
+with the owner's approval (CLAUDE-md-P97a).

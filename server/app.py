@@ -2,6 +2,11 @@
 
     uvicorn server.app:app --port 8000
 
+Importing this module attaches a filter to uvicorn's access log that writes a
+request's path only when every segment is a short plain token, and never its
+query string (P142): the default log line holds the raw path, so it recorded
+every refused intersection id at full length.
+
 **Thin on purpose.** Every rule that matters lives in `server/safety.py`, which
 has no HTTP in it and is tested without starting anything. This module routes,
 validates and stores. If a decision here looks surprising, the answer is in
@@ -24,25 +29,123 @@ would never fire in the case it exists for.
 
 from __future__ import annotations
 
+import logging
+import re
 import sqlite3
 import time
 from contextlib import closing
 from pathlib import Path
+from typing import Annotated, Literal
 
-from fastapi import Body, FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, BeforeValidator, Field
 
-from contracts.mqtt import ContractError, Topic, decode
+from contracts.mqtt import INTERSECTION_ID, ContractError, Topic, check_intersection_id, decode
 
 from server.safety import Decision, SafetyLimits, SignalGuard
 
 DATABASE = Path("data/server/stms.sqlite")
 APPROACHES = ("N", "S", "E", "W")
+Approach = Literal["N", "S", "E", "W"]
+#: The most vehicles, or queued vehicles, one approach can report in one
+#: observation. Far above any real junction; a larger value is a fault, and an
+#: unbounded int was a stored, `/history`-returned channel of 8 bytes a field (P142).
+MAX_OBSERVED = 10_000
+#: The oldest heartbeat age, or forecast age, a sender may report: about 11.6
+#: days. Beyond that the edge is long gone either way, and an unbounded float
+#: was formatted at full length into the stored `reason` (P142).
+MAX_AGE_S = 1_000_000.0
 
 app = FastAPI(
     title="STMS control server",
     summary="Counts in, signal commands out. No frames, ever (NFR-13).",
+    # P142: Starlette's default answers `/history/<id>/` with a 307 whose
+    # Location header repeats the path, the query string and the Host header,
+    # before any route — and so before any id check — runs.
+    redirect_slashes=False,
 )
+
+_LOGGABLE_SEGMENT = re.compile(r"[A-Za-z0-9_.-]{0,32}")
+
+
+def loggable_path(full_path: str) -> str:
+    """What the access log may say about a request target (P142). Never the
+    query string; the path only when every sender-chosen part of it is
+    already known to be safe. uvicorn's line held the raw target, so every
+    refused id was logged verbatim, at any length.
+
+    - A path that is not short plain tokens: `<refused path>`.
+    - An API route: logged only if each of its path parameters is an
+      `intersection_id` that passes the contract's rule. Matching the route is
+      not enough: `/history/<id>.x` matches `/history/{intersection_id}` and is
+      then refused by the handler, after uvicorn has logged it.
+    - A static mount: `<mount>/<static>`. A mount matches any sub-path, so
+      its sub-path is sender-chosen text and is never logged.
+    - Nothing matched: `<unmatched path>`.
+    """
+    # Through FastAPI, which is pinned: starlette is only a transitive
+    # dependency, and test_requirements_complete requires direct imports pinned.
+    from fastapi.routing import Mount
+
+    path, _, query = full_path.partition("?")
+    suffix = "?<query>" if query else ""
+    if len(path) > 256 or not all(_LOGGABLE_SEGMENT.fullmatch(s) for s in path.split("/")):
+        return "<refused path>"
+    for route in app.routes:
+        regex = getattr(route, "path_regex", None)
+        match = regex.match(path) if regex is not None else None
+        if match is None:
+            continue
+        if isinstance(route, Mount):
+            return f"{route.path}/<static>{suffix}"
+        if all(name == "intersection_id" and INTERSECTION_ID.fullmatch(value)
+               for name, value in match.groupdict().items()):
+            return path + suffix
+        return "<refused path>"
+    return "<unmatched path>"
+
+
+class AccessLogFilter(logging.Filter):
+    """Rewrites the target in uvicorn's access record, whose args are
+    (client, method, target, http_version, status)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple) and len(record.args) == 5:
+            client, method, target, version, status = record.args
+            record.args = (client, method, loggable_path(str(target)), version, status)
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(AccessLogFilter())
+
+
+@app.exception_handler(RequestValidationError)
+async def refuse_without_echo(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """FastAPI's own 422 quotes the submitted value (`input`) and can name a
+    submitted key in `loc`, which turns a refusal into an echo channel (P142).
+    This keeps what a sender needs — where, what kind of error, why — and drops
+    the rest: `input` and `ctx` always, and `loc` below the field name, where a
+    dictionary key the sender chose would appear."""
+    detail = [{"type": error.get("type"), "loc": list(error.get("loc", ()))[:2],
+               "msg": error.get("msg")} for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": detail})
+
+
+def valid_id(intersection_id: str) -> str:
+    """The path's intersection id, or a 422 that does not quote it (P142)."""
+    try:
+        return check_intersection_id(intersection_id)
+    except ContractError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+Count = Annotated[int, Field(ge=0, le=MAX_OBSERVED)]
+
+
+def _upper(value):
+    return value.upper() if isinstance(value, str) else value
 
 
 class Counts(BaseModel):
@@ -53,13 +156,22 @@ class Counts(BaseModel):
     that could be forgotten.
     """
 
-    intersection_id: str = Field(min_length=1, max_length=64)
-    counts: dict[str, int]
-    queues: dict[str, int] = Field(default_factory=dict)
-    emergency_approach: str | None = None
-    seconds_since_heartbeat: float = 0.0
-    forecast: dict[str, str] | None = None
-    forecast_age_s: float | None = None
+    # P142: every field is closed or bounded. The id is the contract's pattern;
+    # every key and the emergency approach are approaches; counts are 0 to
+    # MAX_OBSERVED; ages are finite, non-negative and capped. Before, the
+    # emergency approach was free text that reached the stored `reason`, counts
+    # were any 64-bit integer, and a NaN heartbeat age compared false against
+    # the timeout and so skipped the FR-A06 fallback.
+    intersection_id: str = Field(pattern=f"^{INTERSECTION_ID.pattern}$")
+    counts: dict[Approach, Count]
+    queues: dict[Approach, Count] = Field(default_factory=dict)
+    # Lower case is accepted and normalised, as `SignalGuard` always has (`.upper()`).
+    emergency_approach: Annotated[Approach | None, BeforeValidator(_upper)] = None
+    seconds_since_heartbeat: float = Field(0.0, ge=0.0, le=MAX_AGE_S, allow_inf_nan=False)
+    # Accepted and unused by the server today; closed so that it is not an
+    # unbounded inbound field either.
+    forecast: dict[Approach, Literal["LOW", "MEDIUM", "HIGH"]] | None = None
+    forecast_age_s: float | None = Field(None, ge=0.0, le=MAX_AGE_S, allow_inf_nan=False)
 
 
 class CommandOut(BaseModel):
@@ -165,11 +277,11 @@ def health() -> dict:
 @app.post("/observation", response_model=CommandOut)
 def observation(payload: Counts) -> CommandOut:
     """Counts in, one signal command out, with the rule that produced it."""
+    # `Counts` now types every key as an approach, so pydantic refuses an
+    # unknown one first. Kept as a second line, and it no longer quotes the key.
     unknown = set(payload.counts) - set(APPROACHES)
     if unknown:
-        raise HTTPException(
-            422, f"unknown approach(es) {sorted(unknown)}; expected "
-                 f"{list(APPROACHES)}")
+        raise HTTPException(422, f"count keys must be approaches {list(APPROACHES)}")
 
     guard = guard_for(payload.intersection_id)
     phase, green = propose(payload)
@@ -224,8 +336,10 @@ def store_prediction(intersection_id: str, raw: str | bytes):
     the MQTT subscriber (`server/mqtt_ingest.py`) alike, so the two paths
     cannot validate differently. Decoding through `contracts.mqtt.decode`
     checks the schema version, every field and the NFR-13 size cap before
-    anything is written. Raises `ContractError` on a payload it refuses.
+    anything is written. Raises `ContractError` on a payload it refuses, and
+    on an intersection id outside the contract's pattern (P142).
     """
+    check_intersection_id(intersection_id)
     payload = decode(Topic.PREDICTION, raw)
     with closing(connect()) as connection:
         connection.execute("INSERT INTO predictions VALUES (?,?,?,?)",
@@ -251,12 +365,13 @@ def prediction(intersection_id: str, raw: str = Body(..., media_type="text/plain
 
 @app.get("/prediction/{intersection_id}/latest")
 def latest_prediction(intersection_id: str) -> dict:
+    valid_id(intersection_id)
     with closing(connect()) as connection:
         row = connection.execute(
             "SELECT at, model, payload FROM predictions WHERE intersection_id = ? "
             "ORDER BY at DESC LIMIT 1", (intersection_id,)).fetchone()
     if row is None:
-        raise HTTPException(404, f"no prediction for {intersection_id} yet")
+        raise HTTPException(404, "no prediction for this intersection yet")
     payload = decode(Topic.PREDICTION, row[2])
     return {"at": row[0], "model": row[1], "role": role_of(row[1]),
             **freshness(row[0], payload.horizon_sec),
@@ -269,7 +384,9 @@ def latest_prediction(intersection_id: str) -> dict:
 
 def store_count_forecast(intersection_id: str, raw: str | bytes):
     """Validate one encoded `CountForecast` and store it (ADR-027). The single
-    entry point for count forecasts, over HTTP and over MQTT alike."""
+    entry point for count forecasts, over HTTP and over MQTT alike. The id is
+    checked here for the same reason as in `store_prediction` (P142)."""
+    check_intersection_id(intersection_id)
     payload = decode(Topic.COUNT_FORECAST, raw)
     with closing(connect()) as connection:
         connection.execute("INSERT INTO count_forecasts VALUES (?,?,?,?)",
@@ -296,12 +413,13 @@ def count_forecast(intersection_id: str, raw: str = Body(..., media_type="text/p
 
 @app.get("/count_forecast/{intersection_id}/latest")
 def latest_count_forecast(intersection_id: str) -> dict:
+    valid_id(intersection_id)
     with closing(connect()) as connection:
         row = connection.execute(
             "SELECT at, model, payload FROM count_forecasts WHERE intersection_id = ? "
             "ORDER BY at DESC LIMIT 1", (intersection_id,)).fetchone()
     if row is None:
-        raise HTTPException(404, f"no count forecast for {intersection_id} yet")
+        raise HTTPException(404, "no count forecast for this intersection yet")
     payload = decode(Topic.COUNT_FORECAST, row[2])
     return {"at": row[0], "model": row[1], "role": role_of(row[1]),
             **freshness(row[0], payload.horizon_sec),
@@ -398,8 +516,12 @@ def evidence() -> dict:
 
 
 @app.get("/history/{intersection_id}")
-def history(intersection_id: str, limit: int = 50) -> dict:
-    """Recent decisions, for the Live page's event panel (ADR-008, FR-UI0x)."""
+def history(intersection_id: str, limit: int = Query(50, ge=1)) -> dict:
+    """Recent decisions, for the Live page's event panel (ADR-008, FR-UI0x).
+
+    `limit` is at least 1 (P142): `min(-1, 500)` is -1, and SQLite reads
+    `LIMIT -1` as no limit at all. Above 500 it is still clamped, not refused."""
+    valid_id(intersection_id)
     with closing(connect()) as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(

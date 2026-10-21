@@ -2,9 +2,10 @@
 // GET, and only the three endpoints below. Nothing here can reach
 // /observation or any signal-control path, and the tests pin that.
 
+// The id part is the server's INTERSECTION_ID, length included (P142).
 export const ALLOWED = [
-  /^\/count_forecast\/[A-Za-z0-9_-]+\/latest$/,
-  /^\/prediction\/[A-Za-z0-9_-]+\/latest$/,
+  /^\/count_forecast\/[A-Za-z0-9_-]{1,32}\/latest$/,
+  /^\/prediction\/[A-Za-z0-9_-]{1,32}\/latest$/,
   /^\/evidence$/,
 ];
 

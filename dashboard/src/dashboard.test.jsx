@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import App from "./App.jsx";
+import App, { intersectionFromUrl } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
 import { ClassPanel, CountPanel } from "./Panels.jsx";
 import { validateClass, validateCount } from "./validate.js";
@@ -30,6 +30,13 @@ describe("read-only by construction", () => {
     for (const p of ["/observation", "/prediction/j1", "/count_forecast/j1", "/history/j1", "/x"]) {
       expect(isAllowed(p)).toBe(false);
     }
+  });
+  it("takes an id only in the server's pattern, length included (P142)", () => {
+    expect(isAllowed(`/prediction/${"x".repeat(32)}/latest`)).toBe(true);
+    expect(isAllowed(`/prediction/${"x".repeat(33)}/latest`)).toBe(false);
+    expect(intersectionFromUrl(`?id=${"x".repeat(32)}`)).toBe("x".repeat(32));
+    expect(intersectionFromUrl(`?id=${"x".repeat(33)}`)).toBe("j1");
+    expect(intersectionFromUrl("?id=j1.x")).toBe("j1");
   });
   it("refuses to call anything else, and uses GET", async () => {
     await expect(get("/observation", async () => ({}))).rejects.toThrow(/not an allowed endpoint/);
@@ -147,7 +154,12 @@ describe("the page", () => {
     await waitFor(() => expect(within(results).getByText(/abc1234/)).toBeTruthy());
     expect(within(live).queryByText(/abc1234|macro-F1|MAE/)).toBeNull();
     expect(within(results).queryByText(/ridge · point estimate/)).toBeNull();
-    expect(live.querySelector('[data-p97a="true"]').textContent).toMatch(/P97a/);
+    const banner = live.querySelector('[data-p97a="true"]').textContent;
+    expect(banner).toMatch(/P97a/);
+    // D2: the encoding as it is since P110, not as it was before.
+    expect(banner).toMatch(/0\.0 means an approach has no forecast/);
+    expect(banner).toMatch(/LOW is encoded as 1\/3/);
+    expect(banner).not.toMatch(/same value as LOW/);
     await waitFor(() => expect(within(live).getByText("ridge@73532968dcf2")).toBeTruthy());
     expect(within(live).getByText("persistence@2431c6641b9c")).toBeTruthy();
   });

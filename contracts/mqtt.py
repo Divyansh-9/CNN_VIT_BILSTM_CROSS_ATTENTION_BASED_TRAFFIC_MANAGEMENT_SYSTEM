@@ -46,6 +46,8 @@ __all__ = [
     "Heartbeat",
     "ContractError",
     "decode",
+    "INTERSECTION_ID",
+    "check_intersection_id",
 ]
 
 SCHEMA_VERSION = 2
@@ -67,6 +69,21 @@ COUNT_MODEL_ID = re.compile(r"^ridge@[0-9a-f]{12}$")
 #: average 0.2–11 vehicles; a value beyond this is a fault, not traffic.
 MAX_LANE_COUNT = 200.0
 APPROACHES = ("N", "S", "E", "W")
+#: An intersection id: a short code such as `j1` or `int01`. It travels outside
+#: every payload — in the URL path, in the MQTT topic and in the `/observation`
+#: body — so the payload cap never applied to it, and before P142 it was stored
+#: and echoed at any length. The character class is the dashboard's own
+#: (`intersectionFromUrl`); `fullmatch`, so a trailing newline cannot pass.
+INTERSECTION_ID = re.compile(r"[A-Za-z0-9_-]{1,32}")
+
+
+def check_intersection_id(value: Any) -> str:
+    """`value`, if it is a valid intersection id; otherwise a ContractError that
+    does not quote it — it would come back in an HTTP body or a log (P142)."""
+    if not isinstance(value, str) or not INTERSECTION_ID.fullmatch(value):
+        raise ContractError("intersection id must be 1 to 32 characters from "
+                            "A-Z, a-z, 0-9, '_' and '-'")
+    return value
 #: PRD §17 names "ambulance" and nothing else. Extending the set is a contract
 #: diff, which is the point of having one.
 EMERGENCY_TYPES = ("ambulance",)
@@ -202,6 +219,34 @@ def _bounded(topic: str, text: str | bytes) -> None:
             f"this size is either.")
 
 
+def _finite_number(value: Any) -> bool:
+    """A real, finite number. `bool` is excluded although Python counts it as an
+    int: `true` is not a probability, a count or a time (P141). A JSON integer
+    too large for a float is not finite either; `math.isfinite` would raise
+    OverflowError on it, which is not a ContractError."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
+#: `ts` is epoch seconds, so it is bounded above as well as below. Without the
+#: upper bound a JSON integer of ~300 digits passed, and `encode` stored every
+#: digit: about 128 chosen bytes per message (P141). 2100-01-01T00:00:00Z.
+TS_MAX = 4_102_444_800
+
+
+def _valid_ts(value: Any) -> bool:
+    return _finite_number(value) and 0 < value < TS_MAX
+
+
+def _not_an_int(value: Any) -> bool:
+    """True unless `value` is an int proper: `60.0`, `"60"` and `True` all fail."""
+    return isinstance(value, bool) or not isinstance(value, int)
+
+
 @dataclass(frozen=True)
 class _Payload:
     def encode(self) -> str:
@@ -295,24 +340,36 @@ class CongestionPrediction(_Payload):
     ts: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
+        # P141: every field is typed and bounded, because this payload crosses
+        # the edge boundary and is stored; an unchecked field is a free-text
+        # channel. No message quotes a submitted key or value — they become
+        # HTTP 422 bodies — but each names the field and the rule.
         if set(self.predictions) != set(self.confidences):
             raise ContractError("predictions and confidences must cover the same lanes")
-        for lane, cls in self.predictions.items():
-            if not isinstance(cls, CongestionClass):
-                raise ContractError(
-                    f"lane {lane}: prediction must be a CongestionClass, got {cls!r}. "
-                    f"D1 — the wire spelling is MEDIUM, never MED."
-                )
+        if not all(isinstance(cls, CongestionClass) for cls in self.predictions.values()):
+            raise ContractError(
+                "every prediction must be a CongestionClass. "
+                "D1 — the wire spelling is MEDIUM, never MED.")
         if set(self.predictions) - set(APPROACHES):
             raise ContractError(
-                f"prediction keys must be approaches {list(APPROACHES)}; got "
-                f"{sorted(self.predictions)}. Map keys are text too (NFR-13).")
-        if self.gate_value is not None and not 0.0 <= self.gate_value <= 1.0:
-            raise ContractError(f"gate_value must be in [0, 1] or None, got {self.gate_value}")
-        if not isinstance(self.model, str) or not MODEL_ID.match(self.model):
+                f"prediction keys must be approaches {list(APPROACHES)}. "
+                f"Map keys are text too (NFR-13).")
+        if not all(_finite_number(c) and 0.0 <= c <= 1.0 for c in self.confidences.values()):
+            raise ContractError("confidences must be numbers in [0, 1], one per predicted "
+                                "approach")
+        if self.gate_value is not None and not (
+                _finite_number(self.gate_value) and 0.0 <= self.gate_value <= 1.0):
+            raise ContractError("gate_value must be a number in [0, 1], or None")
+        if _not_an_int(self.horizon_sec) or self.horizon_sec != 60:
+            raise ContractError("horizon_sec must be the integer 60, the PRD §8.2 horizon")
+        if not _valid_ts(self.ts):
+            raise ContractError("ts must be a positive, finite number of epoch seconds "
+                                "before 2100")
+        # fullmatch, not match: `$` also matches before a trailing newline (P141).
+        if not isinstance(self.model, str) or not MODEL_ID.fullmatch(self.model):
             raise ContractError(
-                f"model must be config@12-hex-digest or persistence@12-hex-digest, "
-                f"got {self.model!r}. It names the verified graph or the frozen "
+                f"model must be config@12-hex-digest or persistence@12-hex-digest. "
+                f"It names the verified graph or the frozen "
                 f"persistence spec, and nothing else.")
 
     def to_state_values(self, lanes: tuple[str, ...] = ("N", "S", "E", "W")) -> list[float]:
@@ -371,21 +428,26 @@ class CountForecast(_Payload):
     def __post_init__(self) -> None:
         if not self.counts:
             raise ContractError("a count forecast must cover at least one approach")
+        # P141: as for CongestionPrediction, no message quotes a submitted key
+        # or value, and `ts` is typed — it was the one field left unchecked.
         if set(self.counts) - set(APPROACHES):
             raise ContractError(
-                f"count keys must be approaches {list(APPROACHES)}; got "
-                f"{sorted(self.counts)}. Map keys are text too (NFR-13).")
-        for lane, value in self.counts.items():
-            if not isinstance(value, (int, float)) or not math.isfinite(value)                     or not 0.0 <= value <= MAX_LANE_COUNT:
-                raise ContractError(
-                    f"lane {lane}: forecast count must be finite and in "
-                    f"[0, {MAX_LANE_COUNT:.0f}], got {value!r}")
-        if not isinstance(self.model, str) or not COUNT_MODEL_ID.match(self.model):
+                f"count keys must be approaches {list(APPROACHES)}. "
+                f"Map keys are text too (NFR-13).")
+        if not all(_finite_number(v) and 0.0 <= v <= MAX_LANE_COUNT
+                   for v in self.counts.values()):
             raise ContractError(
-                f"model must be ridge@12-hex-digest, got {self.model!r}. It names "
-                f"the frozen count-forecaster spec and nothing else.")
-        if self.horizon_sec != 60:
-            raise ContractError(f"horizon_sec must be 60 (P105's target), got {self.horizon_sec}")
+                f"every forecast count must be a finite number in "
+                f"[0, {MAX_LANE_COUNT:.0f}]")
+        if not isinstance(self.model, str) or not COUNT_MODEL_ID.fullmatch(self.model):
+            raise ContractError(
+                "model must be ridge@12-hex-digest. It names the frozen "
+                "count-forecaster spec and nothing else.")
+        if _not_an_int(self.horizon_sec) or self.horizon_sec != 60:
+            raise ContractError("horizon_sec must be the integer 60 (P105's target)")
+        if not _valid_ts(self.ts):
+            raise ContractError("ts must be a positive, finite number of epoch seconds "
+                                "before 2100")
 
 
 @dataclass(frozen=True)
@@ -425,8 +487,14 @@ def decode(topic: Topic, raw: str | bytes) -> Any:
     _bounded(topic.name, raw)
     try:
         data: dict[str, Any] = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise ContractError(f"{topic.name}: payload is not valid JSON — {exc}") from exc
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ContractError(f"{topic.name}: payload is not valid UTF-8 JSON — "
+                            f"{type(exc).__name__}") from exc
+    # Valid JSON is not yet a payload: `[]` or `null` parse, and `.pop` on
+    # them raised AttributeError before any refusal could run (P140).
+    if not isinstance(data, dict):
+        raise ContractError(f"{topic.name}: payload must be a JSON object, "
+                            f"got {type(data).__name__}")
 
     version = data.pop("v", None)
     if version is None:
@@ -435,21 +503,35 @@ def decode(topic: Topic, raw: str | bytes) -> Any:
             f"v{SCHEMA_VERSION} — upgrade it rather than guessing the shape."
         )
     if version != SCHEMA_VERSION:
+        # The submitted version is not quoted: this message is an HTTP 422 body,
+        # and a refusal must not repeat what the sender wrote (P141).
         raise ContractError(
-            f"{topic.name}: payload is schema v{version}, this consumer speaks "
-            f"v{SCHEMA_VERSION}. Version mismatch, not malformed data — fix the "
+            f"{topic.name}: payload is not schema v{SCHEMA_VERSION}, which this "
+            f"consumer speaks. Version mismatch, not malformed data — fix the "
             f"producer or the consumer, do not coerce."
         )
 
     cls = _PAYLOAD_FOR[topic]
-    if cls is CongestionPrediction:
-        data["predictions"] = {k: CongestionClass(v) for k, v in data["predictions"].items()}
-    elif cls is Heartbeat:
-        data["mode"] = Mode(data["mode"])
-    elif cls is SignalCommand:
-        data["source"] = CommandSource(data["source"])
-
+    # The enum conversions belong inside the refusal too (P140). Outside it, an
+    # unknown class or a missing field raised ValueError or KeyError, which the
+    # server answered with 500 and the MQTT ingest let escape into paho's thread.
+    # ContractError is itself a ValueError, so one raised by a payload's own
+    # validation passes through unchanged.
     try:
+        if cls is CongestionPrediction:
+            data["predictions"] = {k: CongestionClass(v) for k, v in data["predictions"].items()}
+        elif cls is Heartbeat:
+            data["mode"] = Mode(data["mode"])
+        elif cls is SignalCommand:
+            data["source"] = CommandSource(data["source"])
         return cls(**data)
-    except TypeError as exc:
-        raise ContractError(f"{topic.name}: payload does not match the schema — {exc}") from exc
+    except ContractError:
+        raise
+    except (TypeError, ValueError, KeyError, AttributeError, OverflowError) as exc:
+        # OverflowError (P141): a JSON integer beyond float range raises it in
+        # any float comparison or conversion, and it is not a ValueError.
+        # The type only: the exception's own text can quote the offending
+        # value, and this message reaches HTTP responses. `from exc` keeps the
+        # detail for anyone debugging in-process.
+        raise ContractError(f"{topic.name}: payload does not match the schema — "
+                            f"{type(exc).__name__}") from exc

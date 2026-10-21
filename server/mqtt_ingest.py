@@ -16,31 +16,44 @@ anywhere (NFR-13).
 from __future__ import annotations
 
 import argparse
+import logging
 import threading
 import time
 
-from contracts.mqtt import ContractError, Topic
+from contracts.mqtt import ContractError, Topic, check_intersection_id
 
 __all__ = ["PredictionIngest"]
+
+log = logging.getLogger(__name__)
 
 
 INGESTED = (Topic.PREDICTION, Topic.COUNT_FORECAST)
 
 
+#: What the records and the log say instead of a topic that did not route. The
+#: topic level carries the sender's intersection id, which is free text of any
+#: length until it has been checked (P142).
+UNROUTED = "<unrouted topic>"
+
+
 def route(topic: str) -> tuple[str, Topic]:
-    """`stms/{id}/…` -> (`id`, the contract topic it renders), or refuse."""
+    """`stms/{id}/…` -> (`id`, the contract topic it renders), or refuse.
+
+    The id must match the contract's pattern (P142): it is stored with every
+    message, and before this check any text of any length was. Neither refusal
+    quotes the topic."""
     parts = topic.split("/")
     for candidate in INGESTED:
         if len(parts) == 4 and candidate.render(parts[1]) == topic:
-            return parts[1], candidate
-    raise ContractError(f"not an ingested topic: {topic!r}")
+            return check_intersection_id(parts[1]), candidate
+    raise ContractError("not an ingested topic")
 
 
 def intersection_of(topic: str) -> str:
     """`stms/{id}/congestion/prediction` -> `id`, checked against the contract."""
     identifier, which = route(topic)
     if which is not Topic.PREDICTION:
-        raise ContractError(f"not a prediction topic: {topic!r}")
+        raise ContractError("not a prediction topic")
     return identifier
 
 
@@ -56,6 +69,10 @@ class PredictionIngest:
         # uses it to measure delivery separately from send time.
         self.arrivals: list[float] = []
         self.refused: list[tuple[str, str]] = []
+        # A valid message the server could not process, a locked database say.
+        # Kept apart from `refused`: that one is the producer's fault, this one
+        # is ours, and the message may well have been good (P140).
+        self.failed: list[tuple[str, str]] = []
         self._subscribed = threading.Event()
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
                                   client_id=client_id, clean_session=True)
@@ -70,8 +87,13 @@ class PredictionIngest:
     def _on_message(self, client, userdata, message):
         from server.app import store_count_forecast, store_prediction
 
+        # The topic is named in records and logs only once it has routed, as
+        # the contract re-renders it from a checked id; until then it is
+        # `UNROUTED` (P142).
+        label = UNROUTED
         try:
             identifier, which = route(message.topic)
+            label = which.render(identifier)
             store = store_prediction if which is Topic.PREDICTION else store_count_forecast
             store(identifier, message.payload)
             self.stored += 1
@@ -81,9 +103,25 @@ class PredictionIngest:
             # for the producer's benefit, so even the message is not logged
             # here: a refused payload is exactly the one that must not be
             # written anywhere (NFR-13).
-            self.refused.append((message.topic,
+            self.refused.append((label,
                                  f"{type(error).__name__}, "
                                  f"{len(message.payload)} bytes"))
+            # Logged too (P142): an edge with a bad id used to have every
+            # message dropped with nothing in the log to say so. The label is
+            # `<unrouted topic>` unless the id checked out.
+            log.warning("ingest refused a message on %s: %s, %d bytes",
+                        label, type(error).__name__, len(message.payload))
+        except Exception as error:  # noqa: BLE001
+            # Anything else is a processing failure, not a refusal. It must not
+            # escape: paho re-raises a callback's exception in its network
+            # thread (suppress_exceptions is False by default), which would stop
+            # all ingest silently (P140). Recorded and logged with the topic,
+            # the exception type and the size only; never the content.
+            self.failed.append((label,
+                                f"{type(error).__name__}, "
+                                f"{len(message.payload)} bytes"))
+            log.error("ingest failed to process a message on %s: %s, %d bytes",
+                      label, type(error).__name__, len(message.payload))
 
     def start(self, wait_s: float = 5.0) -> bool:
         self.client.connect_async(self.host, self.port)

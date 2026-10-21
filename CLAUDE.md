@@ -533,15 +533,18 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
 - **Historical results:** evaluation evidence loaded from committed result
   files through `GET /evidence`, explicitly not a live performance guarantee.
 - **Safety boundary:** the dashboard is GET-only, with no signal-control
-  integration. The P97a missing-approach representation issue remains
-  unresolved by this dashboard.
+  integration. It shows a missing approach as missing, never as LOW, and its
+  banner states the controller's encoding since P110 (0.0 = no forecast,
+  LOW = 1/3). P97a Part 2, the controller's behaviour under forecast faults,
+  remains deferred; the dashboard does not address it.
 - **Refresh:** HTTP polling every 2 seconds.
 - **Validation:** browser-checked at desktop and phone widths, including a
   real-data end-to-end test, stale responses, missing approaches and API error
   states. `cd dashboard && npm test` runs its tests.
 
 **Not implemented:** WebSocket updates, charts, the ADR-014 agreement ribbon,
-the detection overlay, authentication, and dashboard tests in CI.
+the detection overlay and authentication. Dashboard tests do run in CI: the
+`dashboard (vitest + build)` job runs `npm test`.
 
 **Forecasting roles:** ADR-027 remains authoritative. MFSTNet's edge path
 remains intact, and vision claim C2 remains open. The end-to-end test shows

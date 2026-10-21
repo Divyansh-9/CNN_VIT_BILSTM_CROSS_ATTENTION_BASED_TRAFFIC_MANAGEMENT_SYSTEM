@@ -26,9 +26,11 @@ pins that.
 - **Show live accuracy.** Scoring forecasts against the detector's own counts
   would be circular (ADR-014). Evaluation numbers appear only in Results, as
   historical evidence.
-- **Hide P97a.** The live region states that the controller's state contract
-  encodes a missing approach as 0.0, the same as LOW. Showing missing
-  approaches as missing does not fix that contract.
+- **Hide P97a.** The live region states that 0.0 in the controller's state
+  means "no forecast for this approach" and that LOW is encoded as 1/3
+  (ADR-020 as amended, P110), and that P97a Part 2 (the controller under
+  forecast faults) is deferred and still open. Before D2 it said a missing
+  approach was 0.0, the same as LOW, which stopped being true at P110.
 
 ## Run, build, test
 

@@ -77,11 +77,16 @@ def test_an_observation_returns_a_command_with_its_reason(client):
 
 def test_an_unknown_approach_is_refused(client):
     """A typo'd key would otherwise read as zero traffic on that approach,
-    which is the most dangerous possible default."""
+    which is the most dangerous possible default.
+
+    P142: the refusal names the field and the allowed approaches, but no longer
+    repeats the submitted key — a sender's key is an echo channel."""
     response = client.post("/observation",
                            json=counts(counts={"N": 5, "NORTH": 9}))
     assert response.status_code == 422
-    assert "NORTH" in response.json()["detail"]
+    detail = response.json()["detail"][0]
+    assert detail["loc"] == ["body", "counts"] and "'N'" in detail["msg"]
+    assert "NORTH" not in response.text
 
 
 # ---------------------------------------------------------- FR-A05/A06 --

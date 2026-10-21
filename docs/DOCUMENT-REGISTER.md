@@ -90,8 +90,8 @@ changed, and the answer should be a document rather than a recollection.
 | Document | Status | Owner | Due |
 |---|---|---|---|
 | [HLD — detection & corpus pipeline](02-design/HLD-detection-corpus-pipeline.md) | **Active** (1.1 — A15 window math) | R1 | Delivered early |
-| SAD | Scheduled | All | Week 5 |
-| HLD (remaining subsystems) | Scheduled | Per owner | Week 5 |
+| [SAD](02-design/SAD.md) | **Active** (1.0, approved 2026-10-21) | All | Delivered |
+| [HLD — remaining subsystems](02-design/HLD.md) | **Active** (1.0, approved 2026-10-21) | Per owner | Delivered |
 | LLD | Scheduled | Per owner | Week 5 |
 | STP · STD · UAT | Scheduled | All | Week 11 |
 | STR | Scheduled | All | Week 16 |
@@ -101,6 +101,7 @@ changed, and the answer should be a document rather than a recollection.
 
 | Document | Ver | Status | Owner | Checked | Notes |
 |---|---|---|---|---|---|
+| [PLAN-D3 — committed edge entry point](plans/PLAN-D3-edge-entry-point.md) | 1.0 | Tracked, not started | Owner | 2026-10-21 | HLD §9-C1. Done criteria fixed by review; blocks TIM and SOP |
 | [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | 1.1 | Active | R1 | 2026-08-10 | WI-01..WI-19. **WI-12/13 done, WI-15 partly**; reordered ahead of the blocked pilots, with the reason recorded |
 
 ## Repository scaffolding

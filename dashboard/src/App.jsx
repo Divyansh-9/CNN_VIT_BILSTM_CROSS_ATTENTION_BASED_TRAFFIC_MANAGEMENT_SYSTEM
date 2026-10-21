@@ -6,7 +6,8 @@ const REFRESH_MS = 2000; // PRD: dashboard refresh within 2 s
 
 export function intersectionFromUrl(search) {
   const id = new URLSearchParams(search).get("id") || "j1";
-  return /^[A-Za-z0-9_-]+$/.test(id) ? id : "j1";
+  // The server's INTERSECTION_ID (contracts/mqtt.py, P142), length included.
+  return /^[A-Za-z0-9_-]{1,32}$/.test(id) ? id : "j1";
 }
 
 export default function App({ fetcher, search = window.location.search }) {
@@ -25,9 +26,10 @@ export default function App({ fetcher, search = window.location.search }) {
       <section className={styles.live} aria-label="Live monitor">
         <h2 className={styles.region}>Live forecasts</h2>
         <p className={styles.warning} data-p97a="true">
-          Display only: neither forecast is connected to signal timing. Open safety issue P97a: the
-          controller's state contract encodes a missing approach as 0.0, the same value as LOW.
-          This page shows missing approaches as missing, which does not fix that contract.
+          Display only: neither forecast is connected to signal timing. In the controller's state,
+          0.0 means an approach has no forecast and LOW is encoded as 1/3 (ADR-020 as amended,
+          P110). Still open: P97a Part 2, the controller's behaviour under forecast faults, which
+          is deferred.
         </p>
         <div className={styles.grid}>
           <CountPanel state={count} />

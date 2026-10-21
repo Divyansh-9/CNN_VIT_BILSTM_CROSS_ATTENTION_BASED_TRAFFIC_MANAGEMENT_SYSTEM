@@ -21,17 +21,21 @@ embedded Webster cycle. It cannot ask the server whether the server is reachable
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from contracts.mqtt import (CongestionPrediction, CountForecast, Heartbeat, Mode, Topic,
-                            VehicleCount)
+from contracts.mqtt import (ContractError, CongestionPrediction, CountForecast, Heartbeat, Mode,
+                            Topic, VehicleCount, check_intersection_id)
+from edge.classes import normalise
 
 __all__ = ["Transport", "RecordingTransport", "EdgeNode", "LocalWebster"]
 
 DEFAULT_TIMEOUT_S = 10.0        # FR-A06
+
+log = logging.getLogger(__name__)
 
 
 class Transport(Protocol):
@@ -107,17 +111,48 @@ class EdgeNode:
     # forecaster that is loaded but never produced output does not read as
     # active on the dashboard.
     forecasting: bool = False
+    # D1: the detector's class names -> contract classes (edge.classes,
+    # class_mapping.yaml `itd_mapping`). None means the caller already speaks
+    # the contract's names. Classes dropped or unknown are tallied in
+    # `excluded`, a diagnostic that never goes on the wire.
+    detector_classes: dict[str, str | None] | None = None
+    excluded: dict[str, int] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # P142: the server refuses every message whose topic carries an id
+        # outside the contract's pattern. Checked here so a misconfigured node
+        # fails at start-up instead of publishing into a refusal for ever.
+        check_intersection_id(self.intersection_id)
 
     def publish_counts(self, lane: str, types: dict[str, int], fps: float,
                        now: float | None = None) -> bool:
         """One lane's counts. Returns whether the link took it.
 
-        The payload is a `VehicleCount`, so a per-class breakdown that does not
-        sum to the total raises here rather than reaching a consumer that
-        cannot tell which number to trust.
+        The payload is a `VehicleCount`, built from the contract's class names
+        only (D1). Detector names are mapped first; a class dropped by decision
+        (`bicycle`) is left out and tallied in `excluded`. A class with no
+        decision at all withholds the lane's count, because publishing the rest
+        would report fewer vehicles than were seen (P97a).
+
+        It does not raise. Before D1 the first two-wheeler raised a
+        ContractError here, which ended the edge loop and with it FR-A06's
+        local cycle. A withheld or refused publish is not an acknowledgement,
+        so a node whose counts can never be delivered still falls back after
+        the timeout.
         """
         now = time.time() if now is None else now
-        payload = VehicleCount(count=sum(types.values()), types=types, fps=fps)
+        types, dropped, unknown = normalise(types, self.detector_classes)
+        for name, n in {**dropped, **unknown}.items():
+            self.excluded[name] = self.excluded.get(name, 0) + n
+        if unknown:
+            log.warning("counts for %s withheld: %d class name(s) with no mapping, "
+                        "refused by the contract", lane, len(unknown))
+            return False
+        try:
+            payload = VehicleCount(count=sum(types.values()), types=types, fps=fps)
+        except ContractError as error:
+            log.warning("counts for %s refused by the contract: %s", lane, error)
+            return False
         topic = Topic.VEHICLE_COUNT.render(self.intersection_id, lane)
         try:
             self.transport.publish(topic, payload.encode(),

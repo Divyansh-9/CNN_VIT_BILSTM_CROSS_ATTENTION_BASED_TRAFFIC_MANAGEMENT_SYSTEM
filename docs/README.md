@@ -58,7 +58,7 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 | Document | Status |
 |---|---|
 | [HLD — detection & corpus pipeline](02-design/HLD-detection-corpus-pipeline.md) | **Delivered early** — the pipeline design, including the evaluation-integrity analysis and the per-lane ROI pooling fix |
-| [Design](02-design/) — SAD, remaining HLD, LLD | Week 5 |
+| [SAD](02-design/SAD.md) and [HLD](02-design/HLD.md) | **Delivered** 2026-10-21 · LLD scheduled |
 | [Testing](03-testing/) — STP, STD, UAT | Week 11 · STR Week 16 |
 | [Deployment](04-deployment/) — TIM, SOP | Week 16 |
 | [99-archive/](99-archive/) | Superseded documents, retained for the decision trail |
@@ -80,7 +80,7 @@ Documents are written in four waves gated on the PRD §18 phases, not all upfron
 | Wave | Gate | Documents | Status |
 |---|---|---|---|
 | 1 | Week 0–1 | SOW, BRD, SRS, FRD, NFR, RTM, ADRs, Execution Manual | **Delivered** |
-| 2 | Week 5 | SAD, HLD, LLD | Scheduled |
+| 2 | Week 5 | SAD, HLD, LLD | SAD and HLD **delivered**; LLD scheduled |
 | 3 | Week 11 | STP, STD, UAT | Scheduled |
 | 4 | Week 16 | STR, TIM, SOP | Scheduled |
 
@@ -107,6 +107,7 @@ PRD-CHANGELOG rather than working around it.
 | | |
 |---|---|
 | [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | WI-01..WI-19, Weeks 2–9. The first build sequence |
+| [PLAN-D3 — committed edge entry point](plans/PLAN-D3-edge-entry-point.md) | Tracked. The deployed edge path has no committed entry point; done criteria set by review. Blocks TIM and SOP |
 | [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | One page for the faculty guide. **Submit Week 1–2** |
 
 Run `python scripts/check_env.py` before setup and `python scripts/check_docs.py` before any
