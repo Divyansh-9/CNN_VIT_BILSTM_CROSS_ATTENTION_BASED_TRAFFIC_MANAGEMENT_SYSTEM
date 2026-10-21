@@ -107,7 +107,7 @@ PRD-CHANGELOG rather than working around it.
 | | |
 |---|---|
 | [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | WI-01..WI-19, Weeks 2–9. The first build sequence |
-| [PLAN-D3 — committed edge entry point](plans/PLAN-D3-edge-entry-point.md) | Tracked. The deployed edge path has no committed entry point; done criteria set by review. Blocks TIM and SOP |
+| [PLAN-D3 — committed edge entry point](plans/PLAN-D3-edge-entry-point.md) | Implemented 2026-10-21: `python -m edge.run`, with a test for each done criterion. A clean-environment start-up check precedes the TIM and SOP |
 | [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | One page for the faculty guide. **Submit Week 1–2** |
 
 Run `python scripts/check_env.py` before setup and `python scripts/check_docs.py` before any

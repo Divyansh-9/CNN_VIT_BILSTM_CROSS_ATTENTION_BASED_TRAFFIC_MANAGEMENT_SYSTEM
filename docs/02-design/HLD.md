@@ -6,7 +6,7 @@
 | **Status** | **Approved** by the owner's review, 2026-10-21. Committed with the batch it describes |
 | **Describes** | The modules, interfaces and data flow of each subsystem, at `1967e55` plus the **integration batch of 2026-10-21** (P140, P141, P142, D1, D2), committed with this document. **[batch]** marks what that batch changed relative to `1967e55` |
 | **Builds on** | The [SAD](SAD.md), which is accepted for HLD review, and the [HLD — Detection & Corpus Pipeline](HLD-detection-corpus-pipeline.md), which this document does not repeat. **The `SAD.md` link resolves only once both documents are committed to `docs/02-design/`. It is verified there by `scripts/check_docs.py` at integration, not assumed** |
-| **Edge deployment** | **§4 is the intended edge design, not a runnable repository deployment.** No committed program runs it (§9-C1, tracked as D3) |
+| **Edge deployment** | §4 is run by `python -m edge.run`, committed by D3 (2026-10-21), which resolves §9-C1. A clean-environment check of the start-up is still owed before the TIM and SOP |
 | **Audience** | The faculty guide, examiners, and a team member about to change one subsystem |
 
 > **What this design does not include:**
@@ -231,7 +231,8 @@ frame (in memory; NFR-13)
 - **What the evidence supports:** the fallback fired and recovered.
 - **What it does not establish:** an exact correspondence with the 10 s
   threshold. The node's own tests check that (`tests/test_edge_node.py`).
-  D3's tests should measure from `last_ack`.
+  D3's tests measure from `last_ack` (`tests/test_edge_run.py`), and D3's
+  live run logged the switch 12.0 s after the last acknowledged publish.
 
 ### 4.4 Identity [batch: P142]
 
@@ -383,7 +384,7 @@ The guard has no transport code.
 
 ## 9. Conflicts found while writing this HLD (recorded, not reconciled)
 
-**C1 — There is no committed edge program for the deployed path. Material.**
+**C1 — There was no committed edge program for the deployed path. Material; resolved by D3.**
 - **The gap.** `edge/node.py`'s docstring says
   `python -m edge.node --source clip.mp4 --lanes …`, but **no module in
   `edge/` has an entry point**. Nothing in the repository runs detector →
@@ -406,6 +407,10 @@ The guard has no transport code.
   - frames kept in memory only.
 
   Moving the harness loop is not enough.
+- **Resolved by D3 (2026-10-21).** `edge/run.py` is the committed program and
+  `tests/test_edge_run.py` covers each item above. On the Phase C footage, a
+  live run reproduced Phase C's stored forecasts payload for payload
+  (PRD-CHANGELOG, D3). §4 is no longer only an intended design.
 
 **C2 — The A–H table is in code, not YAML.** It meets NFR-15 (no code edit
 between configurations), but not the project's "config, not code" convention

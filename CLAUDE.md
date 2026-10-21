@@ -521,7 +521,9 @@ python scripts/evaluate_detector_arms.py --weights <pt>         # A31 viewpoint 
 ```
 
 ONNX export, the FastAPI control server and the edge node all exist —
-`server/app.py`, `server/safety.py`, `edge/node.py`, `contracts/mqtt.py`.
+`server/app.py`, `server/safety.py`, `edge/node.py`, `contracts/mqtt.py`. The
+deployed edge path runs as `python -m edge.run` (D3; `--help` lists the flags,
+and `--source camera` reads the stream URL from `STMS_CAMERA_URL`).
 
 ### Dashboard status
 

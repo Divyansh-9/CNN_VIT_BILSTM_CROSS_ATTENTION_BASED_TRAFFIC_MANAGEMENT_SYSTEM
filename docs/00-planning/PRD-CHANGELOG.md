@@ -10167,3 +10167,77 @@ is visible in `phaseC/out-stacked/dashboard_after_run.png`.
 missing-approach representation issue remains unresolved by this dashboard."
 That was stale in the same way the banner was. The same batch corrects it,
 with the owner's approval (CLAUDE-md-P97a).
+
+## D3 — the deployed edge path is a committed program, `python -m edge.run` (2026-10-21)
+
+**Status: implemented 2026-10-21**, after the owner's go-ahead. As with D1–D2,
+it carries no P-number. It resolves HLD §9-C1 and meets
+[PLAN-D3](../plans/PLAN-D3-edge-entry-point.md).
+
+### What was missing
+
+The deployed edge path (detector → counting → persistence + ridge → publish →
+fallback) had only run inside the Phase C harness, outside the repository.
+`edge/node.py`'s docstring advertised `python -m edge.node`, which never
+existed. The TIM and SOP could not describe starting it.
+
+### What changed
+
+- **`edge/run.py`**, new. It adds no logic of its own: counting is
+  `mfstnet.corpus.counting`, the forecasters are `edge.persistence` and
+  `edge.count_forecast` (ADR-027), and publishing, the class mapping (D1) and
+  FR-A06 are `EdgeNode`'s. `EdgeLoop` takes detections, never a frame, so it
+  cannot keep one.
+- **Refused at start-up:** an intersection id outside the P142 pattern, an
+  invalid broker port, a missing file, a lane file that is neither reviewed nor
+  a corpus manifest (P23), an approach mapping that does not cover every lane
+  exactly once, a camera with no thresholds or with thresholds calibrated on a
+  different number of lanes, and `--source camera` without `STMS_CAMERA_URL`.
+- **Not refused:** a broker unreachable at start-up. FR-A06 exists for a node
+  that cannot reach the server, so the program starts, warns, and runs the
+  local cycle after the timeout.
+- **A camera outage still runs FR-A06.** While the stream reconnects, the node
+  is ticked once a step with no counts, so the timeout is still measured from
+  `last_ack`. The missing step is a gap, so the forecast windows restart.
+- **The camera URL** is read only from `STMS_CAMERA_URL` and never logged.
+  OpenCV's own messages, which can quote the URL, are silenced in camera mode.
+- **`edge/node.py`**: the docstring now points to `edge.run`.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| `tests/test_edge_run.py` | 43 of 43, one or more per PLAN-D3 criterion |
+| Mutation check | 12 protections reverted one at a time; all 12 caught |
+| Live run 1: 300 samples of the Phase C footage, real amqtt broker, server and ingest | exit 0. **271 class and 241 count forecasts stored, identical payload for payload to the stacked Phase C run** (timestamps aside). 224 bicycle detections kept from the wire, the same as Phase C. No new file in the snapshot besides the server's store |
+| Live run 2: real-time pacing, broker killed and restarted | `FR-A06: no successful publish for 12.0s` logged; `link restored` 1.0 s after the restart; exit 0 |
+
+The live runs used a `git archive` of `7484de8` plus `edge/run.py`. The footage
+is Bellevue NE8th, for internal engineering use only; its licence is
+unresolved. The run's harness and outputs are held outside the repository with
+the other review evidence.
+
+### One test expectation corrected
+
+A sample refused for a missing lane does not itself reset the window. The test
+first expected the next sample to forecast; it does not, because the refused
+step leaves a 4 s hole and `SampleBuffer` resets on any gap over 3 s. That is
+the intended behaviour: a window is never bridged over a missing step. The test
+was corrected, not the code.
+
+### Not changed
+
+No model specification, frozen evidence or signal-control architecture. No
+forecast feeds signal timing (ADR-027, P97a), and the program drives no signal
+hardware.
+
+### Still open
+
+- **A clean-environment check of the start-up**, before the TIM and SOP.
+- **The counting settings are module constants** (`DEFAULT_WEIGHTS`, conf 0.45,
+  imgsz 992), each overridable on the command line. They are the settings the
+  persistence thresholds and ridge coefficients were calibrated under, not
+  hyperparameters, but by this repository's own convention they belong in
+  configuration. Recorded, not moved.
+- **Live-camera behaviour** is S65's measurement. D3 tests the reconnect path
+  with stand-ins only.

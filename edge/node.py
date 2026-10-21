@@ -1,6 +1,7 @@
 """The edge node: capture, count, publish, and fall back on its own (S40).
 
-    python -m edge.node --source "clip.mp4" --lanes data/lanes_reviewed/x.json
+The program that runs it is `python -m edge.run` (D3); this module has no
+entry point of its own.
 
 **No frame ever leaves this process** (NFR-13). Frames are read, counted, and
 dropped. The only things published are a per-lane count and a heartbeat, and

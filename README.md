@@ -30,13 +30,13 @@ research, targeting unstructured Indian intersections**
 > **The badges report what is true, not what is planned.** The two CI badges are
 > live workflow results.
 >
-> **The system is built and measured.** What remains is D3, validation (V1
-> human counts, V2 real-camera latency) and the remaining handover documents.
+> **The system is built and measured.** What remains is validation (V1
+> human counts, V2 real-camera latency), a clean-environment check of the edge
+> start-up, and the remaining handover documents.
 >
-> **The deployed edge path has no committed entry point yet (D3).** Its parts
-> are built and tested, and the whole path has run end to end against a real
-> broker, but only from a review harness outside the repository. Until D3 is
-> done, the repository cannot start the deployed edge path reproducibly.
+> **The deployed edge path is a committed program (D3):** `python -m edge.run`.
+> On recorded footage through a real broker it reproduced the earlier
+> harness's forecasts payload for payload.
 >
 > **Two asserted claims in `docs/00-planning/CLAIMS.yaml` are red:** `domain`
 > and `class_coverage`. That is why `scripts/make_paper_tables.py` is withheld,
@@ -56,7 +56,7 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 
 | | |
 |---|---|
-| **Built** | ~62,000 lines of Python in 277 files · 89 test modules · 1,482 tests: **1,479 pass, 3 skip** in a local run on 2026-10-21 (Python 3.14.4, Windows; CI runs Python 3.12 on Linux) |
+| **Built** | ~62,900 lines of Python in 279 files · 90 test modules · 1,525 tests: **1,522 pass, 3 skip** in a local run on 2026-10-21 (Python 3.14.4, Windows; CI runs Python 3.12 on Linux) |
 | **Specified** | 27 architecture decisions · changelog P1–P142, plus D1–D2 · build steps S01–S68 |
 | **Waiting on the guide** | Narrowing claim C1 (MEMO-2026-10-17, S63zm) · the Part B evaluation set (MEMO-2026-08-22, S19) |
 | **Waiting on the owner** | V1 labellers · the S65 camera window · licensing (handled separately) |
@@ -130,10 +130,17 @@ out-of-range payload is refused rather than crashing the server path, every
 field is typed and bounded, the intersection id is a closed pattern, and no
 refusal or log line repeats what the sender wrote.
 
-**No committed program runs the edge path yet (D3).** `edge/node.py` and the
-forecasters are tested as components; the end-to-end run below used a harness
-outside the repository ([HLD §9-C1](docs/02-design/HLD.md),
-[PLAN-D3](docs/plans/PLAN-D3-edge-entry-point.md)).
+**The edge path is one committed program (D3):**
+
+```powershell
+python -m edge.run --source clip.mp4 --lanes lanes.json --approaches lane_0=W lane_1=N lane_2=E `
+    --camera NE8th --intersection-id ne8th --broker-host 127.0.0.1 --broker-port 1883
+```
+
+It refuses bad arguments at start-up, gives the forecasters raw lane totals and
+the wire the mapped class breakdown, keeps frames in memory only, and reads a
+camera URL only from `STMS_CAMERA_URL` (`--source camera`). See
+[PLAN-D3](docs/plans/PLAN-D3-edge-entry-point.md).
 
 **Two fallbacks are implemented and tested (FR-A06):**
 - **A missing, stale or invalid forecast:** `ForecastGate` hands the decision
@@ -163,7 +170,7 @@ Every number below is generated from a committed CSV by a committed script
 | **PPO against Webster, P82 (historical)** | 19.4% lower mean wait in the historical P82 experiment, which had the following limits: <br>• trained without the sublane model and evaluated with it (P119) <br>• the same arrival times across all 30 seeds (P116 b) <br>• one policy, one training seed, one traffic regime | [benchmark_ppo/](experiments/results/benchmark_ppo/) | Citable only as a qualified historical result (P138). It does **not** show that PPO generally outperforms Webster |
 | **Forecast-assisted Webster** | Stopped at its pre-registered power gate (n = 347 needed, against 200 allowed) | [faw/](experiments/results/faw/), P132 | Exploratory only |
 | **Edge latency (V2, stand-in)** | The model call alone is p95 325.9 ms on laptop CPU and **fails 6a** (≤ 150 ms). The whole edge step passes 6b, and transport passes 6c | P135, [v2/](experiments/results/v2/) | Measured on a laptop. The real-camera run (S65) is pending |
-| **Prototype integration (Phase C)** | 300 samples of recorded footage through a real MQTT broker: 0 of 900 lane-count publishes undelivered; 271 class and 241 count forecasts stored byte-identical; the dashboard matched the API; four injected failures handled | D1–D2 in [PRD-CHANGELOG](docs/00-planning/PRD-CHANGELOG.md) | Transport and display only, run from a harness outside the repository (D3). **Not** evidence that the forecasts are safe for signal control |
+| **Prototype integration (Phase C)** | 300 samples of recorded footage through a real MQTT broker: 0 of 900 lane-count publishes undelivered; 271 class and 241 count forecasts stored byte-identical; the dashboard matched the API; four injected failures handled | D1–D2 in [PRD-CHANGELOG](docs/00-planning/PRD-CHANGELOG.md) | Transport and display only. The committed `edge.run` later reproduced these forecasts payload for payload (D3). **Not** evidence that the forecasts are safe for signal control |
 | **Reproducibility** | The committed SUMO episode reproduces exactly on Linux CI under SUMO 1.27.1, and not under 1.28.0 | P137 | Versions are now asserted by a CI preflight |
 
 Negative and marginal results are reported, never dropped (§2.5.5).
@@ -265,8 +272,8 @@ Start with the eight ADRs that rewrite the architecture: ADR-001 to ADR-008.
 | Six-viewpoint evaluation set | Guide (MEMO-2026-08-22) | S19, the detection dataset |
 | V1 inter-rater pilot | Owner: two independent, blind labellers | S67; the main labelling set stays locked until ICC(2,1) ≥ 0.80 |
 | V2 real-camera run | Owner: the camera window and an in-memory-only authorisation | S65 |
-| D3: a committed edge entry point, with the tests [PLAN-D3](docs/plans/PLAN-D3-edge-entry-point.md) lists | Team | A reproducible start of the deployed edge path; the TIM and SOP |
-| Handover documents: LLD, STP/STD/UAT/STR, TIM/SOP (the SAD and HLD are delivered) | Team | S47; the TIM and SOP wait for D3, and the TIM must be validated on a clean machine |
+| A clean-environment check of the documented edge start-up (`python -m edge.run`) | Team | The TIM and SOP |
+| Handover documents: LLD, STP/STD/UAT/STR, TIM/SOP (the SAD and HLD are delivered) | Team | S47; the TIM and SOP wait for the clean-environment check, and the TIM must be validated on a clean machine |
 | The seed list is defined three ways (`spec.yaml`, `run_loco.py`, the manual) | Team | A PRD amendment, not a code edit |
 | Licensing and public release | Owner, handled separately | The public copy (V3) |
 
@@ -306,7 +313,7 @@ docs/            The SDLC suite, indexed at docs/README.md
   01-requirements/ SRS · FRD · NFR · RTM
   02-design/       SAD · HLD · HLD (corpus pipeline) · LLD outstanding
   03-testing/      STP, STD, UAT and STR outstanding
-  04-deployment/   TIM and SOP outstanding (they wait for D3)
+  04-deployment/   TIM and SOP outstanding
   plans/           implementation plans, including PLAN-D3
   90-manual/       EXECUTION_MANUAL · TRAINING-GUIDE
 mfstnet/         the model: encoders, fusion, temporal, heads, corpus, configs/spec.yaml
