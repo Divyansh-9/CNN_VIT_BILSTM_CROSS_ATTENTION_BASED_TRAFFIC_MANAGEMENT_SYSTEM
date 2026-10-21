@@ -257,6 +257,14 @@ bmd45:
 # congestion label from counts produced at this number.
 counting:
   confidence_threshold: 0.45
+  # The deployed edge counts with this detector at this input size, at the
+  # threshold above. They are the settings every committed corpus manifest
+  # records (data/corpus/manifest.json: best_xl_ITD_v1.2.pt, conf 0.45,
+  # imgsz 992), and so the settings the persistence thresholds and the ridge
+  # coefficients were calibrated under (P97, P103, P105). Changing one changes
+  # every count. `edge/run.py` reads all three from here (D5).
+  detector_weights: models/external/best_xl_ITD_v1.2.pt
+  imgsz: 992
   fitted_on: BMD-45 elevated evaluation split, 498 frames, 5,273 vehicles
   status: PROVISIONAL — re-confirm on S06 deployment footage before site use
   bias_note: >

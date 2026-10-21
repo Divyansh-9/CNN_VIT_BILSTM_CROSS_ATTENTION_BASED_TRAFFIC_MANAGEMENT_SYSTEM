@@ -10329,3 +10329,40 @@ are the pretrained download and two live-broker tests that need
     on C:, and the documented commands were not tried without it.
 - **Out of scope here:** moving the detector settings into configuration, and
   S65.
+
+## D5 — the edge's counting settings are configuration, not script defaults (2026-10-21)
+
+**Status: applied 2026-10-21**, after the owner's go-ahead to start the
+remaining work. As with D1–D4, it carries no P-number. It closes the open item
+D3 recorded: "The counting settings are module constants".
+
+### What changed
+
+- **`indiatrafficnet/class_mapping.yaml`.** The `counting` block already held
+  `confidence_threshold: 0.45`, the declared operating point ADR-002 derives
+  every label from. It now also holds `detector_weights` and `imgsz`.
+  - **No value is new.** All three are what the committed corpus manifest
+    records (`data/corpus/manifest.json`: `best_xl_ITD_v1.2.pt`, conf 0.45,
+    imgsz 992), and so what the persistence thresholds and the ridge
+    coefficients were calibrated under.
+  - **No target-camera calibration is introduced.** The block's
+    `PROVISIONAL` status and its re-sweep note are unchanged.
+- **`edge/run.py`** reads all three from that block (`load_counting`), and no
+  longer carries `DEFAULT_WEIGHTS`, `DEFAULT_CONF` or `DEFAULT_IMGSZ`.
+  - A block missing a setting is refused at start-up, never filled in.
+  - `--weights`, `--conf` and `--imgsz` still override it on the command line.
+  - `EdgeLoop` no longer has a default threshold: the caller passes one.
+- **Execution Manual §0.7** says where the defaults come from.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| `tests/test_edge_run.py` | 46 of 46, of which three are new: the defaults follow the config file it is pointed at, and the command line still overrides; the committed block equals the corpus manifest's detector, conf and imgsz; a block missing `detector_weights` is refused |
+| Related suites (`test_idd_mapping.py`, `test_edge_classes.py`) | pass, including the existing pin of `confidence_threshold: 0.45` |
+| Mutation check | the three literals restored as defaults, and the missing-key refusal removed, one at a time: 4 of 4 caught |
+
+### Not changed
+
+- The values themselves, the forecasters, the class mapping and the contract.
+- Anything about the four open deployment prerequisites (D4).

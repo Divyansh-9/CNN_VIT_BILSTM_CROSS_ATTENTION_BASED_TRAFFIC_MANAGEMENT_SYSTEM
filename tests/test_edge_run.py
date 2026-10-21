@@ -173,6 +173,40 @@ def test_the_camera_url_comes_from_the_environment_and_is_never_echoed(files, mo
     assert "hunter2" not in captured.out + captured.err
 
 
+def test_the_counting_defaults_come_from_the_config_not_the_script(files, monkeypatch):
+    # D5: point the program at another counting block and the defaults follow.
+    module = run_module()
+    config = files["dir"] / "mapping.yaml"
+    config.write_text(f"counting:\n  detector_weights: {files['weights'].as_posix()}\n"
+                      "  confidence_threshold: 0.5\n  imgsz: 640\n", encoding="utf-8")
+    monkeypatch.setattr(module, "COUNTING_FILE", config)
+    s = settings(files, **{"--weights": None})
+    assert (s.weights, s.conf, s.imgsz) == (files["weights"], 0.5, 640)
+    # The command line still overrides the config.
+    assert settings(files, **{"--conf": "0.6", "--imgsz": "320"}).conf == 0.6
+
+
+def test_the_committed_counting_block_is_what_the_corpus_was_built_with():
+    # The values are not new: the committed corpus manifest records them.
+    module = run_module()
+    weights, conf, imgsz = module.load_counting(module.COUNTING_FILE)
+    manifest = json.loads((module.ROOT / "data/corpus/manifest.json").read_text(encoding="utf-8"))
+    assert (weights.name, conf, imgsz) == (manifest["detector"], manifest["conf"],
+                                          manifest["imgsz"])
+    assert weights == module.ROOT / "models" / "external" / manifest["detector"]
+
+
+def test_a_counting_block_missing_a_setting_is_refused(files, monkeypatch, capsys):
+    module = run_module()
+    config = files["dir"] / "mapping.yaml"
+    config.write_text("counting:\n  confidence_threshold: 0.45\n  imgsz: 992\n",
+                      encoding="utf-8")
+    monkeypatch.setattr(module, "COUNTING_FILE", config)
+    with pytest.raises(SystemExit):
+        settings(files)
+    assert "detector_weights" in capsys.readouterr().err
+
+
 # ---- 2. the two count representations ---------------------------------------
 
 def test_forecasters_get_raw_totals_and_the_wire_gets_the_mapped_breakdown(files):

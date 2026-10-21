@@ -216,8 +216,10 @@ python -m edge.run --source clip.mp4 --lanes lanes.json --approaches lane_0=W la
 | `--samples N` | Stop after N samples of 2 s; otherwise it runs until the source ends or Ctrl+C |
 | `--realtime` | Pace a video file at one sample per 2 s, as a camera would |
 
-`--weights`, `--conf` and `--imgsz` default to the counting settings the thresholds were calibrated
-under; changing them invalidates the thresholds. `python -m edge.run --help` lists every option.
+`--weights`, `--conf` and `--imgsz` default to the `counting` block of
+`indiatrafficnet/class_mapping.yaml`: the settings the thresholds were calibrated under. Changing
+them, there or on the command line, invalidates the thresholds. `python -m edge.run --help` lists
+every option.
 
 To see forecasts arrive, run the server and the ingest as well:
 

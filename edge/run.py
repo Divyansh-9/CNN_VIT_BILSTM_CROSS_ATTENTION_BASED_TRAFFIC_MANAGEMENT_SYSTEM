@@ -49,6 +49,7 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 from contracts.mqtt import ContractError, Mode, check_intersection_id
+from edge.classes import MAPPING_FILE
 from edge.count_forecast import RidgeCountForecaster
 from edge.node import EdgeNode
 from edge.persistence import APPROACHES, PersistenceForecaster
@@ -56,16 +57,18 @@ from edge.samples import STEP_S, SampleError
 from mfstnet.corpus.counting import Detection, count_frame
 from mfstnet.corpus.lanes import LaneCentres
 
-__all__ = ["Settings", "EdgeLoop", "load_lanes", "parse_args", "run", "main"]
+__all__ = ["Settings", "EdgeLoop", "load_counting", "load_lanes", "parse_args", "run",
+           "main"]
 
 ROOT = Path(__file__).resolve().parent.parent
 PILOT = ROOT / "experiments" / "results" / "bellevue_pilot"
 CAMERA_ENV = "STMS_CAMERA_URL"
 CAMERA_SOURCE = "camera"
-# The counting settings the persistence thresholds and the ridge coefficients
-# were calibrated under (P97, P103, P105). Changing one changes every count.
-DEFAULT_WEIGHTS = ROOT / "models" / "external" / "best_xl_ITD_v1.2.pt"
-DEFAULT_CONF, DEFAULT_IMGSZ = 0.45, 992
+# The counting settings (detector, threshold, input size) live once, in the
+# `counting` block of class_mapping.yaml: the persistence thresholds and the
+# ridge coefficients were calibrated under them (P97, P103, P105), so they are
+# configuration, not script defaults (D5).
+COUNTING_FILE = MAPPING_FILE
 RECONNECT_S = (1, 2, 4, 8, 10)
 
 log = logging.getLogger(__name__)
@@ -108,6 +111,19 @@ def load_lanes(path: Path) -> LaneCentres:
                        max_radius=float(spec.get("max_radius", 0.25)))
 
 
+def load_counting(path: Path) -> tuple[Path, float, int]:
+    """The detector weights, confidence threshold and input size, from the
+    `counting` block. A missing key is refused, never filled in."""
+    import yaml
+
+    block = (yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}).get("counting") or {}
+    missing = sorted({"detector_weights", "confidence_threshold", "imgsz"} - set(block))
+    if missing:
+        raise ValueError(f"{path}: the counting block has no {', '.join(missing)}")
+    return (ROOT / block["detector_weights"], float(block["confidence_threshold"]),
+            int(block["imgsz"]))
+
+
 def _port(text: str) -> int:
     port = int(text)
     if not 1 <= port <= 65535:
@@ -126,6 +142,10 @@ def parse_args(argv: list[str] | None = None) -> Settings:
     """Read and check the command line. Anything wrong ends the program here."""
     parser = argparse.ArgumentParser(prog="python -m edge.run",
                                      description=__doc__.split("\n")[0])
+    try:
+        weights, conf, imgsz = load_counting(COUNTING_FILE)
+    except (OSError, ValueError, TypeError) as error:
+        parser.error(f"counting settings: {error}")
     parser.add_argument("--source", required=True,
                         help=f"a video file, or '{CAMERA_SOURCE}' to read the stream "
                              f"URL from {CAMERA_ENV}")
@@ -138,9 +158,12 @@ def parse_args(argv: list[str] | None = None) -> Settings:
     parser.add_argument("--intersection-id", required=True)
     parser.add_argument("--broker-host", default="127.0.0.1")
     parser.add_argument("--broker-port", type=_port, default=1883)
-    parser.add_argument("--weights", type=Path, default=DEFAULT_WEIGHTS)
-    parser.add_argument("--conf", type=float, default=DEFAULT_CONF)
-    parser.add_argument("--imgsz", type=_positive, default=DEFAULT_IMGSZ)
+    parser.add_argument("--weights", type=Path, default=weights,
+                        help="default: the counting block of class_mapping.yaml")
+    parser.add_argument("--conf", type=float, default=conf,
+                        help="default: the counting block of class_mapping.yaml")
+    parser.add_argument("--imgsz", type=_positive, default=imgsz,
+                        help="default: the counting block of class_mapping.yaml")
     parser.add_argument("--persistence-spec", type=Path,
                         default=PILOT / "persistence_v1.json")
     parser.add_argument("--ridge-spec", type=Path, default=PILOT / "p105_ridge_v1.json")
@@ -209,7 +232,7 @@ class EdgeLoop:
 
     def __init__(self, node: EdgeNode, lanes: LaneCentres, approaches: dict[str, str],
                  persistence: PersistenceForecaster, ridge: RidgeCountForecaster, *,
-                 min_confidence: float = DEFAULT_CONF) -> None:
+                 min_confidence: float) -> None:
         self.node, self.lanes, self.approaches = node, lanes, dict(approaches)
         self.persistence, self.ridge = persistence, ridge
         self.min_confidence = min_confidence
