@@ -9,6 +9,9 @@ check reads the pins from `requirements.txt` (one source), compares the
 installed versions, and exits 1 on any mismatch, naming each package. It runs
 in CI before the simulation suites, so environment drift is an explicit
 failure, not a puzzling one.
+
+`sumo-data` is checked too (D4). `eclipse-sumo` requires it with no version, so
+a clean install drew 1.28.0 beside SUMO 1.27.1 and this check still passed.
 """
 
 from __future__ import annotations
@@ -17,7 +20,8 @@ import sys
 from importlib import metadata
 from pathlib import Path
 
-PACKAGES = ("eclipse-sumo", "traci", "sumolib", "gymnasium", "stable-baselines3")
+PACKAGES = ("eclipse-sumo", "sumo-data", "traci", "sumolib", "gymnasium",
+            "stable-baselines3")
 REQUIREMENTS = Path(__file__).resolve().parent.parent / "requirements.txt"
 
 

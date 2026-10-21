@@ -103,8 +103,9 @@ and configs of earlier runs no longer exist.
 - Summary tables in the paper are generated from the CSVs by a committed script. A table typed by
   hand cannot be recomputed, and a table that cannot be recomputed is not evidence.
 
-Docker Compose is committed for the server stack (broker, API, database, dashboard). It is not
-required for training, which runs on Colab.
+Docker Compose for the server stack (broker, API, database, dashboard) is **specified but not
+committed**: no compose file exists in the repository (clean-environment check, 2026-10-21;
+PRD-CHANGELOG D4). It is not required for training.
 
 ---
 

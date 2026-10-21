@@ -4,8 +4,9 @@
 with `tests/test_edge_run.py` (PRD-CHANGELOG, D3). Where each criterion is
 met is in the table at the end.
 
-**Still owed before the TIM or SOP:** the documented start-up, verified on a
-clean environment.
+**Clean-environment check: done** (PRD-CHANGELOG D4). The documented start-up
+reproduces from a fresh checkout on Python 3.12, but four prerequisites remain outside the repository: teammate access to the detector weights, a camera-matched lane file, broker credentials (NFR-11 is unmet in code), and the disk and Python-install constraints. The TIM and
+SOP must state them.
 
 ## The gap
 

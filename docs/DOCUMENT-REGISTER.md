@@ -101,7 +101,7 @@ changed, and the answer should be a document rather than a recollection.
 
 | Document | Ver | Status | Owner | Checked | Notes |
 |---|---|---|---|---|---|
-| [PLAN-D3 — committed edge entry point](plans/PLAN-D3-edge-entry-point.md) | 1.1 | Implemented | Owner | 2026-10-21 | HLD §9-C1, resolved. A clean-environment start-up check precedes the TIM and SOP |
+| [PLAN-D3 — committed edge entry point](plans/PLAN-D3-edge-entry-point.md) | 1.1 | Implemented | Owner | 2026-10-21 | HLD §9-C1, resolved. Clean-environment check done (D4); four deployment prerequisites remain open |
 | [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | 1.1 | Active | R1 | 2026-08-10 | WI-01..WI-19. **WI-12/13 done, WI-15 partly**; reordered ahead of the blocked pilots, with the reason recorded |
 
 ## Repository scaffolding

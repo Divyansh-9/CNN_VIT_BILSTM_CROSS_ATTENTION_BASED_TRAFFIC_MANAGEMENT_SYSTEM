@@ -6,7 +6,7 @@
 | **Status** | **Approved** by the owner's review, 2026-10-21. Committed with the batch it describes |
 | **Describes** | The modules, interfaces and data flow of each subsystem, at `1967e55` plus the **integration batch of 2026-10-21** (P140, P141, P142, D1, D2), committed with this document. **[batch]** marks what that batch changed relative to `1967e55` |
 | **Builds on** | The [SAD](SAD.md), which is accepted for HLD review, and the [HLD — Detection & Corpus Pipeline](HLD-detection-corpus-pipeline.md), which this document does not repeat. **The `SAD.md` link resolves only once both documents are committed to `docs/02-design/`. It is verified there by `scripts/check_docs.py` at integration, not assumed** |
-| **Edge deployment** | §4 is run by `python -m edge.run`, committed by D3 (2026-10-21), which resolves §9-C1. A clean-environment check of the start-up is still owed before the TIM and SOP |
+| **Edge deployment** | §4 is run by `python -m edge.run`, committed by D3 (2026-10-21), which resolves §9-C1. The clean-environment check is done (D4); the deployment prerequisites it left open are listed there |
 | **Audience** | The faculty guide, examiners, and a team member about to change one subsystem |
 
 > **What this design does not include:**

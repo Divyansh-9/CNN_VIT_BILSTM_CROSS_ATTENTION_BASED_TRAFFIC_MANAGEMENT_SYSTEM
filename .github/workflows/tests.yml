@@ -105,8 +105,9 @@ jobs:
           pip install nbformat nbclient ipykernel pandas matplotlib
           # Pinned to requirements.txt: every committed SUMO result was produced on
           # 1.27.1, and an unpinned install drew 1.28.0, which simulates differently
-          # (P137).
-          pip install eclipse-sumo==1.27.1 traci==1.27.1 sumolib==1.27.1
+          # (P137). sumo-data too: eclipse-sumo requires it unversioned, and a
+          # clean install drew 1.28.0 (D4).
+          pip install eclipse-sumo==1.27.1 sumo-data==1.27.1 traci==1.27.1 sumolib==1.27.1
           pip install opencv-python-headless
 
       - name: Simulation stack matches requirements.txt (P137)

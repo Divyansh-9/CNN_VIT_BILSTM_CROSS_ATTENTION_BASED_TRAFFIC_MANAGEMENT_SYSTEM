@@ -10241,3 +10241,91 @@ hardware.
   configuration. Recorded, not moved.
 - **Live-camera behaviour** is S65's measurement. D3 tests the reconnect path
   with stand-ins only.
+
+## D4 — the clean-environment check, and the setup corrections it called for (2026-10-21)
+
+**Status: applied 2026-10-21**, after the owner's go-ahead for the corrections
+the clean-environment report specified. As with D1–D3, it carries no P-number.
+
+### The check
+
+Could a teammate follow the documented setup from a clean checkout and start
+`python -m edge.run` without undeclared local files? It ran on two fresh clones
+at `3e6f63c`, on Python 3.12.10 (primary; CI's version) and 3.14.4, outside
+the repository.
+
+**Answer: not from the repository alone.**
+- **What reproduced:** the code, its dependencies, its start-up checks, and
+  the full suite: 1,501 passed, 24 skipped, 0 failed.
+- **What did not:** four prerequisites are not in the repository (below), and
+  the setup documents were wrong in five places.
+
+### Corrections
+
+| Correction | Where |
+|---|---|
+| **`sumo-data==1.27.1` pinned.** `eclipse-sumo 1.27.1` requires `sumo-data` with no version, so a clean install drew 1.28.0 beside SUMO 1.27.1, and the preflight did not notice. `sumo-data` ships binaries, not only data. This is the P137 class of drift. **No reproduction failure was shown:** the committed P137 episode passed under 1.28.0 as well | `requirements.txt`; `check_sim_versions.py` now checks it; its test covers the drift; the CI model job, which installs the SUMO packages one by one, pins it too |
+| **Python 3.12 everywhere.** The manual said 3.11, with a warning about torch 2.3.1 that no longer applies | Execution Manual §0.3 and its Week 0 checklist; `CLAUDE.md` |
+| **The edge start-up is documented:** the prerequisites and their status, the command and its arguments, and how starting differs from delivering | Execution Manual §0.7 (new) |
+| **The broker:** `requirements.txt` installs none, and NFR-11 is unmet by the current code (below) | Execution Manual §0.7 |
+| **Docker Compose is not committed.** Two documents said it was; no compose file has existed on any branch. PRD §22.3's tree is a target layout and is unchanged | `docs/01-requirements/NFR.md`; `CLAUDE.md` |
+| **The fallback procedure:** (a) no longer stops a nonexistent `mfstnet_service` and points to `ForecastGate`'s tests; (b) no longer uses Linux `systemctl`, and times the switch from the last acknowledged publish | Execution Manual §5.3 |
+| **Disk and Shapely:** pip's cache needs more than 3 GB (3.1 GB measured), or a redirect; Shapely is not imported anywhere, so its warning can be ignored | Execution Manual §0.3 |
+
+### NFR-11 is unmet by the current code
+
+Neither MQTT client sends credentials. `edge/mqtt_transport.py` and
+`server/mqtt_ingest.py` have no username or password option, and no file in
+`edge/`, `server/`, `contracts/` or `scripts/` calls `username_pw_set` or
+`tls_set`. An authenticated broker would refuse both. **Configuring an
+authenticated broker does not fix this**; credential support is a code change,
+not made here and not yet authorised.
+
+### Re-check after the corrections
+
+A fresh clone at `3e6f63c` with only this batch applied, installed by the
+corrected manual on Python 3.12.10:
+
+| Check | Result |
+|---|---|
+| Install (§0.3 commands, unchanged) | torch and `requirements.txt` exit 0; `pip check` clean; **`sumo-data` resolves to 1.27.1**; otherwise the same 117 packages as the first clean install |
+| `check_env.py` / `check_sim_versions.py` | exit 0 / exit 0, now listing `sumo-data` |
+| P137 reproduction, preflight test, `ForecastGate` tests (`tests/test_forecast_state.py`) | 24 passed |
+| §0.7 start-up | `--help` exit 0; a missing `--source` refused with exit 2; with no broker, it starts, warns, and exits 0 with nothing delivered and no file written |
+| §0.7 delivery | the first class forecast returned 200 from `GET /prediction/{id}/latest` |
+| §5.3 (b) | broker stopped: `FR-A06: no successful publish for 12.0s` (10.6 s after the stop); `link restored` 4.5 s after the broker restarted; exit 0; only the server's database written |
+| Full suite in the clone | **1,501 passed, 24 skipped, 0 failed**, exit 0 |
+
+With no broker at all, the switch read 19.8 s. Nothing was ever acknowledged,
+so it ran from node creation and included the 5 s connection wait and the
+detector's warm-up before the first step.
+
+**The 24 skips** are all environmental. 21 are gitignored or untracked
+material: PPO checkpoints, local corpora and local footage. The other three
+are the pretrained download and two live-broker tests that need
+`AMQTT_PYTHON`. So the live-broker test did not run from the clean clone.
+
+### What these checks do not show
+
+- **The broker** was an anonymous amqtt stand-in. This shows the data path,
+  not Mosquitto compatibility or NFR-11.
+- **The input** was synthetic, with the committed 4-lane manifest as a
+  start-up fixture. Every forecast was LOW or 0.0. That is start-up evidence
+  only, not detector accuracy, forecast quality or camera suitability.
+
+### Still open
+
+- **Teammate access to the detector weights.** The only copy is the owner's
+  private backup (S66). Its identity is verified against the committed
+  manifest (`06006ecb5fe5…6b00`). Its licence is unresolved, and it is not to
+  be redistributed.
+- **A camera-matched lane file**, and thresholds for that camera (ADR-017).
+- **Broker credentials in the code (NFR-11)**, and a committed broker
+  configuration.
+- **The environment:**
+  - `py -3.12` needs a Python 3.12 install, and the check used python.org's
+    NuGet package;
+  - the disk redirect was needed on this machine, which has only 2–4 GB free
+    on C:, and the documented commands were not tried without it.
+- **Out of scope here:** moving the detector settings into configuration, and
+  S65.

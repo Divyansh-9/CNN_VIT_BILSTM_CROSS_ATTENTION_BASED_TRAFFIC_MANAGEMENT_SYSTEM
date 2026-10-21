@@ -85,6 +85,9 @@ gymnasium==1.3.0
 eclipse-sumo==1.27.1
 traci==1.27.1
 sumolib==1.27.1
+# eclipse-sumo requires sumo-data with no version, so without this pin a clean
+# install drew 1.28.0 beside 1.27.1. It ships binaries, not only data (D4).
+sumo-data==1.27.1
 
 # ---- tooling ----
 pyyaml==6.0.3

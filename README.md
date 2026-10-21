@@ -31,8 +31,8 @@ research, targeting unstructured Indian intersections**
 > live workflow results.
 >
 > **The system is built and measured.** What remains is validation (V1
-> human counts, V2 real-camera latency), a clean-environment check of the edge
-> start-up, and the remaining handover documents.
+> human counts, V2 real-camera latency), the edge deployment prerequisites the
+> clean-environment check left open (D4), and the remaining handover documents.
 >
 > **The deployed edge path is a committed program (D3):** `python -m edge.run`.
 > On recorded footage through a real broker it reproduced the earlier
@@ -272,8 +272,8 @@ Start with the eight ADRs that rewrite the architecture: ADR-001 to ADR-008.
 | Six-viewpoint evaluation set | Guide (MEMO-2026-08-22) | S19, the detection dataset |
 | V1 inter-rater pilot | Owner: two independent, blind labellers | S67; the main labelling set stays locked until ICC(2,1) ≥ 0.80 |
 | V2 real-camera run | Owner: the camera window and an in-memory-only authorisation | S65 |
-| A clean-environment check of the documented edge start-up (`python -m edge.run`) | Team | The TIM and SOP |
-| Handover documents: LLD, STP/STD/UAT/STR, TIM/SOP (the SAD and HLD are delivered) | Team | S47; the TIM and SOP wait for the clean-environment check, and the TIM must be validated on a clean machine |
+| Edge deployment prerequisites the clean-environment check left open (D4): teammate access to the detector weights, a camera-matched lane file, and broker credentials (NFR-11 is unmet in code) | Owner (weights and licence); team (lane file, credentials) | Deploying the edge from the repository alone; the TIM and SOP must state them |
+| Handover documents: LLD, STP/STD/UAT/STR, TIM/SOP (the SAD and HLD are delivered) | Team | S47; the TIM and SOP must state the D4 prerequisites as open, and the TIM must be validated on a clean machine |
 | The seed list is defined three ways (`spec.yaml`, `run_loco.py`, the manual) | Team | A PRD amendment, not a code edit |
 | Licensing and public release | Owner, handled separately | The public copy (V3) |
 

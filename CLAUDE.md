@@ -115,7 +115,7 @@ The ablation study (configs **A-H**, §14.4) is what makes this publishable. Des
 These are graded deliverables:
 
 - Seeds fixed and documented across PyTorch, NumPy, and SB3 — the PRD uses `seed: 42` for both MFSTNet and PPO.
-- `requirements.txt` + Docker Compose committed; the stack must be reproducible from a clean machine.
+- `requirements.txt` committed; the stack must be reproducible from a clean machine. **Docker Compose is specified (NFR.md, PRD §22.3) but not committed:** no compose file exists, so do not tell anyone to run one (D4).
 - Raw results committed as CSV, not just summary tables: all 30 RL evaluation runs per method, and all ablation configs.
 - Statistics reported as mean ± 95% CI (bootstrap, 10000 resamples), paired t-test at α=0.05, with Cohen's d.
 
@@ -356,17 +356,14 @@ and all now build failures:
   is what established that 39 entries need two slides rather than a smaller
   font.
 
-**Three different Python versions are written down, and only one is true.**
-`pyproject.toml` says `requires-python = ">=3.10"`, the venv on this machine is
-**3.14.4**, CI's `fast` job runs 3.12, and README.md still tells a new
-contributor to install 3.11 with `torch==2.3.1 torchvision==0.18.1` from the
-`cu121` index — a command that cannot work, because `cu121` carries no torch at
-any version (P32). The install command that does work is in
-[Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--setup) at
-lines 108 and 457. README.md's badges are stale in the same way: they say
-`PRE-IMPLEMENTATION`, `WEEK 2 of 20`, 1,339 lines and eleven ADRs, against ~32,500
-lines and twenty-seven. Treat `requirements.txt` and the manual as authoritative
-and README.md as out of date until it is refreshed.
+**Python 3.12 is the supported version** (D4). CI's `fast` job runs it, and
+README.md and Execution Manual Part 0 both say it; the clean-environment check
+of 2026-10-21 passed on it. The venv on this machine is **3.14.4**, which also
+passed, and `pyproject.toml` still says `requires-python = ">=3.10"`. Install
+torch with the `cu126` command in
+[Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--setup):
+`cu121` carries no torch at any version (P32). `requirements.txt` is the
+authority on every pin.
 
 **A broken torch raises `OSError`, not `ImportError`, and three scripts had to
 learn that.** A torch whose DLLs fail to initialise is *installed*, so the

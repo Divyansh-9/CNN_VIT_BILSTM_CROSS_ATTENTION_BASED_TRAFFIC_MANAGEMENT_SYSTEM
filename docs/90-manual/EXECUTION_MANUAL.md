@@ -84,23 +84,23 @@ It validates Python version, Git LFS, free disk, CUDA, and installed packages, a
 with an explanation if anything blocks you. It uses only the standard library, so it runs on a bare
 interpreter before anything is installed.
 
-> ### ⚠ Python 3.13+ will not work
+> ### Use Python 3.12
 >
-> **Use Python 3.11** (3.10–3.12 all work). PyTorch 2.3.1 publishes no wheels above 3.12, so a newer
-> interpreter fails with `No matching distribution found for torch==2.3.1` — which looks like a
-> network problem and is not.
->
-> This machine currently has **Python 3.14.4** as the system interpreter. Install 3.11 alongside it
-> (both can coexist) from python.org, then build the venv explicitly with it:
+> **Python 3.12 is the supported version.** CI runs it, and the clean-environment check of
+> 2026-10-21 passed on it (PRD-CHANGELOG D4). Python 3.14.4 also passed that check, but CI does not
+> run it. Install 3.12 from python.org alongside any other version (they coexist), then build the
+> venv with it:
 >
 > ```powershell
-> py -3.11 -m venv .venv
+> py -3.12 -m venv .venv
 > ```
+>
+> `py -3.12` works only once a 3.12 is installed; `py -0` lists what is.
 
 ### Create the environment
 
 ```powershell
-py -3.11 -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1          # macOS/Linux: source .venv/bin/activate
 python -m pip install --upgrade pip
 
@@ -110,6 +110,17 @@ pip install -r requirements.txt
 
 python scripts/check_env.py            # should now report no blockers
 ```
+
+> **Disk.** pip's download cache alone needs more than 3 GB for these two installs (3.1 GB
+> measured), on the drive that holds your user profile by default. If that drive is short, point
+> the cache and the temporary files at a drive with room before installing:
+>
+> ```powershell
+> $env:PIP_CACHE_DIR = "D:\pip-cache"; $env:TMP = "D:\tmp"; $env:TEMP = "D:\tmp"
+> ```
+>
+> **Shapely.** `check_env.py` warns that Shapely is not installed. Nothing in the repository
+> imports it (it was dropped from `requirements.txt` on 2026-08-20), so the warning can be ignored.
 
 [`requirements.txt`](../../requirements.txt) is committed with **pinned** versions — NFR-08 requires
 clean-machine reproduction, and unpinned ranges break that within weeks. Whenever anyone adds a
@@ -162,7 +173,7 @@ deliverable needs one owner and one backup. "We'll all do it" is how a deliverab
 
 - [ ] All accounts created; **IDD registration submitted**
 - [ ] Repo cloned by everyone; LFS working (`git lfs env` runs clean)
-- [ ] **Python 3.11 installed** — not 3.13/3.14 (§0.3)
+- [ ] **Python 3.12 installed** (§0.3)
 - [ ] `python scripts/check_env.py` reports **no blockers** on every member's machine
 - [ ] `python scripts/seed.py` gives identical output on two consecutive runs
 - [ ] `.env` created from `.env.example`
@@ -170,6 +181,76 @@ deliverable needs one owner and one backup. "We'll all do it" is how a deliverab
 - [ ] Faculty guide has seen SOW + BRD and agreed the milestone dates
 - [ ] **[Scope variation request](../00-planning/SCOPE-VARIATION-REQUEST.md) submitted** — ADR-006
       and ADR-008 block the plan until decided
+
+## 0.7 Starting the edge program (D3)
+
+The deployed edge path is one program, `python -m edge.run`: detector → per-lane counts →
+persistence class forecast and ridge count forecast → MQTT → server. A clean checkout runs it only
+once the four prerequisites below are in place, and **the repository does not provide them**
+(clean-environment check, 2026-10-21; PRD-CHANGELOG D4).
+
+### Prerequisites
+
+| Prerequisite | Where it comes from today | Status |
+|---|---|---|
+| Detector weights, `models/external/best_xl_ITD_v1.2.pt` | Not in git (`models/` is gitignored). The only copy is the project owner's private backup (S66). Check the file against `experiments/results/model_artifacts.sha256` before use | **Blocked for teammates** until the owner decides how the weights are shared. They are third-party and their licence is unresolved: do not publish or redistribute them |
+| A reviewed lane file for the camera | `docs/demo/place_lanes.html`, then `scripts/import_lane_centres.py` (§2.3), or a corpus manifest built from that camera | No committed lane file belongs to a camera in the persistence spec. The committed `data/corpus/manifest.json` (4 lanes) lets the program start, and shows nothing more |
+| Thresholds for the camera | `experiments/results/bellevue_pilot/persistence_v1.json`; its key is `--camera`, and its lane count must equal the lane file's | Calibrated per camera (ADR-017). A new camera needs its own calibration first |
+| An MQTT broker | Mosquitto (PRD §17), installed separately: `requirements.txt` installs no broker | See "The broker" below |
+
+### Start it
+
+```powershell
+python -m edge.run --source clip.mp4 --lanes lanes.json --approaches lane_0=W lane_1=N lane_2=E `
+    --camera NE8th --intersection-id ne8th --broker-host 127.0.0.1 --broker-port 1883
+```
+
+| Argument | Meaning |
+|---|---|
+| `--source` | A video file, or `camera` to read the stream URL from `STMS_CAMERA_URL`. Set the variable in the shell; never put the URL on the command line |
+| `--lanes` | The reviewed lane file, or a corpus manifest |
+| `--approaches` | Every lane mapped once to a distinct `N`, `S`, `E` or `W` |
+| `--camera` | The camera's key in the persistence spec |
+| `--intersection-id` | 1 to 32 characters from `A-Z a-z 0-9 _ -` (P142) |
+| `--broker-host`, `--broker-port` | Default `127.0.0.1:1883` |
+| `--samples N` | Stop after N samples of 2 s; otherwise it runs until the source ends or Ctrl+C |
+| `--realtime` | Pace a video file at one sample per 2 s, as a camera would |
+
+`--weights`, `--conf` and `--imgsz` default to the counting settings the thresholds were calibrated
+under; changing them invalidates the thresholds. `python -m edge.run --help` lists every option.
+
+To see forecasts arrive, run the server and the ingest as well:
+
+```powershell
+python -m uvicorn server.app:app --port 8000
+python -m server.mqtt_ingest --host 127.0.0.1 --port 1883
+```
+
+### Starting is not delivering
+
+| What you see | What it shows |
+|---|---|
+| Exit code 2 and an `error:` line | A refused start-up: a bad argument, a missing file, a lane file that is not reviewed, or thresholds that do not match the lanes. Nothing ran |
+| `source: …` in the log and no error | The program **started**. It does not show that anything reached the server |
+| `broker … not reachable; continuing` | It started **without** a broker. Nothing is delivered |
+| `GET /prediction/{id}/latest` returns 200 | **Delivery**: a class forecast reached the server. The first comes after 30 samples (60 s), and the first count forecast (`GET /count_forecast/{id}/latest`) after 60 (2 min). A gap in the samples restarts both windows |
+| `FR-A06: no successful publish for …` | The local cycle has taken over (§5.3) |
+
+Frames stay in memory (NFR-13). The edge program writes no file; the server writes its own database
+under `data/server/`.
+
+### The broker
+
+- **`requirements.txt` installs no broker.** Install Mosquitto separately (on Windows, the installer
+  from mosquitto.org) and run it on the port you pass.
+- **NFR-11 is unmet by the current code.** NFR-11 requires an authenticated broker
+  (`allow_anonymous false`), and neither MQTT client sends credentials: `edge/mqtt_transport.py`
+  and `server/mqtt_ingest.py` have no username or password option. An authenticated broker
+  therefore refuses both. **Installing and configuring an authenticated broker does not make the
+  current code compatible**; credential support is a code change that has not been made. Until
+  then, only an anonymous broker on `127.0.0.1` can be used, for development.
+- The clean-environment check used an anonymous amqtt broker as a stand-in. That shows the data
+  path. It does not show Mosquitto compatibility or NFR-11.
 
 ---
 
@@ -793,17 +874,31 @@ there is no time to diagnose it.
 ## 5.3 The two fallbacks are features (FR-A06)
 
 Test both by fault injection, and pull this forward to Week 17 rather than Week 19 (RTM §5.2 —
-fault-injection testing finds real defects, and finding them one week before submission is too late):
+fault-injection testing finds real defects, and finding them one week before submission is too late).
 
-```bash
-# (a) MFSTNet dies → PPO must continue on raw counts
-kill $(pgrep -f mfstnet_service)
-# Expect: signal commands continue; dashboard shows prediction unavailable, not stale
+**(a) No forecast: the policy decides without one.** There is no separate MFSTNet process to stop.
+Forecasting runs inside the edge program (ADR-026, ADR-027), and no forecast feeds the policy today
+(P97a). The fallback is `ForecastGate` in `simulation/forecast_state.py`: a missing, stale or invalid
+forecast hands the decision to the no-forecast policy, and invalid counts go to Webster.
 
-# (b) Broker dies → edge must switch to Webster within 10s
-sudo systemctl stop mosquitto
-# Expect: local Webster control within 10s; signals keep changing; heartbeat gap logged
+```powershell
+python -m pytest tests/test_forecast_state.py
 ```
+
+**(b) The broker stops: the edge runs its local cycle.** Start `python -m edge.run` with the server
+and the ingest (§0.7), then stop the broker however it was started: `Stop-Service mosquitto` if it
+runs as a Windows service, or end its process. Expect in the edge log:
+
+- `FR-A06: no successful publish for N s, over the 10s timeout` once **more than 10 s have passed
+  since the last acknowledged publish**. The timeout runs from that acknowledgement, not from the
+  moment the broker stopped, so a stopwatch started at the stop does not read 10 s. In D3's live
+  run the switch came 12.0 s after the last acknowledgement. If no publish was ever acknowledged,
+  the 10 s run from when the node was created.
+- `link restored; the server is driving again` once the broker is back and the next publish is
+  acknowledged.
+
+The local cycle (`LocalWebster` in `edge/node.py`) is a fixed 30 s alternation, and it drives no
+signal hardware.
 
 Webster must be **resident on the edge node**. A fallback fetched over the network when the network
 has failed is not a fallback.

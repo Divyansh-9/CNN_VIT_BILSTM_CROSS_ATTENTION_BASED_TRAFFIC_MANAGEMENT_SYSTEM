@@ -102,13 +102,17 @@ def test_the_simulation_version_preflight_names_every_mismatch():
 
     from scripts.check_sim_versions import PACKAGES, mismatches, pins
 
-    pinned = pins("eclipse-sumo==1.27.1  # pinned\ntraci==1.27.1\nsumolib==1.27.1\n"
-                  "gymnasium==1.3.0\nstable_baselines3==2.9.0\n")
+    pinned = pins("eclipse-sumo==1.27.1  # pinned\nsumo-data==1.27.1\ntraci==1.27.1\n"
+                  "sumolib==1.27.1\ngymnasium==1.3.0\nstable_baselines3==2.9.0\n")
     exact = {**pinned}
     assert mismatches(pinned, lambda p: exact[p]) == []
     drifted = {**exact, "eclipse-sumo": "1.28.0"}
     assert mismatches(pinned, lambda p: drifted[p]) == [
         "eclipse-sumo: installed 1.28.0, requirements.txt pins 1.27.1"]
+    # D4: eclipse-sumo pulls sumo-data in unversioned; a clean install drew 1.28.0.
+    data_drift = {**exact, "sumo-data": "1.28.0"}
+    assert mismatches(pinned, lambda p: data_drift[p]) == [
+        "sumo-data: installed 1.28.0, requirements.txt pins 1.27.1"]
 
     def missing(p):
         raise metadata.PackageNotFoundError(p)
