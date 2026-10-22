@@ -100,3 +100,15 @@ def test_the_ingest_refuses_half_a_credential_at_start_up(monkeypatch, capsys):
     with pytest.raises(SystemExit) as stop:
         mqtt_ingest.main(["--port", "1"])
     assert PASSWORD_ENV in str(stop.value) and "server-ingest" not in str(stop.value)
+
+
+def test_the_start_up_line_names_every_subscribed_topic():
+    # It used to name the prediction topic only, though the ingest also
+    # subscribes to the count forecast (ADR-027).
+    from contracts.mqtt import Topic
+    from server.mqtt_ingest import INGESTED, subscription_summary
+
+    line = subscription_summary("127.0.0.1", 1883)
+    assert line == ("subscribed to stms/+/congestion/prediction and stms/+/count/forecast "
+                    "on 127.0.0.1:1883")
+    assert {Topic.PREDICTION, Topic.COUNT_FORECAST} == set(INGESTED)

@@ -244,4 +244,4 @@ class EdgeNode:
         self.mode = Mode.NORMAL
         return {"mode": self.mode, "delivered": delivered,
                 "phase": None, "green_s": None,
-                "reason": "link healthy; the server is driving"}
+                "reason": "link healthy: publishes are acknowledged"}

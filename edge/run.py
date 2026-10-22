@@ -297,7 +297,8 @@ class EdgeLoop:
             if out["mode"] is Mode.LOCAL:
                 log.warning("%s", out["reason"])
             else:
-                log.info("link restored; the server is driving again")
+                # The link, not signal control: no server drives a signal (ADR-027).
+                log.info("link restored: publishes are acknowledged again")
             self.mode = out["mode"]
 
 

@@ -911,8 +911,8 @@ runs as a Windows service, or end its process. Expect in the edge log:
   moment the broker stopped, so a stopwatch started at the stop does not read 10 s. In D3's live
   run the switch came 12.0 s after the last acknowledgement. If no publish was ever acknowledged,
   the 10 s run from when the node was created.
-- `link restored; the server is driving again` once the broker is back and the next publish is
-  acknowledged.
+- `link restored: publishes are acknowledged again` once the broker is back and the next publish
+  is acknowledged. It reports the link only: the server drives no signal.
 
 The local cycle (`LocalWebster` in `edge/node.py`) is a fixed 30 s alternation, and it drives no
 signal hardware.

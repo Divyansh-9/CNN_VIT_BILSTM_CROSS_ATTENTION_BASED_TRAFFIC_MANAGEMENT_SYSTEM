@@ -28,7 +28,7 @@ import time
 from contracts.broker import CredentialError, Credentials, credentials_from_env
 from contracts.mqtt import ContractError, Topic, check_intersection_id
 
-__all__ = ["PredictionIngest"]
+__all__ = ["PredictionIngest", "subscription_summary"]
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +53,12 @@ def route(topic: str) -> tuple[str, Topic]:
         if len(parts) == 4 and candidate.render(parts[1]) == topic:
             return check_intersection_id(parts[1]), candidate
     raise ContractError("not an ingested topic")
+
+
+def subscription_summary(host: str, port: int) -> str:
+    """The start-up line: every topic the ingest subscribes to, not just one."""
+    return (f"subscribed to {' and '.join(t.render('+') for t in INGESTED)} "
+            f"on {host}:{port}")
 
 
 def intersection_of(topic: str) -> str:
@@ -165,8 +171,8 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"the broker at {args.host}:{args.port} refused the connection: "
                              f"{ingest.connect_refused}")
         raise SystemExit(f"could not subscribe at {args.host}:{args.port}")
-    print(f"  subscribed to {Topic.PREDICTION.render('+')} on "
-          f"{args.host}:{args.port}")
+    # Flushed, so the line is visible when the output goes to a file too.
+    print(f"  {subscription_summary(args.host, args.port)}", flush=True)
     threading.Event().wait()
     return 0
 

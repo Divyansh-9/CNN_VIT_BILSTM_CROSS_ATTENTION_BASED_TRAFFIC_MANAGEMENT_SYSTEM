@@ -10438,3 +10438,46 @@ both (D4).
 3. An authenticated deployment broker. The code is ready; the broker's
    configuration and a test against Mosquitto are not.
 4. The disk and Python-install constraints.
+
+## D7 — the edge's recovery log and the ingest's start-up line say what is true (2026-10-22)
+
+**Status: applied 2026-10-22**, after the owner's decisions on the TIM and SOP
+discrepancies (items 4 and 6). As with D1–D6, it carries no P-number.
+
+### What was wrong
+
+- **The recovery log implied signal control.** When publishes were
+  acknowledged again, `edge/run.py` logged `link restored; the server is
+  driving again`, and `EdgeNode.tick` gave its reason as `link healthy; the
+  server is driving`. No server drives a signal (ADR-027, P97a).
+- **The ingest's start-up line named one topic of two.** It printed
+  `subscribed to stms/+/congestion/prediction on …`, although the ingest also
+  subscribes to `stms/+/count/forecast` (ADR-027).
+- **The line was buffered.** Run with its output redirected to a file, it did
+  not appear until the ingest exited (the TIM validation, 2026-10-22).
+
+### What changed
+
+- **`edge/run.py`** logs `link restored: publishes are acknowledged again`.
+- **`edge/node.py`'s** `tick` reason reads `link healthy: publishes are
+  acknowledged`.
+- **`server/mqtt_ingest.py`** has a new `subscription_summary()`. It renders
+  every topic in `INGESTED`, so the start-up line is `subscribed to
+  stms/+/congestion/prediction and stms/+/count/forecast on HOST:PORT`, and
+  it is printed with `flush=True`.
+- **Execution Manual §5.3** quotes the new log line.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| `tests/test_edge_run.py`, one new test | A LOCAL → NORMAL transition logs exactly the new line, and neither it nor the `tick` reason mentions a server or driving |
+| `tests/test_broker_credentials.py`, one new test | The start-up line names both ingested topics |
+| Focused suites (`test_edge_run`, `test_broker_credentials`, `test_edge_node`) | 76 passed |
+| Mutation check | Each old wording, and the one-topic line, restored one at a time: 3 of 3 caught |
+
+### Not changed
+
+- **The ingest's Ctrl+C shutdown**, deferred by the owner (item 5). It still
+  ends with a `KeyboardInterrupt` traceback and does not disconnect first.
+- Behaviour: only the text of two messages and one `tick` reason changes.

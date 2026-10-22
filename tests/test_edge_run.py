@@ -379,6 +379,24 @@ def test_fallback_is_still_decided_while_the_camera_is_reconnecting(files):
     assert loop.idle(now=111.0)["mode"] is Mode.LOCAL
 
 
+def test_recovery_is_reported_as_the_link_not_as_signal_control(files, caplog):
+    # The log used to say "the server is driving again"; no server drives a signal.
+    import logging
+
+    caplog.set_level(logging.INFO, logger="edge.run")
+    loop = loop_for(files)
+    loop.step(TRAFFIC, ts=0.0, now=100.0)
+    loop.node.transport.up = False
+    assert loop.step(TRAFFIC, ts=12.0, now=112.0)["mode"] is Mode.LOCAL
+    loop.node.transport.up = True
+    out = loop.step(TRAFFIC, ts=14.0, now=114.0)
+    assert out["mode"] is Mode.NORMAL
+    restored = [r.getMessage() for r in caplog.records if "link restored" in r.getMessage()]
+    assert restored == ["link restored: publishes are acknowledged again"]
+    for text in (*restored, out["reason"]):
+        assert "driv" not in text and "server" not in text
+
+
 # ---- 6. frames stay in memory -----------------------------------------------
 
 class Frame:
