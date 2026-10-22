@@ -30,6 +30,11 @@ publish into a refusal, or forecast against the wrong calibration.
 same step. Nothing here opens a file for writing, and the camera URL is read
 from `STMS_CAMERA_URL` so it never reaches the command line or the log.
 
+**Broker credentials come from the environment too** (NFR-11):
+`STMS_MQTT_USERNAME` and `STMS_MQTT_PASSWORD`, both or neither
+(`contracts/broker.py`). Half a credential is refused at start-up. With
+neither, the node connects anonymously and says so.
+
 **The link is not the only thing that can stop.** While the camera is
 reconnecting there are no frames, but the node is still ticked once a step, so
 FR-A06's timeout is still measured from `last_ack` and the local cycle still
@@ -48,6 +53,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator
 
+from contracts.broker import CredentialError, Credentials, credentials_from_env
 from contracts.mqtt import ContractError, Mode, check_intersection_id
 from edge.classes import MAPPING_FILE
 from edge.count_forecast import RidgeCountForecaster
@@ -90,6 +96,7 @@ class Settings:
     ridge_spec: Path
     samples: int | None
     realtime: bool
+    credentials: Credentials | None = None   # from the environment; repr hides the password
 
 
 def load_lanes(path: Path) -> LaneCentres:
@@ -174,6 +181,10 @@ def parse_args(argv: list[str] | None = None) -> Settings:
     args = parser.parse_args(argv)
 
     try:
+        credentials = credentials_from_env()
+    except CredentialError as error:
+        parser.error(str(error))
+    try:
         check_intersection_id(args.intersection_id)
     except ContractError as error:
         parser.error(str(error))
@@ -221,7 +232,7 @@ def parse_args(argv: list[str] | None = None) -> Settings:
                     broker_host=args.broker_host, broker_port=args.broker_port,
                     weights=args.weights, conf=args.conf, imgsz=args.imgsz,
                     persistence_spec=args.persistence_spec, ridge_spec=args.ridge_spec,
-                    samples=args.samples, realtime=args.realtime)
+                    samples=args.samples, realtime=args.realtime, credentials=credentials)
 
 
 class EdgeLoop:
@@ -397,15 +408,22 @@ def main(argv: list[str] | None = None) -> int:
         os.environ.setdefault("OPENCV_LOG_LEVEL", "OFF")
         os.environ.setdefault("OPENCV_FFMPEG_LOGLEVEL", "-8")
     detector = YoloDetector(settings.weights, settings.conf, settings.imgsz)
+    if settings.credentials is None:
+        log.warning("no MQTT credentials set; connecting anonymously, which only a "
+                    "development broker accepts (NFR-11)")
     transport = MqttTransport(settings.broker_host, settings.broker_port,
-                              client_id=f"edge-{settings.intersection_id}")
+                              client_id=f"edge-{settings.intersection_id}",
+                              credentials=settings.credentials)
     node = EdgeNode(intersection_id=settings.intersection_id, transport=transport,
                     detector_classes=load_itd_mapping())
     if not transport.start():
         # Not fatal: FR-A06 exists for a node that cannot reach the server.
-        log.warning("broker %s:%d not reachable; continuing, and the local cycle "
+        # A refusal is named by the broker's reason code, never the credentials.
+        problem = (f"refused the connection ({transport.connect_refused})"
+                   if transport.connect_refused else "not reachable")
+        log.warning("broker %s:%d %s; continuing, and the local cycle "
                     "takes over after %.0f s without an acknowledgement",
-                    settings.broker_host, settings.broker_port, node.timeout_s)
+                    settings.broker_host, settings.broker_port, problem, node.timeout_s)
     if settings.source == CAMERA_SOURCE:
         frames = camera_frames(os.environ[CAMERA_ENV].strip())
         log.info("source: the camera in %s", CAMERA_ENV)

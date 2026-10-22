@@ -221,7 +221,8 @@ python -m edge.run --source clip.mp4 --lanes lanes.json --approaches lane_0=W la
 them, there or on the command line, invalidates the thresholds. `python -m edge.run --help` lists
 every option.
 
-To see forecasts arrive, run the server and the ingest as well:
+To see forecasts arrive, run the server and the ingest as well. The ingest reads the same two
+broker variables as the edge (see "The broker" below):
 
 ```powershell
 python -m uvicorn server.app:app --port 8000
@@ -245,14 +246,28 @@ under `data/server/`.
 
 - **`requirements.txt` installs no broker.** Install Mosquitto separately (on Windows, the installer
   from mosquitto.org) and run it on the port you pass.
-- **NFR-11 is unmet by the current code.** NFR-11 requires an authenticated broker
-  (`allow_anonymous false`), and neither MQTT client sends credentials: `edge/mqtt_transport.py`
-  and `server/mqtt_ingest.py` have no username or password option. An authenticated broker
-  therefore refuses both. **Installing and configuring an authenticated broker does not make the
-  current code compatible**; credential support is a code change that has not been made. Until
-  then, only an anonymous broker on `127.0.0.1` can be used, for development.
-- The clean-environment check used an anonymous amqtt broker as a stand-in. That shows the data
-  path. It does not show Mosquitto compatibility or NFR-11.
+- **NFR-11 requires an authenticated broker** (`allow_anonymous false`). Both MQTT clients, the
+  edge program and the ingest, send a username and password when both are set in the environment
+  (D6). Set them in the shell that starts each program, never on its command line:
+
+  ```powershell
+  $env:STMS_MQTT_USERNAME = "edge-ne8th"
+  $env:STMS_MQTT_PASSWORD = "..."   # from wherever the team keeps secrets; never in git
+  ```
+
+  Both or neither. Setting only one of them is refused at start-up, and neither program prints
+  either value. With neither set, each program warns that it is connecting anonymously, which
+  only a development broker on `127.0.0.1` should accept.
+- **A refused connection is reported by the broker's reason code.** An authenticating broker
+  answers a missing or wrong credential with `Not authorized`. The edge program logs
+  `broker … refused the connection (Not authorized)` and runs its local cycle (§5.3); the ingest
+  exits with the same reason.
+- **What has been verified.** Against an amqtt broker with anonymous access off and a password
+  file, both clients were refused without credentials, with a wrong password and as an unknown
+  user, and accepted with the right ones; a prediction then went from the edge to the server's
+  store (`tests/test_mqtt_live.py`). **Mosquitto has not been tested, and no Mosquitto
+  configuration is committed.** Its `allow_anonymous false` and password file are for whoever
+  sets up the deployment broker.
 
 ---
 

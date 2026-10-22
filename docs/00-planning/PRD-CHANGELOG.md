@@ -10366,3 +10366,75 @@ D3 recorded: "The counting settings are module constants".
 
 - The values themselves, the forecasters, the class mapping and the contract.
 - Anything about the four open deployment prerequisites (D4).
+
+## D6 — both MQTT clients can authenticate to the broker (NFR-11) (2026-10-21)
+
+**Status: applied 2026-10-21**, after the owner's go-ahead for MQTT
+credential support as its own change. As with D1–D5, it carries no P-number.
+
+### What was wrong
+
+NFR-11 requires an authenticated broker: `allow_anonymous false`, verified by
+an unauthenticated connect attempt being refused. Neither client could meet
+it. `edge/mqtt_transport.py` and `server/mqtt_ingest.py` had no username or
+password option, so a broker configured as NFR-11 requires would have refused
+both (D4).
+
+### What changed
+
+- **`contracts/broker.py`**, new. `Credentials` holds the username and
+  password and leaves the password out of its repr.
+  `credentials_from_env()` reads `STMS_MQTT_USERNAME` and
+  `STMS_MQTT_PASSWORD`:
+  - both set: credentials;
+  - neither set: `None`, an anonymous connection;
+  - one without the other: refused with `CredentialError`. The message names
+    the missing variable and never quotes a value.
+- **`MqttTransport` and `PredictionIngest`** take `credentials=` and send them
+  on connect.
+  - A refused connection is recorded in `connect_refused` as the broker's
+    reason code only, so a refusal can be told apart from a broker that is not
+    there.
+- **`edge/run.py`** reads the credentials at start-up.
+  - Half a credential exits with code 2.
+  - With neither set, it warns that it is connecting anonymously.
+  - A refusal is logged with its reason code, and the FR-A06 local cycle runs
+    as for any broker the node cannot reach.
+- **`python -m server.mqtt_ingest`** does the same, and exits naming the
+  broker's reason when refused.
+- **The existing no-credentials behaviour is kept** for development and tests.
+- **Execution Manual §0.7** documents the two variables and what has and has
+  not been verified. The README and PLAN-D3 now describe the third deployment
+  prerequisite as an authenticated deployment broker, not missing code.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| `tests/test_broker_credentials.py`, new, no broker | 11 of 11. Neither variable or both; the password is kept out of the repr; four partial configurations refused, each naming the variable and not the value; each client calls `username_pw_set` only when given credentials; a refusal is recorded by reason code without the password; the ingest refuses half a credential at start-up |
+| `tests/test_edge_run.py` | 49 of 49, of which three are new: credentials read from the environment and kept out of the settings' repr, and half a credential refused (exit 2) without echoing either value |
+| `tests/test_mqtt_live.py`, `AMQTT_PYTHON` set, on an **amqtt broker that enforces authentication**: `allow_anonymous: false` plus `FileAuthPlugin` with an Argon2 password file, and a random password for each run that is in no committed file | 7 of 7. Three are new: both clients refused without credentials; a wrong password refused and absent from every log and output; authenticated clients carry a prediction from the edge to the server's store |
+| Reason codes, edge and ingest each | anonymous, wrong password, unknown user: refused with `Not authorized`. Correct credentials: accepted |
+| Mutation check, with the live broker | each protection reverted once: each client dropping its credentials; half a credential connecting anonymously; the password shown in the repr; an error naming a value; `edge.run` ignoring the environment; each client not recording a refusal. **8 of 8 caught** |
+
+### What this does and does not establish
+
+- **It establishes that NFR-11's verification passes against an amqtt broker
+  configured to enforce authentication.** An unauthenticated connect attempt
+  is refused, for both clients, and authenticated clients work end to end.
+- **It does not establish NFR-11 for the deployment broker.** Mosquitto, the
+  broker the PRD names, was not tested, and no broker configuration is
+  committed, Mosquitto's or any other. Setting it up with `allow_anonymous
+  false` and a password file is part of the third open deployment
+  prerequisite.
+- **It does not add TLS.** Credentials cross the network in clear text to the
+  broker, as MQTT over plain TCP does. NFR-11 asks for username and password
+  authentication; encrypting the link is a separate decision.
+
+### Still open (D4, updated)
+
+1. Teammate access to the detector weights; the licence is unresolved.
+2. A camera-matched lane file, and thresholds for that camera.
+3. An authenticated deployment broker. The code is ready; the broker's
+   configuration and a test against Mosquitto are not.
+4. The disk and Python-install constraints.

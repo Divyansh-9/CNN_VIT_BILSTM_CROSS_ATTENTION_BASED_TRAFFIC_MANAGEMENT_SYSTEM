@@ -13,11 +13,18 @@ timeout measure the speed of the local socket buffer instead of the link.
 
 QoS is never chosen here. It arrives from `Topic.qos` through the node, so
 emergency traffic cannot be downgraded by a transport (contracts/mqtt.py).
+
+**Credentials are sent when given** (NFR-11, `contracts/broker.py`). A broker
+that refuses the connection is recorded in `connect_refused` as the broker's
+reason code, never with the credentials, so a refusal can be told apart from
+a broker that is not there.
 """
 
 from __future__ import annotations
 
 import threading
+
+from contracts.broker import Credentials
 
 __all__ = ["MqttTransport"]
 
@@ -25,22 +32,30 @@ __all__ = ["MqttTransport"]
 class MqttTransport:
     def __init__(self, host: str = "127.0.0.1", port: int = 1883, *,
                  client_id: str, keepalive_s: int = 30,
-                 ack_timeout_s: float = 2.0) -> None:
+                 ack_timeout_s: float = 2.0,
+                 credentials: Credentials | None = None) -> None:
         import paho.mqtt.client as mqtt
 
         self._mqtt = mqtt
         self.host, self.port = host, port
         self.ack_timeout_s = ack_timeout_s
         self._up = threading.Event()
+        # The broker's reason for refusing the last connection, if it did.
+        self.connect_refused: str | None = None
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
                                   client_id=client_id, clean_session=True)
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
+        if credentials is not None:
+            self.client.username_pw_set(credentials.username, credentials.password)
         self.keepalive_s = keepalive_s
 
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
-        if not reason_code.is_failure:
-            self._up.set()
+        if reason_code.is_failure:
+            self.connect_refused = str(reason_code)
+            return
+        self.connect_refused = None
+        self._up.set()
 
     def _on_disconnect(self, client, userdata, flags, reason_code,
                        properties=None):

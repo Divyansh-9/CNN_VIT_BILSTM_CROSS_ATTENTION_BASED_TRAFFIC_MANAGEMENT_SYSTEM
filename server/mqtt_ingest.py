@@ -11,6 +11,11 @@ from the topic, which the contract renders, never from the payload.
 A refused payload is counted and logged by topic and reason, and its content is
 never logged: a malformed message is exactly the one that must not be echoed
 anywhere (NFR-13).
+
+**Credentials come from the environment** (NFR-11, `contracts/broker.py`):
+`STMS_MQTT_USERNAME` and `STMS_MQTT_PASSWORD`, both or neither. A broker that
+refuses the connection is reported by its reason code, never with the
+credentials.
 """
 
 from __future__ import annotations
@@ -20,6 +25,7 @@ import logging
 import threading
 import time
 
+from contracts.broker import CredentialError, Credentials, credentials_from_env
 from contracts.mqtt import ContractError, Topic, check_intersection_id
 
 __all__ = ["PredictionIngest"]
@@ -59,7 +65,8 @@ def intersection_of(topic: str) -> str:
 
 class PredictionIngest:
     def __init__(self, host: str = "127.0.0.1", port: int = 1883, *,
-                 client_id: str = "stms-server-ingest") -> None:
+                 client_id: str = "stms-server-ingest",
+                 credentials: Credentials | None = None) -> None:
         import paho.mqtt.client as mqtt
 
         self.host, self.port = host, port
@@ -74,15 +81,22 @@ class PredictionIngest:
         # is ours, and the message may well have been good (P140).
         self.failed: list[tuple[str, str]] = []
         self._subscribed = threading.Event()
+        # The broker's reason for refusing the last connection, if it did.
+        self.connect_refused: str | None = None
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
                                   client_id=client_id, clean_session=True)
         self.client.on_connect = self._on_connect
         self.client.on_subscribe = lambda *a, **k: self._subscribed.set()
         self.client.on_message = self._on_message
+        if credentials is not None:
+            self.client.username_pw_set(credentials.username, credentials.password)
 
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
-        if not reason_code.is_failure:
-            client.subscribe([(t.render("+"), t.qos) for t in INGESTED])
+        if reason_code.is_failure:
+            self.connect_refused = str(reason_code)
+            return
+        self.connect_refused = None
+        client.subscribe([(t.render("+"), t.qos) for t in INGESTED])
 
     def _on_message(self, client, userdata, message):
         from server.app import store_count_forecast, store_prediction
@@ -138,8 +152,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=1883)
     args = parser.parse_args(argv)
-    ingest = PredictionIngest(args.host, args.port)
+    try:
+        credentials = credentials_from_env()
+    except CredentialError as error:
+        raise SystemExit(str(error)) from None
+    if credentials is None:
+        print("  no MQTT credentials set; connecting anonymously, which only a development "
+              "broker accepts (NFR-11)")
+    ingest = PredictionIngest(args.host, args.port, credentials=credentials)
     if not ingest.start():
+        if ingest.connect_refused:
+            raise SystemExit(f"the broker at {args.host}:{args.port} refused the connection: "
+                             f"{ingest.connect_refused}")
         raise SystemExit(f"could not subscribe at {args.host}:{args.port}")
     print(f"  subscribed to {Topic.PREDICTION.render('+')} on "
           f"{args.host}:{args.port}")

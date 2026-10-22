@@ -46,15 +46,8 @@ def free_port() -> int:
         return sock.getsockname()[1]
 
 
-@pytest.fixture
-def broker(tmp_path):
-    port = free_port()
-    config = tmp_path / "broker.yaml"
-    config.write_text(
-        "listeners:\n  default:\n    type: tcp\n"
-        f"    bind: 127.0.0.1:{port}\n"
-        "plugins:\n  amqtt.plugins.authentication.AnonymousAuthPlugin:\n"
-        "    allow_anonymous: true\n", encoding="utf-8")
+def run_broker(config: Path, port: int):
+    """Start a broker on `port` from `config`; yields once it accepts connections."""
     command = broker_command(config)
     if command is None:
         pytest.skip("no amqtt broker available; set AMQTT_PYTHON")
@@ -73,6 +66,56 @@ def broker(tmp_path):
     yield port
     process.kill()
     process.wait(timeout=10)
+
+
+@pytest.fixture
+def broker(tmp_path):
+    port = free_port()
+    config = tmp_path / "broker.yaml"
+    config.write_text(
+        "listeners:\n  default:\n    type: tcp\n"
+        f"    bind: 127.0.0.1:{port}\n"
+        "plugins:\n  amqtt.plugins.authentication.AnonymousAuthPlugin:\n"
+        "    allow_anonymous: true\n", encoding="utf-8")
+    yield from run_broker(config, port)
+
+
+def argon2_hash(password: str) -> str | None:
+    """The broker's own hasher, run in the broker's environment. The password
+    goes over stdin, not argv, so it is not in any process listing."""
+    python = os.environ.get("AMQTT_PYTHON") or sys.executable
+    result = subprocess.run(
+        [python, "-c", "import sys; from pwdlib.hashers.argon2 import Argon2Hasher; "
+                       "print(Argon2Hasher().hash(sys.stdin.read()))"],
+        input=password, capture_output=True, text=True, timeout=60)
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+@pytest.fixture
+def auth_broker(tmp_path):
+    """NFR-11's broker: anonymous connections refused, one user by password.
+    The password is random per run and exists in no committed file."""
+    import secrets
+
+    from contracts.broker import Credentials
+
+    credentials = Credentials("stms-test", secrets.token_urlsafe(18))
+    hashed = argon2_hash(credentials.password)
+    if hashed is None:
+        pytest.skip("no amqtt broker environment with pwdlib; set AMQTT_PYTHON")
+    passwords = tmp_path / "passwords"
+    passwords.write_text(f"{credentials.username}:{hashed}\n", encoding="utf-8")
+    port = free_port()
+    config = tmp_path / "broker.yaml"
+    config.write_text(
+        "listeners:\n  default:\n    type: tcp\n"
+        f"    bind: 127.0.0.1:{port}\n"
+        "plugins:\n  amqtt.plugins.authentication.AnonymousAuthPlugin:\n"
+        "    allow_anonymous: false\n"
+        "  amqtt.plugins.authentication.FileAuthPlugin:\n"
+        f"    password_file: {passwords.as_posix()}\n", encoding="utf-8")
+    for running in run_broker(config, port):
+        yield running, credentials
 
 
 @pytest.fixture
@@ -173,3 +216,76 @@ def test_a_three_lane_camera_reports_its_missing_approach(database):
     assert posted["missing_approaches"] == ["S"]
     assert posted["state_11_14"] == [2 / 3, None, 2 / 3, 2 / 3]   # S absent, not LOW
     assert client.get("/prediction/j3/latest").json()["missing_approaches"] == ["S"]
+
+
+# ---- NFR-11: a broker that enforces authentication -------------------------
+
+def test_an_authenticating_broker_refuses_both_clients_without_credentials(auth_broker):
+    """NFR-11's verification: an unauthenticated connect attempt is refused."""
+    from edge.mqtt_transport import MqttTransport
+    from server.mqtt_ingest import PredictionIngest
+
+    port, _ = auth_broker
+    edge = MqttTransport(port=port, client_id="edge-anon")
+    ingest = PredictionIngest(port=port, client_id="ingest-anon")
+    try:
+        assert not edge.start(wait_s=3), "an anonymous edge was accepted"
+        assert not ingest.start(wait_s=3), "an anonymous ingest was accepted"
+        assert edge.connect_refused and ingest.connect_refused
+        with pytest.raises(ConnectionError):
+            edge.publish("stms/j7/system/heartbeat", "{}", 0)
+    finally:
+        edge.stop()
+        ingest.stop()
+
+
+def test_a_wrong_password_is_refused_and_appears_nowhere(auth_broker, caplog, capsys):
+    import logging
+
+    from contracts.broker import Credentials
+    from edge.mqtt_transport import MqttTransport
+
+    port, good = auth_broker
+    wrong = Credentials(good.username, good.password + "-wrong")
+    caplog.set_level(logging.DEBUG)
+    edge = MqttTransport(port=port, client_id="edge-wrong", credentials=wrong)
+    try:
+        assert not edge.start(wait_s=3), "a wrong password was accepted"
+        assert edge.connect_refused
+    finally:
+        edge.stop()
+    shown = caplog.text + "".join(capsys.readouterr()) + edge.connect_refused
+    assert wrong.password not in shown and good.password not in shown
+
+
+def test_authenticated_clients_carry_a_prediction_end_to_end(auth_broker, database, caplog,
+                                                              capsys):
+    import logging
+
+    from fastapi.testclient import TestClient
+
+    from contracts.mqtt import CongestionClass, CongestionPrediction
+    from edge.mqtt_transport import MqttTransport
+    from edge.node import EdgeNode
+    from server.mqtt_ingest import PredictionIngest
+
+    port, credentials = auth_broker
+    caplog.set_level(logging.DEBUG)
+    ingest = PredictionIngest(port=port, client_id="ingest-auth", credentials=credentials)
+    transport = MqttTransport(port=port, client_id="edge-auth", credentials=credentials)
+    try:
+        assert ingest.start(), f"authenticated ingest refused: {ingest.connect_refused}"
+        assert transport.start(), f"authenticated edge refused: {transport.connect_refused}"
+        node = EdgeNode(intersection_id="j7", transport=transport)
+        sent = CongestionPrediction(
+            predictions={a: CongestionClass.LOW for a in "NSEW"},
+            confidences={a: 0.76 for a in "NSEW"}, gate_value=None,
+            model="persistence@2431c6641b9c")
+        assert node.publish_prediction(sent)
+        assert wait_until(lambda: ingest.stored == 1)
+    finally:
+        transport.stop()
+        ingest.stop()
+    assert TestClient(database.app).get("/prediction/j7/latest").json()["model"] == \
+        "persistence@2431c6641b9c"
+    assert credentials.password not in caplog.text + "".join(capsys.readouterr())

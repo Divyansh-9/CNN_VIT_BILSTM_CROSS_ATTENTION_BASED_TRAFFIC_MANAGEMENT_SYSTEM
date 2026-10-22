@@ -28,6 +28,15 @@ CENTRES = {"lane_0": (0.15, 0.5), "lane_1": (0.5, 0.2), "lane_2": (0.8, 0.4)}
 APPROACHES = ["lane_0=W", "lane_1=N", "lane_2=E"]
 
 
+@pytest.fixture(autouse=True)
+def no_broker_credentials(monkeypatch):
+    # The developer's own STMS_MQTT_* must not change what these tests see.
+    from contracts.broker import PASSWORD_ENV, USERNAME_ENV
+
+    monkeypatch.delenv(USERNAME_ENV, raising=False)
+    monkeypatch.delenv(PASSWORD_ENV, raising=False)
+
+
 def run_module():
     import edge.run as module
     return module
@@ -158,19 +167,49 @@ def test_a_missing_file_is_refused(files, flag):
         settings(files, **{flag: str(files["dir"] / "absent")})
 
 
+def test_broker_credentials_come_from_the_environment_and_stay_out_of_the_repr(
+        files, monkeypatch):
+    from contracts.broker import PASSWORD_ENV, USERNAME_ENV, Credentials
+
+    assert settings(files).credentials is None
+    monkeypatch.setenv(USERNAME_ENV, "edge-ne8th")
+    monkeypatch.setenv(PASSWORD_ENV, "canary-broker-value")
+    s = settings(files)
+    assert s.credentials == Credentials("edge-ne8th", "canary-broker-value")
+    assert "canary-broker-value" not in repr(s)
+
+
+@pytest.mark.parametrize("set_name", ["username", "password"])
+def test_half_a_broker_credential_is_refused_at_start_up_without_echoing_it(
+        files, monkeypatch, capsys, set_name):
+    from contracts.broker import PASSWORD_ENV, USERNAME_ENV
+
+    if set_name == "username":
+        monkeypatch.setenv(USERNAME_ENV, "edge-ne8th")
+    else:
+        monkeypatch.setenv(PASSWORD_ENV, "canary-broker-value")
+    with pytest.raises(SystemExit) as stop:
+        settings(files)
+    assert stop.value.code == 2
+    err = capsys.readouterr().err
+    assert (PASSWORD_ENV if set_name == "username" else USERNAME_ENV) in err
+    assert "canary-broker-value" not in err and "edge-ne8th" not in err
+
+
 def test_the_camera_url_comes_from_the_environment_and_is_never_echoed(files, monkeypatch,
                                                                        capsys):
     module = run_module()
     monkeypatch.delenv(module.CAMERA_ENV, raising=False)
     with pytest.raises(SystemExit):
         settings(files, **{"--source": "camera"})
-    secret = "rtsp://operator:hunter2@10.0.0.9/stream"
+    # Synthetic: example credentials on a documentation address (RFC 5737).
+    secret = "rtsp://example-user:example-pass@192.0.2.9/stream"  # pragma: allowlist secret  ggignore
     monkeypatch.setenv(module.CAMERA_ENV, secret)
     assert settings(files, **{"--source": "camera"}).source == "camera"
     with pytest.raises(SystemExit):        # a later refusal must not quote it either
         settings(files, **{"--source": "camera", "--intersection-id": "bad id"})
     captured = capsys.readouterr()
-    assert "hunter2" not in captured.out + captured.err
+    assert "example-pass" not in captured.out + captured.err
 
 
 def test_the_counting_defaults_come_from_the_config_not_the_script(files, monkeypatch):
