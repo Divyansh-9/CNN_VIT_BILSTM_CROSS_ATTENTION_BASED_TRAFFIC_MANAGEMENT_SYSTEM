@@ -10481,3 +10481,38 @@ discrepancies (items 4 and 6). As with D1–D6, it carries no P-number.
 - **The ingest's Ctrl+C shutdown**, deferred by the owner (item 5). It still
   ends with a `KeyboardInterrupt` traceback and does not disconnect first.
 - Behaviour: only the text of two messages and one `tick` reason changes.
+
+## D8 — the SAD describes the MQTT subscriptions that exist (2026-10-22)
+
+**Status: applied 2026-10-22**, after the owner's decision on the TIM and SOP
+discrepancies (item 3). It is documentation only. As with D1–D7, it carries no
+P-number.
+
+### What was wrong
+
+SAD §4.2's topic table gave `edge → server` as the consumer of three topics no
+server component subscribes to. The ingest subscribes to the two forecast
+topics only (`server/mqtt_ingest.py`, `INGESTED`):
+- **`system/heartbeat`** and **`vehicle_count`** are published by the edge and
+  received by nothing. HLD §9-C4 had already recorded `vehicle_count`.
+- **`emergency/detect`** is defined, but nothing outside the tests publishes or
+  subscribes to it.
+
+§6.2 called the server's trigger "the reported heartbeat", which read as the
+MQTT heartbeat. It is the age that the caller of `POST /observation`
+reports.
+
+### What changed
+
+- **SAD §4.2** names the actual consumer of each of those three topics, and
+  says what follows from it: the edge's `LOCAL` mode is visible only in the
+  edge's log, not on the server or the dashboard.
+- **SAD §6.2** says the server's 10 s trigger is `seconds_since_heartbeat` in
+  `POST /observation`, not the MQTT heartbeat. This keeps the edge's local
+  fallback and the server's safety behaviour distinct.
+- **The SAD's status line** records the correction.
+
+### Not changed
+
+No code, and no other SAD section. Whether the server should ingest the
+heartbeat is a design question, not decided here.

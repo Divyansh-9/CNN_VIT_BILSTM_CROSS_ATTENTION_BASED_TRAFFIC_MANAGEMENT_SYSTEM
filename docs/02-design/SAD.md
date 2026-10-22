@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Wave** | 2 (ADR-004) |
-| **Status** | **Approved** by the owner's review, 2026-10-21 (accepted for HLD review, then for integration) |
+| **Status** | **Approved** by the owner's review, 2026-10-21 (accepted for HLD review, then for integration). **Corrected 2026-10-22** (PRD-CHANGELOG D8): §4.2's consumers and §6.2's server heartbeat |
 | **Describes** | The system as built at commit `1967e55`, 2026-10-18 |
 | **Authority** | The [PRD](../00-planning/PRD.md) for requirements, and the ADRs for every amendment. This document describes; it does not decide |
 | **Audience** | The faculty guide, examiners, and team members who need the whole system in one document before reading any one subsystem |
@@ -116,12 +116,12 @@ QoS.
 
 | Topic | QoS | Publisher → consumer |
 |---|---|---|
-| `stms/{id}/{lane}/vehicle_count` | 1 | edge → server |
-| `stms/{id}/{lane}/emergency/detect` | 2 | edge → server |
+| `stms/{id}/{lane}/vehicle_count` | 1 | **Published by the edge; no server component subscribes to it.** The ingest takes the two forecast topics only (HLD §9-C4) |
+| `stms/{id}/{lane}/emergency/detect` | 2 | **Defined, but nothing outside the tests publishes or subscribes to it** |
 | `stms/{id}/signal/command` | 1 | **Defined, but nothing outside the tests publishes it**; the edge does not subscribe to it. It is reserved for the server → edge command path, which is not built |
 | `stms/{id}/congestion/prediction` | 0 | edge → server (the class role) |
 | `stms/{id}/count/forecast` | 0 | edge → server (the count role, ADR-027) |
-| `stms/{id}/system/heartbeat` | 0 | edge → server |
+| `stms/{id}/system/heartbeat` | 0 | **Published by the edge; no server component subscribes to it.** The edge's mode, including `LOCAL`, is therefore visible only in the edge's own log, not on the server or the dashboard |
 
 **Schema v2 (ADR-026)** has the following rules:
 - **its stated aim is that no free text crosses the edge boundary;**
@@ -310,7 +310,7 @@ different mechanisms:
 | Where | Trigger | Behaviour |
 |---|---|---|
 | **Edge** (`EdgeNode.degraded`) | More than 10 s since the node's last successful publish | `Mode.LOCAL`: a fixed 30 s alternating cycle. The class is named `LocalWebster`, but it does no Webster computation |
-| **Server** (`SignalGuard.decide`) | The reported heartbeat is more than 10 s old | It switches to the opposite phase, with the Webster green if one is supplied, otherwise 20 s (2 × minimum green), clamped. The decision is labelled `source="webster"`, and the policy output is not trusted. `/observation` supplies no Webster green, so it is 20 s |
+| **Server** (`SignalGuard.decide`) | The heartbeat age **reported by the caller** of `POST /observation` (`seconds_since_heartbeat`) is more than 10 s. This is not the MQTT heartbeat, which no server component receives (§4.2) | It switches to the opposite phase, with the Webster green if one is supplied, otherwise 20 s (2 × minimum green), clamped. The decision is labelled `source="webster"`, and the policy output is not trusted. `/observation` supplies no Webster green, so it is 20 s |
 | **Simulation** (`ForecastGate`) | The forecast is more than 10 s old | The no-forecast policy decides |
 
 **Emergency pre-emption** (`SignalGuard`, FR-A05) gives the emergency approach's
