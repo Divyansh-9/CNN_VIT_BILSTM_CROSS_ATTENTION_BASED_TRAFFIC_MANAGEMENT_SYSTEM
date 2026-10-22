@@ -116,8 +116,9 @@ time of its last publish the broker acknowledged.
   | Run | Since the last acknowledgement (in the line) | From the stop to the line appearing |
   |---|---|---|
   | D3 live run | 12.0 s | 11.6 s |
-  | TIM validation, run 4 | 10.2 s | 9.6 s |
-  | TIM validation, run 3 | 12.7 s | 19.1 s |
+  | TIM validation at `d2db1c3` | 12.0 s | 11.6 s |
+  | TIM validation at `0e86119`, run 4 | 10.2 s | 9.6 s |
+  | TIM validation at `0e86119`, run 3 | 12.7 s | 19.1 s |
 
   With nothing ever acknowledged, the 10 s run from when the node started.
 - **When the broker returns**, the edge reconnects by itself. On the first

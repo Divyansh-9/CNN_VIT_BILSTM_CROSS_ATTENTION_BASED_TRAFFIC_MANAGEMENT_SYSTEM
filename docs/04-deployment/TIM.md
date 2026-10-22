@@ -5,7 +5,7 @@
 | **Wave** | 4 (ADR-004) |
 | **Status** | **Draft for review**, 2026-10-22. Not approved |
 | **Describes** | Installing the prototype from the repository at commit `21c8708` (D7) |
-| **Validated by** | A script that followed it literally in a fresh clone of `0e86119`, which differs from `21c8708` only in D7's message changes, against an authenticated amqtt broker, 2026-10-22 (§12.1). **Not yet followed by a person on a machine that has never run the project**, which is what [the deployment README](README.md) asks for |
+| **Validated by** | A script that followed it literally in a fresh clone of `d2db1c3` (code identical to `21c8708`), against an authenticated amqtt broker, 2026-10-22 (§12.1). §4's install commands were not rerun in that validation. **Not yet followed by a person on a machine that has never run the project**, which is what [the deployment README](README.md) asks for |
 | **Authority** | The [PRD](../00-planning/PRD.md) and the ADRs. Where this manual and the code disagree, the code is the fact and this manual is the defect |
 | **Audience** | A team member installing the prototype on a Windows laptop |
 
@@ -345,8 +345,8 @@ Run it after every installation. Each line separates **started** from
 | 5 | **NFR-11, refused:** start the ingest with **no** credentials set | Exit code 1: `the broker at … refused the connection: Not authorized` |
 | 6 | **NFR-11, accepted:** start the ingest with its credentials | `subscribed to …` in its terminal |
 | 7 | Start the edge (§9) on a test video with `--realtime` | Log: `source: …`, no `error:`. This shows it **started**, nothing more |
-| 8 | After 60 s: `GET /prediction/<id>/latest` | 200, with `"stale": false`. This is **delivery** of a class forecast. Measured: 63.0 s after the edge started |
-| 9 | After 120 s: `GET /count_forecast/<id>/latest` | 200. The count forecast needs a 2-minute window. Measured: 122.1 s |
+| 8 | After 60 s: `GET /prediction/<id>/latest` | 200, with `"stale": false`. This is **delivery** of a class forecast. Measured: 63.1 s after the edge started (at `d2db1c3`) |
+| 9 | After 120 s: `GET /count_forecast/<id>/latest` | 200. The count forecast needs a 2-minute window. Measured: 123.1 s |
 | 10 | The dashboard at `/dashboard/?id=<id>` | Both panels populated |
 
 For a check without a real camera, use the §6 installation fixture and any
@@ -354,16 +354,26 @@ licensed test video. **The forecasts from it are not evidence of anything.**
 
 ### 12.1 How this manual was validated (2026-10-22)
 
-A script followed §4 to §12 literally in a fresh clone of `0e86119` (before
-D7's message changes, so it saw their old wording), with
-the environment §4's commands had installed. It used the amqtt broker of
-§7.2 with anonymous access off, random passwords, a synthetic test video,
-and the §6 installation fixture. The script and its outputs are held with
-the review evidence, outside the repository.
+**Revision validated: `d2db1c3`**, whose code is identical to `21c8708` (D7).
+A script followed §4 to §12 literally in a fresh clone of it on 2026-10-22.
+It used:
+- the amqtt broker of §7.2, with anonymous access off and random passwords;
+- a synthetic test video;
+- the §6 installation fixture.
+
+**§4's install commands were not rerun in this validation.** The clone's
+environment was installed by those commands at the D4 clean-environment check.
+That `requirements.txt` is unchanged since is supporting context, not a
+substitute for a fresh install.
+
+An earlier run at `0e86119`, before D7, saw the old message wording, and this
+run supersedes it. The script and its outputs are held with the review
+evidence, outside the repository.
 
 | Result | Steps |
 |---|---|
-| **Passed** | §4 pre-flight checks; §5 hash commands (equal to the manifest); §10 `npm install` and `npm run build`, then `/dashboard/` 200; §8 server, `/health` 200; §12 checks 1–10. Refusals: an anonymous ingest (`Not authorized`, exit code 1), half a credential at the ingest (exit code 1) and at the edge (exit code 2), and a wrong edge password (logged, local cycle). The first class forecast came at 63.0 s and the first count forecast at 122.1 s. The only new file was the server's store, and no password appeared in any log |
+| **Passed at `d2db1c3`** | §4 pre-flight checks (`check_env.py`, `check_sim_versions.py`); §5 hash commands (equal to the manifest); §10 `npm install` and `npm run build`, then `/dashboard/` 200; §8 server, `/health` 200; §12 checks 1–10. **Refusals:** an anonymous ingest (`Not authorized`, exit code 1), half a credential at the ingest (exit code 1) and at the edge (exit code 2), and a wrong edge password (logged, local cycle). **Delivery:** first class forecast at 63.1 s, first count forecast at 123.1 s. **D7 wording:** the recovery line reads exactly `link restored: publishes are acknowledged again`, the old wording appears nowhere, and the ingest's start-up line names both topics, visible in a redirected log. **SOP §5:** the broker stopped and restarted, with the timings in the SOP's table. **Hygiene:** the only new file was the server's store, and no password appeared in any log |
+| **Carried over, not rerun** | §4's install commands (`py -3.12 -m venv`, the torch command, `pip install -r requirements.txt`): last run at the D4 clean-environment check |
 | **Corrected after the run** | The disk requirement (§1, §3); the ingest's exit codes and messages (§8); that the hash prompt is interactive (§7.2) |
 | **Not established** | §7.2's interactive hash prompt, which cannot be scripted (the same hasher was fed from standard input instead); §7.3 Mosquitto; a camera stream; a first-time installation by a person; CPU-only operation |
 
