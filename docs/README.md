@@ -82,7 +82,7 @@ Documents are written in four waves gated on the PRD §18 phases, not all upfron
 | 1 | Week 0–1 | SOW, BRD, SRS, FRD, NFR, RTM, ADRs, Execution Manual | **Delivered** |
 | 2 | Week 5 | SAD, HLD, LLD | SAD and HLD **delivered**; LLD scheduled |
 | 3 | Week 11 | STP, STD, UAT | Scheduled |
-| 4 | Week 16 | STR, TIM, SOP | Scheduled |
+| 4 | Week 16 | STR, TIM, SOP | STR scheduled; TIM and SOP drafted for review |
 
 STR is a *results* document, and UAT records acceptance actually granted. Written in Week 1 they
 would be fiction. Phasing keeps every document truthful at the moment it is reviewed.

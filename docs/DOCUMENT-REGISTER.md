@@ -95,7 +95,7 @@ changed, and the answer should be a document rather than a recollection.
 | LLD | Scheduled | Per owner | Week 5 |
 | STP · STD · UAT | Scheduled | All | Week 11 |
 | STR | Scheduled | All | Week 16 |
-| TIM · SOP | Scheduled | R4 | Week 16 |
+| [TIM](04-deployment/TIM.md) · [SOP](04-deployment/SOP.md) | Draft for review, 2026-10-22 | R4 | Week 16 |
 
 ## Plans
 
