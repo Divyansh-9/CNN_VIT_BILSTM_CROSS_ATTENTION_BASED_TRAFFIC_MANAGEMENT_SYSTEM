@@ -232,8 +232,12 @@ class HttpTransport:
     def _post(url: str, body: str) -> int:
         import urllib.request
 
+        from server.app import write_auth_header
+
+        # Writes need the bearer token (D9), from the environment only.
+        headers = {"Content-Type": "text/plain", **write_auth_header()}
         request = urllib.request.Request(url, data=body.encode("utf-8"), method="POST",
-                                         headers={"Content-Type": "text/plain"})
+                                         headers=headers)
         with urllib.request.urlopen(request, timeout=2) as response:
             return response.status
 

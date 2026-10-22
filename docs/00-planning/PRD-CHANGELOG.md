@@ -10516,3 +10516,79 @@ reports.
 
 No code, and no other SAD section. Whether the server should ingest the
 heartbeat is a design question, not decided here.
+
+## A37 — NFR-12 is aligned with ADR-008: a bearer token on HTTP writes, reads open (2026-10-22)
+
+**Raised** 2026-10-22 · **Affects** PRD §10 NFR-12, NFR.md, RTM, SRS §3.3 ·
+**Status** ADOPTED by the owner
+
+**The conflict.** NFR-12 said "Dashboard: JWT-based login, 24h token expiry".
+ADR-008, accepted by the owner, replaced it with "a single shared password over
+local network", whose stated intent is that unauthenticated users cannot
+control signals. NFR.md's verification text was never changed, and neither
+mechanism was ever implemented.
+
+The requirement also named the wrong surface. The dashboard only reads, and
+the risk lies in the server's `POST` endpoints, which accepted any caller.
+
+**The amendment.** NFR-12 becomes:
+- **writes:** every HTTP `POST` needs a shared-secret bearer token;
+- **reads:** stay open.
+
+It is verified by:
+- a `POST` without the token, or with a wrong one, returns 401;
+- with no token configured, every `POST` returns 401;
+- `GET` endpoints answer without a token.
+
+JWT stays superseded by ADR-008. The owner chose this option (A) over HTTP
+Basic on every endpoint (B) and JWT (C).
+
+**What it is not.** It is not a secured deployment. The token crosses plain
+HTTP, and reads are open, so the server stays on 127.0.0.1. The MQTT broker's
+authentication is NFR-11 (D6).
+
+## D9 — every HTTP write needs a bearer token; reads stay open (2026-10-22)
+
+**Status: applied 2026-10-22**, after the owner's decision (option A, A37). As
+with D1–D8, it carries no P-number.
+
+### What changed
+
+- **`server/app.py`.** A new `require_write_token` guards all three `POST`
+  routes (`/observation`, `/prediction/{id}`, `/count_forecast/{id}`):
+  - it needs `Authorization: Bearer <token>`, with the scheme matched
+    case-insensitively;
+  - the token is compared with `STMS_API_TOKEN` by `hmac.compare_digest`;
+  - with the variable unset or empty, every write is refused, and no setting
+    turns this off;
+  - every refusal is one fixed 401, `a valid bearer token is required to
+    write`, with `WWW-Authenticate: Bearer`. It never says what was wrong and
+    never repeats what was sent;
+  - an unauthenticated request is refused before its body is validated;
+  - a lifespan hook warns at start-up when the variable is unset;
+  - `write_auth_header()` is what an HTTP client sends.
+- **The clients.** `scripts/benchmark_live.py` (`HttpTransport`) and
+  `scripts/verify_edge.py` send the header, from the same variable.
+- **The MQTT ingest is unaffected.** It calls the store functions directly.
+- **`GET` endpoints are unchanged**, and the dashboard needs no token.
+- **Tests.** `tests/conftest.py` configures a synthetic token for every test,
+  and gives a `write_headers` fixture to the six existing test clients that
+  write.
+- **Documents.** The PRD's NFR-12 row, NFR.md, RTM and SRS (A37); an
+  implementation note on ADR-008; the dashboard README; TIM §8, §12 (check 4a)
+  and §13; SOP §1, §9.3 and §11.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| `tests/test_api_auth.py`, new | 36 of 36. A missing token is refused on every route. Wrong and malformed tokens are refused without echo: a wrong value, the `Basic` scheme, `Bearer` with nothing after it, a bare token, and a missing space. The right token writes as before on every route. The scheme is case-insensitive. An unauthenticated invalid body gets 401, not 422. A token unset, empty or blank refuses everything. Reads stay open. The start-up warning names the variable only. No token appears in logs, output or responses. The comparison is constant-time. Both clients send the header from the environment |
+| Existing server-facing suites, with the token | 296 passed: the behaviour with a valid token, `/observation` and validation errors included, is unchanged |
+| Mutation check | 10 protections removed one at a time: each route's guard, fail-closed, the constant-time comparison, no-echo, the scheme check, the start-up warning, and each client's header. **10 of 10 caught** |
+
+### What this does not establish
+
+- **Read protection.** `GET` endpoints are open by decision.
+- **Transport security.** The token crosses plain HTTP. Mosquitto and TLS are
+  the next, separate change.
+- **A secured deployment.** The other deployment prerequisites are unchanged.

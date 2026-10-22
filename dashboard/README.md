@@ -52,8 +52,8 @@ This is a deliberately small, ADR-008-descoped shape:
 - it polls every 2 s, the PRD's refresh budget, rather than using WebSockets;
 - there are no charts;
 - there is no deferred-agreement ribbon or detection overlay (ADR-014 §2–3);
-- there is no authentication, because the page is read-only and cannot reach a
-  control endpoint.
+- there is no login, because the page only reads. The server's write
+  endpoints need a bearer token (D9), which the dashboard never holds.
 
 It is dark mode only (`#0D1117`, accent `#6366F1`), with no external font or
 script requests.

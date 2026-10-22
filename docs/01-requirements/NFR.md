@@ -114,7 +114,7 @@ PRD-CHANGELOG D4). It is not required for training.
 | ID | Target | Measurement procedure | Method | TC | Owner |
 |---|---|---|---|---|---|
 | NFR-11 | MQTT username/password auth | Broker configured with `allow_anonymous false`. Verification: an unauthenticated connect attempt is **refused** | T | TC-N11 | R4 |
-| NFR-12 | JWT login, 24 h expiry | Protected endpoint returns 401 without a token and after a token older than 24 h | T | TC-N12 | R4 |
+| NFR-12 | Shared-secret bearer token on every HTTP write; reads stay open (ADR-008, A37) | Every `POST` without the token, or with a wrong one, returns 401 without repeating what was sent; with no token configured, every `POST` returns 401; `GET` endpoints answer without one | T | TC-N12 | R4 |
 
 Credentials come from environment variables, never from committed files. `.gitignore` excludes
 `.env` and `secrets.yaml`. This is a demo system on a local network — the requirement is that

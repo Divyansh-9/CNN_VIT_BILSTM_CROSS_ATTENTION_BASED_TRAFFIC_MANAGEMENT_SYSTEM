@@ -224,8 +224,10 @@ def main(argv: list[str] | None = None) -> int:
             mismatched = sum(m != graph.model_id for m in models)
         else:
             for topic, payload, _qos in predictions_sent:
+                # Writes need the bearer token (D9), from the environment only.
                 response = client.post("/prediction/verify", content=payload,
-                                       headers={"content-type": "text/plain"})
+                                       headers={"content-type": "text/plain",
+                                                **server.write_auth_header()})
                 if response.status_code != 200:
                     raise SystemExit(f"server refused a prediction: {response.text}")
                 if response.json()["model"] != graph.model_id:

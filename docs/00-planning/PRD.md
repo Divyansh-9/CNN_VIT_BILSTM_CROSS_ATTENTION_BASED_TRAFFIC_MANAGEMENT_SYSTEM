@@ -824,7 +824,7 @@ defence in the viva.
 | NFR-09 | All 30-run raw benchmark results SHALL be committed as CSV files | Critical |
 | NFR-10 | MFSTNet ablation raw results SHALL be committed as CSV files | Critical |
 | NFR-11 | MQTT broker: username/password authentication | Security |
-| NFR-12 | Dashboard: JWT-based login, 24h token expiry | Security |
+| NFR-12 | ~~Dashboard: JWT-based login, 24h token expiry~~ → **HTTP writes need a shared-secret bearer token; reads stay open** ([ADR-008](decisions/ADR-008-prototype-descoping.md); amendment A37 in the [PRD-CHANGELOG](PRD-CHANGELOG.md)) | Security |
 | NFR-13 | Raw video frames: NOT transmitted over network or stored to disk **by the deployed runtime**. Only derived counts and predictions leave the edge device. Does not govern the offline training corpus (§8.6), which is retained locally, excluded from version control, and never published | Privacy |
 
 ---

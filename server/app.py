@@ -25,19 +25,30 @@ carry one. Raw frames never leave the edge device; counts and predictions do.
 last spoke; the server decides whether that is too long ago. A device that has
 crashed cannot report that it has crashed, so a timeout measured on the sender
 would never fire in the case it exists for.
+
+**Writes need a bearer token; reads do not** (NFR-12 as amended, ADR-008, D9).
+Every POST requires `Authorization: Bearer <token>`, matched in constant time
+against `STMS_API_TOKEN` in the server's environment. With that variable unset
+or empty, every POST is refused: there is no switch that turns the check off.
+GET endpoints, and the dashboard that uses them, stay open for reading, so
+stored observations and forecasts are visible to anyone who can reach the
+server. The token crosses plain HTTP, which is why the server stays on
+127.0.0.1. Neither the token nor a refused value is ever logged or echoed.
 """
 
 from __future__ import annotations
 
+import hmac
 import logging
+import os
 import re
 import sqlite3
 import time
-from contextlib import closing
+from contextlib import asynccontextmanager, closing
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, BeforeValidator, Field
@@ -47,6 +58,13 @@ from contracts.mqtt import INTERSECTION_ID, ContractError, Topic, check_intersec
 from server.safety import Decision, SafetyLimits, SignalGuard
 
 DATABASE = Path("data/server/stms.sqlite")
+#: The bearer token every POST must carry (D9). Read from the environment only.
+API_TOKEN_ENV = "STMS_API_TOKEN"
+#: The one refusal, whatever was wrong: missing, malformed or wrong. It never
+#: says which, and never repeats what was sent.
+WRITE_REFUSED = "a valid bearer token is required to write"
+
+log = logging.getLogger(__name__)
 APPROACHES = ("N", "S", "E", "W")
 Approach = Literal["N", "S", "E", "W"]
 #: The most vehicles, or queued vehicles, one approach can report in one
@@ -58,6 +76,33 @@ MAX_OBSERVED = 10_000
 #: was formatted at full length into the stored `reason` (P142).
 MAX_AGE_S = 1_000_000.0
 
+def require_write_token(authorization: str | None = Header(default=None)) -> None:
+    """Refuse a write without the configured bearer token (D9). Fails closed:
+    with no token configured, no write is accepted."""
+    expected = os.environ.get(API_TOKEN_ENV, "").strip()
+    scheme, _, supplied = (authorization or "").partition(" ")
+    supplied = supplied.strip()
+    if (not expected or scheme.lower() != "bearer" or not supplied
+            or not hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8"))):
+        raise HTTPException(401, WRITE_REFUSED, headers={"WWW-Authenticate": "Bearer"})
+
+
+WRITE = [Depends(require_write_token)]
+
+
+def write_auth_header() -> dict[str, str]:
+    """What an HTTP client sends to write (D9): the token from its environment."""
+    return {"Authorization": f"Bearer {os.environ.get(API_TOKEN_ENV, '').strip()}"}
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    if not os.environ.get(API_TOKEN_ENV, "").strip():
+        log.warning("%s is not set; every POST will be refused until it is (D9)",
+                    API_TOKEN_ENV)
+    yield
+
+
 app = FastAPI(
     title="STMS control server",
     summary="Counts in, signal commands out. No frames, ever (NFR-13).",
@@ -65,6 +110,7 @@ app = FastAPI(
     # Location header repeats the path, the query string and the Host header,
     # before any route — and so before any id check — runs.
     redirect_slashes=False,
+    lifespan=lifespan,
 )
 
 _LOGGABLE_SEGMENT = re.compile(r"[A-Za-z0-9_.-]{0,32}")
@@ -274,7 +320,7 @@ def health() -> dict:
     return {"status": "ok", "limits": SafetyLimits().__dict__}
 
 
-@app.post("/observation", response_model=CommandOut)
+@app.post("/observation", response_model=CommandOut, dependencies=WRITE)
 def observation(payload: Counts) -> CommandOut:
     """Counts in, one signal command out, with the rule that produced it."""
     # `Counts` now types every key as an approach, so pydantic refuses an
@@ -349,7 +395,7 @@ def store_prediction(intersection_id: str, raw: str | bytes):
     return payload
 
 
-@app.post("/prediction/{intersection_id}")
+@app.post("/prediction/{intersection_id}", dependencies=WRITE)
 def prediction(intersection_id: str, raw: str = Body(..., media_type="text/plain")) -> dict:
     """One `CongestionPrediction`, exactly as the edge encoded it — the HTTP
     stand-in for the MQTT topic of the same name, with the same validation."""
@@ -400,7 +446,7 @@ COUNT_NOTE = ("point estimate of each approach's mean vehicle count over the nex
               "60 s (P105); not a congestion class, and not used for signal timing")
 
 
-@app.post("/count_forecast/{intersection_id}")
+@app.post("/count_forecast/{intersection_id}", dependencies=WRITE)
 def count_forecast(intersection_id: str, raw: str = Body(..., media_type="text/plain")) -> dict:
     try:
         payload = store_count_forecast(intersection_id, raw)

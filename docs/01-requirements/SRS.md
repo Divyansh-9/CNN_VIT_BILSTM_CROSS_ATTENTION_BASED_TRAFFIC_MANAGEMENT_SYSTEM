@@ -159,7 +159,7 @@ FR-UI05 and BR-07 depend on it, so it must be exposed by the MFSTNet forward pas
 |---|---|
 | Transport | Native WebSocket for live state; REST for history and exports |
 | Refresh | ≤2s (NFR-05) |
-| Auth | JWT, 24h expiry (NFR-12) |
+| Auth | A shared-secret bearer token on HTTP writes; reads open (NFR-12 as amended, A37) |
 | Reconnect | Automatic with backoff; stale data visibly marked, never silently shown as live |
 
 ### 3.4 SUMO ⇄ RL agent

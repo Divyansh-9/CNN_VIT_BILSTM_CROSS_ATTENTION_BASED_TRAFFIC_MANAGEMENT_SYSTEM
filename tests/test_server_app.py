@@ -19,10 +19,10 @@ from server import app as app_module  # noqa: E402
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
+def client(tmp_path, monkeypatch, write_headers):
     monkeypatch.setattr(app_module, "DATABASE", tmp_path / "test.sqlite")
     app_module.guards.clear()
-    return TestClient(app_module.app)
+    return TestClient(app_module.app, headers=write_headers)
 
 
 def counts(**overrides):

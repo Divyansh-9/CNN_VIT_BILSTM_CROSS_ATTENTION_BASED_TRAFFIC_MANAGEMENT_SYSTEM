@@ -81,12 +81,12 @@ def database(tmp_path, monkeypatch):
                                  TOP_LEVEL_ARRAY, TOP_LEVEL_NULL],
                          ids=["unknown-class", "missing-predictions", "top-level-array",
                               "top-level-null"])
-def test_the_http_endpoint_answers_422_not_500(database, raw):
+def test_the_http_endpoint_answers_422_not_500(database, raw, write_headers):
     from fastapi.testclient import TestClient
 
     from server.app import app
 
-    client = TestClient(app, raise_server_exceptions=False)
+    client = TestClient(app, raise_server_exceptions=False, headers=write_headers)
     response = client.post("/prediction/x", content=raw,
                            headers={"content-type": "text/plain"})
     assert response.status_code == 422

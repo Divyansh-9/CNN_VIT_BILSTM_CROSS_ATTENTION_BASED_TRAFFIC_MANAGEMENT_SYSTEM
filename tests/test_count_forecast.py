@@ -154,14 +154,14 @@ def test_the_count_travels_on_its_own_topic_and_never_reads_as_mfstnet():
 # ------------------------------------------------------------ the server --
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
+def client(tmp_path, monkeypatch, write_headers):
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient
 
     import server.app as server
 
     monkeypatch.setattr(server, "DATABASE", tmp_path / "count.sqlite")
-    return TestClient(server.app), server
+    return TestClient(server.app, headers=write_headers), server
 
 
 def test_the_server_keeps_count_and_class_apart_and_lists_absences(client):

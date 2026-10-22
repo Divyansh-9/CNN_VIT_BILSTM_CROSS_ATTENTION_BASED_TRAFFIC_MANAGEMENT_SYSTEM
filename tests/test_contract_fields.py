@@ -174,12 +174,12 @@ def test_a_refusal_never_repeats_the_submitted_value(topic, data):
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
+def client(tmp_path, monkeypatch, write_headers):
     from fastapi.testclient import TestClient
 
     import server.app
     monkeypatch.setattr(server.app, "DATABASE", tmp_path / "test.sqlite")
-    return TestClient(server.app.app, raise_server_exceptions=False)
+    return TestClient(server.app.app, raise_server_exceptions=False, headers=write_headers)
 
 
 def stored_rows(database) -> list:

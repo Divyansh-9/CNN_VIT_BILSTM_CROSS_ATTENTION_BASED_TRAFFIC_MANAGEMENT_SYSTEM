@@ -60,13 +60,13 @@ def observation(**override) -> dict:
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
+def client(tmp_path, monkeypatch, write_headers):
     from fastapi.testclient import TestClient
 
     import server.app
     monkeypatch.setattr(server.app, "DATABASE", tmp_path / "test.sqlite")
     monkeypatch.setattr(server.app, "guards", {})
-    return TestClient(server.app.app, raise_server_exceptions=False)
+    return TestClient(server.app.app, raise_server_exceptions=False, headers=write_headers)
 
 
 def stored(database) -> list:

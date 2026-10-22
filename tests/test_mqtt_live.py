@@ -199,7 +199,7 @@ def test_publishing_without_a_broker_raises_so_fr_a06_can_fire():
         transport.publish("stms/j7/heartbeat", "{}", 0)
 
 
-def test_a_three_lane_camera_reports_its_missing_approach(database):
+def test_a_three_lane_camera_reports_its_missing_approach(database, write_headers):
     """P97a: south is absent, not LOW. Since P109 the state values carry null
     for it, never 0.0, and the response also names it as missing."""
     from fastapi.testclient import TestClient
@@ -210,7 +210,7 @@ def test_a_three_lane_camera_reports_its_missing_approach(database):
         predictions={a: CongestionClass.MEDIUM for a in "NEW"},
         confidences={a: 0.7 for a in "NEW"}, gate_value=None,
         model="G@0123456789ab")
-    client = TestClient(database.app)
+    client = TestClient(database.app, headers=write_headers)
     posted = client.post("/prediction/j3", content=payload.encode(),
                          headers={"content-type": "text/plain"}).json()
     assert posted["missing_approaches"] == ["S"]

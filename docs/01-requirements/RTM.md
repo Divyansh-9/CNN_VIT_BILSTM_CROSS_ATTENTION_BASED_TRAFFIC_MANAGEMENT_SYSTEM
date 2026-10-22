@@ -209,7 +209,7 @@ curate-then-collect:
 | FR-UI03, FR-UI04, FR-UI08 | **Absorbed, not deleted** — folded into the Results page and the Live page's event panel. RTM rows stay, targets change |
 | FR-UI06, FR-UI07 | **Unchanged** — these carry the evidential weight |
 | NFR-06 | Target weakens: 4 h → 1 h at ≥95% |
-| NFR-12 | Target weakens: JWT 24 h → shared password on LAN |
+| NFR-12 | Target weakens: JWT 24 h → a shared bearer token on HTTP writes, with reads open (A37) |
 | NFR-11 | **Unchanged** |
 | FR-A01..FR-A06, FR-P01..FR-P04 | **Unchanged** — all system behaviour and safety is preserved |
 | BR-14, BR-15, BR-16 | Still satisfied at reduced fidelity; BR-21 satisfied in intent |

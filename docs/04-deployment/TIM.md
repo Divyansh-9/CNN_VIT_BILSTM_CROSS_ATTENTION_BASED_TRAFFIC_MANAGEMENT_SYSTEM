@@ -253,6 +253,7 @@ Start both **from the repository root**: the store is `data\server\stms.sqlite`,
 a path relative to the working directory.
 
 ```powershell
+$env:STMS_API_TOKEN = "..."                                  # the write token (below); never in git
 python -m uvicorn server.app:app --port 8000                 # HTTP; 127.0.0.1 by default
 $env:STMS_MQTT_USERNAME = "stms-ingest"; $env:STMS_MQTT_PASSWORD = "..."
 python -m server.mqtt_ingest --host 127.0.0.1 --port 1883     # a second terminal
@@ -265,11 +266,28 @@ python -m server.mqtt_ingest --host 127.0.0.1 --port 1883     # a second termina
 | `STMS_MQTT_USERNAME is set but STMS_MQTT_PASSWORD is not; …` (exit code 1) | Half a credential. Unlike the edge, the ingest exits with code 1 and no `error:` prefix |
 | `could not subscribe at …` (exit code 1) | No broker on that host and port |
 
-**The HTTP API has no authentication.** NFR-12 asked for a JWT login, and
-ADR-008 replaced it with a shared password; neither is implemented. Its write
-endpoints (`POST /observation`, `POST /prediction/{id}`,
-`POST /count_forecast/{id}`) accept any caller. **Keep uvicorn on
-`127.0.0.1`**, its default, and do not pass `--host 0.0.0.0`.
+**Writes need a bearer token; reads do not** (NFR-12 as amended, A37; D9).
+
+- **Set `STMS_API_TOKEN`** in the server's environment before starting it.
+  Every `POST` (`/observation`, `/prediction/{id}`, `/count_forecast/{id}`)
+  must carry `Authorization: Bearer <token>`.
+- **Anything else is refused** with 401 `a valid bearer token is required to
+  write`. The refusal does not say what was wrong and does not repeat what was
+  sent. An unauthenticated request is refused before its body is validated.
+- **Unset or empty, the server refuses every write.** It logs
+  `STMS_API_TOKEN is not set; every POST will be refused until it is (D9)`.
+  No setting turns the check off.
+- **The repository's HTTP clients read the same variable:**
+  `scripts/benchmark_live.py` and `scripts/verify_edge.py`. The MQTT path is
+  separate: the ingest stores forecasts directly, and its broker credentials
+  are §7's.
+- **Reads stay open.** Every `GET`, and the dashboard, answer without a token,
+  so anyone who can reach the server can read stored observations and
+  forecasts.
+- **The token crosses plain HTTP.** Keep uvicorn on `127.0.0.1`, its default,
+  and do not pass `--host 0.0.0.0`.
+- **Rotation:** set a new `STMS_API_TOKEN`, then restart the server and every
+  HTTP client. Writes are refused between the two restarts.
 
 ---
 
@@ -342,6 +360,7 @@ Run it after every installation. Each line separates **started** from
 | 2 | The weights hash (§5) | Equal to the manifest's |
 | 3 | `python -m edge.run --help` | Exit 0 |
 | 4 | `GET http://127.0.0.1:8000/health` | `{"status": "ok", "limits": …}` |
+| 4a | `POST /observation` with no `Authorization` header | 401, `a valid bearer token is required to write` (D9) |
 | 5 | **NFR-11, refused:** start the ingest with **no** credentials set | Exit code 1: `the broker at … refused the connection: Not authorized` |
 | 6 | **NFR-11, accepted:** start the ingest with its credentials | `subscribed to …` in its terminal |
 | 7 | Start the edge (§9) on a test video with `--realtime` | Log: `source: …`, no `error:`. This shows it **started**, nothing more |
@@ -393,6 +412,7 @@ evidence, outside the repository.
 | `error: STMS_MQTT_USERNAME is set but STMS_MQTT_PASSWORD is not` (or the reverse) | Half a credential | Set both, or neither for a development broker |
 | `broker … refused the connection (Not authorized)` (edge) | Wrong or unknown credentials | Check the user exists in the broker's password file |
 | `broker … not reachable` (edge) | No broker on that host and port | Start the broker; the edge connects when it appears |
+| `401 a valid bearer token is required to write` | No token sent, a wrong token, or `STMS_API_TOKEN` unset at the server | Set the same `STMS_API_TOKEN` for the server and the client, then restart both (§8) |
 | `404 no prediction for this intersection yet` | Fewer than 30 samples delivered, or a different id | Wait 60 s; check `--intersection-id` |
 | `"stale": true` | Nothing delivered for longer than the forecast horizon (60 s) | See the SOP, broker disconnection |
 | `/dashboard` 404 | The server started before `dashboard\dist` existed | Restart the server (§10) |

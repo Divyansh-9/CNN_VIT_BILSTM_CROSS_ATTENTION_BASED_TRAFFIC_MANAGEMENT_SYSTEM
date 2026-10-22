@@ -29,7 +29,7 @@ check passes.
 | # | Start | Check |
 |---|---|---|
 | 1 | **The broker** (TIM §7) | It is listening on its port |
-| 2 | **The server**, from the repository root: `python -m uvicorn server.app:app --port 8000` | `GET http://127.0.0.1:8000/health` returns `"status": "ok"` |
+| 2 | **The server**, from the repository root, with `STMS_API_TOKEN` set: `python -m uvicorn server.app:app --port 8000` | `GET http://127.0.0.1:8000/health` returns `"status": "ok"`. A warning that `STMS_API_TOKEN is not set` means every write will be refused (TIM §8) |
 | 3 | **The ingest**, with its own credentials in the environment: `python -m server.mqtt_ingest --host 127.0.0.1 --port 1883` | It prints `subscribed to stms/+/congestion/prediction and stms/+/count/forecast on …`. If it exits instead, see §6 |
 | 4 | **The edge**, with its own credentials (TIM §9) | Its log shows `source: …` and no `error:` line |
 | 5 | **The dashboard** at `http://127.0.0.1:8000/dashboard/?id=<id>` | The page loads. The panels fill once forecasts arrive (§3) |
@@ -235,6 +235,9 @@ screenshot, a chat or a file in the repository.
    (TIM §7.3, unverified with this code).
 2. **Set the new password** in that program's environment, and restart the
    program.
+   **For the server's write token** (`STMS_API_TOKEN`), set a new one for the
+   server and every HTTP client, then restart them. Writes are refused until
+   both sides have it.
 3. **If it reached a file in git**, removing it in a later commit does not
    remove it from history. Tell the project owner before anything is pushed.
 
@@ -278,8 +281,8 @@ mitigations are a pre-test 48 h before, and a pre-recorded video as backup.
 
 - Never put a credential or the camera URL on a command line, in a script, or
   in a file in the repository.
-- Never start uvicorn with `--host 0.0.0.0`: the HTTP API has no
-  authentication (TIM §8).
+- Never start uvicorn with `--host 0.0.0.0`: the write token crosses plain
+  HTTP, and every read is open (TIM §8).
 - Never describe the prototype as controlling signals, or as ready for a real
   intersection.
 - Never redistribute the detector weights or licence-restricted footage.
