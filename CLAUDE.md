@@ -455,6 +455,7 @@ python scripts/benchmark_decode.py run --work DIR --graph ONNX   # decode + pipe
 python scripts/benchmark_live.py run --graph ONNX --seconds 600   # S65; camera URL from STMS_CAMERA_URL only
 python scripts/backup_models.py pack --dest E:/backup   # weights are gitignored; verify against the committed manifest
 AMQTT_PYTHON=<python with amqtt> python -m pytest tests/test_mqtt_live.py   # real broker, edge to server
+MOSQUITTO_EXE=<path to mosquitto.exe> python -m pytest tests/test_mosquitto_live.py   # Mosquitto: auth, reconnect, TLS (D10)
 ```
 
 `run_loco.py` is the one to run for a reportable number: it trains every fold

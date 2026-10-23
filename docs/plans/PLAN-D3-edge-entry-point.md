@@ -5,7 +5,7 @@ with `tests/test_edge_run.py` (PRD-CHANGELOG, D3). Where each criterion is
 met is in the table at the end.
 
 **Clean-environment check: done** (PRD-CHANGELOG D4). The documented start-up
-reproduces from a fresh checkout on Python 3.12, but four prerequisites remain outside the repository: teammate access to the detector weights, a camera-matched lane file, an authenticated deployment broker (both clients send credentials since D6; no Mosquitto configuration is committed or tested), and the disk and Python-install constraints. The TIM and
+reproduces from a fresh checkout on Python 3.12, but four prerequisites remain outside the repository: teammate access to the detector weights, a camera-matched lane file, an authenticated deployment broker (both clients authenticate (D6) and use verified TLS when given a CA file (D10), tested against Mosquitto 2.1.2 in a test configuration; no deployment broker configuration or certificate is committed), and the disk and Python-install constraints. The TIM and
 SOP must state them.
 
 ## The gap

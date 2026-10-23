@@ -28,7 +28,7 @@
 |---|---|---|---|
 | 1 | **Detector weights**, `models/external/best_xl_ITD_v1.2.pt` | Not distributed: `models/` is gitignored. The only copy is the project owner's private backup (S66). Third-party weights, **licence unresolved**: do not publish or redistribute them | Project owner |
 | 2 | **Camera configuration**: a reviewed lane file and calibrated thresholds for the target camera | No committed lane file belongs to a camera in the persistence spec. **No committed command calibrates a new camera into the spec**: `scripts/persistence_freeze.py` regenerates the frozen spec for its four known cameras only | Team |
-| 3 | **An authenticated deployment broker** | Both clients send credentials (D6), verified against an authenticated amqtt broker. **Mosquitto is not tested, and no broker configuration is committed. There is no TLS** | Team |
+| 3 | **An authenticated deployment broker** | Both clients authenticate (D6). With `STMS_MQTT_CA_FILE` set, they also use TLS, with verification mandatory (D10). Both behaviours were verified against **Mosquitto 2.1.2 in a test configuration** (§7.3). **No deployment broker configuration or certificate is committed**, and without a CA file the link is plain TCP | Team |
 | 4 | **The environment**: Python 3.12 and disk space | `py -3.12` needs a Python 3.12 install. About 9 GB free: pip's cache took 3.1 GB and the environment 6.0 GB (measured) | Each machine |
 
 §5, §6 and §7 say what to do about 1, 2 and 3 today, and what is not possible
@@ -218,32 +218,70 @@ C:\stms-broker\Scripts\amqtt -c broker.yaml
 
 Keep `passwords` out of the repository.
 
-### 7.3 The deployment broker: Mosquitto (not verified)
+### 7.3 Mosquitto (verified in a test configuration)
 
-PRD §17 names Mosquitto. **It has not been tested with this code, and no
-Mosquitto configuration is committed.** The standard Mosquitto 2 settings for
-NFR-11 are below. They are Mosquitto's documented mechanism, **not a
-configuration this project has run**:
+PRD §17 names Mosquitto. **Mosquitto 2.1.2 has been tested with this code**
+(D10, `tests/test_mosquitto_live.py`), in the test configuration below and
+nothing else.
+- **No deployment configuration is committed.** That means no certificates,
+  password file or service set-up.
+- **The installer is not Authenticode-signed.** The Mosquitto project does
+  not sign its Windows installers. The copy used was checked against two
+  independent hash records (the setup notes, outside the repository).
+- **The test broker runs only in the foreground.** It was never installed as
+  a Windows service.
+
+**TEST CONFIGURATION**, not a deployment configuration:
 
 ```
-listener 1883 127.0.0.1
+listener 8883 127.0.0.1
 allow_anonymous false
-password_file C:\mosquitto\passwd
+password_file D:/path/to/passwd
+certfile D:/path/to/server.crt
+keyfile D:/path/to/server.key
+tls_version tlsv1.2
+persistence false
+log_dest file D:/path/to/mosquitto.log
 ```
 
-```powershell
-mosquitto_passwd -c C:\mosquitto\passwd edge-ne8th    # prompts for the password
-mosquitto_passwd C:\mosquitto\passwd stms-ingest
-```
+Create the password file without putting a password on a command line: write
+`user:password` lines into it, then run `mosquitto_passwd -U <file>` to hash
+it in place. Without `certfile` and `keyfile`, the same listener is plain TCP.
 
-**Before relying on it**, run §12 against it, including the refusal checks.
-Until then, Mosquitto compatibility is an open item, not a fact.
+**What was verified, for both the edge and the ingest:**
+- **Authentication:** the right credentials are accepted. Anonymous, a wrong
+  password and an unknown user are refused with the broker's reason code.
+- **Restart:** the edge reconnects after a broker restart.
+- **TLS:**
+  - with the right CA, a prediction reaches the server's store;
+  - a wrong CA, an untrusted self-signed certificate and a hostname mismatch
+    all fail;
+  - plain TCP to the TLS listener fails.
+- **Secrets:** no password, private-key path or key content appears in a log.
 
-### 7.4 No TLS
+### 7.4 MQTT over TLS (D10)
 
-Credentials and payloads cross the network in clear text over plain TCP.
-NFR-11 asks for username and password authentication; encrypting the link has
-not been decided. Keep the broker on `127.0.0.1` or a trusted LAN.
+- **Turn it on** by setting `STMS_MQTT_CA_FILE` to the CA certificate (PEM)
+  that signed the broker's certificate. Set it for both the edge and the
+  ingest, and point them at the broker's TLS port (8883 by convention) with
+  `--broker-port` and `--port`.
+- **Verification is mandatory.** The broker must present a certificate from
+  that CA whose name matches the host the client connects to. Use the name in
+  the certificate's subjectAltName. TLS 1.2 or later is required, and no
+  setting turns verification off.
+- **A CA file that cannot be used stops the program** with
+  `STMS_MQTT_CA_FILE does not name a readable PEM CA certificate; refusing to
+  connect without TLS`. It never falls back to plain TCP.
+- **With the variable unset**, both programs warn
+  `STMS_MQTT_CA_FILE not set; connecting over plain TCP, without TLS`. Keep
+  such a broker on `127.0.0.1` or a trusted LAN.
+- **A certificate that fails verification looks like an unreachable broker.**
+  The edge logs `not reachable over TLS (or its certificate failed
+  verification)`; the ingest exits with the same.
+- **Keep certificates and keys out of git.** The tests make throwaway ones
+  (`scripts/tls_material.py`). A deployment needs certificates from a CA the
+  team controls, which is not part of this repository.
+- **This covers MQTT only.** The HTTP API is still plain HTTP (§8).
 
 ---
 
@@ -413,6 +451,8 @@ evidence, outside the repository.
 | `broker … refused the connection (Not authorized)` (edge) | Wrong or unknown credentials | Check the user exists in the broker's password file |
 | `broker … not reachable` (edge) | No broker on that host and port | Start the broker; the edge connects when it appears |
 | `401 a valid bearer token is required to write` | No token sent, a wrong token, or `STMS_API_TOKEN` unset at the server | Set the same `STMS_API_TOKEN` for the server and the client, then restart both (§8) |
+| `STMS_MQTT_CA_FILE does not name a readable PEM CA certificate; …` | The CA file is missing, unreadable or not a certificate | Point it at the CA certificate (PEM) that signed the broker's certificate (§7.4) |
+| `not reachable over TLS (or its certificate failed verification)` | The broker is down, or its certificate is from another CA, self-signed, or for another host name | Check the broker; connect by the name in its certificate; check the CA file (§7.4) |
 | `404 no prediction for this intersection yet` | Fewer than 30 samples delivered, or a different id | Wait 60 s; check `--intersection-id` |
 | `"stale": true` | Nothing delivered for longer than the forecast horizon (60 s) | See the SOP, broker disconnection |
 | `/dashboard` 404 | The server started before `dashboard\dist` existed | Restart the server (§10) |
@@ -435,8 +475,9 @@ evidence, outside the repository.
 
 - **Real-intersection operation.** No camera stream at deployment resolution
   has been qualified (S65). No signal hardware is connected.
-- **Mosquitto compatibility and an authenticated deployment broker**
-  (prerequisite 3).
+- **A deployment broker.** Mosquitto 2.1.2 was verified only in a test
+  configuration (§7.3). No deployment broker configuration, certificates or key
+  handling are committed, and HTTP has no TLS (prerequisite 3).
 - **CPU-only latency.** Every edge figure so far was measured on the RTX 4050
   laptop (ADR-003).
 - **A first-time installation by someone else.** The deployment README asks

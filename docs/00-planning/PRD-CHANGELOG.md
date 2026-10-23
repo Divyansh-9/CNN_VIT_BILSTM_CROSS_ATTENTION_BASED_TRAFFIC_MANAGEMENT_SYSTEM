@@ -10592,3 +10592,68 @@ with D1–D8, it carries no P-number.
 - **Transport security.** The token crosses plain HTTP. Mosquitto and TLS are
   the next, separate change.
 - **A secured deployment.** The other deployment prerequisites are unchanged.
+
+## D10 — MQTT over TLS with mandatory verification; Mosquitto verified in a test configuration (2026-10-23)
+
+**Status: applied 2026-10-23**, after the owner's approval of the TLS design
+and of Mosquitto option A. As with D1–D9, it carries no P-number.
+
+### What changed
+
+- **`contracts/broker.py`.** `STMS_MQTT_CA_FILE` turns MQTT TLS on.
+  - `client_tls_context()` trusts that CA only. It requires the broker's
+    certificate, checks the host name, and refuses anything below TLS 1.2.
+  - `ca_file_from_env()` refuses a CA file that is missing, unreadable or not
+    a certificate. It never falls back to plain TCP, and its message names the
+    variable, not the path.
+  - There is no setting that turns verification off.
+- **`edge/mqtt_transport.py` and `server/mqtt_ingest.py`** take `ca_file=` and
+  use that context. `tls` records it, because a failed verification looks like
+  an unreachable broker to paho.
+- **`edge/run.py` and `python -m server.mqtt_ingest`** read the variable at
+  start-up:
+  - an unusable file means exit code 2 (edge) or exit code 1 (ingest);
+  - with it unset, they warn that the link is plain TCP;
+  - a failure says "over TLS".
+- **`scripts/tls_material.py`** makes throwaway CA material with the `openssl`
+  command, so `cryptography` is not a new dependency. It lives in `scripts/`
+  because a local helper under `tests/` cannot be imported by name here:
+  `tests` is taken by an installed package.
+- **Documents.** TIM §1, §7.3, §7.4, §13 and §15; SOP's opening, §6 and §9.3;
+  Execution Manual §0.7; the README and PLAN-D3 prerequisite text; and the
+  `CLAUDE.md` command list.
+
+### Mosquitto
+
+- **Version:** 2.1.2, the official Windows installer.
+- **Source:** `mosquitto.org` and `download.eclipse.org` were unavailable
+  during an Eclipse outage. The installer came from the Internet Archive's
+  capture of `mosquitto.org`.
+- **Integrity:** its SHA-1 equals the archive's record, and its SHA-256 equals
+  the `microsoft/winget-pkgs` record for the official URL.
+- **Not Authenticode-signed:** the project signs none of its Windows
+  installers. The owner accepted this as a documented exception (option A).
+  The hashes establish integrity, not the publisher.
+- **Service:** the owner ran the installer to `D:`, which also registered a
+  Windows service. The service was then removed, and the tests run Mosquitto
+  in the foreground only.
+
+The full record is in the setup notes, held outside the repository.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| `tests/test_broker_tls.py`, new, no broker | 12 passed: an unset or empty variable means plain TCP; a missing, directory, non-certificate or empty CA file is refused without its path; a real CA is accepted; the context always verifies; each client uses TLS only when given a CA, and never calls `tls_insecure_set`; no source file contains a verification bypass; the ingest refuses an unusable CA at start-up |
+| `tests/test_mosquitto_live.py`, new, Mosquitto 2.1.2 | 18 passed: the right credentials are accepted and anonymous, wrong-password and unknown-user connections are refused (both clients); the edge reconnects after a broker restart; with the trusted CA, a prediction goes edge → broker → ingest → store over TLS; a wrong CA, an untrusted self-signed certificate and a hostname mismatch each fail (both clients); plain TCP to the TLS listener fails; no password, key path or key content in any log, and no password in the broker's log |
+| `tests/test_edge_run.py` | Two new tests: an unusable CA file stops the program (exit 2) without echoing the path, and a usable one is read from the environment |
+| Mutation check, Mosquitto live | 8 protections removed: 7 caught. **Not caught: removing the explicit TLS 1.2 floor.** Python's default is already TLS 1.2, so no test can tell the two apart. The line stays, as a floor that holds if the default changes |
+
+### What this does not establish
+
+- **A deployment broker.** No configuration, certificates, key storage or
+  rotation for a real deployment are committed. The broker configuration in
+  TIM §7.3 is a **test configuration**.
+- **Mutual TLS.** Clients authenticate by password, not by certificate.
+- **HTTP TLS.** The server stays on `127.0.0.1`.
+- **CI coverage.** The live tests need `MOSQUITTO_EXE`, which CI does not set.

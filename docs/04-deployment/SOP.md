@@ -15,8 +15,9 @@
 >   hardware.** No forecast feeds signal timing (ADR-027, P97a).
 > - **It is not ready for a real intersection.** Four prerequisites are open
 >   (TIM §1): teammate access to the detector weights and their licence; a
->   lane file and thresholds for the target camera; an authenticated
->   deployment broker (Mosquitto is untested, and there is no TLS); and the
+>   lane file and thresholds for the target camera; a deployment broker
+>   (Mosquitto 2.1.2 is verified only in a test configuration, with MQTT TLS
+>   available but no deployment certificates, and HTTP is plain); and the
 >   Python and disk constraints.
 
 ---
@@ -162,6 +163,9 @@ queues them.
 | Edge: `broker … refused the connection (Not authorized)` | The same | Fix it as above, then restart the edge. Until then it runs its local cycle |
 | Edge: `error: STMS_MQTT_USERNAME is set but STMS_MQTT_PASSWORD is not` (or the reverse), exit code 2. Ingest: the same text without `error:`, exit code 1 | Half a credential | Set both |
 | `connecting anonymously` warning | Neither variable set | Acceptable only against a development broker |
+| `STMS_MQTT_CA_FILE not set; connecting over plain TCP, without TLS` | No CA file set | Acceptable only on `127.0.0.1` or a trusted LAN (TIM §7.4) |
+| Exit: `STMS_MQTT_CA_FILE does not name a readable PEM CA certificate; …` | The CA file is missing, unreadable or not a certificate | Fix the path. It never falls back to plain TCP |
+| `not reachable over TLS (or its certificate failed verification)` | The broker is down, or its certificate does not verify | Check the broker first, then the CA file and the host name (TIM §7.4) |
 
 **No message prints a credential.** Each names the variable, or gives the
 broker's reason code. If a password ever appears in output, treat it as §9.3.
@@ -238,7 +242,10 @@ screenshot, a chat or a file in the repository.
    **For the server's write token** (`STMS_API_TOKEN`), set a new one for the
    server and every HTTP client, then restart them. Writes are refused until
    both sides have it.
-3. **If it reached a file in git**, removing it in a later commit does not
+3. **A broker's private key exposed:** issue the broker a new certificate and
+   key, and restart it. If the CA's own key was exposed, replace the CA and
+   give every client the new CA file.
+4. **If it reached a file in git**, removing it in a later commit does not
    remove it from history. Tell the project owner before anything is pushed.
 
 ### 9.4 A frame written to disk (NFR-13)

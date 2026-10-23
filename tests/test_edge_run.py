@@ -31,10 +31,11 @@ APPROACHES = ["lane_0=W", "lane_1=N", "lane_2=E"]
 @pytest.fixture(autouse=True)
 def no_broker_credentials(monkeypatch):
     # The developer's own STMS_MQTT_* must not change what these tests see.
-    from contracts.broker import PASSWORD_ENV, USERNAME_ENV
+    from contracts.broker import CA_FILE_ENV, PASSWORD_ENV, USERNAME_ENV
 
     monkeypatch.delenv(USERNAME_ENV, raising=False)
     monkeypatch.delenv(PASSWORD_ENV, raising=False)
+    monkeypatch.delenv(CA_FILE_ENV, raising=False)
 
 
 def run_module():
@@ -194,6 +195,30 @@ def test_half_a_broker_credential_is_refused_at_start_up_without_echoing_it(
     err = capsys.readouterr().err
     assert (PASSWORD_ENV if set_name == "username" else USERNAME_ENV) in err
     assert "canary-broker-value" not in err and "edge-ne8th" not in err
+
+
+def test_an_unusable_ca_file_is_refused_at_start_up_not_ignored(files, monkeypatch, capsys):
+    # D10: a CA path that cannot be used must never fall back to plain TCP.
+    from contracts.broker import CA_FILE_ENV
+
+    monkeypatch.setenv(CA_FILE_ENV, str(files["dir"] / "absent-ca.pem"))
+    with pytest.raises(SystemExit) as stop:
+        settings(files)
+    assert stop.value.code == 2
+    err = capsys.readouterr().err
+    assert CA_FILE_ENV in err and "absent-ca.pem" not in err
+
+
+def test_a_usable_ca_file_is_taken_from_the_environment(files, monkeypatch):
+    from contracts.broker import CA_FILE_ENV
+    from scripts.tls_material import make_ca, openssl
+
+    if openssl() is None:
+        pytest.skip("needs the openssl command")
+    assert settings(files).ca_file is None
+    ca = make_ca(files["dir"], "run-ca")[0]
+    monkeypatch.setenv(CA_FILE_ENV, str(ca))
+    assert settings(files).ca_file == ca
 
 
 def test_the_camera_url_comes_from_the_environment_and_is_never_echoed(files, monkeypatch,

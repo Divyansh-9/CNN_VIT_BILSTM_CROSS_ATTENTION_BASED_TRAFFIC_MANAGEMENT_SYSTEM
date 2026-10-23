@@ -30,7 +30,7 @@ publish into a refusal, or forecast against the wrong calibration.
 same step. Nothing here opens a file for writing, and the camera URL is read
 from `STMS_CAMERA_URL` so it never reaches the command line or the log.
 
-**Broker credentials come from the environment too** (NFR-11):
+**Broker credentials and TLS come from the environment too** (NFR-11, D10):
 `STMS_MQTT_USERNAME` and `STMS_MQTT_PASSWORD`, both or neither
 (`contracts/broker.py`). Half a credential is refused at start-up. With
 neither, the node connects anonymously and says so.
@@ -53,7 +53,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator
 
-from contracts.broker import CredentialError, Credentials, credentials_from_env
+from contracts.broker import (CredentialError, Credentials, TlsConfigError, ca_file_from_env,
+                             credentials_from_env)
 from contracts.mqtt import ContractError, Mode, check_intersection_id
 from edge.classes import MAPPING_FILE
 from edge.count_forecast import RidgeCountForecaster
@@ -97,6 +98,7 @@ class Settings:
     samples: int | None
     realtime: bool
     credentials: Credentials | None = None   # from the environment; repr hides the password
+    ca_file: Path | None = None              # STMS_MQTT_CA_FILE: TLS when set (D10)
 
 
 def load_lanes(path: Path) -> LaneCentres:
@@ -182,7 +184,8 @@ def parse_args(argv: list[str] | None = None) -> Settings:
 
     try:
         credentials = credentials_from_env()
-    except CredentialError as error:
+        ca_file = ca_file_from_env()
+    except (CredentialError, TlsConfigError) as error:
         parser.error(str(error))
     try:
         check_intersection_id(args.intersection_id)
@@ -232,7 +235,8 @@ def parse_args(argv: list[str] | None = None) -> Settings:
                     broker_host=args.broker_host, broker_port=args.broker_port,
                     weights=args.weights, conf=args.conf, imgsz=args.imgsz,
                     persistence_spec=args.persistence_spec, ridge_spec=args.ridge_spec,
-                    samples=args.samples, realtime=args.realtime, credentials=credentials)
+                    samples=args.samples, realtime=args.realtime, credentials=credentials,
+                    ca_file=ca_file)
 
 
 class EdgeLoop:
@@ -412,16 +416,20 @@ def main(argv: list[str] | None = None) -> int:
     if settings.credentials is None:
         log.warning("no MQTT credentials set; connecting anonymously, which only a "
                     "development broker accepts (NFR-11)")
+    if settings.ca_file is None:
+        log.warning("STMS_MQTT_CA_FILE not set; connecting over plain TCP, without TLS")
     transport = MqttTransport(settings.broker_host, settings.broker_port,
                               client_id=f"edge-{settings.intersection_id}",
-                              credentials=settings.credentials)
+                              credentials=settings.credentials, ca_file=settings.ca_file)
     node = EdgeNode(intersection_id=settings.intersection_id, transport=transport,
                     detector_classes=load_itd_mapping())
     if not transport.start():
         # Not fatal: FR-A06 exists for a node that cannot reach the server.
         # A refusal is named by the broker's reason code, never the credentials.
         problem = (f"refused the connection ({transport.connect_refused})"
-                   if transport.connect_refused else "not reachable")
+                   if transport.connect_refused
+                   else "not reachable over TLS (or its certificate failed verification)"
+                   if transport.tls else "not reachable")
         log.warning("broker %s:%d %s; continuing, and the local cycle "
                     "takes over after %.0f s without an acknowledgement",
                     settings.broker_host, settings.broker_port, problem, node.timeout_s)

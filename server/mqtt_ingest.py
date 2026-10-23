@@ -15,7 +15,8 @@ anywhere (NFR-13).
 **Credentials come from the environment** (NFR-11, `contracts/broker.py`):
 `STMS_MQTT_USERNAME` and `STMS_MQTT_PASSWORD`, both or neither. A broker that
 refuses the connection is reported by its reason code, never with the
-credentials.
+credentials. With `STMS_MQTT_CA_FILE` set, the connection is TLS, verified
+against that CA (D10).
 """
 
 from __future__ import annotations
@@ -24,8 +25,10 @@ import argparse
 import logging
 import threading
 import time
+from pathlib import Path
 
-from contracts.broker import CredentialError, Credentials, credentials_from_env
+from contracts.broker import (CredentialError, Credentials, TlsConfigError, ca_file_from_env,
+                             client_tls_context, credentials_from_env)
 from contracts.mqtt import ContractError, Topic, check_intersection_id
 
 __all__ = ["PredictionIngest", "subscription_summary"]
@@ -72,7 +75,8 @@ def intersection_of(topic: str) -> str:
 class PredictionIngest:
     def __init__(self, host: str = "127.0.0.1", port: int = 1883, *,
                  client_id: str = "stms-server-ingest",
-                 credentials: Credentials | None = None) -> None:
+                 credentials: Credentials | None = None,
+                 ca_file: Path | None = None) -> None:
         import paho.mqtt.client as mqtt
 
         self.host, self.port = host, port
@@ -96,6 +100,9 @@ class PredictionIngest:
         self.client.on_message = self._on_message
         if credentials is not None:
             self.client.username_pw_set(credentials.username, credentials.password)
+        self.tls = ca_file is not None
+        if self.tls:
+            self.client.tls_set_context(client_tls_context(ca_file))
 
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
         if reason_code.is_failure:
@@ -160,17 +167,22 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         credentials = credentials_from_env()
-    except CredentialError as error:
+        ca_file = ca_file_from_env()
+    except (CredentialError, TlsConfigError) as error:
         raise SystemExit(str(error)) from None
+    if ca_file is None:
+        print("  STMS_MQTT_CA_FILE not set; connecting over plain TCP, without TLS")
     if credentials is None:
         print("  no MQTT credentials set; connecting anonymously, which only a development "
               "broker accepts (NFR-11)")
-    ingest = PredictionIngest(args.host, args.port, credentials=credentials)
+    ingest = PredictionIngest(args.host, args.port, credentials=credentials, ca_file=ca_file)
     if not ingest.start():
         if ingest.connect_refused:
             raise SystemExit(f"the broker at {args.host}:{args.port} refused the connection: "
                              f"{ingest.connect_refused}")
-        raise SystemExit(f"could not subscribe at {args.host}:{args.port}")
+        raise SystemExit(f"could not subscribe at {args.host}:{args.port}"
+                         + (" over TLS: unreachable, or its certificate failed verification"
+                            if ingest.tls else ""))
     # Flushed, so the line is visible when the output goes to a file too.
     print(f"  {subscription_summary(args.host, args.port)}", flush=True)
     threading.Event().wait()

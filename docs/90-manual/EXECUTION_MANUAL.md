@@ -265,9 +265,13 @@ under `data/server/`.
 - **What has been verified.** Against an amqtt broker with anonymous access off and a password
   file, both clients were refused without credentials, with a wrong password and as an unknown
   user, and accepted with the right ones; a prediction then went from the edge to the server's
-  store (`tests/test_mqtt_live.py`). **Mosquitto has not been tested, and no Mosquitto
-  configuration is committed.** Its `allow_anonymous false` and password file are for whoever
-  sets up the deployment broker.
+  store (`tests/test_mqtt_live.py`). The same has been verified against **Mosquitto 2.1.2 in a
+  test configuration** (D10, `tests/test_mosquitto_live.py`, TIM §7.3). No deployment broker
+  configuration is committed.
+- **MQTT over TLS (D10).** Set `STMS_MQTT_CA_FILE` to the broker's CA certificate (PEM) for both
+  programs. Verification is mandatory: the broker's certificate must come from that CA and match
+  the host name. An unusable CA file stops the program; it never falls back to plain TCP. Unset,
+  the link is plain TCP and both programs say so. Details: TIM §7.4.
 
 ---
 

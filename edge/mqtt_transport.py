@@ -18,13 +18,18 @@ emergency traffic cannot be downgraded by a transport (contracts/mqtt.py).
 that refuses the connection is recorded in `connect_refused` as the broker's
 reason code, never with the credentials, so a refusal can be told apart from
 a broker that is not there.
+
+**TLS when given a CA file** (D10, `contracts/broker.py`): the broker must
+present a certificate from that CA for this host. A failed verification looks
+like an unreachable broker to paho, so `tls` is kept to say which it could be.
 """
 
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
-from contracts.broker import Credentials
+from contracts.broker import Credentials, client_tls_context
 
 __all__ = ["MqttTransport"]
 
@@ -33,7 +38,8 @@ class MqttTransport:
     def __init__(self, host: str = "127.0.0.1", port: int = 1883, *,
                  client_id: str, keepalive_s: int = 30,
                  ack_timeout_s: float = 2.0,
-                 credentials: Credentials | None = None) -> None:
+                 credentials: Credentials | None = None,
+                 ca_file: Path | None = None) -> None:
         import paho.mqtt.client as mqtt
 
         self._mqtt = mqtt
@@ -48,6 +54,9 @@ class MqttTransport:
         self.client.on_disconnect = self._on_disconnect
         if credentials is not None:
             self.client.username_pw_set(credentials.username, credentials.password)
+        self.tls = ca_file is not None
+        if self.tls:
+            self.client.tls_set_context(client_tls_context(ca_file))
         self.keepalive_s = keepalive_s
 
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
