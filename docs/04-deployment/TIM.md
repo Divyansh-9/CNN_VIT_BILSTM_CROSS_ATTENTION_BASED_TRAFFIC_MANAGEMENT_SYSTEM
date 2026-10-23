@@ -71,7 +71,7 @@ yet.
 | Git | any recent version | git with Git LFS 3.6.1 (LFS is not needed for this manual) |
 | Node.js | for building the dashboard only (§10) | v24.15.0 |
 | Disk | **about 9 GB free**: pip's download cache and the environment | cache 3.1 GB, environment 6.0 GB (measured) |
-| GPU | optional. The detector uses the GPU when PyTorch sees one | RTX 4050 Laptop, 6 GB. CPU-only operation is not measured |
+| GPU | optional. The detector uses the GPU when PyTorch sees one | RTX 4050 Laptop, 6 GB. **CPU-only was measured** (D11): whole-step p95 1,119 ms against 84 ms on the GPU. It keeps up with the 2 s sampling interval in that measurement only; see §15 for what is not established |
 | Free ports | 1883 (broker), 8000 (server) | |
 
 ---
@@ -432,7 +432,7 @@ evidence, outside the repository.
 | **Passed at `d2db1c3`** | §4 pre-flight checks (`check_env.py`, `check_sim_versions.py`); §5 hash commands (equal to the manifest); §10 `npm install` and `npm run build`, then `/dashboard/` 200; §8 server, `/health` 200; §12 checks 1–10. **Refusals:** an anonymous ingest (`Not authorized`, exit code 1), half a credential at the ingest (exit code 1) and at the edge (exit code 2), and a wrong edge password (logged, local cycle). **Delivery:** first class forecast at 63.1 s, first count forecast at 123.1 s. **D7 wording:** the recovery line reads exactly `link restored: publishes are acknowledged again`, the old wording appears nowhere, and the ingest's start-up line names both topics, visible in a redirected log. **SOP §5:** the broker stopped and restarted, with the timings in the SOP's table. **Hygiene:** the only new file was the server's store, and no password appeared in any log |
 | **Carried over, not rerun** | §4's install commands (`py -3.12 -m venv`, the torch command, `pip install -r requirements.txt`): last run at the D4 clean-environment check |
 | **Corrected after the run** | The disk requirement (§1, §3); the ingest's exit codes and messages (§8); that the hash prompt is interactive (§7.2) |
-| **Not established** | §7.2's interactive hash prompt, which cannot be scripted (the same hasher was fed from standard input instead); §7.3 Mosquitto; a camera stream; a first-time installation by a person; CPU-only operation |
+| **Not established** | §7.2's interactive hash prompt, which cannot be scripted (the same hasher was fed from standard input instead); §7.3 Mosquitto; a camera stream; a first-time installation by a person; CPU-only operation (measured separately since; D11, §15) |
 
 ---
 
@@ -478,8 +478,26 @@ evidence, outside the repository.
 - **A deployment broker.** Mosquitto 2.1.2 was verified only in a test
   configuration (§7.3). No deployment broker configuration, certificates or key
   handling are committed, and HTTP has no TLS (prerequisite 3).
-- **CPU-only latency.** Every edge figure so far was measured on the RTX 4050
-  laptop (ADR-003).
+- **CPU-only operation beyond one short measurement.** CPU-only was measured
+  (D11, 2026-10-23) on the RTX 4050 laptop with the GPU hidden. That is a
+  proxy host (ADR-003), not deployment hardware.
+  - **What was measured:**
+    - 60 samples of the NE8th recording at the 2 s step;
+    - forecasts sent to an in-memory stand-in for publishing, not to a live
+      camera or broker;
+    - 34 forecasts published, the same as on the GPU.
+  - **Results:**
+    - whole-step p95 **1,119 ms** on CPU, against **84 ms** on the GPU;
+    - the slowest sample took **1,145 ms**, leaving about **855 ms** before
+      the next 2 s sample.
+  - **What this is not:** it does **not** meet the pre-registered
+    p95 ≤ 1,000 ms step target. That target applies to the MFSTNet path, and
+    is quoted only for comparison.
+  - **Not established:**
+    - multi-hour thermal stability;
+    - CPU contention with other processes;
+    - other hardware;
+    - live-camera performance at deployment resolution (S65).
 - **A first-time installation by someone else.** The deployment README asks
   for this manual to be validated on a machine that has never run the
   project. That has not been done.

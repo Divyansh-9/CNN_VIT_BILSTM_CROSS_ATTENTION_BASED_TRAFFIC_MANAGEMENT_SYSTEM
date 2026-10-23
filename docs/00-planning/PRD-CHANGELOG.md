@@ -10657,3 +10657,53 @@ The full record is in the setup notes, held outside the repository.
 - **Mutual TLS.** Clients authenticate by password, not by certificate.
 - **HTTP TLS.** The server stays on `127.0.0.1`.
 - **CI coverage.** The live tests need `MOSQUITTO_EXE`, which CI does not set.
+
+## D11 — CPU-only operation of the edge path, measured (2026-10-23)
+
+**Status: recorded 2026-10-23**, after the owner approved the documentation
+update. It is a measurement and changes no code. As with D1–D10, it carries no
+P-number.
+
+### Setup
+
+| Item | Value |
+|---|---|
+| Path | The committed edge components at `5542e29`: `YoloDetector`, `EdgeLoop` and `file_frames` from `edge/run.py`. The counting settings came from `class_mapping.yaml` (D5): `best_xl_ITD_v1.2.pt`, conf 0.45, imgsz 992. Persistence and ridge forecasters |
+| Footage | The NE8th recording (Bellevue, internal engineering use), 60 samples at the 2 s step after one warm-up sample. Frames stayed in memory |
+| Publishing | An in-memory stand-in (`RecordingTransport`), so neither the broker nor a live camera was involved |
+| Host (ADR-003) | The team laptop: Intel Family 6 Model 191 with 20 logical CPUs, RTX 4050 Laptop 6 GB, Windows 11. A proxy, not deployment hardware |
+| CPU-only | `CUDA_VISIBLE_DEVICES=-1`, so `torch.cuda.is_available()` was False and the model ran on `cpu` |
+
+### Results (ms per 2 s sample)
+
+| | CPU-only | GPU |
+|---|---|---|
+| Decode + whole step, p50 / p95 / max | 1,077 / **1,119** / **1,145** | 74 / **84** / 108 |
+| Detection alone, p50 | 1,052 | 48 |
+| First sample, cold | 2,773 | 2,148 |
+| Forecasts published, 60 samples | 34 | 34 |
+
+A second run of each gave the same picture.
+
+### Reading
+
+- **CPU-only operation is demonstrated for this path and this recording.** It
+  publishes the same forecasts as on the GPU, and its slowest sample, 1,145 ms,
+  leaves about 855 ms before the next 2 s sample.
+- **The detector is almost all of the cost.** Counting, the forecasters and
+  publishing add under 1 ms, and decoding about 25 ms.
+- **It does not meet the pre-registered p95 ≤ 1,000 ms step target** (V2,
+  criterion 6b): the CPU p95 is 1,119 ms. That target applies to the MFSTNet
+  path, and is quoted only for comparison.
+
+### Not established
+
+- Multi-hour thermal stability.
+- CPU contention with other processes.
+- Other hardware.
+- Live-camera performance at deployment resolution (S65).
+- MFSTNet on CPU, which P135 already measured: its model call is p95 325.9 ms
+  and fails 6a.
+
+The harness and its raw output are held with the review evidence, outside the
+repository. TIM §3 and §15 are updated.
