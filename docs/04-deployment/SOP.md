@@ -57,7 +57,7 @@ Stop in the reverse order: edge, then ingest, then server, then broker.
 | Program | How | What it does |
 |---|---|---|
 | Edge | Ctrl+C, or let `--samples N` finish | Logs `interrupted` or `stopped; …`, closes its broker connection and exits 0 |
-| Ingest | Ctrl+C | Exits with a Python `KeyboardInterrupt` traceback, without disconnecting from the broker first. **This is expected at `21c8708`** and loses nothing already stored. Read from the code: validation did not send Ctrl+C |
+| Ingest | Ctrl+C (on Windows also Ctrl+Break; elsewhere also SIGTERM) | Disconnects from the broker, prints `stopped; N stored, M refused, K failed`, and exits 0 (D12). Tested on a real process on Windows with Ctrl+Break. Windows Ctrl+C follows the same path but was not sent in a test, because it would reach every process on the console. The SIGINT and SIGTERM variants run only on Linux and have not been run yet |
 | Server | Ctrl+C | uvicorn shuts down |
 | Broker | Stop its process or service | Clients that are still running lose their connection (§5) |
 

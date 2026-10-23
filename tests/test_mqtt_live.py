@@ -289,3 +289,43 @@ def test_authenticated_clients_carry_a_prediction_end_to_end(auth_broker, databa
     assert TestClient(database.app).get("/prediction/j7/latest").json()["model"] == \
         "persistence@2431c6641b9c"
     assert credentials.password not in caplog.text + "".join(capsys.readouterr())
+
+
+# ---- D12: a real ingest process stops cleanly --------------------------------
+
+@pytest.mark.parametrize("how", ["ctrl_break"] if os.name == "nt" else ["sigint", "sigterm"])
+def test_a_running_ingest_stops_cleanly(broker, how):
+    """Ctrl+Break on Windows (Ctrl+C cannot be sent to one process without
+    reaching the console's others), SIGINT and SIGTERM elsewhere. Each must end
+    in exit 0 with the summary line, and no traceback."""
+    import signal
+
+    root = Path(__file__).resolve().parent.parent
+    env = {k: v for k, v in os.environ.items() if not k.startswith("STMS_MQTT_")}
+    env["PYTHONUNBUFFERED"] = "1"
+    flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+    process = subprocess.Popen([sys.executable, "-m", "server.mqtt_ingest", "--host", "127.0.0.1",
+                                "--port", str(broker)], cwd=root, env=env, text=True,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               creationflags=flags)
+    try:
+        lines = []
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            line = process.stdout.readline()
+            lines.append(line)
+            if "subscribed to" in line or not line:
+                break
+        assert any("subscribed to" in line for line in lines), lines
+        if how == "ctrl_break":
+            process.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            process.send_signal(signal.SIGINT if how == "sigint" else signal.SIGTERM)
+        out, err = process.communicate(timeout=30)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
+    assert process.returncode == 0, err
+    assert "stopped; 0 stored, 0 refused, 0 failed" in out
+    assert "Traceback" not in err and "KeyboardInterrupt" not in err

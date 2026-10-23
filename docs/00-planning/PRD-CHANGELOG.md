@@ -10707,3 +10707,45 @@ A second run of each gave the same picture.
 
 The harness and its raw output are held with the review evidence, outside the
 repository. TIM §3 and §15 are updated.
+
+## D12 — the ingest stops cleanly (2026-10-23)
+
+**Status: applied 2026-10-23**, after the owner's go-ahead. It closes the
+limitation the TIM/SOP review deferred: on Ctrl+C, the ingest ended in a
+`KeyboardInterrupt` traceback and did not disconnect from the broker. As with
+D1–D11, it carries no P-number.
+
+### What changed
+
+- **`server/mqtt_ingest.py`.** `main` no longer waits on an untimed
+  `threading.Event().wait()`. An untimed wait is not interrupted by Ctrl+C on
+  Windows.
+  - **`serve_until_stopped()`** polls a stop event every 0.5 s. On Ctrl+C
+    (`KeyboardInterrupt`), or when the event is set, it calls `ingest.stop()`
+    to disconnect, then returns a one-line summary: `stopped; N stored, M
+    refused, K failed`. `main` prints it and exits 0.
+  - **`stop_on_signals()`** sets the event on SIGTERM, and on SIGBREAK
+    (Ctrl+Break) on Windows.
+- **SOP §2.** The ingest's shutdown row now describes this behaviour, and
+  says which of the signals were tested.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| `tests/test_ingest_shutdown.py`, new | 4 of 4: Ctrl+C disconnects and returns the summary, with no exception; a stop request disconnects; the wait is always timed, never untimed; SIGTERM and SIGBREAK set the stop event |
+| `tests/test_mqtt_live.py::test_a_running_ingest_stops_cleanly`, new, real amqtt broker | **Run on Windows:** a real `python -m server.mqtt_ingest` process, once subscribed, gets Ctrl+Break. It exits 0, prints the summary, and writes no traceback. The test's SIGINT and SIGTERM variants exist for Linux and have **not been run** yet |
+| Mutation check | 4 protections removed one at a time (untimed wait, no disconnect, Ctrl+C not caught, signals not installed): **4 of 4 caught** |
+
+### Not established
+
+**Ctrl+C itself on Windows** was not sent in a test. The console delivers it
+to every process attached to the console, including the test runner. It goes
+through the same `KeyboardInterrupt` path that the unit test covers.
+Only Ctrl+Break, on Windows, was sent to a real process. The SIGINT and
+SIGTERM variants run on Linux only, for example in CI, and have not been run.
+
+### Not changed
+
+The edge program's shutdown (already clean), the server's (uvicorn), and any
+forecasting or contract behaviour.

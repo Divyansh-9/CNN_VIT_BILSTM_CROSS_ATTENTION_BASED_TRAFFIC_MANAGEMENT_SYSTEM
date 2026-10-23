@@ -17,12 +17,18 @@ anywhere (NFR-13).
 refuses the connection is reported by its reason code, never with the
 credentials. With `STMS_MQTT_CA_FILE` set, the connection is TLS, verified
 against that CA (D10).
+
+**It stops cleanly** (D12). Ctrl+C, SIGTERM or, on Windows, Ctrl+Break
+disconnects from the broker, prints what was stored, refused and failed, and
+exits 0. Before D12 it ended in a `KeyboardInterrupt` traceback without
+disconnecting.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import signal
 import threading
 import time
 from pathlib import Path
@@ -31,7 +37,7 @@ from contracts.broker import (CredentialError, Credentials, TlsConfigError, ca_f
                              client_tls_context, credentials_from_env)
 from contracts.mqtt import ContractError, Topic, check_intersection_id
 
-__all__ = ["PredictionIngest", "subscription_summary"]
+__all__ = ["PredictionIngest", "serve_until_stopped", "stop_on_signals", "subscription_summary"]
 
 log = logging.getLogger(__name__)
 
@@ -160,6 +166,32 @@ class PredictionIngest:
         self.client.loop_stop()
 
 
+def stop_on_signals(stop: threading.Event) -> None:
+    """SIGTERM, and Ctrl+Break on Windows, set `stop`. Ctrl+C arrives as
+    `KeyboardInterrupt` and is handled by the caller."""
+    for name in ("SIGTERM", "SIGBREAK"):
+        number = getattr(signal, name, None)
+        if number is not None:
+            signal.signal(number, lambda signum, frame: stop.set())
+
+
+def serve_until_stopped(ingest: "PredictionIngest", stop: threading.Event,
+                        poll_s: float = 0.5) -> str:
+    """Wait until `stop` is set or Ctrl+C, then disconnect. Returns the summary.
+
+    The wait polls: an untimed `Event.wait()` is not interrupted by Ctrl+C on
+    Windows."""
+    try:
+        while not stop.wait(poll_s):
+            pass
+    except KeyboardInterrupt:
+        pass
+    finally:
+        ingest.stop()
+    return (f"stopped; {ingest.stored} stored, {len(ingest.refused)} refused, "
+            f"{len(ingest.failed)} failed")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--host", default="127.0.0.1")
@@ -185,7 +217,9 @@ def main(argv: list[str] | None = None) -> int:
                             if ingest.tls else ""))
     # Flushed, so the line is visible when the output goes to a file too.
     print(f"  {subscription_summary(args.host, args.port)}", flush=True)
-    threading.Event().wait()
+    stop = threading.Event()
+    stop_on_signals(stop)
+    print(f"  {serve_until_stopped(ingest, stop)}", flush=True)
     return 0
 
 
