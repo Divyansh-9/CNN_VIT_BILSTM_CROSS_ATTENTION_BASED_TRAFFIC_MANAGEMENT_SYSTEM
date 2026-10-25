@@ -1,0 +1,11 @@
+camera,clip_id,samples_online,samples_offline,lane_values,exact_lane_values,exact_samples,timestamps_match,mae_per_lane_value,parity,note
+150th_Eastgate,Bellevue_150th_Eastgate__2017-09-10_18-08-24,1799,1799,7196,7196,1799,True,0.0,True,
+150th_Eastgate,Bellevue_150th_Eastgate__2017-09-11_06-08-30,1798,1798,7192,7192,1798,True,0.0,True,
+150th_Eastgate,Bellevue_150th_Eastgate__2017-09-11_10-08-31,1798,1798,7192,7192,1798,True,0.0,True,
+150th_Eastgate,Bellevue_150th_Eastgate__2017-09-11_14-08-31,1799,1799,7196,7196,1799,True,0.0,True,
+150th_Newport,Bellevue_150th_Newport__2017-09-10_18-08-24,1800,1800,7200,7200,1800,True,0.0,True,
+150th_Newport,Bellevue_150th_Newport__2017-09-11_10-08-31,1800,1800,7200,7200,1800,True,0.0,True,
+150th_Newport,Bellevue_150th_Newport__2017-09-11_14-08-31,1800,1800,7200,7200,1800,True,0.0,True,
+150th_SE38th,Bellevue_150th_SE38th__2017-09-10_18-08-24,1799,1799,7196,7196,1799,True,0.0,True,
+150th_SE38th,Bellevue_150th_SE38th__2017-09-11_09-08-31,1815,1815,7260,7260,1815,True,0.0,True,
+150th_SE38th,Bellevue_150th_SE38th__2017-09-11_13-08-32,1577,1577,6308,6308,1577,True,0.0,True,

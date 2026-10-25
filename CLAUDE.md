@@ -170,7 +170,10 @@ identifiers, cited the same way requirement IDs are.
 
 ## Current blockers, and what they gate
 
-- **S19 is ⛔ blocked on the guide since 2026-08-22**, reply due 08-29, which has passed. The memo is [MEMO-2026-08-22-part-b.md](docs/00-planning/MEMO-2026-08-22-part-b.md). It blocks the *detection* dataset, not the model track — BUILD-LOG says so explicitly, so do not treat it as a reason MFSTNet work is stalled. The substance: one campus location is one camera, so ADR-019 cannot score it, which is why the ask changed to a six-viewpoint evaluation set.
+- **S19 and S54 are on hold by the owner since 2026-10-25 (P143), not blocking.**
+  - **The decision:** engineering, integration and system validation proceed on the foreign corpus (Bellevue, Dhaka, M6). Indian-data acquisition, the six-viewpoint campus set (S19) and the BMD-45 outreach, is paused rather than waited on.
+  - **What this does not change:** the `domain` and `class_coverage` claims stay red, `CLAIMS.yaml` and the thresholds are unchanged, and no result on foreign footage is Indian-domain evidence.
+  - **History:** S19 was blocked on the guide from 2026-08-22 ([MEMO-2026-08-22-part-b.md](docs/00-planning/MEMO-2026-08-22-part-b.md)). Reopening it needs the guide's decision on that memo.
 - **The `surrogate` PPO arm is not implemented (P52).** `--arm surrogate` and `--arm no-forecast` build the same environment today. Any result that distinguishes them is wrong, and ADR-021 is the plan for fixing it.
 - **`scripts/make_paper_tables.py` is withheld while `check_claims.py` is red.** That is by design and not a bug to route around: two asserted claims fail, so the tables do not generate.
 - **`check_claims.py` does not run in CI.** `.github/workflows/tests.yml` has a `fast` job and a `model` job, and neither invokes it. The claims gate is real but currently depends on someone running it, so run it before writing anything that assumes a claim holds.

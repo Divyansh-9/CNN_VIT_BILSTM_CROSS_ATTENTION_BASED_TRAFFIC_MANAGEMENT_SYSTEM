@@ -10749,3 +10749,86 @@ SIGTERM variants run on Linux only, for example in CI, and have not been run.
 
 The edge program's shutdown (already clean), the server's (uvicorn), and any
 forecasting or contract behaviour.
+
+## P143 — engineering proceeds on the foreign corpus; Indian-data acquisition on hold; the deployed edge counts exactly what the forecasters were trained on (2026-10-25)
+
+**Decision (project owner, not the guide).** Engineering, integration and
+system validation proceed on the footage the project has: Bellevue (US), Dhaka
+and the M6. Indian-data acquisition is **put on hold** as active work:
+- the six-viewpoint campus set (S19);
+- licence-first collection, with the BMD-45 outreach (S54).
+
+On hold means not done and not cancelled. Neither outreach email is recorded as
+sent, and no Indian footage has been secured. Reopening S19 needs the guide's
+decision on [MEMO-2026-08-22](MEMO-2026-08-22-part-b.md).
+
+**What does not change.**
+- **The two claims stay red.** `domain` (0 of 4 test cameras Indian) and
+  `class_coverage` (HIGH 0/20/9/1, P57) still fail.
+- **No change to `CLAIMS.yaml`, the checker, or the registered thresholds.**
+- **Nothing measured on foreign footage is Indian-domain evidence**, and no
+  document may present it as such.
+
+**Why.** Completing the working system (Objective A) and showing that it holds
+on Indian traffic (Objective B) are separate milestones. The second must not
+block the first. The corpus pipeline is already dataset-portable:
+- `cameras.json`, `sources.json` and `check_sources.py` gate a new source;
+- triage → build → relabel → audit → cache → resplit processes it.
+
+So onboarding Indian footage later is a data task, not an architectural one.
+Portability is not equivalence. A new dataset brings its own geometry, vehicle
+mix and congestion distribution, and is evaluated on its own.
+
+### The evidence that came with the decision: train/serve count parity
+
+Every earlier end-to-end test fed a **synthetic** video through lane centres
+that matched no real scene. That covers the TIM validation at `d2db1c3` and the
+clean-machine self-check v1–v3. `--camera` only selects the persistence
+thresholds. Those runs established transport, not counting.
+
+[`scripts/count_parity.py`](../../scripts/count_parity.py) closes that gap. It
+runs the **deployed edge's own code** on the real footage:
+- `edge.run.file_frames`;
+- `edge.run.YoloDetector`;
+- `count_frame`, at the settings the edge reads from `class_mapping.yaml`.
+
+It compares the result with `data/corpus_p103/<camera>/counts.csv`, the counts
+the persistence and ridge forecasters were calibrated and trained on (P103,
+P105). A clip passes only if every lane value, every timestamp and the sample
+count are identical.
+
+| Scope | Clips | Samples | Lane values exact |
+|---|---|---|---|
+| All three P103 cameras: 150th/Eastgate (4 clips), 150th/Newport (3), 150th/SE38th (3) | **10 of 10 at parity** | 17,785 (one per 2 s, about 9.9 hours of footage) | **71,140 of 71,140** |
+
+**The check detects skew.** Counting at confidence 0.60 instead of 0.45, on
+the first 150 samples of each Eastgate clip, fails all four clips: 540, 528,
+409 and 417 of 600 lane values exact. `--mutate-conf` exists for exactly this
+and refuses to write over the real results.
+
+**Scope of the claim.** For the full P103 corpus, at the committed counting
+configuration, the deployed edge counting path reproduces the offline corpus
+lane counts exactly. There is no train/serve skew in counting there.
+
+What this does not establish:
+- **forecast quality** (S67);
+- **behaviour on the live camera stream** (S65);
+- **any camera outside P103.**
+
+**Provenance.**
+- Per-sample results and `summary.csv` are in
+  `experiments/results/bellevue_pilot/count_parity/`, with a sidecar: RTX 4050,
+  torch 2.13.0+cu126, ultralytics 8.4.118.
+- The run was made from the working tree at `bac812f` before this script was
+  committed. That is why the sidecar names `bac812f`.
+- The footage path is an argument and is never recorded.
+- Frames are counted and dropped in memory (NFR-13).
+
+### Board
+
+- **S19 and S54:** ⬜ with an "on hold" note, following S50's precedent for
+  owner deferrals. The board has no on-hold status, and its checker accepts
+  only the existing symbols. Their history is kept.
+- **S42 → 🔵,** reviewed against ADR-008 and FR-UI01–08:
+  - **built:** the Live and Results regions;
+  - **not built:** FR-UI01 signal state, FR-UI02, FR-UI03, FR-UI05, FR-UI08.

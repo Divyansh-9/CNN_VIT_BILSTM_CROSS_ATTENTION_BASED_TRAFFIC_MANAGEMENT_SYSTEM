@@ -57,8 +57,9 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 | | |
 |---|---|
 | **Built** | ~62,900 lines of Python in 279 files · 90 test modules · 1,525 tests: **1,522 pass, 3 skip** in a local run on 2026-10-21 (Python 3.14.4, Windows; CI runs Python 3.12 on Linux) |
-| **Specified** | 27 architecture decisions · changelog P1–P142, plus D1–D2 · build steps S01–S68 |
-| **Waiting on the guide** | Narrowing claim C1 (MEMO-2026-10-17, S63zm) · the Part B evaluation set (MEMO-2026-08-22, S19) |
+| **Specified** | 27 architecture decisions · changelog P1–P143, plus D1–D12 · build steps S01–S68 |
+| **Waiting on the guide** | Narrowing claim C1 (MEMO-2026-10-17, S63zm) |
+| **On hold (owner, P143)** | Indian-data acquisition: the Part B evaluation set (S19) and the BMD-45 outreach (S54). Engineering proceeds on the foreign corpus; Indian-domain validation stays unestablished |
 | **Waiting on the owner** | V1 labellers · the S65 camera window · licensing (handled separately) |
 
 > **New to the project?** Start with **[EXPLAIN.md](EXPLAIN.md)**, which
@@ -269,7 +270,7 @@ Start with the eight ADRs that rewrite the architecture: ADR-001 to ADR-008.
 | Item | Owner | Blocks |
 |---|---|---|
 | Narrowing C1 to the measured null (ADR-023, `CLAIMS.yaml`) | Guide (MEMO-2026-10-17) | S63zm |
-| Six-viewpoint evaluation set | Guide (MEMO-2026-08-22) | S19, the detection dataset |
+| Six-viewpoint evaluation set: **on hold by the owner (P143)**; reopening needs the guide's decision on MEMO-2026-08-22 | Owner, then guide | S19, the detection dataset; Indian-domain validation |
 | V1 inter-rater pilot | Owner: two independent, blind labellers | S67; the main labelling set stays locked until ICC(2,1) ≥ 0.80 |
 | V2 real-camera run | Owner: the camera window and an in-memory-only authorisation | S65 |
 | Edge deployment prerequisites the clean-environment check left open (D4): teammate access to the detector weights, a camera-matched lane file, and an authenticated deployment broker (both clients authenticate (D6) and use verified TLS when given a CA file (D10), tested against Mosquitto 2.1.2 in a test configuration; no deployment broker configuration or certificate is committed) | Owner (weights and licence); team (lane file, broker configuration) | Deploying the edge from the repository alone; the TIM and SOP must state them |
