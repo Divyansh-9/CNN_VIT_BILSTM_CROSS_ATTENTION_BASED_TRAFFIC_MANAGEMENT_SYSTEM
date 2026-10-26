@@ -1,0 +1,18 @@
+# The build context is the repository, minus everything an image must never
+# hold or does not need (D15). .git stays: the image's evidence stage reads the
+# history so the dashboard can name each result's commit.
+deploy/secrets/
+data/
+models/
+.venv/
+**/__pycache__/
+**/node_modules/
+dashboard/dist/
+docs/
+notebooks/
+kaggle/
+.playwright-mcp/
+**/*.pt
+**/*.onnx
+**/*.mp4
+**/*.sqlite

@@ -39,6 +39,7 @@ server. The token crosses plain HTTP, which is why the server stays on
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 import os
 import re
@@ -533,16 +534,32 @@ EVIDENCE_LIMITS = [
 ]
 
 
+#: Where a container finds what `git log` would have said (D15). A container
+#: has no repository history, so `deploy/evidence_commits.py` writes this map
+#: from the real history when the image is built. Unset outside a container.
+EVIDENCE_COMMITS_ENV = "STMS_EVIDENCE_COMMITS"
+
+
 def committed_at(path: Path) -> dict:
-    """ADR-014: the panel names the commit that produced each number."""
+    """ADR-014: the panel names the commit that produced each number.
+
+    From `git log` when there is a repository, else from the build-time map.
+    Neither available is "uncommitted", never a guess."""
     import subprocess
 
+    name = str(path).replace("\\", "/")
     try:
         out = subprocess.run(["git", "log", "-1", "--format=%h %cs", "--", str(path)],
                              capture_output=True, text=True, timeout=5, check=True).stdout.split()
     except Exception:
         out = []
-    return {"file": str(path).replace("\\", "/"),
+    if not out and os.environ.get(EVIDENCE_COMMITS_ENV):
+        try:
+            entry = json.loads(Path(os.environ[EVIDENCE_COMMITS_ENV]).read_text(encoding="utf-8"))[name]
+            out = [entry["commit"], entry["date"]]
+        except (OSError, ValueError, KeyError, TypeError):
+            out = []
+    return {"file": name,
             "commit": out[0] if out else "uncommitted", "date": out[1] if len(out) > 1 else ""}
 
 

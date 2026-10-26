@@ -176,3 +176,60 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  compose:
+    # D15: the server stack built from the committed Dockerfile, started fresh
+    # and tested on the real path:
+    #   MQTT over TLS with a login -> ingest -> SQLite -> the API -> the built dashboard
+    # It is restarted, and the store must persist. A fresh runner on every push
+    # is the Docker path's fresh-environment evidence. The Windows path has its
+    # own kit, and this does not stand in for it.
+    name: compose stack (build, start, smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the image maps every result file to its commit (D15)
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Smoke-test dependencies, pinned from requirements.txt
+        run: pip install $(grep -iE '^(pydantic|paho-mqtt)==' requirements.txt)
+
+      - name: Throwaway secrets (gitignored, outside the build context)
+        run: python deploy/make_local_secrets.py
+
+      - name: Build and start
+        run: docker compose up -d --build
+
+      - name: Smoke test
+        run: python deploy/smoke_test.py
+
+      - name: Restart; the store must persist
+        run: |
+          docker compose restart server ingest
+          python deploy/smoke_test.py --after-restart
+
+      - name: No secret in any log or image layer; nothing private in the image
+        run: |
+          token=$(sed -n 's/^STMS_API_TOKEN=//p' deploy/secrets/server.env)
+          logs=$(docker compose logs --no-color)
+          for secret in "$token" $(cut -d: -f2 deploy/secrets/passwd.plain); do
+            if grep -qF -- "$secret" <<<"$logs"; then echo "a secret appears in the logs"; exit 1; fi
+          done
+          if docker history --no-trunc stms-server:local | grep -qF -- "$token"; then
+            echo "the API token is in an image layer"; exit 1
+          fi
+          docker run --rm --entrypoint sh stms-server:local -c \
+            'test ! -e /app/deploy && test ! -e /app/.git && test ! -e /app/data/corpus && test ! -e /app/models'
+          echo "clean"
+
+      - name: Logs, on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

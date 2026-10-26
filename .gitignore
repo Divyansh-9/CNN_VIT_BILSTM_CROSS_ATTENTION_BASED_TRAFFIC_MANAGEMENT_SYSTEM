@@ -136,3 +136,6 @@ data/_discipline/
 # BMD-45 metadata downloaded to the repository root (2026-10-15). Third-party
 # data, CC BY 4.0, re-fetchable with `hf download ... --include "*.json"`.
 /BMD-45/
+
+# Throwaway secrets for the local and CI Compose stack (D15): never committed.
+deploy/secrets/

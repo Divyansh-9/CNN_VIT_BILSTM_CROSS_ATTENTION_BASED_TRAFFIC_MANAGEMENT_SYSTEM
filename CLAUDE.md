@@ -115,7 +115,12 @@ The ablation study (configs **A-H**, §14.4) is what makes this publishable. Des
 These are graded deliverables:
 
 - Seeds fixed and documented across PyTorch, NumPy, and SB3 — the PRD uses `seed: 42` for both MFSTNet and PPO.
-- `requirements.txt` committed; the stack must be reproducible from a clean machine. **Docker Compose is specified (NFR.md, PRD §22.3) but not committed:** no compose file exists, so do not tell anyone to run one (D4).
+- `requirements.txt` committed; the stack must be reproducible from a clean machine.
+- **Docker Compose for the server stack is committed (D15).** It covers broker, API with the built dashboard, ingest and SQLite.
+  - **Run it:** `python deploy/make_local_secrets.py`, then `docker compose up -d --build`, then `python deploy/smoke_test.py`.
+  - **Verification:** only by CI's `compose` job. Docker is not installed on this machine, so do not claim a local Docker run. The scripts were exercised against the same services run natively.
+  - **Not in the stack:** the edge (ADR-003).
+  - **Secrets:** throwaway, local and CI only, in gitignored `deploy/secrets/`.
 - Raw results committed as CSV, not just summary tables: all 30 RL evaluation runs per method, and all ablation configs.
 - Statistics reported as mean ± 95% CI (bootstrap, 10000 resamples), paired t-test at α=0.05, with Cohen's d.
 

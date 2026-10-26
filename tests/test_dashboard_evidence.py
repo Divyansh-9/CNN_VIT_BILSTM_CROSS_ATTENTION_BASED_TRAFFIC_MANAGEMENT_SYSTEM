@@ -76,6 +76,30 @@ def test_the_limitations_state_the_encoding_as_it_is_since_p110():
     assert "P97a Part 2" in text
 
 
+def test_without_git_the_commit_comes_from_the_build_time_map(tmp_path, monkeypatch):
+    # A container has no history (D15): the map written at image build answers.
+    import subprocess
+
+    def no_git(*_args, **_kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(subprocess, "run", no_git)
+    target = Path("experiments/results/bellevue_pilot/p105_results.json")
+    commits = tmp_path / "commits.json"
+    commits.write_text(json.dumps({target.as_posix(): {"commit": "0c97ccb", "date": "2026-10-16"}}),
+                       encoding="utf-8")
+    monkeypatch.setenv(server.EVIDENCE_COMMITS_ENV, str(commits))
+    assert server.committed_at(target) == {"file": target.as_posix(), "commit": "0c97ccb",
+                                           "date": "2026-10-16"}
+    # A file the map does not name, an unreadable map, and no map at all are
+    # each "uncommitted", never a guess.
+    assert server.committed_at(Path("experiments/results/other.json"))["commit"] == "uncommitted"
+    commits.write_text("not json", encoding="utf-8")
+    assert server.committed_at(target)["commit"] == "uncommitted"
+    monkeypatch.delenv(server.EVIDENCE_COMMITS_ENV)
+    assert server.committed_at(target)["commit"] == "uncommitted"
+
+
 def test_the_evidence_endpoint_is_read_only():
     client = TestClient(server.app)
     assert client.post("/evidence").status_code == 405

@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT))
 SOURCE_DIRS = (
     "mfstnet", "scripts", "simulation", "tests", "detection",
     "server", "edge", "contracts", "indiatrafficnet", "experiments",
+    "deploy",
 )
 
 # Distribution name on PyPI -> module name it installs. Only needed where they

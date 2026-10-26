@@ -103,9 +103,14 @@ and configs of earlier runs no longer exist.
 - Summary tables in the paper are generated from the CSVs by a committed script. A table typed by
   hand cannot be recomputed, and a table that cannot be recomputed is not evidence.
 
-Docker Compose for the server stack (broker, API, database, dashboard) is **specified but not
-committed**: no compose file exists in the repository (clean-environment check, 2026-10-21;
-PRD-CHANGELOG D4). It is not required for training.
+Docker Compose for the server stack (broker, API, database, dashboard) is **committed** as
+`docker-compose.yml`, `deploy/server.Dockerfile` and `deploy/smoke_test.py` (PRD-CHANGELOG
+D15, closing the D4 gap).
+- **Docker path:** it is verified by the CI `compose` job, which builds it on a fresh runner and
+  smoke-tests the real path. That evidence exists only once the job has run.
+- **Native path:** the scripts were also exercised against the same services run natively.
+- **Not covered:** the edge runs on its own device (ADR-003) and is not in the stack.
+- **Training** does not need it.
 
 ---
 

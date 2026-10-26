@@ -10905,3 +10905,87 @@ The sentence now says what the live banner says (D2):
 `tests/test_dashboard_evidence.py` pins the new wording. It reads the constant
 directly, so the test does not skip when the Bellevue results are absent.
 Putting the old sentence back fails it.
+
+## D15 — Docker Compose for the server stack (2026-10-26)
+
+**Closes the D4 gap.** NFR.md specified Compose for the server stack and no
+compose file existed. Docker B1 was approved by the owner, CI-only: Docker
+Desktop is not installed on the development laptop, which has about 1 GB free
+on C:.
+
+### What is committed
+
+| File | What it does |
+|---|---|
+| `docker-compose.yml` | `broker-init`, `mosquitto`, `server` and `ingest`; SQLite in a named volume both use; the broker's files in another |
+| `deploy/server.Dockerfile` | one image for `server` and `ingest`, in three stages (below). It runs as a non-root user and has a health check on `/health` |
+| `deploy/mosquitto.conf` | login and TLS on 8883 only, as D6 and D10 |
+| `deploy/make_local_secrets.py` | a throwaway test CA, broker certificate, random passwords and API token, into gitignored `deploy/secrets/`. Refuses to overwrite. Local and CI only |
+| `deploy/evidence_commits.py` | the commit behind every committed result file, read from the real history at build time |
+| `deploy/smoke_test.py` | the real path, and the refusals (below) |
+| `.dockerignore` | keeps secrets, data, models, frames and weights out of the build context |
+| `.github/workflows/tests.yml` | job `compose`: build, start, smoke test, restart, smoke test again, then a scan for secrets in logs and image layers |
+
+The image's three stages:
+- **The dashboard,** built on Node 22, as CI builds it.
+- **The evidence map,** made with git from the history.
+- **The runtime,** Python 3.12.10. It installs only the four pins the server
+  imports, taken from `requirements.txt`, which stays the authority.
+
+The smoke test publishes over MQTT with TLS and the edge's login, then checks:
+- the ingest stores both forecasts, and the server returns them, latest and
+  history;
+- W is listed as missing, and the real 0.0 is kept;
+- the built dashboard is served;
+- an anonymous client is refused, and a write without the token gets 401;
+- the evidence names real commits.
+
+With `--after-restart` it checks that the store persisted.
+
+### Design decisions, each following the existing architecture
+
+- **The dashboard is not its own container.** The server already serves the
+  built dashboard at `/dashboard/`, same origin, and the image builds it in.
+- **The edge is not in the stack.** It runs on its own device (ADR-003), with
+  the detector weights and the forecaster specs, which no image may carry.
+- **Passwords are hashed inside the broker's init container.** Nothing is
+  hashed on the host, and the key and password file belong to the broker with
+  mode 0600.
+- **The broker's health check reads the listening socket from
+  `/proc/net/tcp`.** It needs no login, so no credential is written into a
+  health check.
+- **No `docker compose up --wait`.** Some Compose versions count the one-shot
+  `broker-init` exiting as a failure. The smoke test waits for real readiness
+  instead.
+
+### One code change it needed
+
+`/evidence` names each result's commit by running `git log`. A container has
+no history, so every study would have read "uncommitted", which is wrong
+provenance under ADR-014.
+
+`committed_at` now falls back to the build-time map named by
+`STMS_EVIDENCE_COMMITS`. Neither available still reads "uncommitted", never a
+guess. A test covers four cases: the map's answer, a file the map does not
+name, an unreadable map, and no map at all.
+
+### Verification, and what it does not cover
+
+| Check | Result |
+|---|---|
+| Image tags | `eclipse-mosquitto:2.1.2-alpine` (the Mosquitto verified in D10), `python:3.12.10-slim-bookworm` and `node:22.23.2-alpine`, each confirmed on Docker Hub |
+| `make_local_secrets.py` | writes 7 files; refuses a second run without `--force` |
+| `evidence_commits.py` | 1,056 files mapped; p103 and p105 match `git log` exactly |
+| The same services run natively: Mosquitto 2.1.2 with this config, the server and the ingest | smoke test 9 of 9; after a restart 6 of 6, so the store persisted. No secret in any log |
+| The smoke test detects failure | **caught:** a broker allowing anonymous clients, and a store lost before the after-restart check |
+
+**Not yet verified:**
+- the Dockerfile and the compose file themselves;
+- the image build;
+- the container wiring: volumes, ownership, the broker-init hashing, the
+  health checks;
+- the secret scan of image layers.
+
+All of these run only in CI's `compose` job, which runs once the branch is
+pushed. A push needs the owner's authorization. Until that job passes, the
+Docker deliverable is implemented, not verified.
