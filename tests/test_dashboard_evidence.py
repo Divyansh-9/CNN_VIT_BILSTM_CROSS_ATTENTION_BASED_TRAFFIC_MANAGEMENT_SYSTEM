@@ -65,6 +65,17 @@ def test_every_study_names_its_file_and_commit_and_is_labelled_historical(eviden
         assert study["commit"] and study["date"]
 
 
+def test_the_limitations_state_the_encoding_as_it_is_since_p110():
+    # Read from the constant, so it holds without the Bellevue results present.
+    # D2 fixed the same stale sentence in the dashboard's banner; this one is
+    # shown in the Results region and must not say the opposite.
+    text = " ".join(server.EVIDENCE_LIMITS)
+    assert "0.0 means an approach has no forecast" in text
+    assert "LOW is 1/3" in text
+    assert "0.0 = LOW" not in text and "same value as LOW" not in text
+    assert "P97a Part 2" in text
+
+
 def test_the_evidence_endpoint_is_read_only():
     client = TestClient(server.app)
     assert client.post("/evidence").status_code == 405

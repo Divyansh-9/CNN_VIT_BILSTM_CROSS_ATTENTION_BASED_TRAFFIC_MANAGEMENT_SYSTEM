@@ -526,8 +526,10 @@ EVIDENCE_LIMITS = [
     "labels are ITD-xl's own future counts, not human-verified traffic (A32)",
     "one Bellevue Sunday evening and Monday; 3 cameras scored; 116th NE12th excluded",
     "a count improvement does not establish a congestion-class improvement",
-    "neither forecast is connected to signal timing; P97a (missing encoded as 0.0 = LOW "
-    "in the controller's state) is open",
+    # The encoding as it is since P110, as the dashboard's live banner states it.
+    "neither forecast is connected to signal timing; in the controller's state 0.0 means "
+    "an approach has no forecast and LOW is 1/3 (ADR-020 as amended, P110); P97a Part 2, "
+    "the controller's behaviour under forecast faults, is deferred",
 ]
 
 

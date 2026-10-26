@@ -10887,3 +10887,21 @@ Not changed by this entry: the server's `EVIDENCE_LIMITS` text still says "P97a
 (missing encoded as 0.0 = LOW in the controller's state) is open". That is out
 of date since P110, where 0.0 means "no forecast". It is visible in the Results
 region and is a separate correction.
+
+## D14 — the evidence footnote states the encoding as it is since P110 (2026-10-26)
+
+D13 recorded that the server's `EVIDENCE_LIMITS`, shown in the dashboard's
+Results region, still said "P97a (missing encoded as 0.0 = LOW in the
+controller's state) is open". That has been wrong since P110, checked against
+P110's text: 0.0 at indices 11–14 is reserved for "no forecast", and LOW,
+MEDIUM and HIGH are 1/3, 2/3 and 1.
+
+The sentence now says what the live banner says (D2):
+- neither forecast is connected to signal timing;
+- 0.0 means an approach has no forecast, and LOW is 1/3 (ADR-020 as amended,
+  P110);
+- P97a Part 2, the controller's behaviour under forecast faults, is deferred.
+
+`tests/test_dashboard_evidence.py` pins the new wording. It reads the constant
+directly, so the test does not skip when the Bellevue results are absent.
+Putting the old sentence back fails it.
