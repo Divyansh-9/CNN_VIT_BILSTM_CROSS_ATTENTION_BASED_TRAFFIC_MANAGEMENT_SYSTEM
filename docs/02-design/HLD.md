@@ -301,6 +301,8 @@ dash means the route is unchanged by the batch.
 | `GET /prediction/{id}/latest` | the latest class forecast, with freshness | the id | 422 for a bad id; 404 when none stored | **[batch: P142]** the id check; the 404 text no longer quotes the id |
 | `POST /count_forecast/{id}` | store one count forecast | the id, then `decode` (§5) | 422 | **[batch: P142]** the id check. **[P140, P141]** the stricter `decode` |
 | `GET /count_forecast/{id}/latest` | the latest count forecast, with freshness | the id | 422 / 404 | **[batch: P142]** the id check; the 404 text is fixed |
+| `GET /prediction/{id}/history?limit=` | the class forecasts the server recorded, newest first; missing approaches listed, never filled | the id; `limit ≥ 1`, default 30, clamped at 500 | 422 | **[D13]** for the dashboard's forecast history |
+| `GET /count_forecast/{id}/history?limit=` | the count forecasts the server recorded, newest first; a real 0.0 kept, an absence listed | the id; `limit ≥ 1`, default 30, clamped at 500 | 422 | **[D13]** for the dashboard's forecast history |
 | `GET /history/{id}?limit=` | recent decisions from `observations` | the id; `limit`, clamped at 500 | 422 | **[batch: P142]** the id check; `limit ≥ 1` (at `HEAD`, `-1` returned every row) |
 | `GET /evidence` | historical evaluation evidence, from committed files | — | — | — |
 | `GET /dashboard/` | the built dashboard (static mount), served only when `dashboard/dist` exists | — | — | **[batch: P142]** `/dashboard` without the slash is a 404, because redirects are off |

@@ -1,8 +1,9 @@
 import styles from "./App.module.css";
-import { ClassPanel, CountPanel, EvidencePanel } from "./Panels.jsx";
-import { usePoll } from "./usePoll.js";
+import { ClassPanel, CountPanel, EvidencePanel, HistoryPanel, StatusPanel } from "./Panels.jsx";
+import { useHealth, usePoll } from "./usePoll.js";
 
 const REFRESH_MS = 2000; // PRD: dashboard refresh within 2 s
+const HISTORY_MS = 10000; // a record of the last minutes; the live panels carry the 2 s budget
 
 export function intersectionFromUrl(search) {
   const id = new URLSearchParams(search).get("id") || "j1";
@@ -15,6 +16,9 @@ export default function App({ fetcher, search = window.location.search }) {
   const count = usePoll(`/count_forecast/${id}/latest`, REFRESH_MS, fetcher);
   const cls = usePoll(`/prediction/${id}/latest`, REFRESH_MS, fetcher);
   const evidence = usePoll("/evidence", 0, fetcher);
+  const health = useHealth(REFRESH_MS, fetcher);
+  const classHistory = usePoll(`/prediction/${id}/history`, HISTORY_MS, fetcher);
+  const countHistory = usePoll(`/count_forecast/${id}/history`, HISTORY_MS, fetcher);
   return (
     <main className={styles.page}>
       <header className={styles.top}>
@@ -31,10 +35,12 @@ export default function App({ fetcher, search = window.location.search }) {
           P110). Still open: P97a Part 2, the controller's behaviour under forecast faults, which
           is deferred.
         </p>
-        <div className={styles.grid}>
+        <StatusPanel health={health} cls={cls} count={count} />
+        <div className={`${styles.grid} ${styles.below}`}>
           <CountPanel state={count} />
           <ClassPanel state={cls} />
         </div>
+        <HistoryPanel classHistory={classHistory} countHistory={countHistory} />
         <p className={styles.footnote}>No accuracy is shown here: a live score against the detector's own counts would be circular (ADR-014).</p>
       </section>
 

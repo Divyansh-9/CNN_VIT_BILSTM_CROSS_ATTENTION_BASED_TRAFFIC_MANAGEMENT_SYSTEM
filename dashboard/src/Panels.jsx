@@ -1,5 +1,7 @@
 import styles from "./Panels.module.css";
-import { APPROACHES, validateClass, validateCount } from "./validate.js";
+import { APPROACHES, validateClass, validateCount, validateHistory } from "./validate.js";
+
+const BUDGET_MS = 2000; // PRD: dashboard refresh within 2 s
 
 // Panel states, in the order a response is judged:
 //   loading -> unavailable (404) | error (unreachable, non-2xx, not JSON)
@@ -103,6 +105,117 @@ export function ClassPanel({ state }) {
           <Meta data={checked.data} />
         </div>
       )}
+    </section>
+  );
+}
+
+// One forecast stream, judged by the same rules as its own panel. Its age is
+// the server's clock, so a stream going stale is how a stopped edge, broker
+// or ingest shows here: the server does not report those itself.
+function stream(state, validate) {
+  if (state.status === "loading") return { kind: "loading", text: "waiting for the server" };
+  if (state.status === "unavailable") return { kind: "none", text: "nothing published yet" };
+  if (state.status === "error") return { kind: "bad", text: `unavailable: ${state.reason}` };
+  const checked = validate(state.data);
+  if (!checked.ok) return { kind: "bad", text: `invalid response: ${checked.reason}` };
+  const age = `${checked.data.age_s.toFixed(1)} s old`;
+  return checked.data.stale ? { kind: "stale", text: `stale, ${age}` } : { kind: "fresh", text: `fresh, ${age}` };
+}
+
+export function StatusPanel({ health, cls, count }) {
+  const server =
+    health.status === "loading" ? { kind: "loading", text: "checking" }
+      : health.status !== "ok" ? { kind: "bad", text: `unreachable: ${health.reason ?? "no health endpoint"}` }
+        : health.data?.status !== "ok" ? { kind: "bad", text: "reachable, but did not report ok" }
+          : { kind: "fresh", text: "reachable, reports ok" };
+  const rows = [
+    ["Server", server],
+    ["Class forecast stream", stream(cls, validateClass)],
+    ["Count forecast stream", stream(count, validateCount)],
+  ];
+  const rtt = typeof health.rtt_ms === "number" ? health.rtt_ms : null;
+  return (
+    <section className={`${styles.panel} ${styles.status}`} aria-label="System status">
+      <header className={styles.head}>
+        <h2>System status</h2>
+        <span className={styles.badge}>live · read-only</span>
+      </header>
+      <ul className={styles.checks}>
+        {rows.map(([name, s]) => (
+          <li key={name} data-check={name} data-kind={s.kind}>
+            <span className={`${styles.dot} ${styles[`k_${s.kind}`]}`} aria-hidden="true" />
+            <span>{name}</span>
+            <span className={styles.checkText}>{s.text}</span>
+          </li>
+        ))}
+      </ul>
+      {rtt !== null && (
+        <p className={styles.note} data-rtt={rtt}>
+          Server round trip <span className={styles.mono}>{rtt} ms</span>, measured by this browser
+          on the last health check{rtt > BUDGET_MS ? ", over the 2 s refresh budget" : ""}.
+        </p>
+      )}
+      <p className={styles.note}>
+        The server does not report the broker, the ingest or the edge. A stream going stale is how
+        a stopped one shows here. No edge-to-server delay is recorded live; measured latency is in
+        the committed benchmarks, not on this page.
+      </p>
+    </section>
+  );
+}
+
+function HistoryTable({ title, state, kind }) {
+  const checked = state.status === "ok" ? validateHistory(state.data, kind) : null;
+  const field = kind === "count" ? "counts" : "predictions";
+  return (
+    <div className={styles.history} data-history={kind}>
+      <h3>{title}</h3>
+      <Status state={state} />
+      {checked && !checked.ok && (
+        <p className={styles.problem} data-state="invalid">Invalid response, not shown: {checked.reason}</p>
+      )}
+      {checked?.ok && checked.data.rows.length === 0 && (
+        <p className={styles.note} data-state="empty">Nothing recorded yet.</p>
+      )}
+      {checked?.ok && checked.data.rows.length > 0 && (
+        <table className={styles.table}>
+          <thead>
+            <tr><th scope="col">received</th>{APPROACHES.map((a) => <th key={a} scope="col">{a}</th>)}<th scope="col">model</th></tr>
+          </thead>
+          <tbody>
+            {checked.data.rows.map((row) => (
+              <tr key={`${row.at}-${row.model}`}>
+                <td className={styles.mono}>{new Date(row.at * 1000).toLocaleTimeString()}</td>
+                {APPROACHES.map((a) => (
+                  <td key={a} data-cell={a}>
+                    {!(a in row[field]) ? <Missing />
+                      : kind === "count" ? <span className={styles.mono}>{row[field][a].toFixed(1)}</span>
+                        : <span className={`${styles.chip} ${styles[row[field][a]]}`}>{row[field][a]}</span>}
+                  </td>
+                ))}
+                <td className={`${styles.mono} ${styles.small}`}>{row.model.split("@")[0]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+export function HistoryPanel({ classHistory, countHistory }) {
+  return (
+    <section className={`${styles.panel} ${styles.historyPanel}`} aria-label="Forecast history">
+      <header className={styles.head}>
+        <h2>Forecast history</h2>
+        <span className={styles.badge}>recorded by this server · newest first</span>
+      </header>
+      <p className={styles.note}>
+        What was published, not whether it was right: no accuracy is shown, because a live score
+        against the detector's own counts would be circular (ADR-014).
+      </p>
+      <HistoryTable title="Congestion class, next 60 s" state={classHistory} kind="class" />
+      <HistoryTable title="Next-minute vehicle count (ridge)" state={countHistory} kind="count" />
     </section>
   );
 }

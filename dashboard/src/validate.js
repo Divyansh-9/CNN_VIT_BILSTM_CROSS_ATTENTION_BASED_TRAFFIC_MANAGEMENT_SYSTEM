@@ -12,14 +12,24 @@ const MAX_LANE_COUNT = 200;
 
 const fail = (reason) => ({ ok: false, reason });
 
-function common(json, roleOk, modelOk, values, valueOk) {
+function identity(json, roleOk, modelOk) {
   if (!json || typeof json !== "object") return fail("not an object");
   if (typeof json.role !== "string" || !roleOk(json.role))
     return fail(`wrong role for this panel: ${String(json.role)}`);
   if (typeof json.model !== "string" || !modelOk.test(json.model))
     return fail(`unrecognised model id: ${String(json.model)}`);
+  return { ok: true };
+}
+
+function common(json, roleOk, modelOk, values, valueOk) {
+  const who = identity(json, roleOk, modelOk);
+  if (!who.ok) return who;
   if (typeof json.age_s !== "number" || typeof json.stale !== "boolean")
     return fail("age or stale flag missing");
+  return approachValues(json, values, valueOk);
+}
+
+function approachValues(json, values, valueOk) {
   if (!values || typeof values !== "object") return fail("no per-approach values");
   const keys = Object.keys(values);
   if (keys.length === 0) return fail("no approach forecast");
@@ -34,12 +44,31 @@ function common(json, roleOk, modelOk, values, valueOk) {
   return { ok: true, data: json };
 }
 
+const COUNT_RULES = [(r) => r === COUNT_ROLE, COUNT_MODEL, "counts",
+  (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MAX_LANE_COUNT];
+const CLASS_RULES = [(r) => r.startsWith("congestion_class"), CLASS_MODEL, "predictions",
+  (v) => CLASSES.includes(v)];
+
 export function validateCount(json) {
-  return common(json, (r) => r === COUNT_ROLE, COUNT_MODEL, json?.counts,
-    (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MAX_LANE_COUNT);
+  const [roleOk, modelOk, field, valueOk] = COUNT_RULES;
+  return common(json, roleOk, modelOk, json?.[field], valueOk);
 }
 
 export function validateClass(json) {
-  return common(json, (r) => r.startsWith("congestion_class"), CLASS_MODEL, json?.predictions,
-    (v) => CLASSES.includes(v));
+  const [roleOk, modelOk, field, valueOk] = CLASS_RULES;
+  return common(json, roleOk, modelOk, json?.[field], valueOk);
+}
+
+// A history is shown whole or not at all: one row that fails its panel's
+// rules makes the response invalid, as a single forecast would be.
+export function validateHistory(json, kind) {
+  const [roleOk, modelOk, field, valueOk] = kind === "count" ? COUNT_RULES : CLASS_RULES;
+  if (!json || !Array.isArray(json.rows)) return fail("no rows");
+  for (const [i, row] of json.rows.entries()) {
+    const who = identity(row, roleOk, modelOk);
+    const checked = who.ok ? approachValues(row, row[field], valueOk) : who;
+    if (!checked.ok) return fail(`row ${i + 1}: ${checked.reason}`);
+    if (typeof row.at !== "number" || !Number.isFinite(row.at)) return fail(`row ${i + 1}: no time`);
+  }
+  return { ok: true, data: json };
 }

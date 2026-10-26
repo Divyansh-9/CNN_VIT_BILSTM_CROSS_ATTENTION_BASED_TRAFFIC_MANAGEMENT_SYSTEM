@@ -535,6 +535,16 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   congestion class, displayed in separate, validated panels.
 - **Historical results:** evaluation evidence loaded from committed result
   files through `GET /evidence`, explicitly not a live performance guarantee.
+- **System status and forecast history (D13), in the live region:**
+  - **Status:** server reachability, and each forecast stream fresh, stale or
+    missing by the server's own clock.
+  - **Round trip:** the browser's measured health round trip, the only live
+    latency the system can state. Benchmarks stay out of this panel (ADR-014).
+  - **History:** the recorded class and count forecasts, read through
+    `GET /prediction/{id}/history` and `GET /count_forecast/{id}/history`,
+    with the producing model on every row and no accuracy shown.
+  - **Not reported:** the broker, the ingest and the edge do not report their
+    own health. A stream going stale is how a stopped one shows.
 - **Safety boundary:** the dashboard is GET-only, with no signal-control
   integration. It shows a missing approach as missing, never as LOW, and its
   banner states the controller's encoding since P110 (0.0 = no forecast,

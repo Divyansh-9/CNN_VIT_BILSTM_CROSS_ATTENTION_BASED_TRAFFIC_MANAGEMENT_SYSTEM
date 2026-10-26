@@ -5,8 +5,8 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import { afterEach, describe, expect, it } from "vitest";
 import App, { intersectionFromUrl } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
-import { ClassPanel, CountPanel } from "./Panels.jsx";
-import { validateClass, validateCount } from "./validate.js";
+import { ClassPanel, CountPanel, HistoryPanel, StatusPanel } from "./Panels.jsx";
+import { validateClass, validateCount, validateHistory } from "./validate.js";
 
 afterEach(cleanup);
 
@@ -20,14 +20,22 @@ const CLASS = {
   missing_approaches: ["S", "W"],
 };
 const ok = (data) => ({ status: "ok", data });
+const CLASS_ROW = { at: 1000, model: "persistence@2431c6641b9c", role: "congestion_class (persistence)",
+  predictions: { N: "HIGH", E: "LOW" }, missing_approaches: ["S", "W"] };
+const COUNT_ROW = { at: 1000, model: "ridge@73532968dcf2", role: "next_minute_count (ridge)",
+  counts: { N: 2.5, E: 0.0 }, missing_approaches: ["S", "W"] };
 const lane = (a) => document.querySelector(`[data-approach="${a}"]`);
 
 describe("read-only by construction", () => {
-  it("allows only the three GET endpoints", () => {
-    expect(isAllowed("/count_forecast/j1/latest")).toBe(true);
-    expect(isAllowed("/prediction/j1/latest")).toBe(true);
-    expect(isAllowed("/evidence")).toBe(true);
-    for (const p of ["/observation", "/prediction/j1", "/count_forecast/j1", "/history/j1", "/x"]) {
+  it("allows only the listed GET endpoints", () => {
+    for (const p of ["/count_forecast/j1/latest", "/prediction/j1/latest", "/evidence", "/health",
+                     "/prediction/j1/history", "/count_forecast/j1/history"]) {
+      expect(isAllowed(p)).toBe(true);
+    }
+    for (const p of ["/observation", "/prediction/j1", "/count_forecast/j1", "/history/j1", "/x",
+                     "/healthz", "/prediction/j1/history/x", "/prediction/j1/history?limit=500",
+                     "/count_forecast/j1/history/x", "/count_forecast/j1/history?limit=500",
+                     "/count_forecast/j1/latest/x"]) {
       expect(isAllowed(p)).toBe(false);
     }
   });
@@ -144,7 +152,10 @@ describe("the page", () => {
     }],
   };
   const fetcher = async (path) => {
-    const body = path.startsWith("/count_forecast") ? COUNT : path.startsWith("/prediction") ? CLASS : evidence;
+    const body = path.endsWith("/history")
+      ? { rows: [path.startsWith("/count") ? COUNT_ROW : CLASS_ROW] }
+      : path === "/health" ? { status: "ok" }
+        : path.startsWith("/count_forecast") ? COUNT : path.startsWith("/prediction") ? CLASS : evidence;
     return { ok: true, status: 200, json: async () => body };
   };
   it("keeps live forecasts and historical evidence in separate regions, with the P97a warning", async () => {
@@ -162,5 +173,90 @@ describe("the page", () => {
     expect(banner).not.toMatch(/same value as LOW/);
     await waitFor(() => expect(within(live).getByText("ridge@73532968dcf2")).toBeTruthy());
     expect(within(live).getByText("persistence@2431c6641b9c")).toBeTruthy();
+  });
+  it("puts system status and forecast history in the live region, never in Results (ADR-014)", async () => {
+    render(<App fetcher={fetcher} search="?id=j1" />);
+    const live = screen.getByLabelText("Live monitor");
+    const results = screen.getByLabelText("Results");
+    expect(within(live).getByLabelText("System status")).toBeTruthy();
+    expect(within(live).getByLabelText("Forecast history")).toBeTruthy();
+    expect(within(results).queryByLabelText(/System status|Forecast history/)).toBeNull();
+    await waitFor(() => expect(document.querySelector('[data-check="Server"]').dataset.kind).toBe("fresh"));
+    await waitFor(() => expect(document.querySelector('[data-history="count"] table')).toBeTruthy());
+  });
+});
+
+describe("forecast history (S42)", () => {
+  const cell = (kind, a) => document.querySelector(`[data-history="${kind}"] [data-cell="${a}"]`);
+  it("validates every row by its panel's rules, and shows all or nothing", () => {
+    expect(validateHistory({ rows: [CLASS_ROW] }, "class").ok).toBe(true);
+    expect(validateHistory({ rows: [COUNT_ROW] }, "count").ok).toBe(true);
+    expect(validateHistory({ rows: [] }, "count").ok).toBe(true);
+    expect(validateHistory({ rows: [COUNT_ROW] }, "class").reason).toMatch(/row 1: wrong role/);
+    expect(validateHistory({ rows: [CLASS_ROW, { ...CLASS_ROW, predictions: { N: "MED" } }] }, "class").reason)
+      .toMatch(/row 2/);
+    expect(validateHistory({ rows: [{ ...COUNT_ROW, missing_approaches: [] }] }, "count").ok).toBe(false);
+    expect(validateHistory({ rows: [{ ...COUNT_ROW, at: undefined }] }, "count").ok).toBe(false);
+    expect(validateHistory({ rows: "x" }, "count").ok).toBe(false);
+  });
+  it("keeps a real zero, and never shows an absent approach as 0 or LOW", () => {
+    render(<HistoryPanel classHistory={ok({ rows: [CLASS_ROW] })} countHistory={ok({ rows: [COUNT_ROW] })} />);
+    expect(cell("count", "E").textContent).toBe("0.0");
+    expect(cell("class", "E").textContent).toBe("LOW");
+    for (const a of ["S", "W"]) {
+      for (const kind of ["count", "class"]) {
+        expect(cell(kind, a).querySelector('[data-missing="true"]')).toBeTruthy();
+        expect(cell(kind, a).textContent).not.toMatch(/\d|LOW|MEDIUM|HIGH/);
+      }
+    }
+  });
+  it("names the model that produced each row, and never calls it MFSTNet", () => {
+    render(<HistoryPanel classHistory={ok({ rows: [CLASS_ROW] })} countHistory={ok({ rows: [COUNT_ROW] })} />);
+    const panel = screen.getByLabelText("Forecast history");
+    expect(within(panel).getByText("persistence")).toBeTruthy();
+    expect(within(panel).getByText("ridge")).toBeTruthy();
+    expect(panel.textContent).not.toMatch(/MFSTNet/);
+  });
+  it("says when nothing is recorded, and refuses an invalid history whole", () => {
+    render(<HistoryPanel classHistory={ok({ rows: [] })}
+                         countHistory={ok({ rows: [COUNT_ROW, { ...COUNT_ROW, counts: { N: -1 } }] })} />);
+    expect(document.querySelector('[data-history="class"] [data-state="empty"]')).toBeTruthy();
+    expect(document.querySelector('[data-history="count"] [data-state="invalid"]')).toBeTruthy();
+    expect(document.querySelector('[data-history="count"] table')).toBeNull();
+  });
+});
+
+describe("system status (S42)", () => {
+  const kind = (name) => document.querySelector(`[data-check="${name}"]`).dataset.kind;
+  it("reports the server and each stream by what the server actually returns", () => {
+    render(<StatusPanel health={{ ...ok({ status: "ok" }), rtt_ms: 12 }}
+                        cls={ok(CLASS)} count={ok({ ...COUNT, stale: true, age_s: 75 })} />);
+    expect(kind("Server")).toBe("fresh");
+    expect(kind("Class forecast stream")).toBe("fresh");
+    expect(kind("Count forecast stream")).toBe("stale");
+    expect(document.querySelector("[data-rtt]").textContent).toMatch(/12 ms, measured by this browser/);
+    expect(document.querySelector("[data-rtt]").textContent).not.toMatch(/over the 2 s/);
+  });
+  it("shows an unreachable server, a missing stream and an invalid one as such", () => {
+    render(<StatusPanel health={{ status: "error", reason: "server unreachable (down)", rtt_ms: 3 }}
+                        cls={{ status: "unavailable" }} count={ok(CLASS)} />);
+    expect(kind("Server")).toBe("bad");
+    expect(kind("Class forecast stream")).toBe("none");
+    expect(kind("Count forecast stream")).toBe("bad");
+    expect(screen.getByText(/invalid response: wrong role/)).toBeTruthy();
+  });
+  it("flags a round trip over the 2 s refresh budget", () => {
+    render(<StatusPanel health={{ ...ok({ status: "ok" }), rtt_ms: 2500 }} cls={ok(CLASS)} count={ok(COUNT)} />);
+    expect(document.querySelector("[data-rtt]").textContent).toMatch(/over the 2 s refresh budget/);
+  });
+  it("times the health round trip with the clock it is given", async () => {
+    const { renderHook } = await import("@testing-library/react");
+    const { useHealth } = await import("./usePoll.js");
+    let t = 0;
+    const clock = () => (t += 40);
+    const fetcher = async () => ({ ok: true, status: 200, json: async () => ({ status: "ok" }) });
+    const { result } = renderHook(() => useHealth(60000, fetcher, clock));
+    await waitFor(() => expect(result.current.status).toBe("ok"));
+    expect(result.current.rtt_ms).toBe(40);
   });
 });

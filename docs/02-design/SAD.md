@@ -97,7 +97,8 @@ These drivers shaped the structure. Each names its source.
                                    ▼
    ┌──────────────────────────── server ─────────────────────────────────────────────┐
    │ server/mqtt_ingest.py ─▶ store_prediction / store_count_forecast ─▶ SQLite        │
-   │ FastAPI server/app.py: GET /prediction/{id}/latest, /count_forecast/{id}/latest,  │
+   │ FastAPI server/app.py: GET /prediction/{id}/latest|history,                       │
+   │                        /count_forecast/{id}/latest|history,                       │
    │                        /evidence, /history/{id}, /health                          │
    │                        POST /observation (placeholder rule + SignalGuard, §6.3)   │
    │   └─ PROTOTYPE ONLY: called by tests, by no runtime component. Its command is   │

@@ -10832,3 +10832,58 @@ What this does not establish:
 - **S42 → 🔵,** reviewed against ADR-008 and FR-UI01–08:
   - **built:** the Live and Results regions;
   - **not built:** FR-UI01 signal state, FR-UI02, FR-UI03, FR-UI05, FR-UI08.
+
+## D13 — the dashboard shows system status and forecast history (2026-10-25)
+
+S42's approved scope after P143. Both additions are in the **live** region,
+separate from Results (ADR-014). Both are read-only, so there is no video, no
+source selection, no controls, no map, and no accuracy.
+
+### What the server could and could not supply
+
+- **Forecast history needed two read endpoints.** Forecasts were stored in
+  SQLite, but nothing read them back: `/history` returns signal observations.
+  Added:
+  - `GET /prediction/{id}/history`;
+  - `GET /count_forecast/{id}/history`.
+
+  Both are newest first, check the id, take `limit ≥ 1` (default 30), and clamp
+  at 500, as `/history` does (P142). An absent approach is listed, never
+  filled; a real 0.0 count is kept. Reads stay open (D9).
+- **No live latency exists to show.** The server dates everything by its own
+  clock, because edge clocks drift, and records no edge-to-server delay. The
+  panel therefore shows the **browser's measured round trip to `/health`**,
+  labelled as such, and flags it above the 2 s refresh budget. Benchmark
+  latency stays in the committed results, not in a live panel.
+- **Service health is partial, and the panel says so.** `/health` reports only
+  the server. The broker, the ingest and the edge do not report their own
+  health, so a forecast stream going stale is how a stopped one shows.
+
+### What the panels show
+
+- **System status:**
+  - the server: reachable, or the reason it is not;
+  - each forecast stream: fresh, stale or missing, with its age, judged by the
+    same validation as its own panel;
+  - the measured round trip.
+- **Forecast history:**
+  - class and count tables, each validated whole. One bad row refuses the
+    table rather than showing part of it;
+  - "no forecast" for an absent approach, never 0 and never LOW;
+  - the producing model on every row. Nothing is attributed to MFSTNet while
+    ADR-027 assigns the live roles to persistence and ridge.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Server tests, `tests/test_forecast_history.py` | 7 new: order, absences, real zero, no mixing of the two stores, empty, `limit` bounds, a bad id refused unquoted, open reads |
+| Dashboard tests, `npm test` | 22, of which 9 are new |
+| Mutations: each new protection removed once | **9 of 9 caught.** The first run missed one: the allow-list test probed only the class pattern. It now probes both |
+| Production build | compiles; 158 KB JS, 51 KB gzipped |
+| Real server and real SQLite, in a browser | 3 class and 3 count forecasts posted through the API with a throwaway token. At 1280 px: newest first, absences shown, the 0.0 kept, round trip 10 ms. **Stale at 78 s** with no new forecast. **Unreachable within 5 s** of stopping the server. At 390 px: no page-level horizontal scroll; the class table scrolls inside its own box |
+
+Not changed by this entry: the server's `EVIDENCE_LIMITS` text still says "P97a
+(missing encoded as 0.0 = LOW in the controller's state) is open". That is out
+of date since P110, where 0.0 means "no forecast". It is visible in the Results
+region and is a separate correction.

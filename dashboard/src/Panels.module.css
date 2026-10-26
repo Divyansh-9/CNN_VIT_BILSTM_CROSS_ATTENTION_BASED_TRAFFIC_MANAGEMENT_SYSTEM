@@ -41,3 +41,26 @@
 }
 .source { color: var(--muted); font-size: 12px; margin: 4px 0 0; overflow-wrap: anywhere; }
 .limits { color: var(--muted); font-size: 13px; margin: 12px 0 0; padding-left: 18px; }
+/* System status and forecast history (S42). */
+.status { border-top: 4px solid var(--low); }
+.historyPanel { border-top: 4px solid var(--line); margin-top: 16px; }
+.checks { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; }
+.checks li { display: grid; grid-template-columns: 12px minmax(0, 11em) 1fr; align-items: center; gap: 10px; }
+.checkText { overflow-wrap: anywhere; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.k_fresh { background: var(--low); }
+.k_stale { background: var(--warn); }
+.k_bad { background: var(--bad); }
+.k_none, .k_loading { background: var(--muted); }
+.history { margin-top: 12px; overflow-x: auto; }
+.history h3 { font-size: 15px; margin-bottom: 6px; }
+.table { border-collapse: collapse; font-size: 13px; width: 100%; }
+.table th { color: var(--muted); font-weight: 600; text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.table td { padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.small { font-size: 12px; color: var(--muted); }
+@media (max-width: 760px) { .checks li { grid-template-columns: 12px 1fr; } .checkText { grid-column: 2; } }
+@media (max-width: 760px) {
+  .table th, .table td { padding: 3px 4px; }
+  .table .chip { padding: 1px 4px; font-size: 11px; }
+  .table .missing { padding: 0 3px; font-size: 11px; }
+}

@@ -10,3 +10,4 @@
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
 .footnote { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+.below { margin-top: 16px; }

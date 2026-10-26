@@ -475,6 +475,50 @@ def latest_count_forecast(intersection_id: str) -> dict:
             "note": COUNT_NOTE}
 
 
+#: The most rows a forecast-history request returns. Above it the limit is
+#: clamped, not refused, as `/history` does (P142).
+HISTORY_MAX = 500
+
+
+def _recent(table: str, intersection_id: str, limit: int) -> list[tuple]:
+    with closing(connect()) as connection:
+        return connection.execute(
+            f"SELECT at, model, payload FROM {table} WHERE intersection_id = ? "
+            "ORDER BY at DESC LIMIT ?", (intersection_id, min(limit, HISTORY_MAX))).fetchall()
+
+
+@app.get("/prediction/{intersection_id}/history")
+def prediction_history(intersection_id: str, limit: int = Query(30, ge=1)) -> dict:
+    """The class forecasts this server recorded, newest first (S42).
+
+    What was published, not whether it was right: no accuracy is computed
+    here, because a live score against the detector's own counts would be
+    circular (ADR-014). An approach without a forecast is listed as missing,
+    never filled in."""
+    valid_id(intersection_id)
+    rows = []
+    for at, model, raw in _recent("predictions", intersection_id, limit):
+        payload = decode(Topic.PREDICTION, raw)
+        rows.append({"at": at, "model": model, "role": role_of(model),
+                     "predictions": {k: v.value for k, v in payload.predictions.items()},
+                     "missing_approaches": missing_approaches(payload)})
+    return {"intersection_id": intersection_id, "rows": rows}
+
+
+@app.get("/count_forecast/{intersection_id}/history")
+def count_forecast_history(intersection_id: str, limit: int = Query(30, ge=1)) -> dict:
+    """The count forecasts this server recorded, newest first (S42, ADR-027).
+    A point estimate per approach; absent stays absent, never zero."""
+    valid_id(intersection_id)
+    rows = []
+    for at, model, raw in _recent("count_forecasts", intersection_id, limit):
+        payload = decode(Topic.COUNT_FORECAST, raw)
+        rows.append({"at": at, "model": model, "role": role_of(model),
+                     "counts": dict(payload.counts),
+                     "missing_approaches": sorted(set(APPROACHES) - set(payload.counts))})
+    return {"intersection_id": intersection_id, "rows": rows}
+
+
 RESULTS = Path("experiments/results/bellevue_pilot")
 EVIDENCE_LABEL = ("Historical evaluation evidence, computed offline once under a "
                   "pre-registered protocol. Not a live performance guarantee.")
