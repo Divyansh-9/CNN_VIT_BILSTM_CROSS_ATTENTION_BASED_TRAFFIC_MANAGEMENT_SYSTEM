@@ -118,7 +118,8 @@ These are graded deliverables:
 - `requirements.txt` committed; the stack must be reproducible from a clean machine.
 - **Docker Compose for the server stack is committed (D15).** It covers broker, API with the built dashboard, ingest and SQLite.
   - **Run it:** `python deploy/make_local_secrets.py`, then `docker compose up -d --build`, then `python deploy/smoke_test.py`.
-  - **Verification:** only by CI's `compose` job. Docker is not installed on this machine, so do not claim a local Docker run. The scripts were exercised against the same services run natively.
+  - **Verification:** CI run `40274825271` at `0530650` (D16). It built the image, started the stack, passed the smoke test 9 of 9, and after a restart 6 of 6.
+  - **Not verified:** Docker is not installed on this machine, so never claim a laptop run. CI-verified is not production-ready.
   - **Not in the stack:** the edge (ADR-003).
   - **Secrets:** throwaway, local and CI only, in gitignored `deploy/secrets/`.
 - Raw results committed as CSV, not just summary tables: all 30 RL evaluation runs per method, and all ablation configs.

@@ -10989,3 +10989,81 @@ name, an unreadable map, and no map at all.
 All of these run only in CI's `compose` job, which runs once the branch is
 pushed. A push needs the owner's authorization. Until that job passes, the
 Docker deliverable is implemented, not verified.
+
+## D16 — D15's Compose stack is verified in CI (2026-10-26)
+
+D15 shipped the Compose stack as implemented but not verified, because Docker
+is not installed on the development laptop. The owner authorized the push of
+`1967e55..0530650` after a reviewed range report. The first CI run of the new
+`compose` job supplies the missing verification.
+
+**The run.** `tests`, run `40274825271`, on commit `0530650`, triggered by the
+push on 2026-10-26. **All four jobs passed:**
+
+| Job | Result | Duration |
+|---|---|---|
+| fast suites | success | 1 m 19 s |
+| model suites (CPU torch) | success | 5 m 12 s |
+| dashboard (vitest + build) | success | 17 s |
+| compose stack | success | 57 s |
+
+The `docs` workflow and the `tests` run that PR #1 triggered on the same
+commit also passed.
+
+**What the `compose` log shows, step by step.** A green job alone would not
+show that its steps ran.
+
+**The image is built from the committed Dockerfile.**
+- The runtime installed exactly the four server pins from `requirements.txt`,
+  plus their dependencies.
+- The evidence stage mapped 1,056 result files to their commits.
+
+**The stack starts in order.**
+- `broker-init` ran and exited.
+- `mosquitto` and `server` reported healthy.
+- `ingest` started after both.
+
+**The smoke test passed 9 of 9:**
+- the broker refused an anonymous client over TLS ("Not authorized");
+- the edge's login was accepted over verified TLS;
+- the ingest stored both forecasts, and the server returned them;
+- the class forecast read back exactly, with W listed as missing;
+- the count history kept the real 0.0, with W missing;
+- the built dashboard is served at `/dashboard/`;
+- an HTTP write without the token was refused (401);
+- the server answered `/health`;
+- the evidence named real commits (`0c97ccb`, `252c3e0`).
+
+  That shows the commit map works for the two result files the evidence panel
+  reads. The other 1,054 mappings were produced by the same git query, but no
+  check looked at them individually.
+
+**After restarting `server` and `ingest`, 6 of 6 passed.** The stored
+forecasts persisted.
+
+**The secret and content scan reported "clean", for exactly what it checks:**
+- the stack's service logs contain neither the API token nor either broker
+  password;
+- `docker history` shows the API token in no image layer. The passwords are
+  never given to the build, so the scan does not look for them there;
+- the image holds none of four named paths: `/app/deploy`, `/app/.git`,
+  `/app/data/corpus` and `/app/models`.
+
+It is not a scan of every file in the image.
+
+**Scope.**
+- **What this establishes:** on a clean Linux runner, the image builds and the
+  tested stack works on the paths the smoke test exercises.
+- **Not run on the development laptop:** Docker is not installed there.
+- **Not a production deployment:** the secrets are throwaway test material,
+  and its broker, CA and certificates are not a deployment's (TIM §7.4).
+- **No edge:** it is not in the stack (ADR-003). This run establishes neither
+  edge deployment nor real-camera integration (S65).
+
+**Seen, and not changed here.** GitHub annotated the run with two warnings:
+- `actions/checkout@v4` and `actions/setup-python@v5` target the deprecated
+  Node 20 runtime, and GitHub forces them onto Node 24;
+- `ubuntu-latest` is migrating to Ubuntu 26.
+
+Neither failed anything. The action update is held by the owner, to be made
+separately after compatible versions are checked.

@@ -106,8 +106,10 @@ and configs of earlier runs no longer exist.
 Docker Compose for the server stack (broker, API, database, dashboard) is **committed** as
 `docker-compose.yml`, `deploy/server.Dockerfile` and `deploy/smoke_test.py` (PRD-CHANGELOG
 D15, closing the D4 gap).
-- **Docker path:** it is verified by the CI `compose` job, which builds it on a fresh runner and
-  smoke-tests the real path. That evidence exists only once the job has run.
+- **Docker path:** verified in CI, run `40274825271` at commit `0530650` (D16). On a fresh runner
+  the image was built, the stack started, and the smoke test passed 9 of 9, then 6 of 6 after a
+  restart. It has **not** been run on the development laptop, and CI verification is not a
+  production deployment.
 - **Native path:** the scripts were also exercised against the same services run natively.
 - **Not covered:** the edge runs on its own device (ADR-003) and is not in the stack.
 - **Training** does not need it.
