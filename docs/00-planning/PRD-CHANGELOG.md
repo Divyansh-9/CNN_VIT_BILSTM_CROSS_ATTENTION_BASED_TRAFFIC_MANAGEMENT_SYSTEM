@@ -11067,3 +11067,87 @@ It is not a scan of every file in the image.
 
 Neither failed anything. The action update is held by the owner, to be made
 separately after compatible versions are checked.
+
+## D17 — the deployed path runs end to end on real footage (2026-10-26)
+
+**The question.** Does the system work as one product? That means real
+footage, through the deployed edge, over MQTT with login and TLS, into the
+ingest and SQLite, out through the API, onto the dashboard. Every earlier
+delivery test fed a synthetic video. P143 proved counting only.
+
+**`scripts/demo_e2e.py`.** It runs the services natively:
+- Mosquitto with `deploy/mosquitto.conf`;
+- the server and the ingest;
+- `python -m edge.run` on one Bellevue clip, with that camera's lane geometry
+  from `data/corpus_p103`.
+
+It has two modes:
+- **Verify** (the default) runs nine checks and exits 1 if any fails.
+- **`--live MINUTES`** runs the stack for watching at `/dashboard/?id=live`.
+
+The secrets are throwaway (`deploy/make_local_secrets.py`), live in a temporary
+folder, and are deleted at the end. `scripts/demo_pipeline.py` remains the
+other demonstration: it covers the corpus chain on synthetic data.
+
+### The nine checks
+
+| # | Check | Pass condition |
+|---|---|---|
+| E1 | The stack starts | broker, server and ingest up with no manual step |
+| E2 | The edge runs | `edge.run` finishes its samples at real-time pace and exits 0 |
+| E3 | Forecasts arrive | a class forecast and a count forecast are both stored |
+| E4 | **Forecasts are correct end to end** | every stored class and count forecast **equals** an independent replay: the offline corpus counts through the same forecasters, skipping what the edge skips |
+| E5 | The dashboard is served | `/dashboard/` returns the built page |
+| E6 | A stopped edge shows | the class stream reads stale after its 60 s horizon, and the server stays up |
+| E7 | The store persists | server and ingest stopped, **confirmed down**, restarted; the history row count is unchanged |
+| E8 | Recovery | a fresh class forecast after the edge restarts |
+| E9 | No leak | no secret in any service log; no new file in the repository, so no frame or video was written (NFR-13) |
+
+### Results
+
+All runs used Bellevue 150th/Eastgate, 2017-09-11 10:08, with the RTX 4050
+laptop as the host.
+
+| Run | Samples | Result |
+|---|---|---|
+| Prototype run, before the script was committed | 180 (6 min) | E1–E4 and E6–E9 pass. **E4: 151 of 151 class, 121 of 121 count forecasts equal.** E5 was checked in a real browser: streams fresh, history matching, no MFSTNet, then stale at 72 s |
+| `scripts/demo_e2e.py`, verify | 180 | **9 of 9.** E4 151 of 151 and 121 of 121; first class forecast after 69 s, first count after 128 s; recovery after 67 s |
+| The same, after E7 was strengthened to require the server to be confirmed down | 70 | **9 of 9.** E4 41 of 41 and 11 of 11; the server was down after its stop |
+| `--live 20` | 600 (20 min) | ran to the end and stopped itself; the temporary secrets were removed |
+
+**Why E7 was strengthened.** The first E7 restart took 1.1 s. That raised the
+question whether `terminate()` on the venv launcher left the real server
+running, in which case E7 would pass over a server that never restarted.
+
+A direct test showed the launcher's job object stops the child: `/health`
+answered 0 immediately after the stop, and no server process remained. The
+fast restart was real. E7 now **asserts** that the server went down, so a
+surviving server can no longer pass it.
+
+### What this establishes, and what it does not
+
+**Established, for the clip and configuration tested:**
+- the deployed system runs as one product, with no manual step;
+- the live pipeline's outputs **matched the independent replay for the
+  tested footage**: every stored forecast equals what the evaluated
+  forecasters produce from the offline corpus counts. P143 gives frames to
+  counts; E4 gives counts to forecasts to MQTT to storage to the API;
+- the stack recovers from a stopped edge and a restarted server.
+
+**Repeatability, not universality.** The two complete verify runs, of 180
+and 70 samples, show that the result repeats on this setup: this laptop, this
+camera, this clip. They do not establish reliability across machines, camera
+feeds or conditions.
+
+**Not established:**
+- **forecast accuracy:** exact replay shows the pipeline reproduces the
+  forecasters, not that their forecasts came true. That is P103, P105 and
+  S67's human labels;
+- **a live camera stream** (S65);
+- **Indian traffic;**
+- **a fresh machine;**
+- **any camera other than this one,** although P143's counting parity covers
+  all three P103 cameras.
+
+The live forecasts come from persistence and ridge (ADR-027), and MFSTNet
+does not serve them.
