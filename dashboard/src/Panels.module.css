@@ -1,25 +1,33 @@
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
 /* Distinct top borders so the count and the class are never read as one panel. */
-.count { border-top: 4px solid var(--accent); }
-.cls { border-top: 4px solid var(--medium); }
+.count { border-top: 4px solid var(--frame-count); }
+.cls { border-top: 4px solid var(--frame-class); }
 .evidence { border-top: 4px solid var(--muted); }
 .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .head h2 { font-size: 17px; }
 .badge { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
 .note { color: var(--muted); margin: 6px 0; font-size: 13px; }
 .problem { color: var(--bad); margin: 6px 0; }
-.stale { color: var(--warn); font-weight: 600; margin: 0 0 8px; }
-.dim { opacity: 0.55; }
+/* Stale: the warning sits above the data at full contrast (it measured 2.27
+   when it was dimmed with the data); the data stays readable but stops looking
+   current. Nothing here lowers contrast with opacity. */
+.stale { display: flex; align-items: baseline; gap: 8px; margin: 0 0 10px; padding: 6px 10px;
+         border: 1px solid var(--stale); border-radius: 6px; background: var(--stale-bg); }
+.stale b { color: var(--stale); }
+.staleMark { flex: none; align-self: center; width: 8px; height: 8px; background: var(--stale); transform: rotate(45deg); }
+.staled .value { color: var(--muted); }
+.staled .chip { background: transparent; color: var(--ink); }
 .lanes { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 6px; }
 .lanes li { display: flex; align-items: center; gap: 12px; }
 .approach { width: 22px; font: 600 15px var(--mono); }
 .value { font: 600 20px var(--mono); }
 .value small { font: 12px var(--sans); color: var(--muted); }
 .missing { font-style: italic; color: var(--muted); border: 1px dashed var(--line); border-radius: 4px; padding: 1px 8px; }
-.chip { font: 600 13px var(--mono); border-radius: 4px; padding: 2px 10px; color: #0d1117; }
-.LOW { background: var(--low); }
-.MEDIUM { background: var(--medium); }
-.HIGH { background: var(--high); }
+/* The border carries the class colour, so a stale chip keeps its class as an outline. */
+.chip { font: 600 13px var(--mono); border-radius: 4px; padding: 0.5px 8.5px; border: 1.5px solid transparent; color: var(--on-class); }
+.LOW { background: var(--low); border-color: var(--low); }
+.MEDIUM { background: var(--medium); border-color: var(--medium); }
+.HIGH { background: var(--high); border-color: var(--high); }
 .meta { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 13px; }
 .meta dt { color: var(--muted); }
 .meta dd { margin: 0; overflow-wrap: anywhere; }
@@ -42,16 +50,18 @@
 .source { color: var(--muted); font-size: 12px; margin: 4px 0 0; overflow-wrap: anywhere; }
 .limits { color: var(--muted); font-size: 13px; margin: 12px 0 0; padding-left: 18px; }
 /* System status and forecast history (S42). */
-.status { border-top: 4px solid var(--low); }
+.status { border-top: 4px solid var(--frame-status); }
 .historyPanel { border-top: 4px solid var(--line); margin-top: 16px; }
 .checks { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; }
 .checks li { display: grid; grid-template-columns: 12px minmax(0, 11em) 1fr; align-items: center; gap: 10px; }
 .checkText { overflow-wrap: anywhere; }
+/* Each state has its own shape as well as its colour: fresh is a dot, stale a
+   diamond, unreachable or invalid a square, nothing yet a dashed outline. */
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
-.k_fresh { background: var(--low); }
-.k_stale { background: var(--warn); }
-.k_bad { background: var(--bad); }
-.k_none, .k_loading { background: var(--muted); }
+.k_fresh { background: var(--ok); }
+.k_stale { background: var(--stale); border-radius: 1px; transform: rotate(45deg) scale(0.85); }
+.k_bad { background: var(--bad); border-radius: 1px; }
+.k_none, .k_loading { background: transparent; border: 1.5px dashed var(--muted); border-radius: 2px; }
 .history { margin-top: 12px; overflow-x: auto; }
 .history h3 { font-size: 15px; margin-bottom: 6px; }
 .table { border-collapse: collapse; font-size: 13px; width: 100%; }
@@ -61,6 +71,6 @@
 @media (max-width: 760px) { .checks li { grid-template-columns: 12px 1fr; } .checkText { grid-column: 2; } }
 @media (max-width: 760px) {
   .table th, .table td { padding: 3px 4px; }
-  .table .chip { padding: 1px 4px; font-size: 11px; }
+  .table .chip { padding: 0 2.5px; font-size: 11px; }
   .table .missing { padding: 0 3px; font-size: 11px; }
 }

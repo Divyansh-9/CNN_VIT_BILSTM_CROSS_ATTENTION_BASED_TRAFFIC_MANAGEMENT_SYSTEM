@@ -6,7 +6,7 @@
 .region { font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
 /* The two regions are separated by space and a rule, and never share a box (ADR-014). */
 .live { padding-bottom: 24px; border-bottom: 2px solid var(--line); margin-bottom: 24px; }
-.warning { border-left: 3px solid var(--warn); background: #2d1f10; padding: 8px 12px; margin: 0 0 12px; border-radius: 4px; }
+.warning { border-left: 3px solid var(--muted); background: var(--notice-bg); padding: 8px 12px; margin: 0 0 12px; border-radius: 4px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
 .footnote { color: var(--muted); font-size: 13px; margin: 10px 0 0; }

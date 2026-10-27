@@ -11151,3 +11151,87 @@ feeds or conditions.
 
 The live forecasts come from persistence and ridge (ADR-027), and MFSTNet
 does not serve them.
+
+## D18 — the dashboard palette, its measured rules, and a readable stale state (2026-10-27)
+
+**The palette.** The dashboard was specified as dark-mode-only in `#0D1117`
+and `#6366F1` (CLAUDE.md, stack line). It now uses the owner's brand palette
+(#080808, #EC7C22, #A4510E, #FFFDFB) under two rules.
+- **Orange is interface chrome only**, never on traffic data: its hue sits
+  14° from an amber and 24° from a red, so near data it reads as a
+  congestion level.
+- **Every class and state colour is measured**, not chosen by eye.
+
+All colours live in `dashboard/src/theme.css`.
+
+**What `tokens.test.js` holds them to:**
+- text contrast;
+- class colours at 3:1 on the panel, with 4.5:1 chip text;
+- state text at 4.5:1;
+- the focus ring at 3:1 on every surface (WCAG 1.4.11);
+- hue gaps from the brand orange;
+- that LOW, MEDIUM and HIGH stay at least 20 CIELAB apart, and the three
+  states at least 12, under simulated protanopia, deuteranopia and tritanopia
+  (Machado 2009).
+
+That last criterion is the project's own, not a WCAG requirement. WCAG asks
+only that colour is never the sole signal, which the labels and shapes already
+satisfy. The floor keeps label-free marks distinguishable.
+
+**The step-1 colours failed three of those checks.** Six colours moved by
+CIELAB ΔE 0.3 to 6.1 (old → new):
+- low `#36D681` → `#36D982`;
+- medium `#EDED3E` → `#EEEE3F`;
+- high `#E63973` → `#E43A73`;
+- ok `#3BC9D6` → `#3ACCD9`;
+- stale `#4E7BF5` → `#427FFF`;
+- bad `#BB3DF5` → `#CE3BF7`.
+
+The three checks that failed:
+- the unreachable text on its banner measured 4.49:1;
+- the classes were 19.4 apart under deuteranopia;
+- fresh and stale were 4.1 apart under deuteranopia.
+
+All three pass now. The reviewer approved this revision after a prototype
+validation against six checks.
+
+**The stale state.** The stale warning was rendered inside the panel it warns
+about, which was dimmed with `opacity: 0.55`, so the warning measured 2.27:1.
+The dimming also took the stale values below 4.5:1. Now:
+- **The warning sits above the data,** with its age, on its own background:
+  4.54:1 for the heading and 16.44:1 for the text, measured on the running
+  stack.
+- **The values stay readable,** muted at 7.36:1, and class chips become
+  outlines, so nothing old looks current and nothing is hidden.
+- **No opacity is used anywhere.** A test fails if it returns.
+
+**Shapes as well as colours.** In the status panel, fresh is a dot, stale a
+diamond, unreachable or invalid a square, and nothing yet a dashed outline.
+
+**One honesty fix found on the running stack.** With the server down, the page
+still read "Server round trip 10 ms". That was how long the failed request
+took, not a round trip. A round trip is now reported only for a health check
+that succeeded.
+
+**Tests.** `tokens.test.js` went from 7 tests to 12, and `dashboard.test.jsx`
+from 22 to 26. A mutation check broke each protection once and the suite
+caught 15 of 15. The fresh, stale and unreachable states were captured at
+1280 and 390 px from a real run of `scripts/demo_e2e.py --live 2` on the
+Bellevue 150th/Eastgate clip, with no horizontal scroll at 390 px. The
+screenshots are kept outside the repository.
+
+**Decisions recorded here, not yet built:**
+- **Four theme modes (D-5).** Dark is the default. Light, Dark high contrast
+  and Light high contrast are approved as accessible alternatives for daylight,
+  low vision, and projectors or glare. They have been designed and measured,
+  with the same rules at stricter limits for the high-contrast pair: 57 rules
+  each, all passing. They become a dashboard change of their own, which must
+  show that every theme renders the same text.
+- **Icons (D-6).** Ten Phosphor icons (MIT) are approved, vendored in one
+  local file with the licence notice, and always beside a text label. The
+  dashboard uses no icons yet.
+
+Not established by this entry:
+- full WCAG conformance;
+- usability with real operators;
+- the redesigned layout (later UX steps).

@@ -241,7 +241,14 @@ over-weights a short final group and does move the gradient.
 
 ## Stack
 
-PyTorch 2.13.0+cu126 · torchvision (ResNet-50) · timm (DINOv2 ViT-S/14, per ADR-007) · Ultralytics YOLOv8 · Stable-Baselines3 2.9.0 · Gymnasium 1.3.0 · SUMO 1.27.1 / TraCI · ONNX Runtime · MLflow + TensorBoard · Python 3.14.4 on this machine · OpenCV · Paho-MQTT / Mosquitto · FastAPI + Pydantic + Uvicorn · **SQLite** · React 18 + Vite + Zustand + Recharts, native WebSocket, CSS Modules, dark-mode-only (`#0D1117` bg, `#6366F1` accent, Inter + JetBrains Mono).
+PyTorch 2.13.0+cu126 · torchvision (ResNet-50) · timm (DINOv2 ViT-S/14, per ADR-007) · Ultralytics YOLOv8 · Stable-Baselines3 2.9.0 · Gymnasium 1.3.0 · SUMO 1.27.1 / TraCI · ONNX Runtime · MLflow + TensorBoard · Python 3.14.4 on this machine · OpenCV · Paho-MQTT / Mosquitto · FastAPI + Pydantic + Uvicorn · **SQLite** · React 18 + Vite + Zustand + Recharts, native WebSocket, CSS Modules, a dark theme in the owner's brand palette (`#080808` / `#EC7C22` / `#A4510E` / `#FFFDFB`, D18; Light and two high-contrast modes are approved but not yet built), Inter + JetBrains Mono.
+
+**The dashboard's colours are measured, not chosen by eye, and a theme never changes meaning (D18).**
+- **One file holds every colour:** `dashboard/src/theme.css`. `tokens.test.js` fails on a hard-coded colour anywhere else.
+- **What `tokens.test.js` checks:** text and non-text contrast, the hue gaps from the brand orange, and a colour-vision criterion. LOW, MEDIUM and HIGH stay at least 20 CIELAB apart under simulated protanopia, deuteranopia and tritanopia. That criterion is the project's own, not a WCAG requirement.
+- **Orange is chrome only, never traffic data.** Every class and state carries its text label and its own shape.
+- **Stale data is never dimmed with opacity.** It stays readable under a full-contrast warning; that warning once measured 2.27:1.
+- **When the approved modes are built,** a test must show that every theme renders the same text.
 
 Two entries here used to say something else and the older text still circulates.
 The database is **SQLite**, not PostgreSQL 15 + TimescaleDB — ADR-008 dropped

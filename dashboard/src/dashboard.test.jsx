@@ -104,6 +104,30 @@ describe("stale and invalid responses", () => {
     render(<CountPanel state={ok({ ...COUNT, stale: true, age_s: 75 })} />);
     expect(document.querySelector('[data-state="stale"]')).toBeTruthy();
   });
+  // UX step 1b: the warning measured 2.27:1 while it was dimmed with the data.
+  it("puts the stale warning above the data, not inside it, with its age", () => {
+    for (const Panel of [CountPanel, ClassPanel]) {
+      const data = Panel === CountPanel ? COUNT : CLASS;
+      render(<Panel state={ok({ ...data, stale: true, age_s: 75 })} />);
+      const warning = document.querySelector('[data-state="stale"]');
+      expect(warning.closest("[data-freshness]")).toBeNull();
+      expect(warning.textContent).toMatch(/Stale, 75 s old/);
+      expect(document.querySelector('[data-freshness="stale"]')).toBeTruthy();
+      cleanup();
+    }
+  });
+  it("keeps stale values readable rather than hiding them", () => {
+    render(<ClassPanel state={ok({ ...CLASS, stale: true, age_s: 75 })} />);
+    expect(lane("N").textContent).toContain("HIGH");
+    cleanup();
+    render(<CountPanel state={ok({ ...COUNT, stale: true, age_s: 75 })} />);
+    expect(lane("N").textContent).toMatch(/2\.5/);
+  });
+  it("marks fresh data as fresh and shows no warning", () => {
+    render(<CountPanel state={ok(COUNT)} />);
+    expect(document.querySelector('[data-freshness="fresh"]')).toBeTruthy();
+    expect(document.querySelector('[data-state="stale"]')).toBeNull();
+  });
   it("refuses a class response in the count panel, and a count in the class panel", () => {
     render(<CountPanel state={ok(CLASS)} />);
     expect(document.querySelector('[data-state="invalid"]').textContent).toMatch(/wrong role/);
@@ -244,6 +268,13 @@ describe("system status (S42)", () => {
     expect(kind("Class forecast stream")).toBe("none");
     expect(kind("Count forecast stream")).toBe("bad");
     expect(screen.getByText(/invalid response: wrong role/)).toBeTruthy();
+  });
+  // Seen on the real stack: with the server down the page still read "round trip 10 ms",
+  // which was how long the failed request took, not a round trip.
+  it("reports no round trip when the health check failed", () => {
+    render(<StatusPanel health={{ status: "error", reason: "server unreachable (Failed to fetch)", rtt_ms: 10 }}
+                        cls={ok(CLASS)} count={ok(COUNT)} />);
+    expect(document.querySelector("[data-rtt]")).toBeNull();
   });
   it("flags a round trip over the 2 s refresh budget", () => {
     render(<StatusPanel health={{ ...ok({ status: "ok" }), rtt_ms: 2500 }} cls={ok(CLASS)} count={ok(COUNT)} />);

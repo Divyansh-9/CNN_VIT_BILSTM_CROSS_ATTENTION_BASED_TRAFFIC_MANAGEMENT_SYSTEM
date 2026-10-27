@@ -27,12 +27,24 @@ function Meta({ data }) {
   );
 }
 
+// Rendered above the data, never inside it: the warning keeps full contrast
+// while the stale values below it change style (UX step 1b).
 function Stale({ data }) {
   return data.stale ? (
     <p className={styles.stale} data-state="stale">
-      Stale: older than its {data.horizon_sec ?? 60} s horizon. It describes a minute that has passed.
+      <span className={styles.staleMark} aria-hidden="true" />
+      <span>
+        <b>Stale, {data.age_s.toFixed(0)} s old.</b> Past its {data.horizon_sec ?? 60} s horizon,
+        so it describes a minute that has passed.
+      </span>
     </p>
   ) : null;
+}
+
+// Stale values stay readable; they turn muted and class chips become outlines,
+// so nothing old looks current and nothing is hidden.
+function freshness(data) {
+  return { className: data.stale ? styles.staled : undefined, "data-freshness": data.stale ? "stale" : "fresh" };
 }
 
 function Missing() {
@@ -52,9 +64,9 @@ export function CountPanel({ state }) {
       {checked && !checked.ok && (
         <p className={styles.problem} data-state="invalid">Invalid response, not shown: {checked.reason}</p>
       )}
+      {checked?.ok && <Stale data={checked.data} />}
       {checked?.ok && (
-        <div className={checked.data.stale ? styles.dim : undefined}>
-          <Stale data={checked.data} />
+        <div {...freshness(checked.data)}>
           <ul className={styles.lanes}>
             {APPROACHES.map((a) => (
               <li key={a} data-approach={a}>
@@ -87,9 +99,9 @@ export function ClassPanel({ state }) {
       {checked && !checked.ok && (
         <p className={styles.problem} data-state="invalid">Invalid response, not shown: {checked.reason}</p>
       )}
+      {checked?.ok && <Stale data={checked.data} />}
       {checked?.ok && (
-        <div className={checked.data.stale ? styles.dim : undefined}>
-          <Stale data={checked.data} />
+        <div {...freshness(checked.data)}>
           <ul className={styles.lanes}>
             {APPROACHES.map((a) => (
               <li key={a} data-approach={a}>
@@ -133,7 +145,9 @@ export function StatusPanel({ health, cls, count }) {
     ["Class forecast stream", stream(cls, validateClass)],
     ["Count forecast stream", stream(count, validateCount)],
   ];
-  const rtt = typeof health.rtt_ms === "number" ? health.rtt_ms : null;
+  // A failed request also has a duration, but it is how long it took to fail,
+  // not a round trip: report one only for a health check that succeeded.
+  const rtt = health.status === "ok" && typeof health.rtt_ms === "number" ? health.rtt_ms : null;
   return (
     <section className={`${styles.panel} ${styles.status}`} aria-label="System status">
       <header className={styles.head}>
