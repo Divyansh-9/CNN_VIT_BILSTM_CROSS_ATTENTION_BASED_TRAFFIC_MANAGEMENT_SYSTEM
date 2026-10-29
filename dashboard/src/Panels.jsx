@@ -1,5 +1,5 @@
 import styles from "./Panels.module.css";
-import { APPROACHES, CLASSES, validateClass, validateCount, validateHistory } from "./validate.js";
+import { APPROACHES, CLASSES, validateClass, validateCount, validateHeartbeat, validateHistory } from "./validate.js";
 
 const BUDGET_MS = 2000; // PRD: dashboard refresh within 2 s
 
@@ -189,7 +189,7 @@ function stream(state, validate) {
   return checked.data.stale ? { kind: "stale", text: `stale, ${age}` } : { kind: "fresh", text: `fresh, ${age}` };
 }
 
-export function StatusPanel({ health, cls, count }) {
+export function StatusPanel({ health, cls, count, heartbeat = { status: "unavailable" } }) {
   const server =
     health.status === "loading" ? { kind: "loading", text: "checking" }
       : health.status !== "ok" ? { kind: "bad", text: `unreachable: ${health.reason ?? "no health endpoint"}` }
@@ -199,6 +199,7 @@ export function StatusPanel({ health, cls, count }) {
     ["Server", server],
     ["Class forecast stream", stream(cls, validateClass)],
     ["Count forecast stream", stream(count, validateCount)],
+    ["Edge heartbeat", stream(heartbeat, validateHeartbeat)],
   ];
   // A failed request also has a duration, but it is how long it took to fail,
   // not a round trip: report one only for a health check that succeeded.
@@ -225,9 +226,10 @@ export function StatusPanel({ health, cls, count }) {
         </p>
       )}
       <p className={styles.note}>
-        The server does not report the broker, the ingest or the edge. A stream going stale is how
-        a stopped one shows here. No edge-to-server delay is recorded live; measured latency is in
-        the committed benchmarks, not on this page.
+        The edge reports itself through its heartbeat; the broker and the ingest do not report
+        their own health, so a stream going stale is how a stopped one shows here. No
+        edge-to-server delay is recorded live; measured latency is in the committed benchmarks,
+        not on this page.
       </p>
     </section>
   );

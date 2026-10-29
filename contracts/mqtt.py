@@ -48,6 +48,7 @@ __all__ = [
     "decode",
     "INTERSECTION_ID",
     "check_intersection_id",
+    "SOURCE_KINDS",
 ]
 
 SCHEMA_VERSION = 2
@@ -465,13 +466,76 @@ class CountForecast(_Payload):
                                 "before 2100")
 
 
+#: D22: what the edge is counting from. A `camera` is a live stream; a `replay`
+#: is a recorded clip, and the dashboard must never present one as live.
+SOURCE_KINDS = ("camera", "replay")
+SOURCE_KEYS = frozenset({"kind", "session", "label", "position_s", "duration_s"})
+#: One edge run. A new session replaces the old one whatever its `ts`, so a
+#: restart or a clock step cannot leave the last run's clip position showing.
+SESSION = re.compile(r"[0-9a-f]{12}")
+
+
+def _check_source(source: Any) -> None:
+    """D22. No message quotes a submitted value (P141). The label is held to
+    the lane pattern, so it is a short code and never free text (NFR-13)."""
+    if not isinstance(source, Mapping) or set(source) != SOURCE_KEYS:
+        raise ContractError("source must carry exactly kind, session, label, "
+                            "position_s and duration_s")
+    if source["kind"] not in SOURCE_KINDS:
+        raise ContractError("source kind must be 'camera' or 'replay'")
+    if not isinstance(source["session"], str) or not SESSION.fullmatch(source["session"]):
+        raise ContractError("source session must be 12 lowercase hex digits")
+    if not isinstance(source["label"], str) or not LANE.fullmatch(source["label"]):
+        raise ContractError("source label must be 1 to 32 characters from "
+                            "A-Z, a-z, 0-9, '_' and '-'")
+    position, duration = source["position_s"], source["duration_s"]
+    if source["kind"] == "camera":
+        if position is not None or duration is not None:
+            raise ContractError("a camera has no clip position or duration")
+        return
+    if not (_finite_number(position) and position >= 0):
+        raise ContractError("a replay's position_s must be a finite number of seconds, "
+                            "at least 0")
+    if duration is not None and not (_finite_number(duration) and 0 < duration
+                                     and position <= duration):
+        raise ContractError("a replay's duration_s must be unknown (null) or a finite "
+                            "number of seconds, positive and not before position_s")
+
+
+def _check_lanes(lanes: Any) -> None:
+    """D22. One lane per approach, as both frozen forecasters were fitted and
+    refuse anything else (`edge.persistence`, `edge.count_forecast`)."""
+    if not isinstance(lanes, Mapping) or not 1 <= len(lanes) <= len(APPROACHES):
+        raise ContractError(f"lanes must map 1 to {len(APPROACHES)} lanes to approaches")
+    for lane, approach in lanes.items():
+        check_lane(lane)
+        if approach not in APPROACHES:
+            raise ContractError(f"each lane must map to one of {list(APPROACHES)}")
+    if len(set(lanes.values())) != len(lanes):
+        raise ContractError("lanes must map to distinct approaches: one lane per "
+                            "approach, as the frozen forecasters were fitted")
+
+
 @dataclass(frozen=True)
 class Heartbeat(_Payload):
+    """Liveness, and since D22 what the edge is counting from.
+
+    `source` and `lanes` ride on the message that proves liveness, as `mode`
+    does (D3): a stale heartbeat then makes the source stale too, and nothing
+    can report a source for an edge that has stopped. They are separate
+    fields because they are different facts: the source moves during a
+    replay, the lane map is configuration fixed for the session. Both are
+    optional, so a producer that does not send them still decodes; a consumer
+    reads their absence as unknown, never as a live camera.
+    """
+
     edge_status: str
     mode: Mode
     mfstnet_active: bool
     ppo_active: bool
     ts: float = field(default_factory=time.time)
+    source: Mapping[str, Any] | None = None
+    lanes: Mapping[str, str] | None = None
 
     def __post_init__(self) -> None:
         if self.edge_status not in ("online", "degraded"):
@@ -481,6 +545,14 @@ class Heartbeat(_Payload):
                 f"mode must be a Mode, got {self.mode!r}. D3 — the dashboard cannot "
                 f"display the active mode without it (FR-UI01, FR-UI08)."
             )
+        # D22: the server orders heartbeats within a session by `ts`.
+        if not _valid_ts(self.ts):
+            raise ContractError("ts must be a positive, finite number of epoch seconds "
+                                "before 2100")
+        if self.source is not None:
+            _check_source(self.source)
+        if self.lanes is not None:
+            _check_lanes(self.lanes)
 
 
 _PAYLOAD_FOR = {

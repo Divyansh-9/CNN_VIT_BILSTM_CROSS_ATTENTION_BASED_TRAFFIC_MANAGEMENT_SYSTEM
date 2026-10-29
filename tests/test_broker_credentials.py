@@ -108,8 +108,10 @@ def test_the_start_up_line_names_every_subscribed_topic():
     from contracts.mqtt import Topic
     from server.mqtt_ingest import INGESTED, subscription_summary
 
-    # Since D21 it also takes the observed per-lane counts, for FR-UI03.
+    # Since D21 it also takes the observed per-lane counts, for FR-UI03, and
+    # since D22 the heartbeat, which names the edge's source.
     line = subscription_summary("127.0.0.1", 1883)
-    assert line == ("subscribed to stms/+/congestion/prediction, stms/+/count/forecast "
-                    "and stms/+/+/vehicle_count on 127.0.0.1:1883")
-    assert {Topic.PREDICTION, Topic.COUNT_FORECAST, Topic.VEHICLE_COUNT} == set(INGESTED)
+    assert line == ("subscribed to stms/+/congestion/prediction, stms/+/count/forecast, "
+                    "stms/+/+/vehicle_count and stms/+/system/heartbeat on 127.0.0.1:1883")
+    assert {Topic.PREDICTION, Topic.COUNT_FORECAST, Topic.VEHICLE_COUNT,
+            Topic.HEARTBEAT} == set(INGESTED)

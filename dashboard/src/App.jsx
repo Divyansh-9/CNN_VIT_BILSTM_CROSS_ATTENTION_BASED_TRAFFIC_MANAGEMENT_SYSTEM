@@ -4,7 +4,9 @@ import styles from "./App.module.css";
 import { Icon } from "./icons.jsx";
 import { Horizon, Intersection } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, EvidencePanel, HistoryPanel, Overview, StatusPanel } from "./Panels.jsx";
+import { ReplayNote, SourceBadge } from "./Source.jsx";
 import { useHealth, usePoll } from "./usePoll.js";
+import { validateHeartbeat } from "./validate.js";
 
 const REFRESH_MS = 2000; // PRD: dashboard refresh within 2 s
 const HISTORY_MS = 10000; // a record of the last minutes; the live panels carry the 2 s budget
@@ -54,6 +56,11 @@ export default function App({ fetcher, search = window.location.search, hash = w
   const classHistory = usePoll(`/prediction/${id}/history`, HISTORY_MS, fetcher);
   const countHistory = usePoll(`/count_forecast/${id}/history`, HISTORY_MS, fetcher);
   const observed = usePoll(`/vehicle_count/${id}/history?window=${countWindow}`, COUNTS_MS, fetcher);
+  const heartbeat = usePoll(`/heartbeat/${id}/latest`, REFRESH_MS, fetcher);
+  // D22: the edge's lane map, from any valid heartbeat. It is configuration,
+  // so a stale heartbeat still says how the lanes were mapped.
+  const beat = heartbeat.status === "ok" ? validateHeartbeat(heartbeat.data) : null;
+  const laneMap = beat?.ok ? beat.data.lanes : null;
   return (
     <main className={styles.page}>
       <header className={styles.top}>
@@ -68,8 +75,12 @@ export default function App({ fetcher, search = window.location.search, hash = w
             </a>
           ))}
         </nav>
-        <p className={styles.readonly}>Read-only: this page cannot send commands</p>
+        <div className={styles.chips}>
+          <SourceBadge state={heartbeat} />
+          <p className={styles.readonly}>Read-only: this page cannot send commands</p>
+        </div>
       </header>
+      <ReplayNote state={heartbeat} />
 
       {section === "live" && (
         <section className={styles.live} aria-label="Live monitor">
@@ -87,7 +98,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
             P110). Still open: P97a Part 2, the controller's behaviour under forecast faults, which
             is deferred.
           </p>
-          <StatusPanel health={health} cls={cls} count={count} />
+          <StatusPanel health={health} cls={cls} count={count} heartbeat={heartbeat} />
           <div className={`${styles.grid} ${styles.below}`}>
             <CountPanel state={count} />
             <ClassPanel state={cls} />
@@ -99,7 +110,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
       {section === "analytics" && (
         <section aria-label="Analytics">
           <h2 className={styles.region}>Analytics: what was counted, and what was forecast</h2>
-          <ObservedCounts state={observed} window={countWindow} onWindow={setCountWindow} />
+          <ObservedCounts state={observed} window={countWindow} onWindow={setCountWindow} lanes={laneMap} />
           <HistoryPanel classHistory={classHistory} countHistory={countHistory} />
         </section>
       )}

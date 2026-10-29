@@ -9,7 +9,8 @@ import { ICONS } from "./icons.jsx";
 import { ObservedCounts, scaleTop } from "./Analytics.jsx";
 import { Horizon, Intersection, SCALE_MAX, horizon, junction, ribbonLength } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, HistoryPanel, Overview, StatusPanel, overview } from "./Panels.jsx";
-import { validateClass, validateCount, validateCountHistory, validateHistory } from "./validate.js";
+import { ReplayNote, SourceBadge } from "./Source.jsx";
+import { validateClass, validateCount, validateCountHistory, validateHeartbeat, validateHistory } from "./validate.js";
 
 afterEach(cleanup);
 
@@ -554,5 +555,88 @@ describe("observed counts (FR-UI03)", () => {
     await waitFor(() => expect(document.querySelector("[data-observed]").dataset.observed).toBe("6h"));
     expect(screen.getByLabelText("Forecast history")).toBeTruthy();      // the forecast log stays below
     expect(screen.queryByLabelText("Results")).toBeNull();
+  });
+});
+
+// D22: what the edge counts from, and which approach each lane feeds.
+describe("source badge and lane map (D22)", () => {
+  const LANES = { lane_0: "W", lane_1: "N", lane_2: "E" };
+  const REPLAY = { kind: "replay", session: "a1b2c3d4e5f6", label: "Bellevue_NE8th", position_s: 83, duration_s: 180 };
+  const CAMERA = { kind: "camera", session: "0123456789ab", label: "NE8th", position_s: null, duration_s: null };
+  const beat = (over = {}) => ({ at: 1000, age_s: 1.2, stale: false, edge_status: "online", mode: "M-NORMAL",
+    source: REPLAY, lanes: LANES, note: "n", ...over });
+  const badge = (state) => {
+    render(<SourceBadge state={state} />);
+    const el = document.querySelector("[data-source]");
+    return [el.dataset.source, el.textContent];
+  };
+
+  it("says REPLAY and where in the clip, never live, for recorded footage", () => {
+    const [kind, text] = badge(ok(beat()));
+    expect(kind).toBe("replay");
+    expect(text).toMatch(/Replay/);
+    expect(text).toContain("Bellevue_NE8th · 01:23 / 03:00");
+    expect(text).not.toMatch(/live/i);
+    cleanup();
+    expect(badge(ok(beat({ source: { ...REPLAY, duration_s: null } })))[1]).toContain("01:23 / length unknown");
+  });
+  it("says LIVE CAMERA only for a fresh, valid camera heartbeat", () => {
+    expect(badge(ok(beat({ source: CAMERA })))).toEqual(["camera", "Live cameraNE8th"]);
+  });
+  it("never falls back to live: no heartbeat, no source, stale, invalid and unreachable all say so", () => {
+    for (const [state, kind] of [
+      [{ status: "loading" }, "unknown"], [{ status: "unavailable" }, "unknown"],
+      [{ status: "error", reason: "down" }, "unknown"], [ok(beat({ source: null })), "unknown"],
+      [ok(beat({ source: CAMERA, stale: true, age_s: 23 })), "stale"],
+      [ok(beat({ source: { ...CAMERA, kind: "live" } })), "bad"],
+      [ok(beat({ source: { ...REPLAY, position_s: 200 } })), "bad"],
+      [ok(beat({ lanes: { lane_0: "N", lane_1: "N" } })), "bad"],
+    ]) {
+      const [got, text] = badge(state);
+      expect(got).toBe(kind);
+      expect(text).not.toMatch(/live camera|replay ·/i);
+      cleanup();
+    }
+  });
+  it("states, while a replay is current, that page times are receipt times", () => {
+    render(<ReplayNote state={ok(beat())} />);
+    expect(document.querySelector("[data-replay-note]").textContent).toMatch(/not when the footage was recorded.*01:23/);
+    cleanup();
+    for (const state of [ok(beat({ source: CAMERA })), ok(beat({ stale: true })), { status: "unavailable" }]) {
+      render(<ReplayNote state={state} />);
+      expect(document.querySelector("[data-replay-note]")).toBeNull();
+      cleanup();
+    }
+  });
+  it("validates the heartbeat whole, as the contract does", () => {
+    expect(validateHeartbeat(beat()).ok).toBe(true);
+    expect(validateHeartbeat(beat({ source: null, lanes: null })).ok).toBe(true);
+    for (const bad of [{ source: { ...REPLAY, extra: 1 } }, { source: { ...REPLAY, session: "XYZ" } },
+                       { source: { ...REPLAY, label: "has space" } }, { source: { ...CAMERA, position_s: 3 } },
+                       { lanes: {} }, { lanes: { "lane 0": "N" } }, { lanes: { lane_0: "X" } }, { stale: "no" }]) {
+      expect(validateHeartbeat(beat(bad)).ok).toBe(false);
+    }
+  });
+  it("names each lane's approach in Analytics, and says the map is the current one", () => {
+    const view = { intersection_id: "j1", window: "1h", bucket_s: 60, start: 0, end: 120, note: "o",
+      buckets: [{ t: 0, lanes: { lane_0: { mean: 1, n: 2 }, lane_3: { mean: 2, n: 2 } } }, { t: 60, lanes: {} }] };
+    render(<ObservedCounts state={ok(view)} window="1h" onWindow={() => {}} lanes={LANES} />);
+    expect(document.querySelector('[data-lane="lane_0"] [data-lane-approach]').dataset.laneApproach).toBe("W");
+    expect(document.querySelector('[data-lane="lane_3"] [data-lane-approach]')).toBeNull();   // unmapped stays unmapped
+    expect(screen.getByLabelText("Observed vehicle counts").textContent).toMatch(/current lane map.*earlier run/);
+    cleanup();
+    render(<ObservedCounts state={ok(view)} window="1h" onWindow={() => {}} />);
+    expect(document.querySelector("[data-lane-approach]")).toBeNull();
+    expect(screen.getByLabelText("Observed vehicle counts").textContent).toMatch(/has not reported which approach/);
+  });
+  it("polls only the read-only heartbeat path and shows the edge in System status", async () => {
+    expect(isAllowed("/heartbeat/j1/latest")).toBe(true);
+    for (const p of ["/heartbeat/j1", "/heartbeat/j1/latest?x=1", "/heartbeat/j1/history"]) expect(isAllowed(p)).toBe(false);
+    const fetcher = async (path) => path === "/heartbeat/j1/latest"
+      ? { ok: true, status: 200, json: async () => beat() } : { ok: false, status: 404 };
+    render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
+    await waitFor(() => expect(document.querySelector("[data-source]").dataset.source).toBe("replay"));
+    await waitFor(() => expect(document.querySelector('[data-check="Edge heartbeat"]').dataset.kind).toBe("fresh"));
+    expect(document.querySelector("[data-replay-note]")).toBeTruthy();
   });
 });

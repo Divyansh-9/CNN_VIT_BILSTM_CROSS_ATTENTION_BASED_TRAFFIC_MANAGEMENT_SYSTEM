@@ -556,8 +556,9 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   - **History:** the recorded class and count forecasts, read through
     `GET /prediction/{id}/history` and `GET /count_forecast/{id}/history`,
     with the producing model on every row and no accuracy shown.
-  - **Not reported:** the broker, the ingest and the edge do not report their
-    own health. A stream going stale is how a stopped one shows.
+  - **Edge (D22):** the edge's heartbeat, stale beyond the 10 s FR-A06 link
+    timeout. The broker and the ingest still do not report their own health;
+    a stream going stale is how a stopped one shows.
 - **Safety boundary:** the dashboard is GET-only, with no signal-control
   integration. It shows a missing approach as missing, never as LOW, and its
   banner states the controller's encoding since P110 (0.0 = no forecast,
@@ -569,10 +570,23 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   - **What it returns:** the mean count and the sample count per lane, in 1,
     5 or 15 minute buckets aligned to their length.
   - **Gaps:** a lane with no samples in a bucket is absent, never zero.
-  - **Lanes, not approaches:** the lane-to-approach map lives only at the
-    edge. The wire count excludes bicycles (D1), while the forecasters'
-    input includes them.
+  - **Lanes, then approaches:** counts are stored per lane. Since D22 the
+    edge's heartbeat carries its current lane map, and Analytics names each
+    lane's approach from it. The wire count excludes bicycles (D1), while the
+    forecasters' input includes them, so these counts are not the forecasters'
+    input.
   - **Retention:** none yet, about 170,000 rows a day at four lanes.
+- **Source badge (D22):** the heartbeat carries `source` (`camera` or
+  `replay`, a per-run session, a short label, and a replay's position and
+  duration) and `lanes` (one lane per approach), served by
+  `GET /heartbeat/{id}/latest`.
+  - **What the badge says:** REPLAY with clip and position, or LIVE CAMERA,
+    only from a fresh, valid heartbeat. Otherwise SOURCE STALE or SOURCE
+    UNKNOWN; it never falls back to live.
+  - **Replay note:** while a replay is current, the page says its clock times
+    are receipt times, not footage times.
+  - **Ordering:** a new session replaces the stored heartbeat whatever its
+    clock; within a session an older `ts` is ignored.
 - **Layout (D19, D20, D21):** three sections, Live, Analytics and Results,
   one on screen at a time, chosen by the address. D21 renamed History to
   Analytics, and `#history` still opens it.

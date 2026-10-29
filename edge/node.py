@@ -118,6 +118,11 @@ class EdgeNode:
     # `excluded`, a diagnostic that never goes on the wire.
     detector_classes: dict[str, str | None] | None = None
     excluded: dict[str, int] = field(default_factory=dict)
+    # D22: what is being counted, and which approach each lane feeds, sent on
+    # every heartbeat (contracts.mqtt.Heartbeat). Absent until the program
+    # sets them, and absent is read as unknown, never as a live camera.
+    source: dict | None = None
+    lanes: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         # P142: the server refuses every message whose topic carries an id
@@ -204,13 +209,27 @@ class EdgeNode:
             # is frames). The policy stays on the server, so PPO is never
             # active on the edge.
             mfstnet_active=self.forecasting,
-            ppo_active=False)
+            ppo_active=False,
+            ts=now,
+            source=self.source,
+            lanes=self.lanes)
         topic = Topic.HEARTBEAT.render(self.intersection_id)
         try:
             self.transport.publish(topic, payload.encode(), Topic.HEARTBEAT.qos)
         except (ConnectionError, OSError):
             return False
         return True
+
+    def at_position(self, seconds: float) -> None:
+        """D22: how far into its clip a replay has reached. Nothing for a
+        camera. A clip whose frame count proves wrong reports its duration as
+        unknown, rather than a position past its end."""
+        if self.source is None or self.source["kind"] != "replay":
+            return
+        duration = self.source["duration_s"]
+        if duration is not None and seconds > duration:
+            duration = None
+        self.source = {**self.source, "position_s": float(seconds), "duration_s": duration}
 
     def seconds_since_ack(self, now: float | None = None) -> float:
         return (time.time() if now is None else now) - self.last_ack

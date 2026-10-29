@@ -48,6 +48,8 @@ import argparse
 import json
 import logging
 import os
+import re
+import secrets
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -375,11 +377,44 @@ def camera_frames(url: str) -> Iterator[tuple[float, object | None]]:
                 yield time.monotonic(), None
 
 
+def source_label(text: str) -> str:
+    """D22: a short code the contract accepts, never free text (NFR-13)."""
+    return re.sub(r"[^A-Za-z0-9_-]", "_", text)[:32] or "source"
+
+
+def clip_duration(path: str) -> float | None:
+    """A clip's length in seconds, or None when OpenCV cannot tell."""
+    import cv2
+
+    capture = cv2.VideoCapture(path)
+    try:
+        frames, fps = capture.get(cv2.CAP_PROP_FRAME_COUNT), capture.get(cv2.CAP_PROP_FPS)
+    finally:
+        capture.release()
+    return frames / fps if frames > 0 and fps > 0 else None
+
+
+def describe_source(settings: Settings, duration_s: float | None = None) -> dict:
+    """D22: what the heartbeat says this run counts from. A fresh session per
+    run, so the server replaces the previous run's source whatever its clock.
+    A camera is named by its calibration key, a clip by its file name; the
+    stream URL is never used (it can carry credentials)."""
+    session = secrets.token_hex(6)
+    if settings.source == CAMERA_SOURCE:
+        return {"kind": "camera", "session": session, "label": source_label(settings.camera),
+                "position_s": None, "duration_s": None}
+    return {"kind": "replay", "session": session,
+            "label": source_label(Path(settings.source).stem),
+            "position_s": 0.0, "duration_s": duration_s}
+
+
 def run(settings: Settings, *, node: EdgeNode,
         detector: Callable[[object], list[Detection]],
-        frames: Iterator[tuple[float, object | None]]) -> EdgeLoop:
+        frames: Iterator[tuple[float, object | None]],
+        source: dict | None = None) -> EdgeLoop:
     """The loop, with its parts handed in, so it is testable without a camera,
     a detector or a broker."""
+    node.source, node.lanes = source, dict(settings.approaches)
     loop = EdgeLoop(node, settings.lanes, settings.approaches,
                     PersistenceForecaster(settings.persistence_spec, settings.camera,
                                           settings.approaches),
@@ -387,6 +422,7 @@ def run(settings: Settings, *, node: EdgeNode,
                     min_confidence=settings.conf)
     taken = 0
     for ts, frame in frames:
+        node.at_position(ts)                 # a replay's ts is video time; a camera's is not used
         if frame is None:
             loop.idle()
             continue
@@ -435,12 +471,14 @@ def main(argv: list[str] | None = None) -> int:
                     settings.broker_host, settings.broker_port, problem, node.timeout_s)
     if settings.source == CAMERA_SOURCE:
         frames = camera_frames(os.environ[CAMERA_ENV].strip())
+        source = describe_source(settings)
         log.info("source: the camera in %s", CAMERA_ENV)
     else:
         frames = file_frames(settings.source, realtime=settings.realtime)
+        source = describe_source(settings, clip_duration(settings.source))
         log.info("source: %s", Path(settings.source).name)
     try:
-        loop = run(settings, node=node, detector=detector, frames=frames)
+        loop = run(settings, node=node, detector=detector, frames=frames, source=source)
         log.info("stopped; %d sample(s) refused by a forecaster, excluded classes %s",
                  loop.refused, dict(node.excluded))
     except KeyboardInterrupt:

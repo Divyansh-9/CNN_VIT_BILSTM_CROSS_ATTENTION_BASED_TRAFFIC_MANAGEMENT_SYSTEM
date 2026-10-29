@@ -21,7 +21,7 @@ export function scaleTop(buckets) {
 
 const clock = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-function LaneChart({ lane, buckets, top, window }) {
+function LaneChart({ lane, approach, buckets, top, window }) {
   const slot = W / buckets.length;
   const width = Math.max(slot * 0.7, 1);
   const last = buckets.length - 1;
@@ -29,7 +29,10 @@ function LaneChart({ lane, buckets, top, window }) {
   return (
     <figure className={styles.lane} data-lane={lane}>
       <figcaption className={styles.laneHead}>
-        <b className={styles.mono}>{lane}</b>
+        <span>
+          <b className={styles.mono}>{lane}</b>
+          {approach && <span className={styles.muted} data-lane-approach={approach}> · {approach} approach</span>}
+        </span>
         <span className={styles.muted}>
           {latest ? `latest ${latest.lanes[lane].mean.toFixed(1)} veh at ${clock(latest.t)}` : "no samples in this window"}
         </span>
@@ -59,7 +62,7 @@ function LaneChart({ lane, buckets, top, window }) {
   );
 }
 
-export function ObservedCounts({ state, window, onWindow }) {
+export function ObservedCounts({ state, window, onWindow, lanes = null }) {
   const checked = state.status === "ok" ? validateCountHistory(state.data, window) : null;
   return (
     <section className={styles.panel} aria-label="Observed vehicle counts" data-observed={window}>
@@ -81,16 +84,19 @@ export function ObservedCounts({ state, window, onWindow }) {
       {checked?.ok && checked.data.lanes.length > 0 && (
         <div className={styles.lanes}>
           {checked.data.lanes.map((lane) => (
-            <LaneChart key={lane} lane={lane} buckets={checked.data.buckets} window={window}
-                       top={scaleTop(checked.data.buckets)} />
+            <LaneChart key={lane} lane={lane} approach={lanes?.[lane]} buckets={checked.data.buckets}
+                       window={window} top={scaleTop(checked.data.buckets)} />
           ))}
         </div>
       )}
       <p className={styles.note}>
         Measured, not forecast: the mean number of vehicles in each lane's counting region per
         {" "}{checked?.ok ? checked.data.bucket_s / 60 : "one"}-minute bucket, as counted at the edge, on one scale
-        from zero. An empty slot had no samples; it is a gap, not zero. Lanes are named as the edge
-        publishes them; which approach each feeds is not reported to the server.
+        from zero. An empty slot had no samples; it is a gap, not zero. Bicycles are not in these
+        counts (D1).{" "}
+        {lanes
+          ? "Approaches come from the edge's current lane map; counts from an earlier run may have used another."
+          : "Lanes are named as the edge publishes them; this edge has not reported which approach each feeds."}
       </p>
     </section>
   );

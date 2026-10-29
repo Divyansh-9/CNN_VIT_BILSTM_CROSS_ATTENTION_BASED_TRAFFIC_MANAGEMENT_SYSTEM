@@ -11363,3 +11363,79 @@ about 17 minutes, and holds forecasts, not counts.
   broken once; the suites caught 15 of 15.
 - **Broker credentials:** `tests/test_broker_credentials.py` now expects
   three subscribed topics and the new summary line.
+
+## D22 — the heartbeat names the source and the lane map, and the dashboard says replay (2026-10-29)
+
+D-9 and D-3b, approved by the reviewers and the owner on 2026-10-29 as one
+contract step.
+
+**Why.** Two gaps showed in the D21 live run on recorded Bellevue footage:
+- **Replay looked live.** The page's clock shows when the server received each
+  message. During a replay that is not when the cars passed, and nothing on
+  the page said the footage was recorded.
+- **Lanes had no approach.** Observed counts are per lane, forecasts per
+  approach, and the lane-to-approach map existed only at the edge.
+
+**Where it goes.** On the heartbeat, which the edge already sent every 2 s step
+and the server never read. The contract made this decision once already for
+`mode` (D3): what describes the edge rides on the message that proves it is
+alive. A stale heartbeat then makes the source stale too.
+
+**What changed.**
+- **Contract.** `Heartbeat` gains two optional fields, kept separate because
+  they are different facts.
+  - **`source`:** `kind`, `session`, `label`, `position_s`, `duration_s`.
+    `kind` is `camera` or `replay`. `label` is held to the lane pattern, so it
+    is a short code and never free text (NFR-13). A camera has no position or
+    duration.
+  - **`lanes`:** the lane-to-approach map, one lane per approach. Both frozen
+    forecasters were fitted that way and refuse anything else
+    (`edge/persistence.py`, `edge/count_forecast.py`), so many-to-one is
+    refused here too rather than summed.
+  - **Also:** `ts` is now validated on the heartbeat, as on every other payload.
+  - **Additive:** a heartbeat without the new fields still decodes, so
+    `SCHEMA_VERSION` is unchanged.
+- **Edge.** Every run gets a fresh session id.
+  - **The label:** a camera is named by its calibration key and a clip by its
+    file name. The stream URL is never used, because it can carry
+    credentials.
+  - **The position:** a replay's position follows video time step by step,
+    missing frames included. A clip whose frame count proves wrong reports its
+    duration as unknown, not a position past its end.
+- **Server.** The ingest subscribes to `stms/+/system/heartbeat`.
+  - **Storage:** `heartbeats` keeps one row per intersection, the latest.
+  - **Ordering:** within a session, an older `ts` never replaces a newer one,
+    so a late QoS 0 message cannot roll a replay back. A new session always
+    replaces the old one, whatever either clock says.
+  - **Endpoints:** `GET /heartbeat/{id}/latest` serves the heartbeat with its
+    age by the server's clock. It is stale beyond the FR-A06 link timeout of
+    10 s. `POST /heartbeat/{id}` is the write-token HTTP stand-in.
+- **Dashboard.**
+  - **Source badge:** a badge beside "Read-only" says REPLAY with the clip and
+    its position, or LIVE CAMERA. Otherwise it says SOURCE STALE or SOURCE
+    UNKNOWN, and it never falls back to live.
+  - **Replay note:** while a replay is current, a note says that clock times
+    are receipt times, not footage times.
+  - **System status:** gains an "Edge heartbeat" row.
+  - **Analytics:** names each lane's approach and says the map is the edge's
+    current one, which earlier runs may not have used.
+
+**What it is not.**
+- **Not many-to-one.** Multi-lane approaches need a model fitted to them.
+- **Not per-sample provenance.** Counts and forecasts do not carry the session
+  id. The badge describes the edge now, not the rows already stored.
+- **No source control.** The browser cannot choose or start a source, and it
+  receives no frames.
+
+**Tests.**
+- **Server side:** `tests/test_heartbeat_source.py` covers the contract, the
+  edge, the server and the ingest. One edge-run test covers the position across a
+  missing frame, and two existing tests follow the new topic. The new file holds 34.
+- **Dashboard:** 71 tests.
+- **Mutation check:** 18 protections across contract, edge, server and
+  dashboard, each broken once; the suites caught 18 of 18.
+- **Live run:** `demo_e2e.py --live 3` on Bellevue footage. Through MQTT, the
+  badge read REPLAY with the clip and its position, and the lanes read
+  N, S, E and W. Ten seconds after the edge finished, it read SOURCE STALE
+  and the replay note went away. No contrast failure, and no horizontal
+  scroll at 1280 or 390 px.

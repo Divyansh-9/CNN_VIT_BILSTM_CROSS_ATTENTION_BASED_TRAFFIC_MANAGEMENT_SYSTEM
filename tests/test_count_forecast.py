@@ -191,5 +191,8 @@ def test_the_ingest_routes_each_topic_to_its_own_store():
     assert intersection_of("stms/j1/congestion/prediction") == "j1"
     with pytest.raises(ContractError):
         intersection_of("stms/j1/count/forecast")
+    # Since D22 the heartbeat routes too; a signal command never does: the
+    # server sends those, it does not ingest them.
+    assert route("stms/j1/system/heartbeat") == ("j1", Topic.HEARTBEAT)
     with pytest.raises(ContractError):
-        route("stms/j1/system/heartbeat")
+        route("stms/j1/signal/command")

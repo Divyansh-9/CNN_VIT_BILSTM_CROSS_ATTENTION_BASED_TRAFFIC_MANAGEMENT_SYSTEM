@@ -100,3 +100,44 @@ export function validateCountHistory(json, window) {
   }
   return { ok: true, data: { ...json, lanes: [...lanes].sort() } };
 }
+
+// D22: the edge's heartbeat, which names its source and lane map. The same
+// rules as contracts/mqtt.py, so nothing the server would refuse is shown. A
+// heartbeat with no source is valid, and is shown as unknown, never as live.
+const SESSION = /^[0-9a-f]{12}$/;
+const seconds = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0;
+
+function sourceProblem(source) {
+  const keys = ["duration_s", "kind", "label", "position_s", "session"];
+  if (!source || typeof source !== "object" || Object.keys(source).sort().join() !== keys.join())
+    return "source fields are not kind, session, label, position_s and duration_s";
+  if (!["camera", "replay"].includes(source.kind)) return "unknown source kind";
+  if (!SESSION.test(source.session)) return "invalid source session";
+  if (typeof source.label !== "string" || !LANE.test(source.label)) return "invalid source label";
+  if (source.kind === "camera")
+    return source.position_s === null && source.duration_s === null ? null : "a camera has no clip position";
+  if (!seconds(source.position_s)) return "invalid replay position";
+  if (source.duration_s !== null && !(seconds(source.duration_s) && source.duration_s > 0
+                                      && source.position_s <= source.duration_s))
+    return "invalid replay duration";
+  return null;
+}
+
+export function validateHeartbeat(json) {
+  if (!json || typeof json !== "object") return fail("not an object");
+  if (typeof json.age_s !== "number" || typeof json.stale !== "boolean") return fail("age or stale flag missing");
+  if (json.source !== null) {
+    const problem = sourceProblem(json.source);
+    if (problem) return fail(problem);
+  }
+  if (json.lanes !== null) {
+    const map = json.lanes;
+    if (!map || typeof map !== "object" || Array.isArray(map)) return fail("invalid lane map");
+    const entries = Object.entries(map);
+    if (entries.length === 0 || entries.length > APPROACHES.length) return fail("invalid lane map");
+    for (const [lane, approach] of entries)
+      if (!LANE.test(lane) || !APPROACHES.includes(approach)) return fail("invalid lane map");
+    if (new Set(Object.values(map)).size !== entries.length) return fail("two lanes map to one approach");
+  }
+  return { ok: true, data: json };
+}

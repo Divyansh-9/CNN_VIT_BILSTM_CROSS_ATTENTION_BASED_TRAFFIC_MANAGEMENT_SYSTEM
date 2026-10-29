@@ -488,3 +488,18 @@ def test_a_missing_frame_ticks_the_node_without_counting(files):
     assert len(loop.persistence.buffer.series("lane_0")) == 1
     heartbeats = [t for t in node.transport.topics() if t == Topic.HEARTBEAT.render(ID)]
     assert len(heartbeats) == 3
+
+
+def test_every_heartbeat_names_the_replay_position_and_the_lane_map(files):
+    """D22: a replay's position follows video time, step by step, missing
+    frames included, and the lane map is the one the forecasters were given."""
+    module = run_module()
+    s = settings(files)
+    node = EdgeNode(intersection_id=ID, transport=RecordingTransport())
+    source = module.describe_source(s, 300.0)
+    module.run(s, node=node, detector=lambda f: list(TRAFFIC), source=source,
+               frames=iter([(0.0, Frame()), (2.0, None), (4.0, Frame())]))
+    sent = [json.loads(p) for t, p, _ in node.transport.sent if t == Topic.HEARTBEAT.render(ID)]
+    assert [b["source"]["position_s"] for b in sent] == [0.0, 2.0, 4.0]
+    assert {b["source"]["session"] for b in sent} == {source["session"]}
+    assert all(b["source"]["kind"] == "replay" and b["lanes"] == s.approaches for b in sent)

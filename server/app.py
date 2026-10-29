@@ -293,6 +293,15 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     connection.execute(
         "CREATE INDEX IF NOT EXISTS vehicle_counts_at "
         "ON vehicle_counts (intersection_id, at)")
+    # D22: the edge's latest heartbeat, one row per intersection. It says what
+    # the edge counts from and which approach each lane feeds; only the latest
+    # is ever asked for, so nothing accumulates.
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS heartbeats (
+            intersection_id TEXT PRIMARY KEY,
+            at REAL NOT NULL,
+            payload TEXT NOT NULL
+        )""")
     connection.commit()
     return connection
 
@@ -603,6 +612,72 @@ def vehicle_count_history(intersection_id: str,
     1, 5 or 15 minute buckets (D21). Read-only, like every GET here."""
     valid_id(intersection_id)
     return count_buckets(intersection_id, window, time.time())
+
+
+def store_heartbeat(intersection_id: str, raw: str | bytes):
+    """Validate one encoded `Heartbeat` and keep it as the latest (D22). The
+    single entry point over HTTP and over MQTT alike.
+
+    Within one edge session an older `ts` never replaces a newer one, so a
+    late QoS 0 message cannot roll a replay's position back. A different
+    session always replaces the stored one: a restart or a source switch must
+    not leave the last run's clip showing, whatever either clock says.
+    Returns the payload, or None when it was older and so not kept."""
+    check_intersection_id(intersection_id)
+    payload = decode(Topic.HEARTBEAT, raw)
+    with closing(connect()) as connection:
+        row = connection.execute("SELECT payload FROM heartbeats WHERE intersection_id = ?",
+                                 (intersection_id,)).fetchone()
+        if row is not None:
+            stored = decode(Topic.HEARTBEAT, row[0])
+            same = (stored.source and payload.source
+                    and stored.source["session"] == payload.source["session"])
+            if same and payload.ts < stored.ts:
+                return None
+        connection.execute("INSERT OR REPLACE INTO heartbeats VALUES (?,?,?)",
+                           (intersection_id, time.time(), payload.encode()))
+        connection.commit()
+    return payload
+
+
+@app.post("/heartbeat/{intersection_id}", dependencies=WRITE)
+def heartbeat(intersection_id: str, raw: str = Body(..., media_type="text/plain")) -> dict:
+    """One `Heartbeat`, exactly as the edge encoded it: the HTTP stand-in for
+    the MQTT topic, with the same validation."""
+    try:
+        payload = store_heartbeat(intersection_id, raw)
+    except ContractError as error:
+        raise HTTPException(422, str(error)) from error
+    return {"intersection_id": intersection_id, "kept": payload is not None}
+
+
+#: The edge sends a heartbeat every 2 s step. One older than the FR-A06 link
+#: timeout describes an edge that may have stopped, so it is stale, and so is
+#: the source it names.
+HEARTBEAT_NOTE = ("what the edge last reported about itself: its source and its lane map. "
+                  "Times on this page are when the server received each message, not when "
+                  "the footage was recorded")
+
+
+@app.get("/heartbeat/{intersection_id}/latest")
+def latest_heartbeat(intersection_id: str) -> dict:
+    """D22: the edge's latest heartbeat, aged by the server's own clock. A
+    heartbeat without a source is served with `source` null, which a reader
+    must show as unknown, never as live."""
+    valid_id(intersection_id)
+    with closing(connect()) as connection:
+        row = connection.execute("SELECT at, payload FROM heartbeats WHERE intersection_id = ?",
+                                 (intersection_id,)).fetchone()
+    if row is None:
+        raise HTTPException(404, "no heartbeat for this intersection yet")
+    payload = decode(Topic.HEARTBEAT, row[1])
+    age = time.time() - row[0]
+    return {"at": row[0], "age_s": round(age, 1),
+            "stale": age > SafetyLimits().mqtt_timeout_s,
+            "edge_status": payload.edge_status, "mode": payload.mode.value,
+            "source": dict(payload.source) if payload.source else None,
+            "lanes": dict(payload.lanes) if payload.lanes else None,
+            "note": HEARTBEAT_NOTE}
 
 
 RESULTS = Path("experiments/results/bellevue_pilot")

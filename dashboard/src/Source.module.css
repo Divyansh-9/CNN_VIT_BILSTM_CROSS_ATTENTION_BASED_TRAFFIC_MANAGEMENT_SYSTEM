@@ -1,0 +1,9 @@
+/* D22 source badge. Freshness is the existing status shape (dot, diamond,
+   square, dashed); live and replay differ by their written word and icon,
+   never by colour alone, and neither uses the brand orange. */
+.badge { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 13px;
+         color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+.title { font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 12px; }
+.detail { color: var(--muted); font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.note { margin: -8px 0 16px; color: var(--ink); font-size: 13px; border-left: 3px solid var(--line); padding: 2px 0 2px 10px; }
+.mono { font-family: var(--mono); }
