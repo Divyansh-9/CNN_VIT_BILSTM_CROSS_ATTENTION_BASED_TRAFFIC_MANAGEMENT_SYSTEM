@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import styles from "./App.module.css";
 import { Icon } from "./icons.jsx";
+import { Horizon, Intersection } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, EvidencePanel, HistoryPanel, Overview, StatusPanel } from "./Panels.jsx";
 import { useHealth, usePoll } from "./usePoll.js";
 
@@ -64,7 +65,13 @@ export default function App({ fetcher, search = window.location.search, hash = w
       {section === "live" && (
         <section className={styles.live} aria-label="Live monitor">
           <h2 className={styles.region}>Live forecasts</h2>
-          <Overview state={cls} />
+          <div className={styles.hero}>
+            <div className={styles.heroText}>
+              <Overview state={cls} />
+              <Horizon cls={cls} count={count} />
+            </div>
+            <Intersection cls={cls} count={count} />
+          </div>
           <p className={styles.warning} data-p97a="true">
             Display only: neither forecast is connected to signal timing. In the controller's state,
             0.0 means an approach has no forecast and LOW is encoded as 1/3 (ADR-020 as amended,

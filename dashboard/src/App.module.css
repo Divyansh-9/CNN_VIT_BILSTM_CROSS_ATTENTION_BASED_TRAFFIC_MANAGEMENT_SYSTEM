@@ -14,6 +14,11 @@
 .readonly { margin: 0; color: var(--muted); font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
 .mono { font-family: var(--mono); }
 .region { font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
+/* The hero (UX step 3): the answer and its age beside the intersection. */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center;
+        background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.heroText { display: grid; gap: 18px; align-content: start; min-width: 0; }
+@media (max-width: 760px) { .hero { grid-template-columns: minmax(0, 1fr); padding: 14px; } }
 /* Live and Results are separate sections, never on screen together (ADR-014). */
 .live { padding-bottom: 8px; }
 .warning { border-left: 3px solid var(--muted); background: var(--notice-bg); padding: 8px 12px; margin: 0 0 12px; border-radius: 4px; }

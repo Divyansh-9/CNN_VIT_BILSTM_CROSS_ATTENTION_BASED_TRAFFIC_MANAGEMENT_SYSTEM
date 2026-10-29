@@ -11268,3 +11268,39 @@ broke each protection once and the suite caught 15 of 15, after its first run
 exposed one untested phrase ("All 2 available approaches"), which now has a
 test. Fresh, stale and unreachable were captured on the running stack with the
 Bellevue 150th/Eastgate clip at 1280 and 390 px.
+
+## D20 — the intersection drawing, static (2026-10-29)
+
+UX step 3, approved by the reviewer on 2026-10-29, who also rejected motion
+(D-1): moving light on a road reads as moving vehicles, whatever a caption
+says.
+
+**What it draws.** Live's hero now holds a top-down junction beside the
+overview. Each inbound lane carries a ribbon:
+- its length is the next-minute count forecast (ridge), on a fixed 0 to 10
+  vehicle scale, so lengths compare over time;
+- its colour, and a written label beside it, is the class (persistence).
+
+A ribbon needs both forecasts.
+- A real zero is a short stub, not an absence.
+- An approach with no class forecast reads "no forecast", and one with no
+  count "no count".
+- When either forecast is stale, every ribbon is drawn hollow.
+- An unreachable or refused forecast draws nothing.
+
+**What it does not draw.** Signal heads are drawn and marked not connected
+(P97a). There are no vehicles, because the system knows counts and not
+positions, and no video (NFR-13).
+
+**A forecast-age ruler** states, in words, the age of the older of the two
+forecasts against the 60 s horizon.
+
+**Tests.** The dashboard suite went from 49 tests to 57, and a mutation check
+caught 15 of 15. The longest labels ("MEDIUM", "12.0 veh", "no forecast") were
+measured in a browser at 1280 and 390 px: none fell outside the drawing, and
+none overlapped a road, a ribbon, a signal head or each other. Fresh, stale
+and unreachable were captured on the running stack with real footage.
+
+**Not established:** that operators read the drawing correctly. Also, a count
+above 10 currently draws a full-length ribbon with nothing to mark the cap;
+its label carries the exact number.

@@ -127,8 +127,10 @@ describe("where each colour may be used", () => {
       .map((m) => ({ file, selector: m[1].trim(), body: m[2] })));
 
   it("congestion colours appear only on the class chips", () => {
+    // On a chip or a drawn mark, but always on an element named by its class,
+    // which also carries the class word as text.
     const users = rules.filter((r) => /var\(--(low|medium|high)\)/.test(r.body));
-    expect(users.map((r) => r.selector).sort()).toEqual([".HIGH", ".LOW", ".MEDIUM"]);
+    expect([...new Set(users.map((r) => r.selector))].sort()).toEqual([".HIGH", ".LOW", ".MEDIUM"]);
   });
 
   it("the brand colours never appear on the data panels", () => {

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import App, { SECTIONS, intersectionFromUrl, sectionFromHash } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
 import { ICONS } from "./icons.jsx";
+import { Horizon, Intersection, SCALE_MAX, horizon, junction, ribbonLength } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, HistoryPanel, Overview, StatusPanel, overview } from "./Panels.jsx";
 import { validateClass, validateCount, validateHistory } from "./validate.js";
 
@@ -250,6 +251,84 @@ describe("sections and navigation (UX step 2)", () => {
   });
   it("vendors only the icons it uses, each hidden from assistive technology", () => {
     expect([...ICONS].sort()).toEqual(["history", "live", "results", "signal"]);
+  });
+});
+
+describe("the intersection (UX step 3)", () => {
+  const CLASS4 = { ...CLASS, predictions: { N: "HIGH", S: "MEDIUM", E: "LOW", W: "HIGH" }, missing_approaches: [] };
+  const COUNT4 = { ...COUNT, counts: { N: 0.8, S: 0.0, E: 7.3, W: 12 }, missing_approaches: [] };
+  const ribbon = (a) => document.querySelector(`[data-ribbon="${a}"]`);
+  const label = (a) => [...document.querySelectorAll(`[data-label="${a}"] tspan`)].map((t) => t.textContent).join(" ");
+
+  it("scales a ribbon to the count on a fixed scale: zero is a stub, not an absence", () => {
+    expect(ribbonLength(0)).toBe(8);
+    expect(ribbonLength(SCALE_MAX)).toBeGreaterThan(ribbonLength(SCALE_MAX / 2));
+    expect(ribbonLength(25)).toBe(ribbonLength(SCALE_MAX));
+    expect(ribbonLength(-1)).toBe(8);
+  });
+  it("draws a ribbon only where both forecasts give the approach a value", () => {
+    const j = junction(ok(CLASS), ok(COUNT));            // class N, E; count N, E (S and W missing in both)
+    expect(Object.fromEntries(Object.entries(j.lanes).map(([a, l]) => [a, l.kind])))
+      .toEqual({ N: "fresh", S: "none", E: "fresh", W: "none" });
+    expect(j.lanes.S.note).toBe("No forecast");
+    const k = junction(ok(CLASS4), ok({ ...COUNT, counts: { N: 1, S: 1, E: 1 }, missing_approaches: ["W"] }));
+    expect([k.lanes.W.kind, k.lanes.W.note, k.lanes.W.cls]).toEqual(["none", "No count", "HIGH"]);
+  });
+  it("names the class in words beside every ribbon, never by colour alone", () => {
+    render(<Intersection cls={ok(CLASS4)} count={ok(COUNT4)} />);
+    for (const a of ["N", "S", "E", "W"]) {
+      expect(ribbon(a).dataset.kind).toBe("fresh");
+      expect(label(a)).toContain(CLASS4.predictions[a]);
+    }
+    expect(label("S")).toBe("S MEDIUM 0.0 veh");
+    expect(label("W")).toBe("W HIGH 12.0 veh");
+  });
+  it("draws a missing approach as missing: no ribbon, no class, no zero", () => {
+    render(<Intersection cls={ok(CLASS)} count={ok(COUNT)} />);
+    for (const a of ["S", "W"]) {
+      expect(ribbon(a)).toBeNull();
+      expect(label(a)).toBe(`${a} no forecast`);
+    }
+  });
+  it("draws every ribbon hollow when either forecast is stale", () => {
+    render(<Intersection cls={ok(CLASS4)} count={ok({ ...COUNT4, stale: true, age_s: 75 })} />);
+    expect(document.querySelector("[data-junction]").dataset.junction).toBe("stale");
+    for (const a of ["N", "S", "E", "W"]) expect(ribbon(a).dataset.kind).toBe("stale");
+  });
+  it("draws nothing when a forecast is unreachable, refused or not there yet", () => {
+    for (const [cls, count, note] of [
+      [{ status: "error", reason: "down" }, ok(COUNT4), "No data"],
+      [ok(CLASS4), ok({ ...COUNT4, counts: { N: -1 } }), "No data"],
+      [ok(COUNT4), ok(COUNT4), "No data"],
+      [{ status: "loading" }, ok(COUNT4), "Waiting"],
+    ]) {
+      render(<Intersection cls={cls} count={count} />);
+      expect(document.querySelectorAll("[data-ribbon]")).toHaveLength(0);
+      expect(label("N")).toBe(`N ${note.toLowerCase()}`);
+      cleanup();
+    }
+  });
+  it("shows the signal heads as not connected, and says what is and is not drawn", () => {
+    render(<Intersection cls={ok(CLASS4)} count={ok(COUNT4)} />);
+    expect([...document.querySelectorAll("[data-signal]")].map((s) => s.dataset.signal)).toEqual(Array(4).fill("not connected"));
+    const caption = document.querySelector("figcaption").textContent;
+    expect(caption).toMatch(/count forecast \(ridge\)/);
+    expect(caption).toMatch(/congestion\s+class \(persistence\)/);
+    expect(caption).toMatch(/not connected\s+\(P97a\)/);
+    expect(caption).toMatch(/No vehicles or video/);
+  });
+  it("states the forecast's age against its horizon in words, using the older forecast", () => {
+    const fresh = horizon(junction(ok({ ...CLASS4, age_s: 3 }), ok({ ...COUNT4, age_s: 5 })));
+    expect([fresh.kind, fresh.age, fresh.text]).toEqual(["fresh", 5, "Fresh, valid 55 s more"]);
+    const stale = horizon(junction(ok({ ...CLASS4, stale: true, age_s: 75 }), ok(COUNT4)));
+    expect([stale.kind, stale.text]).toEqual(["stale", "Stale, 15 s past its 60 s horizon"]);
+    expect(horizon(junction({ status: "error", reason: "x" }, ok(COUNT4)))).toEqual({ kind: "unknown", text: "", age: null });
+    render(<Horizon cls={ok({ ...CLASS4, stale: true, age_s: 75 })} count={ok(COUNT4)} />);
+    expect(document.querySelector("[data-horizon]").dataset.horizon).toBe("stale");
+    cleanup();
+    render(<Horizon cls={{ status: "error", reason: "down" }} count={ok(COUNT4)} />);
+    expect(document.querySelector("[data-horizon]").textContent).toMatch(/^Forecast age unknown/);
+    expect(document.querySelector("[data-horizon]").textContent).not.toMatch(/of 60 s/);
   });
 });
 

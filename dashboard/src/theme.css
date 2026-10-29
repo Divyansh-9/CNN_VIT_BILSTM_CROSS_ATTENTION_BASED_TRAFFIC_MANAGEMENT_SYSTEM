@@ -47,6 +47,11 @@
   --notice-bg: #161412;
   --focus: var(--brand);
 
+  /* the intersection drawing (UX step 3): neutral, so only the class colours carry meaning */
+  --road: #1a1816;
+  --road-box: #211e1b;
+  --road-edge: #3a3531;
+
   /* neutral frames: they tell panels apart without meaning anything */
   --frame-count: #6e6a65;
   --frame-class: #b9b3ad;

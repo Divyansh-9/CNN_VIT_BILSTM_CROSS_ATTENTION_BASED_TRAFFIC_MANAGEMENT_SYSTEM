@@ -563,6 +563,13 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   banner states the controller's encoding since P110 (0.0 = no forecast,
   LOW = 1/3). P97a Part 2, the controller's behaviour under forecast faults,
   remains deferred; the dashboard does not address it.
+- **Layout (D19, D20):** three sections, Live, History and Results, one on
+  screen at a time, chosen by the address.
+  - **What Live opens with:** an overview built only from a current, valid
+    forecast, a forecast-age ruler, and a static intersection drawing.
+  - **The drawing:** ribbon length is the count forecast and the class is its
+    colour and written label. Signal heads are marked not connected. There are
+    no vehicles, no video and no motion.
 - **Refresh:** HTTP polling every 2 seconds.
 - **Validation:** browser-checked at desktop and phone widths, including a
   real-data end-to-end test, stale responses, missing approaches and API error
