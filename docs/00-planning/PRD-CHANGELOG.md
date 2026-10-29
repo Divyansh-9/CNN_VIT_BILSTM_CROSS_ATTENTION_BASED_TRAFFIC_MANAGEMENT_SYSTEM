@@ -11532,3 +11532,47 @@ hour. The `(intersection_id, at)` index stays shaped for the history query.
     the store;
   - a store that prunes while the 24 h view keeps its rows.
 - **Mutation check:** 7 protections, each broken once; the suite caught 7 of 7.
+
+## D25 — the drawing marks a count above its scale, and each ribbon points into the junction (2026-10-29)
+
+UX step 3b, approved by the reviewers. It closes what D20 recorded as not
+established: "a count above 10 currently draws a full-length ribbon with
+nothing to mark the cap".
+
+**Above the scale.**
+- **The problem:** a ribbon's length stops at 10 vehicles, so 10 and 37.5
+  drew identically.
+- **The fix:** above 10, two road-coloured cuts cross the ribbon near its
+  outer end. That is the usual scale-break sign, and it cannot be mistaken
+  for the single stop line. The label adds `>10` after the exact count.
+- **Why cuts, not an ink bar:**
+  - An ink bar on the yellow MEDIUM ribbon would be low contrast. A cut's
+    contrast is the class colour against the road, which D18 already
+    measures.
+  - A bar beyond the ribbon's end would fall outside the drawing, since a
+    full ribbon reaches its edge.
+  - A cut is neutral, so it never reads as a class.
+
+**Direction.** Each ribbon now tapers to a point on its stop line, so it reads
+as traffic heading in. Direction is carried by shape, so colour still means
+only the class. The ribbon is drawn once, on the north arm, and turned to each
+arm.
+
+**What it is not.** No motion (D-1: kept static), no vehicles, and no change
+to the scale, the label's exact count or the hollow stale ribbons.
+
+**Tests.**
+- **Dashboard:** four tests, 78 in all.
+  - **Boundaries:** counts of 0, 9, 10, 11 and 150; only the counts above 10
+    are marked.
+  - **Stale and missing:** a stale reading keeps its mark, and a missing
+    approach draws none.
+  - **Direction:** every tip lies on its own stop line, on its own inbound
+    half, as a point rather than a flat end.
+  - **Caption:** it says what the cuts and the direction mean.
+- **Mutation check:** 6 protections, each broken once; the suite caught 6 of
+  6. A flat-ended ribbon first passed, and the direction test was tightened
+  until it failed.
+- **Layout:** checked on the scratch mock at 1280 and 390 px, including all
+  four approaches at 12 vehicles in MEDIUM. Real Bellevue counts rarely pass
+  10.

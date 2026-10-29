@@ -7,7 +7,7 @@ import App, { SECTIONS, intersectionFromUrl, sectionFromHash } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
 import { ICONS } from "./icons.jsx";
 import { ObservedCounts, scaleTop } from "./Analytics.jsx";
-import { Horizon, Intersection, SCALE_MAX, horizon, junction, ribbonLength } from "./Intersection.jsx";
+import { Horizon, Intersection, SCALE_MAX, TURN, horizon, junction, ribbonLength, ribbonPath } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, HistoryPanel, Overview, StatusPanel, overview } from "./Panels.jsx";
 import { ReplayNote, SourceBadge } from "./Source.jsx";
 import { validateClass, validateCount, validateCountHistory, validateHeartbeat, validateHistory } from "./validate.js";
@@ -287,7 +287,7 @@ describe("the intersection (UX step 3)", () => {
       expect(label(a)).toContain(CLASS4.predictions[a]);
     }
     expect(label("S")).toBe("S MEDIUM 0.0 veh");
-    expect(label("W")).toBe("W HIGH 12.0 veh");
+    expect(label("W")).toBe("W HIGH 12.0 veh >10");                // above the scale, and said so
   });
   it("draws a missing approach as missing: no ribbon, no class, no zero", () => {
     render(<Intersection cls={ok(CLASS)} count={ok(COUNT)} />);
@@ -674,5 +674,61 @@ describe("edge silent, forecast still valid (D23)", () => {
       expect(!!silent()).toBe(expected);
       cleanup();
     }
+  });
+});
+
+// Step 3b: a count above the scale is marked, and every ribbon points into the junction.
+describe("overflow and direction (step 3b)", () => {
+  const CLASS4 = { ...CLASS, predictions: { N: "HIGH", S: "MEDIUM", E: "LOW", W: "HIGH" }, missing_approaches: [] };
+  const draw = (counts, extra = {}) => render(<Intersection cls={ok(CLASS4)}
+    count={ok({ ...COUNT, counts, missing_approaches: [], ...extra })} />);
+  const cuts = (a) => document.querySelectorAll(`[data-overflow="${a}"]`).length;
+  const label = (a) => [...document.querySelectorAll(`[data-label="${a}"] tspan`)].map((t) => t.textContent).join(" ");
+
+  it("marks only a count above the scale, and writes the exact count", () => {
+    draw({ N: 0, S: 9, E: 10, W: 11 });
+    expect(["N", "S", "E", "W"].map(cuts)).toEqual([0, 0, 0, 2]);
+    expect(label("E")).toBe("E LOW 10.0 veh");                       // at the scale is not above it
+    expect(label("W")).toBe("W HIGH 11.0 veh >10");
+    cleanup();
+    draw({ N: 150, S: 9, E: 10, W: 11 });
+    expect(label("N")).toBe("N HIGH 150.0 veh >10");                 // far above: same length, exact number
+    expect(cuts("N")).toBe(2);
+  });
+  it("keeps the mark on a stale reading and draws none for a missing approach", () => {
+    draw({ N: 12, S: 1, E: 1, W: 1 }, { stale: true, age_s: 75 });
+    expect(document.querySelector('[data-ribbon="N"]').dataset.kind).toBe("stale");
+    expect(cuts("N")).toBe(2);
+    cleanup();
+    render(<Intersection cls={ok(CLASS4)} count={ok({ ...COUNT, counts: { N: 12 }, missing_approaches: ["S", "E", "W"] })} />);
+    expect(["S", "E", "W"].map(cuts)).toEqual([0, 0, 0]);
+  });
+  it("points every ribbon's tip at its own stop line, on its own inbound half", () => {
+    const C = 160;
+    const turn = ([x, y], deg) => {
+      const r = (deg * Math.PI) / 180, dx = x - C, dy = y - C;
+      return [C + dx * Math.cos(r) - dy * Math.sin(r), C + dx * Math.sin(r) + dy * Math.cos(r)];
+    };
+    const points = (d) => [...d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    const d = ribbonPath(ribbonLength(5));
+    const tip = points(d).at(-2), tail = points(d)[0];
+    expect(tip).toEqual([C - 17, C - 48]);               // on the stop line, in the middle of the lane
+    expect(points(d).at(-1)[1]).toBeLessThan(tip[1]);    // a point, not a flat end: the neck stands back
+    const side = { N: ([x, y]) => x < C && y < C, E: ([x, y]) => x > C && y < C,
+                   S: ([x, y]) => x > C && y > C, W: ([x, y]) => x < C && y > C };
+    for (const [a, deg] of Object.entries(TURN)) {
+      const [t, b] = [turn(tip, deg), turn(tail, deg)];
+      expect(side[a](t)).toBe(true);
+      expect(Math.hypot(t[0] - C, t[1] - C)).toBeLessThan(Math.hypot(b[0] - C, b[1] - C));   // tip nearer the box
+    }
+    render(<Intersection cls={ok(CLASS4)} count={ok({ ...COUNT, counts: { N: 1, S: 1, E: 1, W: 1 }, missing_approaches: [] })} />);
+    for (const [a, deg] of Object.entries(TURN))
+      expect(document.querySelector(`[data-ribbon="${a}"]`).parentElement.getAttribute("transform")).toBe(`rotate(${deg} ${C} ${C})`);
+  });
+  it("says in the caption what the cuts and the direction mean", () => {
+    draw({ N: 1, S: 1, E: 1, W: 1 });
+    const caption = document.querySelector("figcaption").textContent;
+    expect(caption).toMatch(/two cuts near its outer\s+end mean more than 10/);
+    expect(caption).toMatch(/points into the\s+junction/);
   });
 });

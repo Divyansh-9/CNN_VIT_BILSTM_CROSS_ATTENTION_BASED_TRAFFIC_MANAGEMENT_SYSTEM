@@ -37,12 +37,25 @@ export function junction(cls, count) {
 }
 
 // Inbound lanes, right-hand traffic: southbound on the west half of the north
-// arm, northbound on the east half of the south arm, and so on.
-function ribbonRect(a, len) {
-  if (a === "N") return { x: C - LANE - THICK / 2, y: C - STOP - len, width: THICK, height: len };
-  if (a === "S") return { x: C + LANE - THICK / 2, y: C + STOP, width: THICK, height: len };
-  if (a === "E") return { x: C + STOP, y: C - LANE - THICK / 2, width: len, height: THICK };
-  return { x: C - STOP - len, y: C + LANE - THICK / 2, width: len, height: THICK };
+// arm, northbound on the east half of the south arm, and so on. Each ribbon is
+// drawn once, on the north arm, and turned about the centre to its own arm.
+export const TURN = { N: 0, E: 90, S: 180, W: 270 };
+const RX = C - LANE, HEAD = C - STOP, TAPER = 6, W2 = THICK / 2;
+
+// Step 3b: the ribbon tapers to a point at its stop line, so it reads as
+// traffic heading into the junction. Direction is shape; colour stays the class.
+export function ribbonPath(len) {
+  const out = HEAD - len, neck = HEAD - Math.min(TAPER, len);
+  return `M${RX - W2},${out} H${RX + W2} V${neck} L${RX},${HEAD} L${RX - W2},${neck} Z`;
+}
+
+// Above the scale the ribbon stops at full length, and two road-coloured cuts
+// near its outer end say so: the usual scale-break sign, and unlike the single
+// stop line. A cut's contrast is the class colour against the road, which the
+// palette already measures; an ink bar on the MEDIUM ribbon would not be.
+function overflowBars() {
+  const out = HEAD - ribbonLength(SCALE_MAX);
+  return [out + 4, out + 9].map((y) => ({ x: RX - W2 - 3, y, width: THICK + 6, height: 2 }));
 }
 
 const STOP_LINES = {
@@ -63,7 +76,7 @@ const LABELS = {
 
 export function labelLines(a, lane) {
   if (lane.kind === "none") return lane.cls ? [`${a} ${lane.cls}`, lane.note.toLowerCase()] : [a, lane.note.toLowerCase()];
-  return [`${a} ${lane.cls}`, `${lane.count.toFixed(1)} veh`];
+  return [`${a} ${lane.cls}`, `${lane.count.toFixed(1)} veh${lane.count > SCALE_MAX ? ` >${SCALE_MAX}` : ""}`];
 }
 
 export function Intersection({ cls, count }) {
@@ -84,9 +97,14 @@ export function Intersection({ cls, count }) {
         <path className={styles.centre} d={`M${C},0 V${C - STOP} M${C},${C + STOP} V${SIZE} M0,${C} H${C - STOP} M${C + STOP},${C} H${SIZE}`} />
         {APPROACHES.map((a) => <rect key={a} className={styles.stop} {...STOP_LINES[a]} />)}
         {APPROACHES.filter((a) => j.lanes[a].kind !== "none").map((a) => (
-          <rect key={a} data-ribbon={a} data-kind={j.lanes[a].kind} rx={THICK / 2}
-                className={`${styles[j.lanes[a].cls]} ${j.lanes[a].kind === "stale" ? styles.hollow : ""}`}
-                {...ribbonRect(a, ribbonLength(j.lanes[a].count))} />
+          <g key={a} transform={`rotate(${TURN[a]} ${C} ${C})`}>
+            <path data-ribbon={a} data-kind={j.lanes[a].kind} strokeLinejoin="round"
+                  className={`${styles[j.lanes[a].cls]} ${j.lanes[a].kind === "stale" ? styles.hollow : ""}`}
+                  d={ribbonPath(ribbonLength(j.lanes[a].count))} />
+            {j.lanes[a].count > SCALE_MAX && overflowBars().map((bar, i) => (
+              <rect key={i} data-overflow={a} className={styles.overflow} {...bar} />
+            ))}
+          </g>
         ))}
         {[[C - g, C - g], [C + g - 12, C - g], [C + g - 12, C + g - 12], [C - g, C + g - 12]].map(([x, y], i) => (
           <rect key={i} className={styles.head} x={x} y={y} width="12" height="12" rx="2" data-signal="not connected" />
@@ -101,9 +119,10 @@ export function Intersection({ cls, count }) {
         ))}
       </svg>
       <figcaption className={styles.caption}>
-        Ribbon length: next-minute count forecast (ridge), 0 to {SCALE_MAX} vehicles. Colour and word: congestion
-        class (persistence). Hollow ribbons are past their horizon. Dashed squares: signal heads, not connected
-        (P97a). No vehicles or video are shown (NFR-13).
+        Ribbon length: next-minute count forecast (ridge), 0 to {SCALE_MAX} vehicles; two cuts near its outer
+        end mean more than {SCALE_MAX}, with the exact count written beside it. Each ribbon points into the
+        junction. Colour and word: congestion class (persistence). Hollow ribbons are past their horizon. Dashed
+        squares: signal heads, not connected (P97a). No vehicles or video are shown (NFR-13).
       </figcaption>
     </figure>
   );

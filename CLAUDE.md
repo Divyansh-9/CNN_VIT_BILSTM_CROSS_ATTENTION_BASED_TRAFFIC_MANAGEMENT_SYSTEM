@@ -602,8 +602,10 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   - **What Live opens with:** an overview built only from a current, valid
     forecast, a forecast-age ruler, and a static intersection drawing.
   - **The drawing:** ribbon length is the count forecast and the class is its
-    colour and written label. Signal heads are marked not connected. There are
-    no vehicles, no video and no motion.
+    colour and written label. Each ribbon tapers to a point at its stop line
+    (D25). Above 10 vehicles, two road-coloured cuts mark the scale break and
+    the label adds `>10`. Signal heads are marked not connected. There are no
+    vehicles, no video and no motion.
 - **Refresh:** HTTP polling every 2 seconds.
 - **Validation:** browser-checked at desktop and phone widths, including a
   real-data end-to-end test, stale responses, missing approaches and API error

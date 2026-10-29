@@ -13,6 +13,9 @@
 .HIGH { fill: var(--high); stroke: var(--high); }
 /* Past its horizon: the shape stays, the fill goes. */
 .hollow { fill: none; stroke-width: 2; stroke-dasharray: 4 3; }
+/* Step 3b: a count above the scale, cut into the ribbon in the road's own
+   colour. Neutral, so it never reads as a class. */
+.overflow { fill: var(--road); }
 .label { fill: var(--ink); font: 12px var(--mono); }
 .labelMuted { fill: var(--muted); font: 12px var(--mono); }
 .labelHead { font-weight: 700; }
