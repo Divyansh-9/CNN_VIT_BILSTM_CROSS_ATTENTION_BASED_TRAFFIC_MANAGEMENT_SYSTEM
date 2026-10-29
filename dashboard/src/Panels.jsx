@@ -1,5 +1,5 @@
 import styles from "./Panels.module.css";
-import { APPROACHES, validateClass, validateCount, validateHistory } from "./validate.js";
+import { APPROACHES, CLASSES, validateClass, validateCount, validateHistory } from "./validate.js";
 
 const BUDGET_MS = 2000; // PRD: dashboard refresh within 2 s
 
@@ -50,6 +50,61 @@ function freshness(data) {
 function Missing() {
   // Never 0 and never LOW: an approach without a forecast has no value at all.
   return <span className={styles.missing} data-missing="true">no forecast</span>;
+}
+
+const NAMES = { N: "North", S: "South", E: "East", W: "West" };
+const WORST_FIRST = [...CLASSES].reverse();
+
+function summary(predictions) {
+  const known = APPROACHES.filter((a) => a in predictions);
+  const missing = APPROACHES.filter((a) => !(a in predictions));
+  const worst = WORST_FIRST.find((c) => known.some((a) => predictions[a] === c));
+  const n = known.filter((a) => predictions[a] === worst).length;
+  const lead = known.length === 1 ? NAMES[known[0]]
+    : n === known.length ? `All ${known.length}${missing.length ? " available" : ""} approaches`
+      : `${n} of ${known.length}${missing.length ? " available" : ""} approaches`;
+  const absent = missing.length
+    ? `; ${missing.map((a) => NAMES[a]).join(", ")} ${missing.length === 1 ? "has" : "have"} no forecast` : "";
+  return { lead, worst, list: `${known.map((a) => `${NAMES[a]} ${predictions[a]}`).join(", ")}${absent}` };
+}
+
+// The page's first answer: how congested each approach is in the next 60 s.
+// Built only from a current, valid class forecast (reviewer rule 2), so a
+// stale, refused, missing or unreachable forecast never produces a class word
+// in the headline: nothing old reads as current, and nothing unknown reads as
+// "no congestion".
+export function overview(state) {
+  if (state.status === "loading") return { kind: "loading", headline: "Waiting for the first forecast", detail: "" };
+  if (state.status === "unavailable")
+    return { kind: "none", headline: "No forecast published yet", detail: "Nothing has been published for this intersection." };
+  if (state.status === "error") return { kind: "bad", headline: "Forecasts unavailable", detail: state.reason };
+  const checked = validateClass(state.data);
+  if (!checked.ok)
+    return { kind: "bad", headline: "Forecast refused", detail: `The class forecast failed validation: ${checked.reason}.` };
+  const { predictions, stale, age_s } = checked.data;
+  const s = summary(predictions);
+  if (stale)
+    return { kind: "stale", headline: "No current forecast",
+             detail: `The last one is ${age_s.toFixed(0)} s old, past its horizon. It read: ${s.list}.` };
+  return { kind: "fresh", lead: s.lead, worst: s.worst, headline: `${s.lead} ${s.worst}`,
+           detail: `${s.list}. Updated ${age_s.toFixed(0)} s ago.` };
+}
+
+const OVERVIEW_MARK = { stale: styles.k_stale, bad: styles.k_bad, none: styles.k_none, loading: styles.k_loading };
+
+export function Overview({ state }) {
+  const o = overview(state);
+  return (
+    <section className={styles.overview} aria-label="Next 60 seconds" data-overview={o.kind}>
+      <p className={styles.overviewLabel}>Next 60 seconds</p>
+      <p className={styles.overviewHead} aria-live="polite">
+        {o.kind === "fresh"
+          ? <>{o.lead} <span className={`${styles.chip} ${styles[o.worst]}`}>{o.worst}</span></>
+          : <><span className={`${styles.dot} ${OVERVIEW_MARK[o.kind]}`} aria-hidden="true" />{o.headline}</>}
+      </p>
+      {o.detail && <p className={styles.overviewDetail}>{o.detail}</p>}
+    </section>
+  );
 }
 
 export function CountPanel({ state }) {

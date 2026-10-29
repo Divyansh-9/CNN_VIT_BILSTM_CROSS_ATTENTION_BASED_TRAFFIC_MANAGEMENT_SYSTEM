@@ -1,11 +1,21 @@
 .page { max-width: 1180px; margin: 0 auto; padding: 16px; }
-.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
-.top h1 { font-size: 20px; }
-.readonly { color: var(--muted); margin: 0; }
+/* Top bar (UX step 2). Orange appears here only as chrome: the mark and the
+   active section's edge (and the focus ring, from theme.css). */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+       padding-bottom: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 20px; }
+.mark { display: inline-flex; color: var(--brand); }
+.sub { color: var(--muted); font-size: 14px; font-weight: 400; }
+.nav { display: flex; flex-wrap: wrap; gap: 4px; }
+.nav a { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid transparent;
+         border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 500; }
+.nav a:hover { color: var(--ink); }
+.nav a[aria-current="page"] { color: var(--ink); border-color: var(--brand); }
+.readonly { margin: 0; color: var(--muted); font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
 .mono { font-family: var(--mono); }
 .region { font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
-/* The two regions are separated by space and a rule, and never share a box (ADR-014). */
-.live { padding-bottom: 24px; border-bottom: 2px solid var(--line); margin-bottom: 24px; }
+/* Live and Results are separate sections, never on screen together (ADR-014). */
+.live { padding-bottom: 8px; }
 .warning { border-left: 3px solid var(--muted); background: var(--notice-bg); padding: 8px 12px; margin: 0 0 12px; border-radius: 4px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }

@@ -11235,3 +11235,36 @@ Not established by this entry:
 - full WCAG conformance;
 - usability with real operators;
 - the redesigned layout (later UX steps).
+
+## D19 — the dashboard opens with its answer, in three sections (2026-10-29)
+
+UX step 2, approved by the reviewer on 2026-10-29.
+
+**Three sections, one on screen at a time.** Live, History and Results are
+chosen by the address (`#live`, `#history`, `#results`); anything unknown
+opens Live. Live numbers and historical evidence can no longer share a screen
+(ADR-014). Every stream keeps polling whichever section is open, so Live is
+current the moment it is reopened.
+
+**The page opens with an answer, built only from a current, valid class
+forecast** (reviewer rule 2):
+- current data reads "All 4 approaches HIGH", or "1 of 2 available approaches
+  HIGH" with the approaches that have no forecast named;
+- a stale forecast reads "No current forecast", and the last reading is shown
+  as past, with its age;
+- an unreachable server, a refused response and nothing published yet each
+  have their own wording.
+
+None of the last three produces a class word, so nothing old reads as current
+and nothing unknown reads as "no congestion".
+
+**Icons (D-6).** Four Phosphor icons (MIT) are copied as path data, identical
+to the published files, with the licence notice in
+`dashboard/THIRD_PARTY_NOTICES.md`. Each sits beside a text label and is hidden
+from assistive technology. The favicon no longer uses the retired `#6366f1`.
+
+**Tests.** The dashboard suite went from 38 tests to 49. A mutation check
+broke each protection once and the suite caught 15 of 15, after its first run
+exposed one untested phrase ("All 2 available approaches"), which now has a
+test. Fresh, stale and unreachable were captured on the running stack with the
+Bellevue 150th/Eastgate clip at 1280 and 390 px.

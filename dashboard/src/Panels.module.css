@@ -1,3 +1,12 @@
+/* The overview, the page's first answer (UX step 2). Its class word is a chip,
+   never coloured text, so its contrast is the chip's. */
+.overview { margin: 0 0 16px; }
+.overviewLabel { color: var(--muted); font-size: 13px; margin: 0 0 2px; }
+.overviewHead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; font-size: 30px; font-weight: 600; line-height: 1.2; }
+.overviewHead .chip { font-size: 22px; padding: 1px 10px; }
+.overviewHead .dot { flex: none; }
+.overviewDetail { color: var(--muted); margin: 6px 0 0; }
+@media (max-width: 760px) { .overviewHead { font-size: 22px; } .overviewHead .chip { font-size: 17px; } }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
 /* Distinct top borders so the count and the class are never read as one panel. */
 .count { border-top: 4px solid var(--frame-count); }

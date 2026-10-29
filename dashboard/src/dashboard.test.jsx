@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import App, { intersectionFromUrl } from "./App.jsx";
+import App, { SECTIONS, intersectionFromUrl, sectionFromHash } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
-import { ClassPanel, CountPanel, HistoryPanel, StatusPanel } from "./Panels.jsx";
+import { ICONS } from "./icons.jsx";
+import { ClassPanel, CountPanel, HistoryPanel, Overview, StatusPanel, overview } from "./Panels.jsx";
 import { validateClass, validateCount, validateHistory } from "./validate.js";
 
 afterEach(cleanup);
@@ -182,13 +183,10 @@ describe("the page", () => {
         : path.startsWith("/count_forecast") ? COUNT : path.startsWith("/prediction") ? CLASS : evidence;
     return { ok: true, status: 200, json: async () => body };
   };
-  it("keeps live forecasts and historical evidence in separate regions, with the P97a warning", async () => {
-    render(<App fetcher={fetcher} search="?id=j1" />);
+  it("opens on Live, with the P97a warning and both forecasts, and no evidence", async () => {
+    render(<App fetcher={fetcher} search="?id=j1" hash="" />);
     const live = screen.getByLabelText("Live monitor");
-    const results = screen.getByLabelText("Results");
-    await waitFor(() => expect(within(results).getByText(/abc1234/)).toBeTruthy());
-    expect(within(live).queryByText(/abc1234|macro-F1|MAE/)).toBeNull();
-    expect(within(results).queryByText(/ridge · point estimate/)).toBeNull();
+    expect(screen.queryByLabelText("Results")).toBeNull();
     const banner = live.querySelector('[data-p97a="true"]').textContent;
     expect(banner).toMatch(/P97a/);
     // D2: the encoding as it is since P110, not as it was before.
@@ -197,16 +195,114 @@ describe("the page", () => {
     expect(banner).not.toMatch(/same value as LOW/);
     await waitFor(() => expect(within(live).getByText("ridge@73532968dcf2")).toBeTruthy());
     expect(within(live).getByText("persistence@2431c6641b9c")).toBeTruthy();
-  });
-  it("puts system status and forecast history in the live region, never in Results (ADR-014)", async () => {
-    render(<App fetcher={fetcher} search="?id=j1" />);
-    const live = screen.getByLabelText("Live monitor");
-    const results = screen.getByLabelText("Results");
-    expect(within(live).getByLabelText("System status")).toBeTruthy();
-    expect(within(live).getByLabelText("Forecast history")).toBeTruthy();
-    expect(within(results).queryByLabelText(/System status|Forecast history/)).toBeNull();
+    expect(within(live).queryByText(/abc1234|macro-F1|MAE/)).toBeNull();
     await waitFor(() => expect(document.querySelector('[data-check="Server"]').dataset.kind).toBe("fresh"));
+  });
+  it("shows the evidence only in Results, with no live panel beside it (ADR-014)", async () => {
+    render(<App fetcher={fetcher} search="?id=j1" hash="#results" />);
+    const results = screen.getByLabelText("Results");
+    await waitFor(() => expect(within(results).getByText(/abc1234/)).toBeTruthy());
+    expect(screen.queryByLabelText("Live monitor")).toBeNull();
+    expect(screen.queryByLabelText(/System status|Forecast history|Next 60 seconds/)).toBeNull();
+    expect(within(results).queryByText(/ridge · point estimate/)).toBeNull();
+  });
+  it("keeps forecast history in its own section, never in Results", async () => {
+    render(<App fetcher={fetcher} search="?id=j1" hash="#history" />);
+    expect(screen.getByLabelText("Forecast history")).toBeTruthy();
+    expect(screen.queryByLabelText("Results")).toBeNull();
+    expect(screen.queryByLabelText("Live monitor")).toBeNull();
     await waitFor(() => expect(document.querySelector('[data-history="count"] table')).toBeTruthy());
+  });
+  it("never puts live and historical evidence on screen together, whatever the address says", () => {
+    for (const hash of ["", "#live", "#history", "#results", "#/results", "#nope", "#results?x"]) {
+      render(<App fetcher={fetcher} search="?id=j1" hash={hash} />);
+      const shown = ["Live monitor", "History", "Results"].filter((l) => screen.queryByLabelText(l, { selector: "section" }));
+      expect(shown).toHaveLength(1);
+      cleanup();
+    }
+  });
+});
+
+describe("sections and navigation (UX step 2)", () => {
+  it("reads the section from the address, and opens Live for anything unknown", () => {
+    expect(sectionFromHash("")).toBe("live");
+    expect(sectionFromHash("#history")).toBe("history");
+    expect(sectionFromHash("#/results")).toBe("results");
+    for (const h of ["#nope", "#results?x", "#Live", "#evidence", undefined]) expect(sectionFromHash(h)).toBe("live");
+  });
+  it("marks the open section, and names every link in text, not by icon alone", () => {
+    render(<App fetcher={async () => ({ ok: false, status: 404 })} search="?id=j1" hash="#history" />);
+    const links = within(screen.getByRole("navigation", { name: "Sections" })).getAllByRole("link");
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(SECTIONS.map(([k]) => `#${k}`));
+    expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["History"]);
+    for (const a of links) {
+      expect(a.textContent.trim().length).toBeGreaterThan(0);
+      expect(a.querySelector("svg").getAttribute("aria-hidden")).toBe("true");
+    }
+  });
+  it("follows the address when it changes", async () => {
+    window.location.hash = "";
+    render(<App fetcher={async () => ({ ok: false, status: 404 })} search="?id=j1" />);
+    expect(screen.getByLabelText("Live monitor")).toBeTruthy();
+    window.location.hash = "#results";
+    await waitFor(() => expect(screen.getByLabelText("Results")).toBeTruthy());
+    window.location.hash = "";
+  });
+  it("vendors only the icons it uses, each hidden from assistive technology", () => {
+    expect([...ICONS].sort()).toEqual(["history", "live", "results", "signal"]);
+  });
+});
+
+// Reviewer rule 2: the overview is built from valid, current data only.
+describe("the overview", () => {
+  const CLASS4 = { ...CLASS, predictions: { N: "HIGH", S: "HIGH", E: "MEDIUM", W: "LOW" }, missing_approaches: [] };
+  const CLASS_WORDS = /\b(LOW|MEDIUM|HIGH)\b/;
+  it("answers with the worst current class across the available approaches", () => {
+    expect(overview(ok(CLASS4)).headline).toBe("2 of 4 approaches HIGH");
+    expect(overview(ok(CLASS4)).detail).toMatch(/^North HIGH, South HIGH, East MEDIUM, West LOW\. Updated 3 s ago\.$/);
+    const allLow = { ...CLASS4, predictions: { N: "LOW", S: "LOW", E: "LOW", W: "LOW" } };
+    expect(overview(ok(allLow)).headline).toBe("All 4 approaches LOW");
+  });
+  it("counts only the approaches that have a forecast, and names the ones that do not", () => {
+    const o = overview(ok(CLASS));                        // N HIGH, E LOW; S and W missing
+    expect(o.headline).toBe("1 of 2 available approaches HIGH");
+    expect(o.detail).toMatch(/South, West have no forecast/);
+    const two = overview(ok({ ...CLASS, predictions: { N: "HIGH", S: "HIGH" }, missing_approaches: ["E", "W"] }));
+    expect(two.headline).toBe("All 2 available approaches HIGH");
+    expect(two.detail).toMatch(/East, West have no forecast/);
+    const one = overview(ok({ ...CLASS, predictions: { E: "MEDIUM" }, missing_approaches: ["N", "S", "W"] }));
+    expect(one.headline).toBe("East MEDIUM");
+    expect(one.detail).toMatch(/North, South, West have no forecast/);
+  });
+  it("never answers with a class from a stale forecast", () => {
+    const o = overview(ok({ ...CLASS4, stale: true, age_s: 78 }));
+    expect(o.kind).toBe("stale");
+    expect(o.headline).toBe("No current forecast");
+    expect(o.headline).not.toMatch(CLASS_WORDS);
+    expect(o.detail).toMatch(/78 s old, past its horizon/);
+  });
+  it("never answers with a class when nothing valid and current arrived", () => {
+    const cases = [
+      [{ status: "loading" }, "loading", "Waiting for the first forecast"],
+      [{ status: "unavailable" }, "none", "No forecast published yet"],
+      [{ status: "error", reason: "server unreachable (Failed to fetch)" }, "bad", "Forecasts unavailable"],
+      [ok({ ...CLASS, predictions: { N: "MED" } }), "bad", "Forecast refused"],
+      [ok(COUNT), "bad", "Forecast refused"],
+      [ok({ ...CLASS, predictions: {}, missing_approaches: ["N", "S", "E", "W"] }), "bad", "Forecast refused"],
+    ];
+    for (const [state, kind, headline] of cases) {
+      const o = overview(state);
+      expect([o.kind, o.headline]).toEqual([kind, headline]);
+      expect(o.headline).not.toMatch(CLASS_WORDS);
+      render(<Overview state={state} />);
+      expect(document.querySelector("[data-overview]").dataset.overview).toBe(kind);
+      expect(document.querySelector("[data-overview] [aria-live]").textContent).not.toMatch(CLASS_WORDS);
+      cleanup();
+    }
+  });
+  it("shows the class word as a labelled chip only when the answer is current", () => {
+    render(<Overview state={ok(CLASS4)} />);
+    expect(document.querySelector("[data-overview='fresh'] [aria-live]").textContent).toBe("2 of 4 approaches HIGH");
   });
 });
 
