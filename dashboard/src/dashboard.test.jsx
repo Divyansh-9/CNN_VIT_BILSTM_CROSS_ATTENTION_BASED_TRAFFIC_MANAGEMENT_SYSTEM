@@ -6,9 +6,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import App, { SECTIONS, intersectionFromUrl, sectionFromHash } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
 import { ICONS } from "./icons.jsx";
+import { ObservedCounts, scaleTop } from "./Analytics.jsx";
 import { Horizon, Intersection, SCALE_MAX, horizon, junction, ribbonLength } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, HistoryPanel, Overview, StatusPanel, overview } from "./Panels.jsx";
-import { validateClass, validateCount, validateHistory } from "./validate.js";
+import { validateClass, validateCount, validateCountHistory, validateHistory } from "./validate.js";
 
 afterEach(cleanup);
 
@@ -31,13 +32,16 @@ const lane = (a) => document.querySelector(`[data-approach="${a}"]`);
 describe("read-only by construction", () => {
   it("allows only the listed GET endpoints", () => {
     for (const p of ["/count_forecast/j1/latest", "/prediction/j1/latest", "/evidence", "/health",
-                     "/prediction/j1/history", "/count_forecast/j1/history"]) {
+                     "/prediction/j1/history", "/count_forecast/j1/history",
+                     "/vehicle_count/j1/history?window=1h", "/vehicle_count/j1/history?window=24h"]) {
       expect(isAllowed(p)).toBe(true);
     }
     for (const p of ["/observation", "/prediction/j1", "/count_forecast/j1", "/history/j1", "/x",
                      "/healthz", "/prediction/j1/history/x", "/prediction/j1/history?limit=500",
                      "/count_forecast/j1/history/x", "/count_forecast/j1/history?limit=500",
-                     "/count_forecast/j1/latest/x"]) {
+                     "/count_forecast/j1/latest/x", "/vehicle_count/j1/lane_0",
+                     "/vehicle_count/j1/history", "/vehicle_count/j1/history?window=2h",
+                     "/vehicle_count/j1/history?window=1h&x=1"]) {
       expect(isAllowed(p)).toBe(false);
     }
   });
@@ -217,7 +221,7 @@ describe("the page", () => {
   it("never puts live and historical evidence on screen together, whatever the address says", () => {
     for (const hash of ["", "#live", "#history", "#results", "#/results", "#nope", "#results?x"]) {
       render(<App fetcher={fetcher} search="?id=j1" hash={hash} />);
-      const shown = ["Live monitor", "History", "Results"].filter((l) => screen.queryByLabelText(l, { selector: "section" }));
+      const shown = ["Live monitor", "Analytics", "Results"].filter((l) => screen.queryByLabelText(l, { selector: "section" }));
       expect(shown).toHaveLength(1);
       cleanup();
     }
@@ -227,7 +231,8 @@ describe("the page", () => {
 describe("sections and navigation (UX step 2)", () => {
   it("reads the section from the address, and opens Live for anything unknown", () => {
     expect(sectionFromHash("")).toBe("live");
-    expect(sectionFromHash("#history")).toBe("history");
+    expect(sectionFromHash("#analytics")).toBe("analytics");
+    expect(sectionFromHash("#history")).toBe("analytics");      // the old address still opens it (D21)
     expect(sectionFromHash("#/results")).toBe("results");
     for (const h of ["#nope", "#results?x", "#Live", "#evidence", undefined]) expect(sectionFromHash(h)).toBe("live");
   });
@@ -235,7 +240,7 @@ describe("sections and navigation (UX step 2)", () => {
     render(<App fetcher={async () => ({ ok: false, status: 404 })} search="?id=j1" hash="#history" />);
     const links = within(screen.getByRole("navigation", { name: "Sections" })).getAllByRole("link");
     expect(links.map((a) => a.getAttribute("href"))).toEqual(SECTIONS.map(([k]) => `#${k}`));
-    expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["History"]);
+    expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["Analytics"]);
     for (const a of links) {
       expect(a.textContent.trim().length).toBeGreaterThan(0);
       expect(a.querySelector("svg").getAttribute("aria-hidden")).toBe("true");
@@ -464,5 +469,90 @@ describe("system status (S42)", () => {
     const { result } = renderHook(() => useHealth(60000, fetcher, clock));
     await waitFor(() => expect(result.current.status).toBe("ok"));
     expect(result.current.rtt_ms).toBe(40);
+  });
+});
+
+// D21: FR-UI03, observed counts per lane over 1, 6 or 24 hours.
+describe("observed counts (FR-UI03)", () => {
+  const view = (window = "1h", buckets) => ({
+    intersection_id: "j1", window, bucket_s: { "1h": 60, "6h": 300, "24h": 900 }[window], start: 0, end: 180,
+    buckets: buckets ?? [
+      { t: 0, lanes: { lane_0: { mean: 2, n: 30 }, lane_1: { mean: 0, n: 30 } } },
+      { t: 60, lanes: {} },                                     // a gap
+      { t: 120, lanes: { lane_0: { mean: 4, n: 12 } } },        // lane_1 absent: not zero
+    ],
+    note: "observed",
+  });
+  const bars = (lane) => [...document.querySelectorAll(`[data-lane="${lane}"] [data-bucket]`)];
+
+  it("accepts a whole view and refuses a bad one whole", () => {
+    expect(validateCountHistory(view(), "1h").data.lanes).toEqual(["lane_0", "lane_1"]);
+    expect(validateCountHistory(view("6h"), "1h").ok).toBe(false);                         // not the window asked for
+    expect(validateCountHistory({ ...view(), bucket_s: 30 }, "1h").ok).toBe(false);
+    for (const bad of [{ lane_0: { mean: -1, n: 1 } }, { lane_0: { mean: 1, n: 0 } }, { lane_0: { mean: 999, n: 1 } },
+                       { "lane 0": { mean: 1, n: 1 } }, { lane_0: { mean: "1", n: 1 } }]) {
+      expect(validateCountHistory(view("1h", [{ t: 0, lanes: bad }]), "1h").ok).toBe(false);
+    }
+    expect(validateCountHistory(view("1h", [{ t: "0", lanes: {} }]), "1h").ok).toBe(false);
+  });
+  it("draws a bar only where a lane had samples: a gap is no bar, and a real zero is a bar", () => {
+    render(<ObservedCounts state={ok(view())} window="1h" onWindow={() => {}} />);
+    expect(bars("lane_0").map((b) => b.dataset.bucket)).toEqual(["0", "120"]);
+    expect(bars("lane_1").map((b) => b.dataset.bucket)).toEqual(["0"]);
+    expect(document.querySelector('[data-lane="lane_1"] [data-bucket="0"] title').textContent).toMatch(/mean 0\.00 vehicles from 30 samples/);
+  });
+  it("puts every lane on one scale from zero", () => {
+    expect(scaleTop(view().buckets)).toBe(4);
+    expect(scaleTop([{ t: 0, lanes: {} }])).toBe(1);
+    render(<ObservedCounts state={ok(view())} window="1h" onWindow={() => {}} />);
+    const h = (lane, t) => Number(document.querySelector(`[data-lane="${lane}"] [data-bucket="${t}"]`).getAttribute("height"));
+    expect(h("lane_0", 120) / h("lane_0", 0)).toBeCloseTo(2, 5);
+    cleanup();
+    // A quieter lane is not stretched to fill its own chart: 2 vehicles are as tall in either lane.
+    const quiet = view("1h", [{ t: 0, lanes: { lane_0: { mean: 4, n: 3 }, lane_1: { mean: 2, n: 3 } } },
+                              { t: 60, lanes: { lane_0: { mean: 2, n: 3 } } }]);
+    render(<ObservedCounts state={ok(quiet)} window="1h" onWindow={() => {}} />);
+    expect(h("lane_1", 0)).toBeCloseTo(h("lane_0", 60), 5);
+  });
+  it("keeps axis labels out of the stretched drawing, so they stay readable at phone width", () => {
+    render(<ObservedCounts state={ok(view())} window="1h" onWindow={() => {}} />);
+    const lane = document.querySelector('[data-lane="lane_0"]');
+    expect(lane.querySelector("svg text")).toBeNull();
+    expect(lane.querySelector('[data-axis="y"]').textContent).toBe("40");
+    expect(lane.querySelector('[data-axis="x"]').textContent).toBe("−1 h−30 minnow");
+  });
+  it("says it is a measurement, not a forecast, and that an empty slot is a gap", () => {
+    render(<ObservedCounts state={ok(view())} window="1h" onWindow={() => {}} />);
+    const note = screen.getByLabelText("Observed vehicle counts").textContent;
+    expect(note).toMatch(/Measured, not forecast/);
+    expect(note).toMatch(/it is a gap, not zero/);
+    expect(note).not.toMatch(/\b(LOW|MEDIUM|HIGH)\b/);
+  });
+  it("shows nothing counted, unreachable and invalid as such, and draws no bars", () => {
+    for (const [state, kind] of [[ok(view("1h", [{ t: 0, lanes: {} }])), "empty"],
+                                 [{ status: "error", reason: "server unreachable (down)" }, "error"],
+                                 [ok({ ...view(), window: "6h" }), "invalid"], [{ status: "loading" }, "loading"]]) {
+      render(<ObservedCounts state={state} window="1h" onWindow={() => {}} />);
+      expect(document.querySelector(`[data-state="${kind}"]`)).toBeTruthy();
+      expect(document.querySelectorAll("[data-bucket]")).toHaveLength(0);
+      cleanup();
+    }
+  });
+  it("offers exactly the three windows and asks for the one chosen", async () => {
+    const asked = [];
+    const fetcher = async (path) => {
+      asked.push(path);
+      return path.startsWith("/vehicle_count") ? { ok: true, status: 200, json: async () => view(path.endsWith("6h") ? "6h" : "1h") }
+        : { ok: false, status: 404 };
+    };
+    render(<App fetcher={fetcher} search="?id=j1" hash="#analytics" />);
+    const group = screen.getByRole("group", { name: "Window" });
+    expect(within(group).getAllByRole("button").map((b) => [b.textContent, b.getAttribute("aria-pressed")]))
+      .toEqual([["1 h", "true"], ["6 h", "false"], ["24 h", "false"]]);
+    within(group).getByText("6 h").click();
+    await waitFor(() => expect(asked).toContain("/vehicle_count/j1/history?window=6h"));
+    await waitFor(() => expect(document.querySelector("[data-observed]").dataset.observed).toBe("6h"));
+    expect(screen.getByLabelText("Forecast history")).toBeTruthy();      // the forecast log stays below
+    expect(screen.queryByLabelText("Results")).toBeNull();
   });
 });

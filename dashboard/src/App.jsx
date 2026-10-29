@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ObservedCounts } from "./Analytics.jsx";
 import styles from "./App.module.css";
 import { Icon } from "./icons.jsx";
 import { Horizon, Intersection } from "./Intersection.jsx";
@@ -10,7 +11,12 @@ const HISTORY_MS = 10000; // a record of the last minutes; the live panels carry
 
 // Three sections, one shown at a time. Results is its own section, so live
 // numbers and historical evidence can never share a screen (ADR-014).
-export const SECTIONS = [["live", "Live"], ["history", "History"], ["results", "Results"]];
+// Analytics (D21) holds what was counted and what was forecast; it replaced
+// History, whose old address still opens it.
+export const SECTIONS = [["live", "Live"], ["analytics", "Analytics"], ["results", "Results"]];
+const ALIASES = { history: "analytics" };
+const ICON_FOR = { live: "live", analytics: "history", results: "results" };
+const COUNTS_MS = 30000; // buckets are a minute or longer, so the counts view polls slowly
 
 export function intersectionFromUrl(search) {
   const id = new URLSearchParams(search).get("id") || "j1";
@@ -20,7 +26,8 @@ export function intersectionFromUrl(search) {
 
 // Anything that is not a known section opens Live.
 export function sectionFromHash(hash) {
-  const name = String(hash || "").replace(/^#\/?/, "");
+  const raw = String(hash || "").replace(/^#\/?/, "");
+  const name = ALIASES[raw] ?? raw;
   return SECTIONS.some(([key]) => key === name) ? name : "live";
 }
 
@@ -37,6 +44,7 @@ function useSection(initialHash) {
 export default function App({ fetcher, search = window.location.search, hash = window.location.hash }) {
   const id = intersectionFromUrl(search);
   const section = useSection(hash);
+  const [countWindow, setCountWindow] = useState("1h");
   // Every stream keeps polling whichever section is open, so the status and
   // the overview are current the moment Live is opened again.
   const count = usePoll(`/count_forecast/${id}/latest`, REFRESH_MS, fetcher);
@@ -45,6 +53,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
   const health = useHealth(REFRESH_MS, fetcher);
   const classHistory = usePoll(`/prediction/${id}/history`, HISTORY_MS, fetcher);
   const countHistory = usePoll(`/count_forecast/${id}/history`, HISTORY_MS, fetcher);
+  const observed = usePoll(`/vehicle_count/${id}/history?window=${countWindow}`, COUNTS_MS, fetcher);
   return (
     <main className={styles.page}>
       <header className={styles.top}>
@@ -55,7 +64,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
         <nav aria-label="Sections" className={styles.nav}>
           {SECTIONS.map(([key, label]) => (
             <a key={key} href={`#${key}`} aria-current={key === section ? "page" : undefined}>
-              <Icon name={key} size={16} />{label}
+              <Icon name={ICON_FOR[key]} size={16} />{label}
             </a>
           ))}
         </nav>
@@ -87,9 +96,10 @@ export default function App({ fetcher, search = window.location.search, hash = w
         </section>
       )}
 
-      {section === "history" && (
-        <section aria-label="History">
-          <h2 className={styles.region}>History: what this server recorded</h2>
+      {section === "analytics" && (
+        <section aria-label="Analytics">
+          <h2 className={styles.region}>Analytics: what was counted, and what was forecast</h2>
+          <ObservedCounts state={observed} window={countWindow} onWindow={setCountWindow} />
           <HistoryPanel classHistory={classHistory} countHistory={countHistory} />
         </section>
       )}

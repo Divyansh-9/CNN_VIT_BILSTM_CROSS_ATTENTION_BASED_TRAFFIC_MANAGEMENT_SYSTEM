@@ -84,6 +84,21 @@ def check_intersection_id(value: Any) -> str:
         raise ContractError("intersection id must be 1 to 32 characters from "
                             "A-Z, a-z, 0-9, '_' and '-'")
     return value
+
+
+#: A lane name, as the per-lane topics carry it (`lane_0`). Like the
+#: intersection id it travels outside every payload, in the topic, so it gets
+#: the same character class and bound before anything stores it (D21).
+LANE = INTERSECTION_ID
+
+
+def check_lane(value: Any) -> str:
+    """`value`, if it is a valid lane name; otherwise a ContractError that does
+    not quote it, for the reason `check_intersection_id` gives."""
+    if not isinstance(value, str) or not LANE.fullmatch(value):
+        raise ContractError("lane must be 1 to 32 characters from "
+                            "A-Z, a-z, 0-9, '_' and '-'")
+    return value
 #: PRD §17 names "ambulance" and nothing else. Extending the set is a contract
 #: diff, which is the point of having one.
 EMERGENCY_TYPES = ("ambulance",)

@@ -108,7 +108,8 @@ def test_the_start_up_line_names_every_subscribed_topic():
     from contracts.mqtt import Topic
     from server.mqtt_ingest import INGESTED, subscription_summary
 
+    # Since D21 it also takes the observed per-lane counts, for FR-UI03.
     line = subscription_summary("127.0.0.1", 1883)
-    assert line == ("subscribed to stms/+/congestion/prediction and stms/+/count/forecast "
-                    "on 127.0.0.1:1883")
-    assert {Topic.PREDICTION, Topic.COUNT_FORECAST} == set(INGESTED)
+    assert line == ("subscribed to stms/+/congestion/prediction, stms/+/count/forecast "
+                    "and stms/+/+/vehicle_count on 127.0.0.1:1883")
+    assert {Topic.PREDICTION, Topic.COUNT_FORECAST, Topic.VEHICLE_COUNT} == set(INGESTED)

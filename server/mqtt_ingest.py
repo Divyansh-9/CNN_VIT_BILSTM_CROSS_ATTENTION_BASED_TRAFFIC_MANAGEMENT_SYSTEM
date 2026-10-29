@@ -2,11 +2,13 @@
 
     python -m server.mqtt_ingest --host 127.0.0.1 --port 1883
 
-Subscribes to `stms/+/congestion/prediction` and, since ADR-027,
-`stms/+/count/forecast`, and hands every message to the store function its
-HTTP endpoint uses (`store_prediction`, `store_count_forecast`), so a payload
-refused over HTTP is refused over MQTT too. The intersection id is read
-from the topic, which the contract renders, never from the payload.
+Subscribes to `stms/+/congestion/prediction`, since ADR-027
+`stms/+/count/forecast`, and since D21 the observed per-lane counts on
+`stms/+/+/vehicle_count`. Every message goes to the store function its HTTP
+endpoint uses (`store_prediction`, `store_count_forecast`,
+`store_vehicle_count`), so a payload refused over HTTP is refused over MQTT
+too. The intersection id, and for counts the lane, are read from the topic,
+which the contract renders, never from the payload.
 
 A refused payload is counted and logged by topic and reason, and its content is
 never logged: a malformed message is exactly the one that must not be echoed
@@ -35,14 +37,14 @@ from pathlib import Path
 
 from contracts.broker import (CredentialError, Credentials, TlsConfigError, ca_file_from_env,
                              client_tls_context, credentials_from_env)
-from contracts.mqtt import ContractError, Topic, check_intersection_id
+from contracts.mqtt import ContractError, Topic, check_intersection_id, check_lane
 
 __all__ = ["PredictionIngest", "serve_until_stopped", "stop_on_signals", "subscription_summary"]
 
 log = logging.getLogger(__name__)
 
 
-INGESTED = (Topic.PREDICTION, Topic.COUNT_FORECAST)
+INGESTED = (Topic.PREDICTION, Topic.COUNT_FORECAST, Topic.VEHICLE_COUNT)
 
 
 #: What the records and the log say instead of a topic that did not route. The
@@ -59,15 +61,28 @@ def route(topic: str) -> tuple[str, Topic]:
     quotes the topic."""
     parts = topic.split("/")
     for candidate in INGESTED:
-        if len(parts) == 4 and candidate.render(parts[1]) == topic:
+        if len(parts) != 4:
+            break
+        if candidate is Topic.VEHICLE_COUNT:
+            # Per lane: the lane is checked like the id, before it is stored (D21).
+            if candidate.render(parts[1], parts[2]) == topic:
+                check_lane(parts[2])
+                return check_intersection_id(parts[1]), candidate
+        elif candidate.render(parts[1]) == topic:
             return check_intersection_id(parts[1]), candidate
     raise ContractError("not an ingested topic")
 
 
+def render_any(which: Topic, identifier: str) -> str:
+    """A topic's subscription or label form: `+` stands for the lane where the
+    template has one."""
+    return which.render(identifier, "+") if "{lane}" in which.template else which.render(identifier)
+
+
 def subscription_summary(host: str, port: int) -> str:
     """The start-up line: every topic the ingest subscribes to, not just one."""
-    return (f"subscribed to {' and '.join(t.render('+') for t in INGESTED)} "
-            f"on {host}:{port}")
+    names = [render_any(t, "+") for t in INGESTED]
+    return f"subscribed to {', '.join(names[:-1])} and {names[-1]} on {host}:{port}"
 
 
 def intersection_of(topic: str) -> str:
@@ -115,10 +130,10 @@ class PredictionIngest:
             self.connect_refused = str(reason_code)
             return
         self.connect_refused = None
-        client.subscribe([(t.render("+"), t.qos) for t in INGESTED])
+        client.subscribe([(render_any(t, "+"), t.qos) for t in INGESTED])
 
     def _on_message(self, client, userdata, message):
-        from server.app import store_count_forecast, store_prediction
+        from server.app import store_count_forecast, store_prediction, store_vehicle_count
 
         # The topic is named in records and logs only once it has routed, as
         # the contract re-renders it from a checked id; until then it is
@@ -126,9 +141,14 @@ class PredictionIngest:
         label = UNROUTED
         try:
             identifier, which = route(message.topic)
-            label = which.render(identifier)
-            store = store_prediction if which is Topic.PREDICTION else store_count_forecast
-            store(identifier, message.payload)
+            if which is Topic.VEHICLE_COUNT:
+                lane = message.topic.split("/")[2]
+                label = which.render(identifier, lane)
+                store_vehicle_count(identifier, lane, message.payload)
+            else:
+                label = which.render(identifier)
+                store = store_prediction if which is Topic.PREDICTION else store_count_forecast
+                store(identifier, message.payload)
             self.stored += 1
             self.arrivals.append(time.perf_counter())
         except ContractError as error:

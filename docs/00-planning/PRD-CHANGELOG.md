@@ -11304,3 +11304,62 @@ and unreachable were captured on the running stack with real footage.
 **Not established:** that operators read the drawing correctly. Also, a count
 above 10 currently draws a full-length ribbon with nothing to mark the cap;
 its label carries the exact number.
+
+## D21 — observed counts are stored, and FR-UI03 is served per lane (2026-10-29)
+
+D-3, approved by the reviewer on 2026-10-29 as the next task.
+
+**Why.** FR-UI03 asks for historical vehicle counts over 1, 6 and 24 hours.
+The server stored no observed counts at all: the ingest subscribed only to the
+two forecast topics. The forecast history it did keep was capped at 500 rows,
+about 17 minutes, and holds forecasts, not counts.
+
+**What changed.**
+- **Ingest.** The ingest also subscribes to `stms/+/+/vehicle_count`, the
+  per-lane counts the edge already published at QoS 1. Each message goes
+  through `store_vehicle_count`, the same function as
+  `POST /vehicle_count/{id}/{lane}` (write token required), so both paths
+  validate alike.
+- **Lane validation.** The lane travels in the topic, outside the payload, so
+  it is checked like the intersection id (`check_lane`, same character class
+  and bound) and never quoted when refused (P142).
+- **Storage.** A `vehicle_counts` table holds numbers only: time, id, lane,
+  count, fps. NFR-13 is unaffected.
+- **Read endpoint.** `GET /vehicle_count/{id}/history?window=1h|6h|24h` returns
+  the server's own aggregation: 60, 72 or 96 buckets of 1, 5 or 15 minutes,
+  aligned to multiples of their length. Each lane gets the mean count and the
+  sample count per bucket. A lane with no samples in a bucket is absent, so a
+  gap is never zero. No other window is accepted.
+- **Dashboard.** An Analytics section replaces History, and the old
+  `#history` address still opens it. It draws one chart per lane on a shared
+  scale from zero, in solid neutral bars, which in this design means measured.
+  A window control picks 1, 6 or 24 hours. The forecast log stays below.
+
+**What it is not.**
+- **Lanes, not approaches.** Counts are shown per lane, named as the edge
+  publishes them. Which approach a lane feeds is known only at the edge, so
+  measured and forecast cannot yet be compared per approach. That comparison
+  needs D-3b.
+- **Not quite the forecasters' input.** The wire count leaves bicycles out
+  (D1), while the forecasters' input keeps them.
+- **No accuracy.** No accuracy or agreement is shown (ADR-014).
+
+**Retention.** None yet. At four lanes every 2 s the table grows by about
+170,000 rows a day.
+
+**Tests.**
+- **Server:** `tests/test_vehicle_counts.py`, 15 collected, covering storing,
+  refusals without echo, aligned windows, means and sample counts, gaps,
+  window bounds, and the ingest's routing and lane check.
+- **Dashboard:** 64 tests. One was added after the live run showed the
+  chart's axis labels at about 5 px on a 390 px phone: they were SVG text and
+  shrank with the drawing. They are now HTML at 11 px, and the test pins that
+  no axis label is SVG text.
+- **Live run:** `demo_e2e.py --live 3` on Bellevue footage. Four lanes were
+  stored and served, one bar per minute bucket. Contrast was checked on 179
+  text nodes with no failure, the bars measured 7.36:1, and there was no
+  horizontal scroll at 1280 or 390 px.
+- **Mutation check:** 15 protections across server and dashboard, each
+  broken once; the suites caught 15 of 15.
+- **Broker credentials:** `tests/test_broker_credentials.py` now expects
+  three subscribed topics and the new summary line.

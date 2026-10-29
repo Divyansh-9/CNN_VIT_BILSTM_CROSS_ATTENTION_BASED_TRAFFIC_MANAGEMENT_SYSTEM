@@ -72,3 +72,31 @@ export function validateHistory(json, kind) {
   }
   return { ok: true, data: json };
 }
+
+// FR-UI03 (D21): observed counts per lane, bucketed by the server. Like every
+// response, shown whole or not at all. A lane with no samples in a bucket is
+// absent from it, so a gap is never read as zero.
+export const COUNT_WINDOWS = { "1h": 60, "6h": 300, "24h": 900 };
+const LANE = /^[A-Za-z0-9_-]{1,32}$/;
+
+export function validateCountHistory(json, window) {
+  if (!json || typeof json !== "object") return fail("not an object");
+  if (json.window !== window) return fail(`not the ${window} window`);
+  if (json.bucket_s !== COUNT_WINDOWS[window]) return fail("bucket size does not match the window");
+  if (!Array.isArray(json.buckets)) return fail("no buckets");
+  const lanes = new Set();
+  for (const [i, bucket] of json.buckets.entries()) {
+    if (!bucket || typeof bucket.t !== "number" || !Number.isFinite(bucket.t)
+        || !bucket.lanes || typeof bucket.lanes !== "object" || Array.isArray(bucket.lanes))
+      return fail(`bucket ${i + 1}: malformed`);
+    for (const [lane, value] of Object.entries(bucket.lanes)) {
+      if (!LANE.test(lane)) return fail(`bucket ${i + 1}: invalid lane name`);
+      if (!value || typeof value.mean !== "number" || !Number.isFinite(value.mean)
+          || value.mean < 0 || value.mean > MAX_LANE_COUNT)
+        return fail(`bucket ${i + 1}: invalid mean for ${lane}`);
+      if (!Number.isInteger(value.n) || value.n < 1) return fail(`bucket ${i + 1}: invalid sample count for ${lane}`);
+      lanes.add(lane);
+    }
+  }
+  return { ok: true, data: { ...json, lanes: [...lanes].sort() } };
+}

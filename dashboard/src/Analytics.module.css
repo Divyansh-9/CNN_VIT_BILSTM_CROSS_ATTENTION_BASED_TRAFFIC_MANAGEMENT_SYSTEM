@@ -1,0 +1,28 @@
+/* FR-UI03 observed counts (D21). Solid neutral bars: a measurement, not a
+   forecast, and never a congestion class. */
+.panel { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--frame-count);
+         border-radius: 8px; padding: 14px; margin-bottom: 16px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.head h2 { font-size: 17px; }
+.windows { display: inline-flex; gap: 4px; }
+.windows button { font: 500 13px var(--sans); color: var(--muted); background: transparent; border: 1px solid var(--line);
+                  border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+.windows button:hover { color: var(--ink); }
+.windows button[aria-pressed="true"] { color: var(--ink); border-color: var(--brand); }
+.lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.lane { margin: 0; min-width: 0; }
+.laneHead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 13px; margin-bottom: 2px; }
+/* Labels are HTML at a fixed size, so they stay readable however wide the
+   drawing is stretched. The baseline is the chart's own bottom border. */
+.plot { display: grid; grid-template-columns: auto 1fr; column-gap: 6px; }
+.chart { width: 100%; height: 80px; display: block; border-bottom: 1px solid var(--line); }
+.grid { stroke: var(--line); stroke-dasharray: 2 4; }
+.yAxis, .xAxis { color: var(--muted); font: 11px var(--mono); }
+.yAxis { display: flex; flex-direction: column; justify-content: space-between; text-align: right; height: 80px; }
+.xAxis { grid-column: 2; display: flex; justify-content: space-between; margin-top: 2px; }
+.bar { fill: var(--muted); }
+.barNow { fill: var(--ink); }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+.problem { color: var(--bad); }
+.note { color: var(--muted); font-size: 12px; margin: 10px 0 0; }

@@ -54,7 +54,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, BeforeValidator, Field
 
-from contracts.mqtt import INTERSECTION_ID, ContractError, Topic, check_intersection_id, decode
+from contracts.mqtt import (INTERSECTION_ID, ContractError, Topic, check_intersection_id, check_lane,
+                            decode)
 
 from server.safety import Decision, SafetyLimits, SignalGuard
 
@@ -277,6 +278,21 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
             model TEXT NOT NULL,
             payload TEXT NOT NULL
         )""")
+    # D21: what each lane's region held, as counted at the edge (a measurement,
+    # not a forecast), so a history of observed counts exists at all (FR-UI03).
+    # Per lane, as the contract publishes it: which approach a lane feeds is
+    # known only at the edge.
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS vehicle_counts (
+            at REAL NOT NULL,
+            intersection_id TEXT NOT NULL,
+            lane TEXT NOT NULL,
+            count INTEGER NOT NULL,
+            fps REAL NOT NULL
+        )""")
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS vehicle_counts_at "
+        "ON vehicle_counts (intersection_id, at)")
     connection.commit()
     return connection
 
@@ -518,6 +534,75 @@ def count_forecast_history(intersection_id: str, limit: int = Query(30, ge=1)) -
                      "counts": dict(payload.counts),
                      "missing_approaches": sorted(set(APPROACHES) - set(payload.counts))})
     return {"intersection_id": intersection_id, "rows": rows}
+
+
+def store_vehicle_count(intersection_id: str, lane: str, raw: str | bytes):
+    """Validate one encoded `VehicleCount` and store it (D21). The single entry
+    point for observed counts, over HTTP and over MQTT alike. The id and the
+    lane both travel in the topic, outside the payload, so both are checked
+    here before anything is written (P142)."""
+    check_intersection_id(intersection_id)
+    check_lane(lane)
+    payload = decode(Topic.VEHICLE_COUNT, raw)
+    with closing(connect()) as connection:
+        connection.execute("INSERT INTO vehicle_counts VALUES (?,?,?,?,?)",
+                           (time.time(), intersection_id, lane, payload.count, payload.fps))
+        connection.commit()
+    return payload
+
+
+@app.post("/vehicle_count/{intersection_id}/{lane}", dependencies=WRITE)
+def vehicle_count(intersection_id: str, lane: str,
+                  raw: str = Body(..., media_type="text/plain")) -> dict:
+    """One lane's `VehicleCount`, exactly as the edge encoded it: the HTTP
+    stand-in for the per-lane MQTT topic, with the same validation."""
+    try:
+        payload = store_vehicle_count(intersection_id, lane, raw)
+    except ContractError as error:
+        raise HTTPException(422, str(error)) from error
+    return {"intersection_id": intersection_id, "lane": lane, "count": payload.count}
+
+
+#: FR-UI03's three views, each served as a fixed number of buckets so that a
+#: day is under a hundred points per lane, never tens of thousands of rows.
+COUNT_WINDOWS = {"1h": (3600, 60), "6h": (21600, 300), "24h": (86400, 900)}
+
+VEHICLE_COUNT_NOTE = ("observed: the mean number of vehicles in each lane's counting region "
+                      "per bucket, as counted at the edge; a measurement, not a forecast. "
+                      "A bucket with no samples is a gap, never zero")
+
+
+def count_buckets(intersection_id: str, window: str, now: float) -> dict:
+    """Observed counts over one FR-UI03 window, aggregated by the server (D21).
+
+    Buckets are aligned to multiples of their own length, so the same bucket
+    keeps the same edges from one request to the next. Every bucket in the
+    window is listed, oldest first; a lane with no samples in a bucket is
+    absent from it, so a gap stays a gap and is never drawn as zero."""
+    span, size = COUNT_WINDOWS[window]
+    end = (int(now) // size + 1) * size
+    start = end - span
+    with closing(connect()) as connection:
+        rows = connection.execute(
+            "SELECT lane, CAST(at / ? AS INTEGER), AVG(count), COUNT(*) FROM vehicle_counts "
+            "WHERE intersection_id = ? AND at >= ? AND at < ? GROUP BY lane, 2",
+            (size, intersection_id, start, end)).fetchall()
+    first = start // size
+    buckets = [{"t": start + i * size, "lanes": {}} for i in range(span // size)]
+    for lane, index, mean, n in rows:
+        buckets[index - first]["lanes"][lane] = {"mean": round(mean, 2), "n": n}
+    return {"intersection_id": intersection_id, "window": window, "bucket_s": size,
+            "start": start, "end": end, "lanes": sorted({r[0] for r in rows}),
+            "buckets": buckets, "note": VEHICLE_COUNT_NOTE}
+
+
+@app.get("/vehicle_count/{intersection_id}/history")
+def vehicle_count_history(intersection_id: str,
+                          window: str = Query("1h", pattern="^(1h|6h|24h)$")) -> dict:
+    """FR-UI03: observed counts over the last 1, 6 or 24 hours, per lane, in
+    1, 5 or 15 minute buckets (D21). Read-only, like every GET here."""
+    valid_id(intersection_id)
+    return count_buckets(intersection_id, window, time.time())
 
 
 RESULTS = Path("experiments/results/bellevue_pilot")

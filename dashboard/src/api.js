@@ -6,6 +6,8 @@
 export const ALLOWED = [
   /^\/count_forecast\/[A-Za-z0-9_-]{1,32}\/(latest|history)$/,
   /^\/prediction\/[A-Za-z0-9_-]{1,32}\/(latest|history)$/,
+  // FR-UI03: observed counts, one of the three windows and nothing else (D21).
+  /^\/vehicle_count\/[A-Za-z0-9_-]{1,32}\/history\?window=(1h|6h|24h)$/,
   /^\/evidence$/,
   /^\/health$/,
 ];

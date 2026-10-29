@@ -563,8 +563,19 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   banner states the controller's encoding since P110 (0.0 = no forecast,
   LOW = 1/3). P97a Part 2, the controller's behaviour under forecast faults,
   remains deferred; the dashboard does not address it.
-- **Layout (D19, D20):** three sections, Live, History and Results, one on
-  screen at a time, chosen by the address.
+- **Observed counts (D21, FR-UI03):** the per-lane counts the edge already
+  published are now ingested into SQLite (`vehicle_counts`) and served
+  through `GET /vehicle_count/{id}/history?window=1h|6h|24h`.
+  - **What it returns:** the mean count and the sample count per lane, in 1,
+    5 or 15 minute buckets aligned to their length.
+  - **Gaps:** a lane with no samples in a bucket is absent, never zero.
+  - **Lanes, not approaches:** the lane-to-approach map lives only at the
+    edge. The wire count excludes bicycles (D1), while the forecasters'
+    input includes them.
+  - **Retention:** none yet, about 170,000 rows a day at four lanes.
+- **Layout (D19, D20, D21):** three sections, Live, Analytics and Results,
+  one on screen at a time, chosen by the address. D21 renamed History to
+  Analytics, and `#history` still opens it.
   - **What Live opens with:** an overview built only from a current, valid
     forecast, a forecast-age ruler, and a static intersection drawing.
   - **The drawing:** ribbon length is the count forecast and the class is its
@@ -575,7 +586,7 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   real-data end-to-end test, stale responses, missing approaches and API error
   states. `cd dashboard && npm test` runs its tests.
 
-**Not implemented:** WebSocket updates, charts, the ADR-014 agreement ribbon,
+**Not implemented:** WebSocket updates, forecast charts, the ADR-014 agreement ribbon,
 the detection overlay and authentication. Dashboard tests do run in CI: the
 `dashboard (vitest + build)` job runs `npm test`.
 
