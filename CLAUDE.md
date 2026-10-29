@@ -587,6 +587,11 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
     are receipt times, not footage times.
   - **Ordering:** a new session replaces the stored heartbeat whatever its
     clock; within a session an older `ts` is ignored.
+  - **Label (D23):** a long name drops whole leading `_` words until it fits
+    32 characters, so a clip keeps its date and time.
+  - **Edge silent (D23):** while a valid heartbeat is stale and the forecast
+    is still inside its horizon, the overview says it is the edge's last
+    forecast. The forecast's own validity is not shortened.
 - **Layout (D19, D20, D21):** three sections, Live, Analytics and Results,
   one on screen at a time, chosen by the address. D21 renamed History to
   Analytics, and `#history` still opens it.

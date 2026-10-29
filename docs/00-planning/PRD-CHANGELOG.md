@@ -11439,3 +11439,49 @@ alive. A stale heartbeat then makes the source stale too.
   N, S, E and W. Ten seconds after the edge finished, it read SOURCE STALE
   and the replay note went away. No contrast failure, and no horizontal
   scroll at 1280 or 390 px.
+
+## D23 — two findings from the D22 live run: the clip label keeps its time, and a silent edge's last forecast says so (2026-10-29)
+
+Both found by looking at the D22 live run on Bellevue footage; both approved
+by the reviewers on 2026-10-29 as a small follow-up kept apart from D22.
+
+**The clip label kept the wrong end.**
+- **The problem:** D22 cut the label at the contract's 32 characters, so
+  `Bellevue_150th_Eastgate__2017-09-10_18-08-24` became
+  `Bellevue_150th_Eastgate__2017-09`. The time of day was lost, and it is
+  what tells one camera's six clips apart.
+- **The fix:** a long name now drops whole leading `_` words until it fits.
+  That clip becomes `Eastgate__2017-09-10_18-08-24`. A name with no word
+  boundary keeps its last 32 characters.
+- **Why not parse a location and a timestamp:** that fits one naming scheme
+  and guesses at every other. The rule needs no format, and on all 28
+  Bellevue clips it keeps the full date and time and the most specific place
+  name, with no two clips sharing a label.
+- **Why not a hash:** it is unique but tells a viewer nothing. The session
+  id already tells runs apart; the label is for people.
+
+**A stopped edge's last forecast read as current.**
+- **The problem:** 32 s after the edge stopped, the badge said SOURCE STALE
+  while the overview said "Fresh, valid 28 s more". Both were right, because
+  a forecast covers the next 60 s, but together they implied new forecasts
+  were still being made.
+- **The fix:** while a valid heartbeat is stale and the forecast is still
+  inside its horizon, the overview adds "Edge silent for N s. This is the
+  last forecast it sent, still inside its 60 s horizon; no new forecast is
+  being made." It uses D18's full-contrast stale warning.
+- **What it does not do:**
+  - It does not shorten the forecast's validity, which is the forecast's own
+    contract.
+  - It claims nothing when there is no heartbeat at all, which is unknown,
+    not silent.
+
+**Tests.**
+- **Edge:** two tests over the five real camera name patterns, including
+  uniqueness across 30 names.
+- **Dashboard:** three tests, 74 in all.
+- **Mutation check:** 6 protections, each broken once; the suites caught 6
+  of 6.
+
+**Deferred.** The 404s a page logs before the first forecast. They are
+expected, and changing the status code would change what existing clients
+and tests rely on.

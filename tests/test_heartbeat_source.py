@@ -122,9 +122,37 @@ def test_the_source_is_described_by_its_calibration_key_or_clip_never_the_url():
     clip = describe_source(SimpleNamespace(source="D:/x/Bellevue 150th (Newport).mp4",
                                            camera="NE8th"), 180.0)
     assert clip["kind"] == "replay" and clip["duration_s"] == 180.0
-    assert clip["label"] == "Bellevue_150th__Newport_"
+    assert clip["label"] == "Bellevue_150th__Newport"
     beat(clip)                                           # what it builds, the contract takes
     assert len(source_label("x" * 50)) == 32 and source_label("") == "source"
+    assert source_label("___") == "source"
+
+
+# The five camera prefixes of the Bellevue clips, at the dataset's own length (44).
+CAMERAS = ("Bellevue_116th_NE12th", "Bellevue_150th_Eastgate", "Bellevue_150th_Newport",
+           "Bellevue_150th_SE38th", "Bellevue_Bellevue_NE8th")
+
+
+def test_a_long_clip_name_keeps_its_date_and_time_and_its_place():
+    """D23: cutting at 32 characters kept `Bellevue_150th_Eastgate__2017-09`
+    and lost the time of day, which is what tells one camera's clips apart."""
+    from edge.run import source_label
+
+    assert source_label("Bellevue_150th_Eastgate__2017-09-10_18-08-24") == "Eastgate__2017-09-10_18-08-24"
+    assert source_label("Bellevue_Bellevue_NE8th__2017-09-11_13-08-32") == "NE8th__2017-09-11_13-08-32"
+    for camera in CAMERAS:
+        label = source_label(f"{camera}__2017-09-10_18-08-24")
+        assert label.endswith("2017-09-10_18-08-24") and len(label) <= 32
+        beat({**replay(), "label": label})               # the contract takes every one
+    names = [f"{c}__2017-09-{d}_{h:02d}-08-2{i}" for c in CAMERAS for i, (d, h) in
+             enumerate([("10", 18), ("10", 22), ("11", 2), ("11", 6), ("11", 10), ("11", 14)])]
+    assert len({source_label(n) for n in names}) == len(names)   # no two clips share a label
+
+
+def test_a_name_with_no_word_boundary_keeps_its_end():
+    from edge.run import source_label
+
+    assert source_label("a" * 10 + "b" * 30) == "a" * 2 + "b" * 30
 
 
 # -------------------------------------------------------------------- server --

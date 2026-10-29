@@ -640,3 +640,39 @@ describe("source badge and lane map (D22)", () => {
     expect(document.querySelector("[data-replay-note]")).toBeTruthy();
   });
 });
+
+// D23: a stopped edge's last forecast is still valid, and is labelled as the last one.
+describe("edge silent, forecast still valid (D23)", () => {
+  const silent = () => document.querySelector("[data-edge-silent]");
+
+  it("says the forecast is the edge's last one while it is still inside its horizon", () => {
+    render(<Overview state={ok(CLASS)} edgeSilentFor={32.4} />);
+    expect(silent().textContent).toMatch(/Edge silent for 32 s\..*last forecast it sent.*no new forecast/);
+    expect(document.querySelector("[data-overview]").dataset.overview).toBe("fresh");   // still shown, still valid
+  });
+  it("says nothing when the edge is reporting, or when there is no forecast to qualify", () => {
+    for (const [state, age] of [[ok(CLASS), null], [ok({ ...CLASS, stale: true, age_s: 70 }), 70],
+                                [{ status: "unavailable" }, 15], [{ status: "error", reason: "x" }, 15]]) {
+      render(<Overview state={state} edgeSilentFor={age} />);
+      expect(silent()).toBeNull();
+      cleanup();
+    }
+  });
+  it("takes silence only from a valid heartbeat gone stale, never from a missing one", async () => {
+    const beat = { at: 1, age_s: 32, stale: true, edge_status: "online", mode: "M-NORMAL",
+                   source: null, lanes: null, note: "n" };
+    for (const [answer, row, expected] of [[{ ok: true, status: 200, json: async () => beat }, "stale", true],
+                                           [{ ok: false, status: 404 }, "none", false],
+                                           [{ ok: true, status: 200, json: async () => ({ ...beat, stale: false }) }, "fresh", false]]) {
+      const fetcher = async (path) => path === "/heartbeat/j1/latest" ? answer
+        : path === "/prediction/j1/latest" ? { ok: true, status: 200, json: async () => CLASS }
+          : { ok: false, status: 404 };
+      render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
+      await waitFor(() => expect(document.querySelector("[data-overview]").dataset.overview).toBe("fresh"));
+      // Wait until the heartbeat has been read, so a "no notice" is a decision, not a race.
+      await waitFor(() => expect(document.querySelector('[data-check="Edge heartbeat"]').dataset.kind).toBe(row));
+      expect(!!silent()).toBe(expected);
+      cleanup();
+    }
+  });
+});

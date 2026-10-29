@@ -61,6 +61,9 @@ export default function App({ fetcher, search = window.location.search, hash = w
   // so a stale heartbeat still says how the lanes were mapped.
   const beat = heartbeat.status === "ok" ? validateHeartbeat(heartbeat.data) : null;
   const laneMap = beat?.ok ? beat.data.lanes : null;
+  // D23: only a valid heartbeat that has gone stale says the edge is silent.
+  // No heartbeat at all is unknown, and claims nothing.
+  const edgeSilentFor = beat?.ok && beat.data.stale ? beat.data.age_s : null;
   return (
     <main className={styles.page}>
       <header className={styles.top}>
@@ -87,7 +90,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
           <h2 className={styles.region}>Live forecasts</h2>
           <div className={styles.hero}>
             <div className={styles.heroText}>
-              <Overview state={cls} />
+              <Overview state={cls} edgeSilentFor={edgeSilentFor} />
               <Horizon cls={cls} count={count} />
             </div>
             <Intersection cls={cls} count={count} />

@@ -92,7 +92,10 @@ export function overview(state) {
 
 const OVERVIEW_MARK = { stale: styles.k_stale, bad: styles.k_bad, none: styles.k_none, loading: styles.k_loading };
 
-export function Overview({ state }) {
+// D23: `edgeSilentFor` is the age of a valid, stale heartbeat, else null. A
+// forecast inside its horizon stays valid when the edge stops, so it is still
+// shown; the notice says it is the last one, not a new prediction.
+export function Overview({ state, edgeSilentFor = null }) {
   const o = overview(state);
   return (
     <section className={styles.overview} aria-label="Next 60 seconds" data-overview={o.kind}>
@@ -102,6 +105,15 @@ export function Overview({ state }) {
           ? <>{o.lead} <span className={`${styles.chip} ${styles[o.worst]}`}>{o.worst}</span></>
           : <><span className={`${styles.dot} ${OVERVIEW_MARK[o.kind]}`} aria-hidden="true" />{o.headline}</>}
       </p>
+      {o.kind === "fresh" && edgeSilentFor !== null && (
+        <p className={styles.stale} data-edge-silent="true">
+          <span className={styles.staleMark} aria-hidden="true" />
+          <span>
+            <b>Edge silent for {edgeSilentFor.toFixed(0)} s.</b> This is the last forecast it sent,
+            still inside its 60 s horizon; no new forecast is being made.
+          </span>
+        </p>
+      )}
       {o.detail && <p className={styles.overviewDetail}>{o.detail}</p>}
     </section>
   );

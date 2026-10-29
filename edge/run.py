@@ -377,9 +377,22 @@ def camera_frames(url: str) -> Iterator[tuple[float, object | None]]:
                 yield time.monotonic(), None
 
 
+LABEL_MAX = 32  # the contract's LANE pattern
+
+
 def source_label(text: str) -> str:
-    """D22: a short code the contract accepts, never free text (NFR-13)."""
-    return re.sub(r"[^A-Za-z0-9_-]", "_", text)[:32] or "source"
+    """D22: a short code the contract accepts, never free text (NFR-13).
+
+    D23: a long name loses whole leading `_` words until it fits, so its end
+    survives intact. Recorded clips end in their date and time, which is what
+    tells two clips of one camera apart:
+    `Bellevue_150th_Eastgate__2017-09-10_18-08-24` becomes
+    `Eastgate__2017-09-10_18-08-24`. Cutting at 32 characters kept the start
+    and lost the time. A name with no word boundary keeps its last 32."""
+    clean = re.sub(r"[^A-Za-z0-9_-]", "_", text)
+    while len(clean) > LABEL_MAX and "_" in clean:
+        clean = clean.split("_", 1)[1]
+    return clean[-LABEL_MAX:].strip("_") or "source"
 
 
 def clip_duration(path: str) -> float | None:
