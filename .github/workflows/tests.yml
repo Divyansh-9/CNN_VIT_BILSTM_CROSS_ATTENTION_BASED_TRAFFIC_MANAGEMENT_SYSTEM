@@ -50,8 +50,11 @@ jobs:
         # dashboard-evidence suites (P104-P110) are guards, and without these
         # they either fail to import or `importorskip` away. All four are
         # small pure-Python or prebuilt wheels.
+        # pytest, pyyaml and python-pptx come pinned from requirements.txt: unpinned,
+        # pytest 9.2.0's release failed test_pins_match_what_is_installed on
+        # 2026-10-29 with no change to this repository.
         run: >
-          pip install pytest pyyaml python-pptx numpy==2.5.2
+          pip install $(grep -iE '^(pytest|pyyaml|python-pptx)==' requirements.txt) numpy==2.5.2
           fastapi==0.141.1 pydantic==2.13.4 httpx==0.28.1
 
       - name: Run suites
