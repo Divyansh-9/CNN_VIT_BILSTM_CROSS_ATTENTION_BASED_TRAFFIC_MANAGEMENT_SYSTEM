@@ -553,11 +553,60 @@ def store_vehicle_count(intersection_id: str, lane: str, raw: str | bytes):
     check_intersection_id(intersection_id)
     check_lane(lane)
     payload = decode(Topic.VEHICLE_COUNT, raw)
+    now = time.time()
     with closing(connect()) as connection:
         connection.execute("INSERT INTO vehicle_counts VALUES (?,?,?,?,?)",
-                           (time.time(), intersection_id, lane, payload.count, payload.fps))
+                           (now, intersection_id, lane, payload.count, payload.fps))
         connection.commit()
+    maybe_prune_vehicle_counts(now)
     return payload
+
+
+#: D24: raw observed counts are operational data, kept twice the longest
+#: FR-UI03 window (24 h). Graded evidence lives in committed CSVs, never here,
+#: and nothing outside this module reads the table.
+COUNT_RETENTION_S = 48 * 3600
+PRUNE_EVERY_S = 3600
+#: After a failure (a locked database, say) the next write tries again this
+#: soon, not an hour later.
+PRUNE_RETRY_S = 60
+_next_prune = 0.0
+
+
+def prune_vehicle_counts(now: float) -> int:
+    """Delete counts older than the retention window; returns how many. A row
+    exactly at the cutoff is kept. Safe to repeat. A full scan, measured at
+    28 ms over 49 h of four lanes, so the `(intersection_id, at)` index is
+    left as the history query needs it."""
+    with closing(connect()) as connection:
+        deleted = connection.execute("DELETE FROM vehicle_counts WHERE at < ?",
+                                     (now - COUNT_RETENTION_S,)).rowcount
+        connection.commit()
+    return deleted
+
+
+def maybe_prune_vehicle_counts(now: float) -> None:
+    """Prune at most hourly, driven by writes rather than a scheduler (D24).
+
+    The API and the MQTT ingest are separate processes on one SQLite file, so
+    a scheduler thread in either would need its own start, stop and duplicate
+    handling. Driven by writes, each process prunes after its own stores, the
+    first one after a start included; two prunes at once are harmless, since
+    the delete is idempotent. With no writes nothing grows. A failure is
+    logged, never raised: the count it follows was already stored."""
+    global _next_prune
+    if now < _next_prune:
+        return
+    try:
+        deleted = prune_vehicle_counts(now)
+    except sqlite3.Error as error:
+        _next_prune = now + PRUNE_RETRY_S
+        log.warning("vehicle_counts: prune failed (%s); retrying after %d s",
+                    type(error).__name__, PRUNE_RETRY_S)
+        return
+    _next_prune = now + PRUNE_EVERY_S
+    log.info("vehicle_counts: pruned %d row(s) older than %d h", deleted,
+             COUNT_RETENTION_S // 3600)
 
 
 @app.post("/vehicle_count/{intersection_id}/{lane}", dependencies=WRITE)

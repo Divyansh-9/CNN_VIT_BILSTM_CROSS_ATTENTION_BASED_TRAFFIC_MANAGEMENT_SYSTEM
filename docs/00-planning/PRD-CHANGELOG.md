@@ -11485,3 +11485,50 @@ by the reviewers on 2026-10-29 as a small follow-up kept apart from D22.
 **Deferred.** The 404s a page logs before the first forecast. They are
 expected, and changing the status code would change what existing clients
 and tests rely on.
+
+## D24 — observed counts are kept 48 hours, pruned at most hourly by the writes themselves (2026-10-29)
+
+Approved by the reviewers on 2026-10-29 as the step after D23. It closes the
+retention gap D21 recorded.
+
+**Why.** Four lanes every 2 s add about 170,000 rows a day to
+`vehicle_counts`, with no limit. The longest view that reads them, FR-UI03's
+24 h, needs one day.
+
+**What is kept, and why that is safe.**
+- **The rule:** raw counts are kept 48 hours, twice the longest view. A row
+  exactly at the cutoff is kept.
+- **No evidence lives here:** graded results are committed CSVs (NFR-09/10).
+  `server/app.py` and its tests are the only readers of the table, checked
+  with a search of the repository on 2026-10-29.
+- **Other tables are untouched:** forecasts and the heartbeat keep their own
+  rules, and a test pins it.
+
+**How it runs: driven by writes, not by a scheduler.**
+- **The setup it has to fit:** the API (uvicorn, one worker) and the MQTT
+  ingest are separate processes on one SQLite file.
+- **Why not a scheduler:** a thread in either process would need its own
+  start, shutdown and duplicate handling.
+- **What it does instead:** after storing a count, the store prunes if an
+  hour has passed since its last prune. Each process does this after its own
+  writes, and the first write after a start prunes. Two prunes at once are
+  harmless, because the delete is idempotent. With no writes, nothing grows.
+- **On failure:** a failed prune, such as a locked database, is logged by
+  error type and retried after 60 s rather than an hour later. It never fails
+  the count it follows, which is already stored.
+
+**Index.** None added. The delete scans the whole table, which was measured at
+28 ms over 352,800 rows (49 h of four lanes at 2 s) on this laptop, once an
+hour. The `(intersection_id, at)` index stays shaped for the history query.
+
+**Tests.**
+- **What they cover:** `tests/test_retention.py`, 7 tests:
+  - rows 47.9, 48.0 and 48.1 hours old, of which only the last goes;
+  - repeating a prune;
+  - every intersection and lane alike;
+  - other tables untouched;
+  - the hourly gate;
+  - a locked-database failure that is logged, retried in 60 s and never fails
+    the store;
+  - a store that prunes while the 24 h view keeps its rows.
+- **Mutation check:** 7 protections, each broken once; the suite caught 7 of 7.

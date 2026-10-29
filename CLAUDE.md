@@ -575,7 +575,11 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
     lane's approach from it. The wire count excludes bicycles (D1), while the
     forecasters' input includes them, so these counts are not the forecasters'
     input.
-  - **Retention:** none yet, about 170,000 rows a day at four lanes.
+  - **Retention (D24):** raw counts are kept 48 hours and pruned at most
+    hourly, by the store after a write rather than by a scheduler, because
+    the API and the ingest are separate processes. A failed prune is logged
+    and retried after 60 s, and never fails the store. Only this table is
+    pruned.
 - **Source badge (D22):** the heartbeat carries `source` (`camera` or
   `replay`, a per-run session, a short label, and a replay's position and
   duration) and `lanes` (one lane per approach), served by
