@@ -11712,3 +11712,52 @@ An incomplete target window is treated as neither agreement nor disagreement.
     check for 34 s".
   - **Layout:** no contrast failure, and nothing overflows at 1280 or at the
     narrowest window.
+
+## D27 — the agreement ribbon's states while one run gives way to another (2026-10-30)
+
+A follow-up to D26, found by the integration check that killed the edge and
+started a new session on another clip. Approved by the reviewer. The storage,
+the session isolation and the pairing are unchanged; this is what the page
+says.
+
+**A run with a check but no cell yet.**
+- **The problem:** a run's first check usually falls mid-minute (58 s of video
+  on a replay), and cells are anchored to minute boundaries. The panel then had
+  a valid response and no cells, with nothing to say why.
+- **The fix:** it now says the first check has been received and the first
+  cell appears when the next minute begins. It says so only for the current
+  run's fresh checks, and stops once a cell exists.
+
+**Another run's checks.**
+- **The problem:** after a restart the badge named clip B while the panel
+  showed clip A's checks as "the last checks received", leaving the
+  relationship unclear.
+- **The fix:** they now read "from the previous run", still shown and never
+  discarded. The notice goes when the new run's first check arrives.
+- **When it says so:** only when the heartbeat's session and the checks'
+  session are both known and differ. With no heartbeat, or one naming no
+  source, stale is still said and whose checks they are is not claimed.
+
+**A missing or null summary** is refused as an invalid response, whatever the
+slots hold. Nothing is inferred from an absent denominator.
+
+**Still open, found in the same run.** For up to 60 s after a restart, the
+overview and the drawing can show the previous run's last forecast as fresh
+while the badge names the new clip. A forecast carries no session, so the page
+cannot tell. Fixing that changes the forecast payloads, which D26 left unchanged
+on purpose, so it is recorded here rather than folded in.
+
+**Tests.**
+- **Dashboard:** 90 tests, 5 of them new for these states and their
+  transitions.
+- **Mutation check:** 10 protections, each broken once; the suite caught 10 of
+  10.
+- **Integration:** kill the edge, restart on another clip, over Mosquitto with
+  TLS, 15 of 15. Run B's first cell compares classes only, because ridge needs
+  60 samples; that is asserted as expected, not filled in. The check script is
+  outside the repository, in the review folder.
+- **Browser, in that run:** the badge read the new clip while the panel read
+  "No new check for 31 s. These are the last checks received, from the previous
+  run."
+- **Not captured in a browser:** the first-cell note lasts about 2 s on a
+  replay, so it is covered by the component tests only.

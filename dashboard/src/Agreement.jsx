@@ -47,10 +47,14 @@ function summaryText(s) {
   return `${cls} · ${cnt}`;
 }
 
-export function Agreement({ state, edgeLive = false }) {
+// D27: `runSession` is the session of a valid heartbeat, else null. The checks
+// are called the previous run's only when both ids are known and differ; with
+// no heartbeat, or none naming a source, nothing is claimed about whose they are.
+export function Agreement({ state, edgeLive = false, runSession = null }) {
   const checked = state.status === "ok" ? validateChecks(state.data) : null;
   const data = checked?.ok ? checked.data : null;
   const rows = data ? APPROACHES.filter((a) => a in data.summary) : [];
+  const previousRun = Boolean(data && runSession && data.session !== runSession);
   return (
     <section className={`${panel.panel} ${styles.panel}`} aria-label="Forecast check" data-agreement={data ? "shown" : state.status}>
       <header className={panel.head}>
@@ -65,10 +69,19 @@ export function Agreement({ state, edgeLive = false }) {
         : <p className={panel.note} data-state="unreported">Not reported: no forecast check has reached the server.</p>)}
       {state.status === "error" && <p className={panel.problem} data-state="error">Unavailable: {state.reason}</p>}
       {checked && !checked.ok && <p className={panel.problem} data-state="invalid">Invalid response, not shown: {checked.reason}</p>}
-      {data?.stale && (
-        <p className={panel.stale} data-state="stale">
+      {(data?.stale || previousRun) && (
+        <p className={panel.stale} data-state={data.stale ? "stale" : "previous-run"} data-previous-run={previousRun}>
           <span className={panel.staleMark} aria-hidden="true" />
-          <span><b>No new check for {data.age_s.toFixed(0)} s.</b> These are the last checks received.</span>
+          <span>
+            <b>{data.stale ? `No new check for ${data.age_s.toFixed(0)} s.` : "Not this run's checks."}</b>
+            {" "}These are the last checks received{previousRun ? ", from the previous run" : ""}.
+          </span>
+        </p>
+      )}
+      {data && data.slots.length === 0 && !data.stale && !previousRun && (
+        <p className={panel.note} data-state="first-minute">
+          The first check for this run has been received. Cells are anchored to minute boundaries, so the
+          first cell will appear when the next minute begins.
         </p>
       )}
       {data && (

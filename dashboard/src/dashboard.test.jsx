@@ -797,6 +797,61 @@ describe("forecast check (D26, ADR-014)", () => {
       cleanup();
     }
   });
+  it("explains a run whose first check falls mid-minute, and stops once a cell exists", () => {
+    const run = "a1b2c3d4e5f6";
+    const { rerender } = render(<Agreement state={ok(view({ slots: [], summary: {} }))} edgeLive runSession={run} />);
+    expect(document.querySelector('[data-state="first-minute"]').textContent).toMatch(/next minute begins/);
+    expect(document.querySelectorAll("[data-cell]")).toHaveLength(0);
+    rerender(<Agreement state={ok(view())} edgeLive runSession={run} />);
+    expect(document.querySelector('[data-state="first-minute"]')).toBeNull();
+    expect(document.querySelectorAll("[data-cell]").length).toBeGreaterThan(0);
+  });
+  it("never says the first check is on its way when the checks are stale or another run's", () => {
+    for (const over of [{ stale: true, age_s: 30 }, { session: "0123456789ab" }]) {
+      render(<Agreement state={ok(view({ slots: [], summary: {}, ...over }))} edgeLive runSession="a1b2c3d4e5f6" />);
+      expect(document.querySelector('[data-state="first-minute"]')).toBeNull();
+      cleanup();
+    }
+  });
+  it("refuses a missing or null summary as invalid, without failing, even with no slots", () => {
+    for (const summary of [undefined, null]) {
+      render(<Agreement state={ok(view({ slots: [], summary }))} edgeLive />);
+      expect(document.querySelector('[data-state="invalid"]')).toBeTruthy();
+      cleanup();
+    }
+  });
+  it("calls checks the previous run's only when both sessions are known and differ", () => {
+    const notice = () => document.querySelector("[data-previous-run]");
+    const run = "0123456789ab";                          // the checks' own session is a1b2c3d4e5f6
+    const { rerender } = render(<Agreement state={ok(view({ stale: true, age_s: 42 }))} edgeLive runSession={run} />);
+    expect(notice().textContent).toMatch(/No new check for 42 s\. These are the last checks received, from the previous run\./);
+    expect(cells("N")).toHaveLength(3);                  // shown, never discarded
+    // The first check of the new run arrives: the notice goes.
+    rerender(<Agreement state={ok(view({ session: run }))} edgeLive runSession={run} />);
+    expect(notice()).toBeNull();
+    // Not yet stale, but another run's: said at once.
+    rerender(<Agreement state={ok(view())} edgeLive runSession={run} />);
+    expect(notice().dataset.state).toBe("previous-run");
+    // No heartbeat session: stale is still said, whose they are is not claimed.
+    rerender(<Agreement state={ok(view({ stale: true, age_s: 42 }))} runSession={null} />);
+    expect(notice().textContent).toMatch(/last checks received\.$/);
+    // The same session, stale: not the previous run.
+    rerender(<Agreement state={ok(view({ stale: true, age_s: 42 }))} runSession="a1b2c3d4e5f6" />);
+    expect(notice().textContent).not.toMatch(/previous run/);
+  });
+  it("takes the run's session from the heartbeat, and none from a heartbeat without a source", async () => {
+    const source = { kind: "replay", session: "0123456789ab", label: "clip", position_s: 4, duration_s: 100 };
+    for (const [src, expected] of [[source, "true"], [null, "false"]]) {
+      const beat = { at: 1, age_s: 1, stale: false, edge_status: "online", mode: "M-NORMAL", source: src, lanes: null, note: "n" };
+      const fetcher = async (path) => path === "/heartbeat/j1/latest" ? { ok: true, status: 200, json: async () => beat }
+        : path === "/forecast_check/j1/recent" ? { ok: true, status: 200, json: async () => view({ stale: true, age_s: 30 }) }
+          : { ok: false, status: 404 };
+      render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
+      await waitFor(() => expect(document.querySelector('[data-check="Edge heartbeat"]').dataset.kind).toBe("fresh"));
+      await waitFor(() => expect(document.querySelector("[data-previous-run]")?.dataset.previousRun).toBe(expected));
+      cleanup();
+    }
+  });
   it("keeps stale checks readable under a warning, never dimmed or dropped", () => {
     render(<Agreement state={ok(view({ stale: true, age_s: 42 }))} />);
     expect(document.querySelector('[data-state="stale"]').textContent).toMatch(/No new check for 42 s/);

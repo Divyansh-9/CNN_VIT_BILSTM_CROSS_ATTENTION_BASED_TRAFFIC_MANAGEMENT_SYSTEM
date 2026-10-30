@@ -611,6 +611,12 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
     Checks are kept one hour.
   - **Not accuracy:** both sides come from one detector's counts, and the
     forecasts are persistence and ridge, not MFSTNet.
+  - **Between runs (D27):** checks read "from the previous run" only when the
+    heartbeat's session and theirs are both known and differ, and a run with
+    a check but no cell yet says why.
+  - **Known gap (D27):** a forecast carries no session, so for up to 60 s
+    after a restart the overview can show the previous run's last forecast
+    as fresh.
 - **Layout (D19, D20, D21):** three sections, Live, Analytics and Results,
   one on screen at a time, chosen by the address. D21 renamed History to
   Analytics, and `#history` still opens it.

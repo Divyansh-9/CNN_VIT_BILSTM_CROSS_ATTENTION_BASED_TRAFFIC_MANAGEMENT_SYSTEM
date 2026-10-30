@@ -68,6 +68,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
   const edgeSilentFor = beat?.ok && beat.data.stale ? beat.data.age_s : null;
   // D26: no check yet reads as warming up only while the edge is reporting.
   const edgeLive = Boolean(beat?.ok && !beat.data.stale);
+  const runSession = beat?.ok ? beat.data.source?.session ?? null : null;
   return (
     <main className={styles.page}>
       <header className={styles.top}>
@@ -99,7 +100,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
             </div>
             <Intersection cls={cls} count={count} />
           </div>
-          <Agreement state={checks} edgeLive={edgeLive} />
+          <Agreement state={checks} edgeLive={edgeLive} runSession={runSession} />
           <p className={styles.warning} data-p97a="true">
             Display only: neither forecast is connected to signal timing. In the controller's state,
             0.0 means an approach has no forecast and LOW is encoded as 1/3 (ADR-020 as amended,
