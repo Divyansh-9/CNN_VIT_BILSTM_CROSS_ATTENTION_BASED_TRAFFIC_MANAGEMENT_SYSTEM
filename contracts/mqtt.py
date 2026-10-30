@@ -49,6 +49,7 @@ __all__ = [
     "INTERSECTION_ID",
     "check_intersection_id",
     "SOURCE_KINDS",
+    "ForecastCheck",
 ]
 
 SCHEMA_VERSION = 2
@@ -142,6 +143,10 @@ class Topic(Enum):
     # merged with or mistaken for the congestion class. QoS as for predictions.
     COUNT_FORECAST = ("stms/{id}/count/forecast", QoS.AT_MOST_ONCE)
     HEARTBEAT = ("stms/{id}/system/heartbeat", QoS.AT_MOST_ONCE)
+    # D26: an earlier forecast beside what the counts then showed (ADR-014 §2).
+    # Its own topic, so the forecast payloads and their consumers are unchanged
+    # and a check can never be a prerequisite for a forecast.
+    FORECAST_CHECK = ("stms/{id}/forecast/check", QoS.AT_MOST_ONCE)
 
     def __init__(self, template: str, qos: QoS) -> None:
         self._template = template
@@ -555,6 +560,74 @@ class Heartbeat(_Payload):
             _check_lanes(self.lanes)
 
 
+CLASS_NAMES = tuple(c.value for c in CongestionClass)
+PAIR_KEYS = frozenset({"forecast", "observed"})
+
+
+def _edge_time(value: Any) -> bool:
+    """D26: an edge sample time. Not epoch seconds: video seconds for a replay,
+    a monotonic clock for a camera, comparable only within one session."""
+    return _finite_number(value) and 0 <= value < TS_MAX
+
+
+@dataclass(frozen=True)
+class ForecastCheck(_Payload):
+    """D26, ADR-014 §2: one forecast beside what it forecast, once known.
+
+    The forecast was made after sample `made_ts`, for the mean of the next 30
+    samples; `checked_ts` is the 30th of them. The edge pairs them by sample
+    count in one contiguous window of one session, so every pair compares the
+    same quantity (the forecasters' raw per-lane totals) over the minute the
+    forecast was about. One pair per message, never a rate: the denominator is
+    counted where it is shown. An approach either side could not supply is
+    absent, never zero (P97a). Not accuracy: both sides come from the same
+    detector's counts.
+    """
+
+    session: str
+    made_ts: float
+    checked_ts: float
+    classes: Mapping[str, Mapping[str, str]]
+    counts: Mapping[str, Mapping[str, float]]
+    class_model: str | None = None
+    count_model: str | None = None
+    ts: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.session, str) or not SESSION.fullmatch(self.session):
+            raise ContractError("session must be 12 lowercase hex digits")
+        if not (_edge_time(self.made_ts) and _edge_time(self.checked_ts)
+                and self.checked_ts > self.made_ts):
+            raise ContractError("made_ts and checked_ts must be edge sample times, "
+                                "checked after made")
+        if not self.classes and not self.counts:
+            raise ContractError("a check must compare at least one approach")
+        for name, pairs, valid in (("classes", self.classes, lambda v: v in CLASS_NAMES),
+                                   ("counts", self.counts,
+                                    lambda v: _finite_number(v) and 0 <= v <= MAX_LANE_COUNT)):
+            if not isinstance(pairs, Mapping) or set(pairs) - set(APPROACHES):
+                raise ContractError(f"{name} keys must be approaches {list(APPROACHES)}")
+            for pair in pairs.values():
+                if not isinstance(pair, Mapping) or set(pair) != PAIR_KEYS \
+                        or not all(valid(v) for v in pair.values()):
+                    raise ContractError(f"each of {name} must hold a valid forecast and "
+                                        f"observed value, and nothing else")
+        # The model that made each side, and only when that side is present.
+        if (self.class_model is None) != (not self.classes) or (
+                self.class_model is not None and not (
+                    isinstance(self.class_model, str) and MODEL_ID.fullmatch(self.class_model))):
+            raise ContractError("class_model must name the class forecaster when, and "
+                                "only when, classes are compared")
+        if (self.count_model is None) != (not self.counts) or (
+                self.count_model is not None and not (
+                    isinstance(self.count_model, str) and COUNT_MODEL_ID.fullmatch(self.count_model))):
+            raise ContractError("count_model must name the count forecaster when, and "
+                                "only when, counts are compared")
+        if not _valid_ts(self.ts):
+            raise ContractError("ts must be a positive, finite number of epoch seconds "
+                                "before 2100")
+
+
 _PAYLOAD_FOR = {
     Topic.VEHICLE_COUNT: VehicleCount,
     Topic.EMERGENCY: EmergencyDetect,
@@ -562,6 +635,7 @@ _PAYLOAD_FOR = {
     Topic.PREDICTION: CongestionPrediction,
     Topic.COUNT_FORECAST: CountForecast,
     Topic.HEARTBEAT: Heartbeat,
+    Topic.FORECAST_CHECK: ForecastCheck,
 }
 
 

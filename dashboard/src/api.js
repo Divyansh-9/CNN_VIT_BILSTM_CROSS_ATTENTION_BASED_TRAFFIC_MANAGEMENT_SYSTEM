@@ -10,6 +10,8 @@ export const ALLOWED = [
   /^\/vehicle_count\/[A-Za-z0-9_-]{1,32}\/history\?window=(1h|6h|24h)$/,
   // D22: the edge's latest heartbeat, for the source badge and the lane map.
   /^\/heartbeat\/[A-Za-z0-9_-]{1,32}\/latest$/,
+  // D26: forecast checks, a minute apart (ADR-014 §2).
+  /^\/forecast_check\/[A-Za-z0-9_-]{1,32}\/recent$/,
   /^\/evidence$/,
   /^\/health$/,
 ];

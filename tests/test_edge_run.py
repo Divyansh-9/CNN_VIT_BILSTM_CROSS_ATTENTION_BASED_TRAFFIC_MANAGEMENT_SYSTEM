@@ -503,3 +503,38 @@ def test_every_heartbeat_names_the_replay_position_and_the_lane_map(files):
     assert [b["source"]["position_s"] for b in sent] == [0.0, 2.0, 4.0]
     assert {b["source"]["session"] for b in sent} == {source["session"]}
     assert all(b["source"]["kind"] == "replay" and b["lanes"] == s.approaches for b in sent)
+
+def test_a_full_run_publishes_checks_on_their_own_topic_with_the_run_session(files):
+    """D26: class checks once persistence has forecast and 30 more samples
+    came; count checks once ridge has, 30 after its first forecast."""
+    module = run_module()
+    s = settings(files)
+    node = EdgeNode(intersection_id=ID, transport=RecordingTransport())
+    source = module.describe_source(s, 300.0)
+    module.run(s, node=node, detector=lambda f: list(TRAFFIC), source=source,
+               frames=iter([(i * 2.0, Frame()) for i in range(100)]))
+    sent = [json.loads(p) for t, p, _ in node.transport.sent if t == Topic.FORECAST_CHECK.render(ID)]
+    assert sent and {c["session"] for c in sent} == {source["session"]}
+    assert all(c["checked_ts"] - c["made_ts"] == 60.0 for c in sent)
+    assert any(c["counts"] for c in sent) and all(c["classes"] for c in sent)
+    assert set(sent[-1]["classes"]) == set(s.approaches.values())
+
+
+def test_a_failing_check_never_stops_a_forecast(files, monkeypatch):
+    module = run_module()
+    s = settings(files)
+    frames = lambda: iter([(i * 2.0, Frame()) for i in range(70)])
+    healthy = EdgeNode(intersection_id=ID, transport=RecordingTransport())
+    module.run(s, node=healthy, detector=lambda f: list(TRAFFIC), frames=frames())
+
+    def broken(self, *args):
+        raise RuntimeError("a fault in the check, not in the forecasts")
+
+    monkeypatch.setattr(module.ForecastChecker, "step", broken)
+    failing = EdgeNode(intersection_id=ID, transport=RecordingTransport())
+    loop = module.run(s, node=failing, detector=lambda f: list(TRAFFIC), frames=frames())
+    forecasts = lambda n: [t for t, _, _ in n.transport.sent
+                           if t in (Topic.PREDICTION.render(ID), Topic.COUNT_FORECAST.render(ID))]
+    assert forecasts(failing) == forecasts(healthy) and forecasts(failing)
+    assert loop.check_failures == 70
+    assert Topic.FORECAST_CHECK.render(ID) not in failing.transport.topics()

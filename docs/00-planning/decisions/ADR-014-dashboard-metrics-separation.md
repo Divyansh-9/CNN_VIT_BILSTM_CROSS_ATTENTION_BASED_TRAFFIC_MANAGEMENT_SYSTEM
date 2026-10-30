@@ -67,6 +67,17 @@ It is labelled, in the UI and not only in the documentation:
 The first 60 seconds after start show *no ribbon at all*, because no prediction is scoreable yet. An
 empty state is honest; a ribbon that fills in from nothing is not.
 
+**Note (D26, 2026-10-29, approved by the project owner).** As built, the label reads "over the last 20
+checked minutes" and "the observed values come from the same detector counts the forecasts are made
+from". Two facts changed the wording; the rule above did not change.
+- **"The model was trained on" no longer fits.** The live forecasts are persistence and ridge
+  (ADR-027), and persistence is not trained.
+- **"Predictions" overstated n.** Forecasts are made every 2 s, so 20 consecutive ones cover 40 s of
+  traffic. The ribbon spaces its checks a minute apart, so each cell is a separate minute. It shows
+  k of n, never a percentage.
+- **Where the details are:** the pairing (by sample count, at the edge) and the states are in the D26
+  changelog entry.
+
 ### 3. The video is replaced by a derived overlay — and this is better, not a compromise
 
 Instead of the frame, the dashboard draws on a blank canvas:

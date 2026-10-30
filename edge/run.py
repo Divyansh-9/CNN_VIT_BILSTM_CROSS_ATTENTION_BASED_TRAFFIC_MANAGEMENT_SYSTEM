@@ -58,6 +58,7 @@ from typing import Callable, Iterator
 from contracts.broker import (CredentialError, Credentials, TlsConfigError, ca_file_from_env,
                              credentials_from_env)
 from contracts.mqtt import ContractError, Mode, check_intersection_id
+from edge.check import ForecastChecker
 from edge.classes import MAPPING_FILE
 from edge.count_forecast import RidgeCountForecaster
 from edge.node import EdgeNode
@@ -249,12 +250,16 @@ class EdgeLoop:
 
     def __init__(self, node: EdgeNode, lanes: LaneCentres, approaches: dict[str, str],
                  persistence: PersistenceForecaster, ridge: RidgeCountForecaster, *,
-                 min_confidence: float) -> None:
+                 min_confidence: float, checker: ForecastChecker | None = None) -> None:
         self.node, self.lanes, self.approaches = node, lanes, dict(approaches)
         self.persistence, self.ridge = persistence, ridge
         self.min_confidence = min_confidence
         self.mode = node.mode
         self.refused = 0                 # samples a forecaster would not take
+        # D26: each forecast beside what it forecast. Optional, and outside the
+        # forecasts' path: a fault here is logged and counted, never raised.
+        self.checker = checker
+        self.check_failures = 0
 
     def step(self, detections: list[Detection], ts: float,
              now: float | None = None) -> dict:
@@ -269,12 +274,29 @@ class EdgeLoop:
         breakdown = {lane: dict(by_class) for lane, by_class in counts.per_lane_class.items()}
         out = self.node.tick(breakdown, fps=1.0 / STEP_S, now=now)
         out["totals"] = totals
-        out["prediction"] = self._forecast(self.persistence, totals, ts, now,
-                                           self.node.publish_prediction)
-        out["count_forecast"] = self._forecast(self.ridge, totals, ts, now,
-                                               self.node.publish_count_forecast)
+        out["prediction"], prediction = self._forecast(self.persistence, totals, ts, now,
+                                                       self.node.publish_prediction)
+        out["count_forecast"], count = self._forecast(self.ridge, totals, ts, now,
+                                                      self.node.publish_count_forecast)
+        out["checks"] = self._check(totals, ts, now, prediction, count)
         self._note_mode(out)
         return out
+
+    def _check(self, totals, ts, now, prediction, count) -> int:
+        """D26: after both forecasts are published, never before or instead.
+        Returns how many checks this step completed and sent."""
+        if self.checker is None:
+            return 0
+        try:
+            checks = self.checker.step(totals, ts, prediction, count)
+        except SampleError:
+            return 0                     # refused by the forecasters too, and counted there
+        except Exception as error:       # noqa: BLE001 - a check must never stop a forecast
+            self.check_failures += 1
+            log.warning("forecast check failed (%s); forecasts are unaffected",
+                        type(error).__name__)
+            return 0
+        return sum(self.node.publish_forecast_check(check, now) for check in checks)
 
     def idle(self, now: float | None = None) -> dict:
         """A step with no frame (the camera is reconnecting). Nothing is counted
@@ -283,20 +305,21 @@ class EdgeLoop:
         self._note_mode(out)
         return out
 
-    def _forecast(self, forecaster, totals, ts, now, publish) -> str:
+    def _forecast(self, forecaster, totals, ts, now, publish):
+        """(what happened, the forecast made or None)."""
         try:
             forecast = forecaster.step(totals, ts)
         except SampleError as error:
             # Dropped, and the window is kept: one bad sample is not a gap.
             self.refused += 1
             log.warning("sample refused by %s: %s", type(forecaster).__name__, error)
-            return "refused"
+            return "refused", None
         except ValueError as error:          # a ridge value out of range
             log.warning("forecast refused by %s: %s", type(forecaster).__name__, error)
-            return "refused"
+            return "refused", None
         if forecast is None:
-            return "warming up"
-        return "published" if publish(forecast, now) else "not delivered"
+            return "warming up", None
+        return ("published" if publish(forecast, now) else "not delivered"), forecast
 
     def _note_mode(self, out: dict) -> None:
         if out["mode"] != self.mode:
@@ -428,11 +451,15 @@ def run(settings: Settings, *, node: EdgeNode,
     """The loop, with its parts handed in, so it is testable without a camera,
     a detector or a broker."""
     node.source, node.lanes = source, dict(settings.approaches)
-    loop = EdgeLoop(node, settings.lanes, settings.approaches,
-                    PersistenceForecaster(settings.persistence_spec, settings.camera,
-                                          settings.approaches),
+    persistence = PersistenceForecaster(settings.persistence_spec, settings.camera,
+                                        settings.approaches)
+    # D26: checks carry the heartbeat's session, so the server never mixes runs.
+    session = source["session"] if source else secrets.token_hex(6)
+    loop = EdgeLoop(node, settings.lanes, settings.approaches, persistence,
                     RidgeCountForecaster(settings.ridge_spec, settings.approaches),
-                    min_confidence=settings.conf)
+                    min_confidence=settings.conf,
+                    checker=ForecastChecker(settings.approaches, persistence.low,
+                                            persistence.med, session))
     taken = 0
     for ts, frame in frames:
         node.at_position(ts)                 # a replay's ts is video time; a camera's is not used

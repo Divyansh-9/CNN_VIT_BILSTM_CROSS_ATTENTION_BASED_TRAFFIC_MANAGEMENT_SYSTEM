@@ -10,7 +10,8 @@ import { ObservedCounts, scaleTop } from "./Analytics.jsx";
 import { Horizon, Intersection, SCALE_MAX, TURN, horizon, junction, ribbonLength, ribbonPath } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, HistoryPanel, Overview, StatusPanel, overview } from "./Panels.jsx";
 import { ReplayNote, SourceBadge } from "./Source.jsx";
-import { validateClass, validateCount, validateCountHistory, validateHeartbeat, validateHistory } from "./validate.js";
+import { Agreement, AGREEMENT_LABEL } from "./Agreement.jsx";
+import { validateClass, validateCount, validateCountHistory, validateHeartbeat, validateHistory, validateChecks, agreement } from "./validate.js";
 
 afterEach(cleanup);
 
@@ -730,5 +731,88 @@ describe("overflow and direction (step 3b)", () => {
     const caption = document.querySelector("figcaption").textContent;
     expect(caption).toMatch(/two cuts near its outer\s+end mean more than 10/);
     expect(caption).toMatch(/points into the\s+junction/);
+  });
+});
+
+// D26: the ADR-014 agreement ribbon. Facts from the edge, k of n here, never a percentage.
+describe("forecast check (D26, ADR-014)", () => {
+  const SLOT = (made, cls, cnt) => ({ kind: "check", made_ts: made, checked_ts: made + 60, classes: cls, counts: cnt });
+  const SLOTS = [
+    SLOT(0, { N: { forecast: "HIGH", observed: "HIGH" }, S: { forecast: "LOW", observed: "LOW" } },
+         { N: { forecast: 6.0, observed: 5.3 } }),
+    { kind: "gap" },
+    SLOT(120, { N: { forecast: "HIGH", observed: "MEDIUM" }, S: { forecast: "LOW", observed: "LOW" } },
+         { N: { forecast: 4.0, observed: 3.3 }, S: { forecast: 0.5, observed: 0.5 } }),
+  ];
+  const view = (over = {}) => ({ intersection_id: "j1", session: "a1b2c3d4e5f6", age_s: 1.0, stale: false,
+    spacing_s: 60, slots: SLOTS, summary: agreement(SLOTS), class_model: "persistence@2431c6641b9c",
+    count_model: "ridge@73532968dcf2", label: "x", limits: "y", ...over });
+  const panelText = () => screen.getByLabelText("Forecast check").textContent;
+  const cells = (a) => [...document.querySelectorAll(`[data-check-row="${a}"] [data-cell]`)].map((c) => c.dataset.cell);
+
+  it("counts k of n and the mean difference, with separate denominators, from the slots", () => {
+    expect(agreement(SLOTS)).toEqual({
+      N: { class: { agreed: 1, n: 2 }, count: { mean_abs_diff: 0.7, n: 2 } },
+      S: { class: { agreed: 2, n: 2 }, count: { mean_abs_diff: 0, n: 1 } },
+    });
+  });
+  it("accepts a whole response and refuses a bad one whole, including a summary that disagrees", () => {
+    expect(validateChecks(view()).ok).toBe(true);
+    for (const bad of [{ session: "XYZ" }, { spacing_s: 2 }, { slots: Array(21).fill({ kind: "gap" }), summary: {} },
+                       { slots: [SLOT(10, { N: { forecast: "LOUD", observed: "LOW" } }, {})] },
+                       { slots: [SLOT(10, {}, { N: { forecast: -1, observed: 1 } })] },
+                       { slots: [{ kind: "check", made_ts: 70, checked_ts: 10, classes: {}, counts: {} }] },
+                       { slots: [{ kind: "gap", extra: 1 }] },
+                       { summary: { ...agreement(SLOTS), N: { class: { agreed: 2, n: 2 }, count: { mean_abs_diff: 0.7, n: 2 } } } },
+                       { stale: "no" }]) {
+      expect(validateChecks(view(bad)).ok).toBe(false);
+    }
+    // Python and JavaScript may round a halfway mean differently; that is not a disagreement.
+    expect(validateChecks(view({ summary: { ...agreement(SLOTS), N: { class: { agreed: 1, n: 2 }, count: { mean_abs_diff: 0.71, n: 2 } } } })).ok).toBe(true);
+  });
+  it("draws agreement as shape, a broken minute as a gap, and an absent approach as not checkable", () => {
+    render(<Agreement state={ok(view())} />);
+    expect(cells("N")).toEqual(["agreed", "gap", "differed"]);
+    expect(cells("S")).toEqual(["agreed", "gap", "agreed"]);
+    expect(document.querySelector('[data-summary="N"]').textContent)
+      .toBe("class agreed 1 of 2 · count off by 0.70 veh on average over 2");
+    expect(document.querySelector('[data-summary="S"]').textContent)
+      .toBe("class agreed 2 of 2 · count off by 0.00 veh on average over 1");
+    expect(panelText()).not.toMatch(/%|accuracy of|accurate/i);
+  });
+  it("carries the ADR-014 label and says what it is not", () => {
+    render(<Agreement state={ok(view())} />);
+    expect(AGREEMENT_LABEL).toMatch(/^Rolling agreement with auto-labels over the last 20 checked minutes\. Not a benchmark/);
+    expect(panelText()).toContain("the same detector counts the forecasts are made from");
+    expect(panelText()).toMatch(/not MFSTNet/);
+    expect(panelText()).toMatch(/No forecast drives a signal/);
+  });
+  it("says warming up only while the edge reports, and not reported otherwise", () => {
+    for (const [state, live, kind] of [[{ status: "unavailable" }, true, "warming"], [{ status: "unavailable" }, false, "unreported"],
+                                       [{ status: "loading" }, true, "loading"], [{ status: "error", reason: "down" }, true, "error"],
+                                       [ok(view({ spacing_s: 2 })), true, "invalid"]]) {
+      render(<Agreement state={state} edgeLive={live} />);
+      expect(document.querySelector(`[data-state="${kind}"]`)).toBeTruthy();
+      expect(document.querySelectorAll("[data-cell]")).toHaveLength(0);
+      cleanup();
+    }
+  });
+  it("keeps stale checks readable under a warning, never dimmed or dropped", () => {
+    render(<Agreement state={ok(view({ stale: true, age_s: 42 }))} />);
+    expect(document.querySelector('[data-state="stale"]').textContent).toMatch(/No new check for 42 s/);
+    expect(cells("N")).toHaveLength(3);
+  });
+  it("is read through one allowed path and shows warming up when the edge is live", async () => {
+    expect(isAllowed("/forecast_check/j1/recent")).toBe(true);
+    for (const p of ["/forecast_check/j1", "/forecast_check/j1/recent?all=1", "/forecast_check/j1/history"]) expect(isAllowed(p)).toBe(false);
+    const beat = { at: 1, age_s: 1, stale: false, edge_status: "online", mode: "M-NORMAL", source: null, lanes: null, note: "n" };
+    const asked = [];
+    const fetcher = async (path) => {
+      asked.push(path);
+      return path === "/heartbeat/j1/latest" ? { ok: true, status: 200, json: async () => beat } : { ok: false, status: 404 };
+    };
+    render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
+    await waitFor(() => expect(document.querySelector('[data-state="warming"]')).toBeTruthy());
+    expect(asked).toContain("/forecast_check/j1/recent");
   });
 });

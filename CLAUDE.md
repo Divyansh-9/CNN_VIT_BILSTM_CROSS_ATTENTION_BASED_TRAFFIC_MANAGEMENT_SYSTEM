@@ -596,6 +596,21 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   - **Edge silent (D23):** while a valid heartbeat is stale and the forecast
     is still inside its horizon, the overview says it is the edge's last
     forecast. The forecast's own validity is not shortened.
+- **Forecast check (D26, ADR-014 §2):** the agreement ribbon, on Live under
+  the drawing.
+  - **Pairing:** the edge (`edge/check.py`) pairs each forecast with the mean
+    of the 30 samples after it, by sample count, in one contiguous window of
+    one session. That is P105's own target, and both sides are the
+    forecasters' raw totals, bicycles included. A gap drops pending
+    forecasts.
+  - **Transport:** `stms/{id}/forecast/check`, its own topic; the forecast
+    payloads are unchanged, and a failing check never stops a forecast.
+  - **Reported:** `GET /forecast_check/{id}/recent` gives the last 20 minutes
+    on a fixed one-minute grid of edge time, broken minutes as gaps,
+    "agreed k of n" and the mean count difference, never a percentage.
+    Checks are kept one hour.
+  - **Not accuracy:** both sides come from one detector's counts, and the
+    forecasts are persistence and ridge, not MFSTNet.
 - **Layout (D19, D20, D21):** three sections, Live, Analytics and Results,
   one on screen at a time, chosen by the address. D21 renamed History to
   Analytics, and `#history` still opens it.
@@ -611,7 +626,7 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   real-data end-to-end test, stale responses, missing approaches and API error
   states. `cd dashboard && npm test` runs its tests.
 
-**Not implemented:** WebSocket updates, forecast charts, the ADR-014 agreement ribbon,
+**Not implemented:** WebSocket updates, forecast charts,
 the detection overlay and authentication. Dashboard tests do run in CI: the
 `dashboard (vitest + build)` job runs `npm test`.
 

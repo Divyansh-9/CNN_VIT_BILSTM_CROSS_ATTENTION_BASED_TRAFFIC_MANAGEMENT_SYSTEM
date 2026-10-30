@@ -28,8 +28,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from contracts.mqtt import (ContractError, CongestionPrediction, CountForecast, Heartbeat, Mode,
-                            Topic, VehicleCount, check_intersection_id)
+from contracts.mqtt import (ContractError, CongestionPrediction, CountForecast, ForecastCheck,
+                            Heartbeat, Mode, Topic, VehicleCount, check_intersection_id)
 from edge.classes import normalise
 
 __all__ = ["Transport", "RecordingTransport", "EdgeNode", "LocalWebster"]
@@ -195,6 +195,18 @@ class EdgeNode:
         topic = Topic.COUNT_FORECAST.render(self.intersection_id)
         try:
             self.transport.publish(topic, forecast.encode(), Topic.COUNT_FORECAST.qos)
+        except (ConnectionError, OSError):
+            return False
+        self.last_ack = now
+        return True
+
+    def publish_forecast_check(self, check: ForecastCheck, now: float | None = None) -> bool:
+        """D26: one forecast beside what it forecast, on its own topic, so the
+        forecast payloads are unchanged. Returns whether the link took it."""
+        now = time.time() if now is None else now
+        topic = Topic.FORECAST_CHECK.render(self.intersection_id)
+        try:
+            self.transport.publish(topic, check.encode(), Topic.FORECAST_CHECK.qos)
         except (ConnectionError, OSError):
             return False
         self.last_ack = now

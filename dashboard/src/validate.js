@@ -141,3 +141,67 @@ export function validateHeartbeat(json) {
   }
   return { ok: true, data: json };
 }
+
+// D26, ADR-014 §2: earlier forecasts beside what the counts then showed, a
+// minute apart. Shown whole or not at all, and the summary is recomputed here
+// from the slots: a server summary that disagrees with its own slots is
+// refused, as missing_approaches is. Never a percentage.
+export const CHECK_SLOTS = 20;
+const PAIR = ["forecast", "observed"];
+
+function pairsProblem(pairs, valueOk) {
+  if (!pairs || typeof pairs !== "object" || Array.isArray(pairs)) return "malformed pairs";
+  for (const [a, pair] of Object.entries(pairs)) {
+    if (!APPROACHES.includes(a)) return "unknown approach";
+    if (!pair || typeof pair !== "object" || Object.keys(pair).sort().join() !== PAIR.join()
+        || !PAIR.every((k) => valueOk(pair[k]))) return `invalid pair for ${a}`;
+  }
+  return null;
+}
+
+export function agreement(slots) {
+  const out = {};
+  for (const a of APPROACHES) {
+    const cls = slots.filter((s) => s.kind === "check" && a in s.classes).map((s) => s.classes[a]);
+    const cnt = slots.filter((s) => s.kind === "check" && a in s.counts).map((s) => s.counts[a]);
+    if (!cls.length && !cnt.length) continue;
+    const mad = cnt.length ? cnt.reduce((t, p) => t + Math.abs(p.forecast - p.observed), 0) / cnt.length : null;
+    out[a] = { class: { agreed: cls.filter((p) => p.forecast === p.observed).length, n: cls.length },
+               count: { mean_abs_diff: mad === null ? null : Math.round(mad * 100) / 100, n: cnt.length } };
+  }
+  return out;
+}
+
+export function validateChecks(json) {
+  if (!json || typeof json !== "object") return fail("not an object");
+  if (!SESSION.test(json.session)) return fail("invalid session");
+  if (typeof json.age_s !== "number" || typeof json.stale !== "boolean") return fail("age or stale flag missing");
+  if (json.spacing_s !== 60) return fail("checks are not a minute apart");
+  if (!Array.isArray(json.slots) || json.slots.length > CHECK_SLOTS) return fail("no slots, or too many");
+  for (const [i, s] of json.slots.entries()) {
+    if (s?.kind === "gap" && Object.keys(s).length === 1) continue;
+    if (s?.kind !== "check" || !seconds(s.made_ts) || !seconds(s.checked_ts) || s.checked_ts <= s.made_ts)
+      return fail(`slot ${i + 1}: malformed`);
+    const problem = pairsProblem(s.classes, (v) => CLASSES.includes(v))
+      ?? pairsProblem(s.counts, (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MAX_LANE_COUNT);
+    if (problem) return fail(`slot ${i + 1}: ${problem}`);
+    if (!Object.keys(s.classes).length && !Object.keys(s.counts).length) return fail(`slot ${i + 1}: compares nothing`);
+  }
+  if (!sameSummary(agreement(json.slots), json.summary))
+    return fail("summary disagrees with the checks it summarises");
+  return { ok: true, data: json };
+}
+
+// Field by field, not by serialised text: key order is not a fact, and
+// Python's round and Math.round can differ by 0.01 on a halfway value.
+function sameSummary(mine, theirs) {
+  if (!theirs || typeof theirs !== "object") return false;
+  const keys = Object.keys(mine);
+  if (keys.sort().join() !== Object.keys(theirs).sort().join()) return false;
+  return keys.every((a) => {
+    const [m, t] = [mine[a], theirs[a]];
+    if (t?.class?.agreed !== m.class.agreed || t?.class?.n !== m.class.n || t?.count?.n !== m.count.n) return false;
+    if (m.count.mean_abs_diff === null) return t.count.mean_abs_diff === null;
+    return typeof t.count.mean_abs_diff === "number" && Math.abs(t.count.mean_abs_diff - m.count.mean_abs_diff) <= 0.011;
+  });
+}

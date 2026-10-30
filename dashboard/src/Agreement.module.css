@@ -1,0 +1,13 @@
+/* D26 agreement ribbon. Neutral marks only: agreement is shape, never a class
+   colour and never the brand orange. */
+.panel { margin-top: 16px; border-top: 4px solid var(--frame-status); }
+.label { margin: 0 0 10px; font-size: 13px; }
+.rows { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 8px; }
+.rows li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.approach { font-family: var(--mono); width: 1.5ch; }
+.ribbon { flex: none; max-width: 100%; height: auto; }
+.summary { color: var(--muted); font: 12px var(--mono); }
+.agreed { fill: var(--ink); }
+.differed { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.gap { fill: none; stroke: var(--muted); stroke-dasharray: 2 2; }
+.none { fill: var(--muted); }

@@ -11576,3 +11576,139 @@ to the scale, the label's exact count or the hollow stale ribbons.
 - **Layout:** checked on the scratch mock at 1280 and 390 px, including all
   four approaches at 12 vehicles in MEDIUM. Real Bellevue counts rarely pass
   10.
+
+## D26 — the ADR-014 agreement ribbon: each forecast beside what it forecast, paired at the edge (2026-10-29)
+
+Step 5. The contract (Step 5A) was reviewed and approved before any code:
+- a separate topic;
+- checks reported a minute apart;
+- the ADR-014 wording note.
+
+**What is compared, from the code.**
+- **The target:** both live forecasters (ADR-027) forecast the mean of each
+  lane's next 30 samples, 2 s apart, of the raw per-lane total.
+- **How each was scored:**
+  - P105 scored the count against `future_mean(v, e) = mean(v[e+1..e+30])`
+    (`scripts/p105_freeze.py`).
+  - P94–P103 scored the class as the class of that same mean, under the same
+    thresholds.
+- **The rule:** a forecast made after sample *e* is checked against the mean
+  of samples *e+1* to *e+30*.
+- **Bicycles:** both sides are the forecasters' own input, bicycles included.
+  The published `VehicleCount`, which leaves them out (D1), is not used, so no
+  count-definition mismatch can arise.
+
+**How pairs are formed: at the edge, by sample count.** `edge/check.py` keeps
+its own `SampleBuffer` under the forecasters' rules. A forecast becomes due when
+the 30th sample after it is taken.
+- **A gap:** a buffer reset, after any gap over 3 s, drops every pending
+  forecast. Its minute is broken, and it is never matched to the nearest
+  observation.
+- **A refused sample:** it does not count toward the 30.
+- **A restart:** it starts empty, so runs never pair.
+- **Why not by clock:** a replay's time is video time, a camera's a monotonic
+  clock, and the server's a third.
+
+**On the wire.**
+- **The topic:** `stms/{id}/forecast/check`, QoS 0, one `ForecastCheck` per
+  completed pair. It carries the session, the edge times, each side's model,
+  and per approach the forecast and observed class and count.
+- **What stays unchanged:** the forecast payloads. The check runs after both
+  forecasts are published, in its own `try` block, and a fault there is
+  counted and logged, never raised.
+- **Missing values:** an approach either side lacks is absent, never zero.
+
+**On the server.**
+- **Storage:** checks are stored apart from the forecasts and kept one hour,
+  pruned by an indexed range delete on each store.
+- **The read:** `GET /forecast_check/{id}/recent` returns the latest
+  session's last 20 minutes.
+  - **On a fixed grid:** the minutes sit on a fixed one-minute grid of edge
+    time. Each minute is represented by its first check, made within 3 s of
+    the minute's start, the longest step the edge's window keeps, so chosen
+    checks are 60 s apart to within 3 s.
+  - **Cells never change:** a cell never changes once drawn.
+  - **What the live run found:** the first version anchored the spacing on
+    the newest check. Each 2 s poll then chose a different set of minutes,
+    and the cells reshuffled under the viewer. Two reads 62 s apart now
+    return identical cells.
+- **Broken minutes:** a minute whose start has no check is a gap slot, never
+  skipped and never filled from another minute. A check made mid-minute
+  does not stand in, because its forecast would overlap the previous one's.
+- **The summary:** per approach, "classes agreed k of n" and the mean absolute
+  count difference over n. The two denominators are kept apart, and there is
+  never a percentage.
+- **Staleness:** a check older than the 10 s link timeout is stale.
+
+**On the page (Live, under the drawing).**
+- **The row:** one row per approach, one cell per checked minute, oldest
+  left.
+- **The cells:** filled means the class agreed, crossed means it did not, a
+  dashed outline is a broken minute, and a dash means not checkable. It is
+  shape, never a class colour.
+- **The label:** ADR-014's wording, as amended by its D26 note: "over the last
+  20 checked minutes. Not a benchmark: the observed values come from the same
+  detector counts the forecasts are made from".
+- **The limits stated beside it:**
+  - not accuracy;
+  - not MFSTNet;
+  - this camera and these minutes only;
+  - no forecast drives a signal.
+- **States, each with its own text:**
+  - warming up, said only while the heartbeat is fresh;
+  - not reported;
+  - unreachable;
+  - invalid, which includes a server summary that disagrees with its own
+    slots;
+  - stale, shown at full contrast and never dimmed.
+
+**ADR-014.** A dated note records the two wording changes and why; the rule
+itself is unchanged:
+- "the model was trained on": persistence is not trained;
+- "the last 20 predictions": 20 consecutive forecasts cover only 40 s.
+
+**Forecasts still pending when a session ends are discarded without a check.**
+An incomplete target window is treated as neither agreement nor disagreement.
+
+**What it is not.**
+- **Not accuracy:** both sides come from one detector's counts, not
+  human-verified traffic (A32).
+- **Not MFSTNet, and not C2.**
+- **Not general:** not other cameras, not Indian traffic (the `domain` claim
+  stays red), and not a comparison with a baseline.
+- **Not signal timing:** no forecast drives a signal (P97a).
+
+**Tests.**
+- **Server side:** `tests/test_forecast_check.py`, 38 tests, covering:
+  - the contract;
+  - pairing exactly to the P105 target on a random series;
+  - a gap at three positions;
+  - a refused sample, and a missing approach;
+  - a class without a count, a restart, and the one-minute grid by edge time;
+  - a cell that never changes once drawn, and a mid-minute check that is a gap;
+  - gap slots, separate denominators and sessions;
+  - staleness and retention;
+  - independence from the forecast history;
+  - the write token, and the ingest.
+- **Edge runs:** two more tests:
+  - checks reach the wire with the run's session;
+  - a crashing checker leaves both forecasts publishing exactly as before.
+- **Dashboard:** 85 tests in all.
+- **A defect the review's question found:** the tolerance was first 2 s, and
+  no test covered jitter. Replay steps are exactly 2 s, so the live run could
+  not show it. At 2.3 s or 2.7 s steps, which the edge treats as healthy, the
+  ribbon drew false broken minutes. A test over steps of 1.9 to 3.0 s failed
+  before the fix, and another ties the tolerance to `max_gap_s`.
+- **Not yet shown:** a real camera. Jitter is tested on synthetic times only
+  (S65).
+- **Mutation check:** 23 protections, each broken once; the suites caught 23
+  of 23.
+- **Live run:** `demo_e2e.py --live 5` on Bellevue footage, over MQTT.
+  - **Checks:** made at 60, 120 and 180 s of video, each class compared on
+    all four approaches, and counts from the 120 s check on. The count
+    starts later because ridge needs 60 samples.
+  - **The summary:** read "class agreed 2 of 3" with its counts over 2.
+  - **Stale:** after the last minute of footage, the ribbon read "No new
+    check for 34 s".
+  - **Layout:** no contrast failure, and nothing overflows at 1280 or at the
+    narrowest window.

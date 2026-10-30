@@ -5,9 +5,11 @@
 Subscribes to `stms/+/congestion/prediction`, since ADR-027
 `stms/+/count/forecast`, since D21 the observed per-lane counts on
 `stms/+/+/vehicle_count`, and since D22 the edge's heartbeat on
-`stms/+/system/heartbeat`, which names its source and lane map. Every message
-goes to the store function its HTTP endpoint uses (`store_prediction`,
-`store_count_forecast`, `store_vehicle_count`, `store_heartbeat`), so a
+`stms/+/system/heartbeat`, which names its source and lane map, and since D26
+the forecast checks on `stms/+/forecast/check`. Every message goes to the
+store function its HTTP endpoint uses (`store_prediction`,
+`store_count_forecast`, `store_vehicle_count`, `store_heartbeat`,
+`store_forecast_check`), so a
 payload refused over HTTP is refused over MQTT too. The intersection id, and for counts the lane, are read from the topic,
 which the contract renders, never from the payload.
 
@@ -45,7 +47,8 @@ __all__ = ["PredictionIngest", "serve_until_stopped", "stop_on_signals", "subscr
 log = logging.getLogger(__name__)
 
 
-INGESTED = (Topic.PREDICTION, Topic.COUNT_FORECAST, Topic.VEHICLE_COUNT, Topic.HEARTBEAT)
+INGESTED = (Topic.PREDICTION, Topic.COUNT_FORECAST, Topic.VEHICLE_COUNT, Topic.HEARTBEAT,
+            Topic.FORECAST_CHECK)
 
 
 #: What the records and the log say instead of a topic that did not route. The
@@ -134,8 +137,8 @@ class PredictionIngest:
         client.subscribe([(render_any(t, "+"), t.qos) for t in INGESTED])
 
     def _on_message(self, client, userdata, message):
-        from server.app import (store_count_forecast, store_heartbeat, store_prediction,
-                                store_vehicle_count)
+        from server.app import (store_count_forecast, store_forecast_check, store_heartbeat,
+                                store_prediction, store_vehicle_count)
 
         # The topic is named in records and logs only once it has routed, as
         # the contract re-renders it from a checked id; until then it is
@@ -151,7 +154,8 @@ class PredictionIngest:
                 label = which.render(identifier)
                 store = {Topic.PREDICTION: store_prediction,
                          Topic.COUNT_FORECAST: store_count_forecast,
-                         Topic.HEARTBEAT: store_heartbeat}[which]
+                         Topic.HEARTBEAT: store_heartbeat,
+                         Topic.FORECAST_CHECK: store_forecast_check}[which]
                 store(identifier, message.payload)
             self.stored += 1
             self.arrivals.append(time.perf_counter())

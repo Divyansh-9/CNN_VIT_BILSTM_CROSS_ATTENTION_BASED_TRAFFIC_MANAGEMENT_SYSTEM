@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Agreement } from "./Agreement.jsx";
 import { ObservedCounts } from "./Analytics.jsx";
 import styles from "./App.module.css";
 import { Icon } from "./icons.jsx";
@@ -57,6 +58,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
   const countHistory = usePoll(`/count_forecast/${id}/history`, HISTORY_MS, fetcher);
   const observed = usePoll(`/vehicle_count/${id}/history?window=${countWindow}`, COUNTS_MS, fetcher);
   const heartbeat = usePoll(`/heartbeat/${id}/latest`, REFRESH_MS, fetcher);
+  const checks = usePoll(`/forecast_check/${id}/recent`, REFRESH_MS, fetcher);
   // D22: the edge's lane map, from any valid heartbeat. It is configuration,
   // so a stale heartbeat still says how the lanes were mapped.
   const beat = heartbeat.status === "ok" ? validateHeartbeat(heartbeat.data) : null;
@@ -64,6 +66,8 @@ export default function App({ fetcher, search = window.location.search, hash = w
   // D23: only a valid heartbeat that has gone stale says the edge is silent.
   // No heartbeat at all is unknown, and claims nothing.
   const edgeSilentFor = beat?.ok && beat.data.stale ? beat.data.age_s : null;
+  // D26: no check yet reads as warming up only while the edge is reporting.
+  const edgeLive = Boolean(beat?.ok && !beat.data.stale);
   return (
     <main className={styles.page}>
       <header className={styles.top}>
@@ -95,6 +99,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
             </div>
             <Intersection cls={cls} count={count} />
           </div>
+          <Agreement state={checks} edgeLive={edgeLive} />
           <p className={styles.warning} data-p97a="true">
             Display only: neither forecast is connected to signal timing. In the controller's state,
             0.0 means an approach has no forecast and LOW is encoded as 1/3 (ADR-020 as amended,

@@ -293,6 +293,19 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     connection.execute(
         "CREATE INDEX IF NOT EXISTS vehicle_counts_at "
         "ON vehicle_counts (intersection_id, at)")
+    # D26: forecast checks (ADR-014 §2), kept apart from the forecasts so that
+    # neither history depends on the other, and bounded by age on their own.
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS forecast_checks (
+            at REAL NOT NULL,
+            intersection_id TEXT NOT NULL,
+            session TEXT NOT NULL,
+            made_ts REAL NOT NULL,
+            payload TEXT NOT NULL
+        )""")
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS forecast_checks_at "
+        "ON forecast_checks (intersection_id, at)")
     # D22: the edge's latest heartbeat, one row per intersection. It says what
     # the edge counts from and which approach each lane feeds; only the latest
     # is ever asked for, so nothing accumulates.
@@ -727,6 +740,127 @@ def latest_heartbeat(intersection_id: str) -> dict:
             "source": dict(payload.source) if payload.source else None,
             "lanes": dict(payload.lanes) if payload.lanes else None,
             "note": HEARTBEAT_NOTE}
+
+
+#: D26: checks arrive one per 2 s step and the page reads the last 20 minutes,
+#: so an hour is kept: enough, and bounded without a scheduler.
+CHECK_RETENTION_S = 3600
+CHECK_SPACING_S = 60
+CHECK_SLOTS = 20
+AGREEMENT_LABEL = ("Rolling agreement with auto-labels over the last 20 checked minutes. "
+                   "Not a benchmark — the observed values come from the same detector counts "
+                   "the forecasts are made from. Benchmark figures are in Results.")
+AGREEMENT_LIMITS = ("Not accuracy: both sides come from one detector's counts, not "
+                    "human-verified traffic. These are the live persistence and ridge "
+                    "forecasts, not MFSTNet; this camera and these minutes only; no forecast "
+                    "drives a signal (P97a).")
+
+
+def store_forecast_check(intersection_id: str, raw: str | bytes):
+    """Validate one encoded `ForecastCheck` and store it (D26). The single entry
+    point over HTTP and over MQTT alike. Checks older than an hour are removed
+    on each store, by an indexed range delete."""
+    check_intersection_id(intersection_id)
+    payload = decode(Topic.FORECAST_CHECK, raw)
+    now = time.time()
+    with closing(connect()) as connection:
+        connection.execute("INSERT INTO forecast_checks VALUES (?,?,?,?,?)",
+                           (now, intersection_id, payload.session, payload.made_ts,
+                            payload.encode()))
+        connection.execute("DELETE FROM forecast_checks WHERE intersection_id = ? AND at < ?",
+                           (intersection_id, now - CHECK_RETENTION_S))
+        connection.commit()
+    return payload
+
+
+@app.post("/forecast_check/{intersection_id}", dependencies=WRITE)
+def forecast_check(intersection_id: str, raw: str = Body(..., media_type="text/plain")) -> dict:
+    """One `ForecastCheck`, exactly as the edge encoded it: the HTTP stand-in
+    for the MQTT topic, with the same validation."""
+    try:
+        payload = store_forecast_check(intersection_id, raw)
+    except ContractError as error:
+        raise HTTPException(422, str(error)) from error
+    return {"intersection_id": intersection_id, "session": payload.session}
+
+
+#: A minute is represented by a check made within this long of its start: the
+#: longest step the edge's window keeps (`SampleBuffer.max_gap_s`), so a healthy
+#: stream always has one, however its steps jitter. At exactly 2 s a camera's
+#: 2.3 s steps drew false gaps. Chosen checks are 60 s apart to within 3 s, so
+#: their minutes overlap by at most 3 s of samples.
+CHECK_GRID_S = 3.0
+
+
+def space_checks(checks: list) -> list[dict]:
+    """The last `CHECK_SLOTS` minutes of one session, oldest first (D26).
+
+    On a fixed one-minute grid of the edge's own sample time, never of
+    arrival: each minute is represented by its first check, made within
+    `CHECK_GRID_S` of the minute's start. The grid is absolute, so a cell never
+    changes once drawn, whatever arrives later or is pruned. A minute whose
+    start has no check (a gap reset the edge's window there) is a gap slot,
+    never skipped and never filled, so the row cannot look continuous when it
+    was not. The row starts at the first minute with a check, so warming up
+    is not drawn as a gap."""
+    first: dict[int, object] = {}
+    for check in checks:
+        minute = int(check.made_ts // CHECK_SPACING_S)
+        if check.made_ts - minute * CHECK_SPACING_S < CHECK_GRID_S and (
+                minute not in first or check.made_ts < first[minute].made_ts):
+            first[minute] = check
+    if not first:
+        return []
+    newest = int(max(c.made_ts for c in checks) // CHECK_SPACING_S)
+    slots = []
+    for minute in range(max(min(first), newest - CHECK_SLOTS + 1), newest + 1):
+        check = first.get(minute)
+        slots.append({"kind": "gap"} if check is None else
+                     {"kind": "check", "made_ts": check.made_ts, "checked_ts": check.checked_ts,
+                      "classes": {a: dict(p) for a, p in check.classes.items()},
+                      "counts": {a: dict(p) for a, p in check.counts.items()}})
+    return slots
+
+
+def agreement_summary(slots: list[dict]) -> dict:
+    """Per approach, two separate denominators: classes agreed k of n, and the
+    mean absolute count difference over n. Never a percentage."""
+    out = {}
+    for a in APPROACHES:
+        cls = [s["classes"][a] for s in slots if s["kind"] == "check" and a in s["classes"]]
+        cnt = [s["counts"][a] for s in slots if s["kind"] == "check" and a in s["counts"]]
+        if not cls and not cnt:
+            continue
+        out[a] = {"class": {"agreed": sum(p["forecast"] == p["observed"] for p in cls), "n": len(cls)},
+                  "count": {"mean_abs_diff": round(sum(abs(p["forecast"] - p["observed"]) for p in cnt)
+                                                   / len(cnt), 2) if cnt else None, "n": len(cnt)}}
+    return out
+
+
+@app.get("/forecast_check/{intersection_id}/recent")
+def recent_forecast_checks(intersection_id: str) -> dict:
+    """D26, ADR-014 §2: the latest session's checks, a minute apart, with the
+    agreement over them. 404 when there are none, which the page reads as
+    warming up or not reported, never as agreement or as zero."""
+    valid_id(intersection_id)
+    with closing(connect()) as connection:
+        latest = connection.execute(
+            "SELECT at, session FROM forecast_checks WHERE intersection_id = ? "
+            "ORDER BY at DESC LIMIT 1", (intersection_id,)).fetchone()
+        if latest is None:
+            raise HTTPException(404, "no forecast check for this intersection yet")
+        rows = connection.execute(
+            "SELECT payload FROM forecast_checks WHERE intersection_id = ? AND session = ?",
+            (intersection_id, latest[1])).fetchall()
+    checks = [decode(Topic.FORECAST_CHECK, r[0]) for r in rows]
+    slots = space_checks(checks)
+    newest = max(checks, key=lambda c: c.made_ts)
+    age = time.time() - latest[0]
+    return {"intersection_id": intersection_id, "session": latest[1],
+            "age_s": round(age, 1), "stale": age > SafetyLimits().mqtt_timeout_s,
+            "class_model": newest.class_model, "count_model": newest.count_model,
+            "spacing_s": CHECK_SPACING_S, "slots": slots, "summary": agreement_summary(slots),
+            "label": AGREEMENT_LABEL, "limits": AGREEMENT_LIMITS}
 
 
 RESULTS = Path("experiments/results/bellevue_pilot")
