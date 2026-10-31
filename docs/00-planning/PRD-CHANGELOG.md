@@ -11761,3 +11761,85 @@ on purpose, so it is recorded here rather than folded in.
   run."
 - **Not captured in a browser:** the first-cell note lasts about 2 s on a
   replay, so it is covered by the component tests only.
+
+## D28 — a repeatable demonstration: one recorded clip through the deployed path (2026-10-30)
+
+Approved by the reviewers for the college demonstration. It adds no forecasting,
+no signal logic and no dashboard mode. `scripts/demo_live.py` adds a menu, a
+readiness gate and a run sheet to `demo_e2e.py`'s `Stack`, and everything it runs
+is the deployed path.
+
+**Only clips that can run are offered.**
+- **What qualifies:** a camera needs thresholds in the frozen persistence spec and
+  lane geometry covering the stack's lane map. Today that is 150th Eastgate,
+  Newport and SE38th, 13 clips.
+- **The calibration hour is left out,** read from the spec, so a demonstration
+  never runs on the hour its thresholds came from.
+- **The footage is not bundled:** its licence is unresolved, and nothing is copied
+  from the clips folder.
+
+**Nothing starts on a stack that is not ready.**
+- **A busy port is refused first.** Otherwise an old server's `/health` answers for
+  a stack that never started.
+- **The ingest must carry a message.** A started process proves nothing, so one
+  heartbeat goes through TLS, the broker, the ingest and the store, on a reserved
+  id, and is read back from the API before the edge starts.
+- **Each failure names the part.** The edge does not start, and the exit status is 1.
+
+**The run reports what actually happened.** It marks each milestone as the API first
+shows it, and a replay that ends short of one is a failed run. An edge that never
+reports is stopped. After the footage ends, the page stays up for `--hold` seconds
+with a countdown, because the streams going stale are part of the story.
+
+**Clip length.** Under 5 minutes is refused. Measured on the rehearsed clip:
+
+| Time | Milestone |
+|---|---|
+| 4 s | the stack is ready |
+| 12 s | the edge reports a replay |
+| 68 s | first class forecast |
+| 128 s | first count forecast |
+| 130 s | first ribbon cell |
+| 190 s | first count comparison |
+| 428 s | the 7 minutes of footage end |
+
+**Cleaning up.** Every ending stops what this run started, including an interrupt. A
+database already at `data/server/stms.sqlite` is moved aside and put back, which
+`demo_e2e.py` does not do: it deletes it.
+
+**The run sheet** says what to tell an evaluator:
+- it is a replay, and S65 is not done;
+- it forecasts traffic and does not predict or control the signal (P97a);
+- the ribbon is agreement with the detector's own counts, not accuracy;
+- do not restart the edge during the demo (the D27 gap).
+
+It also offers the clip's path to open in a video player beside the page, only if
+the guide has cleared showing this footage. That is a local file, so no frame
+crosses the network (NFR-13). The dashboard itself still shows no video.
+
+**What it does not establish:** the same as `demo_e2e.py`. Not a live camera, not
+accuracy, not Indian traffic, not a fresh machine.
+
+**Tests.**
+- **Unit:** `tests/test_demo_live.py`, 26 tests with a fake stack, headless:
+  - the menu, and refused selections;
+  - a busy port and a too-short clip;
+  - each part failing, named, with the edge not started;
+  - a failing edge, and a missing milestone;
+  - every ending stops what it started and restores the database.
+- **Mutation check:** 18 protections, each broken once; the suite caught 18 of 18.
+  - **Two got through at first:** the fixture hid the menu order, and a later check
+    masked a dead part. Both tests were strengthened.
+  - **One hung the runner:** a mutation that loops forever. It now has a timeout,
+    and refuses to score at all unless the unmodified code passes.
+- **Real stack, over Mosquitto with TLS, 5 of 5 scenarios:**
+  - a broker that never listens: named, edge not started;
+  - an ingest that does nothing: named after 60 s, edge not started;
+  - an interrupt mid-replay: exit 130;
+  - full 5-minute runs on Newport and SE38th, all milestones reached.
+
+  Each left the ports free and no database behind.
+- **Rehearsal:** the default 7 minutes on the rehearsed clip, exit 0, about 8 minutes
+  in all. No stack process was left running.
+- **Not done:** a rehearsal in front of anyone, or on another machine. The video
+  player beside the page was not exercised.

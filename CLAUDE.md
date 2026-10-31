@@ -534,6 +534,12 @@ python scripts/verify_counting.py                               # counting != de
 python scripts/evaluate_detector_arms.py --weights <pt>         # A31 viewpoint arms
 ```
 
+**To demonstrate the system,** run `python scripts/demo_live.py --mosquitto <exe> --clips-root <dir>`
+(D28; `--list` shows the clips). It offers only clips that can run, proves the
+broker and ingest work before the edge starts, and prints a run sheet. It takes
+about 8 minutes, and under 5 minutes of footage is refused because the ribbon
+would be empty. It is a replay, not S65, and it forecasts traffic, not the signal.
+
 ONNX export, the FastAPI control server and the edge node all exist —
 `server/app.py`, `server/safety.py`, `edge/node.py`, `contracts/mqtt.py`. The
 deployed edge path runs as `python -m edge.run` (D3; `--help` lists the flags,
