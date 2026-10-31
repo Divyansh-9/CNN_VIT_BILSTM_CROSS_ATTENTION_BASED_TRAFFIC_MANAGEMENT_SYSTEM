@@ -132,9 +132,18 @@ def print_menu(clips: list[Clip]) -> None:
 
 
 def port_free(port: int) -> bool:
+    """Whether this port could be bound now, which is what starting a service needs.
+    Connecting cannot say: a socket bound but not listening refuses, and so, measured
+    on Windows, did a listener with a backlog of 1 (D30). This is a snapshot: a service
+    that loses the port afterwards exits, and `readiness` names it."""
     with socket.socket() as probe:
-        probe.settimeout(1.0)
-        return probe.connect_ex(("127.0.0.1", port)) != 0
+        if os.name != "nt":          # POSIX: a closed socket's TIME_WAIT is not a holder.
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # On Windows this would allow a hijack.
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
 
 
 def connect_broker(stack):

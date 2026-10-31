@@ -269,6 +269,7 @@ has environment setup and the pinned `requirements.txt`.
 python scripts/check_env.py          # BEFORE pip install -r requirements.txt
 python -m pytest                     # whole suite (config in pyproject.toml)
 python -m pytest tests/test_lanes.py::test_far_points_are_unassigned_not_snapped
+python scripts/check_deployment.py   # AFTER install: can this machine, camera and source run it (D30)
 python scripts/check_docs.py         # link/claim integrity, stdlib only, runs in CI
 python scripts/check_build_log.py    # the status board against what is on disk
 python scripts/check_claims.py       # every paper claim against the corpus

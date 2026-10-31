@@ -11917,3 +11917,67 @@ accuracy, not Indian traffic, not a fresh machine.
   could see an abort instead of the 403 and its reason. The body is now read before
   any refusal, up to 1 MiB. It had failed 2 runs of 3, and then 0 of 25.
 - **Not done:** a run on the presentation laptop, or in front of anyone.
+
+## D30 — a deployment preflight, and what stops STMS being general (2026-10-31)
+
+The owner's direction: STMS is to be judged as a system others can deploy, not around
+one demonstration. `scripts/check_deployment.py` asks whether this machine can run it,
+and whether this camera and source can run on it. `scripts/check_env.py` still comes
+first: it runs on a bare interpreter before anything is installed.
+
+**Two levels.** Without `--source` it checks the installation: runtime, packages,
+detector, frozen specs, configured cameras, broker, dashboard build, storage and ports.
+With `--source`, `--camera` and `--approaches` it also checks that exact combination.
+`--source camera` reads `STMS_CAMERA_URL`, and the URL is never printed or put on a
+command line.
+
+**Each line is only as strong as what was done.** A FAIL is `missing`, `invalid` or
+`unreachable`. A file that exists is reported apart from a model that loaded. `--quick`
+reports what it skipped as NOT CHECKED and the result line counts them. A camera stream
+that gives a frame passes that and no more: its timing is S65's to measure.
+
+**It does not repeat the edge's rules.** The camera level calls `edge.run.parse_args` and
+builds both forecasters, so it refuses what the edge would, in the edge's words.
+
+**READY is not proof.** It means nothing was found that stops it starting. The report
+says so, and points to `demo_e2e.py` for the path working, S67 for forecast quality and
+S65 for a camera's timing.
+
+**A defect it found in earlier work.** `demo_live.port_free` (D28), used by the launcher
+(D29), asked whether a connection was accepted. Measured on Windows from another
+process, a listener with a backlog of 1 read as free while one with a backlog of 16 did
+not, and a socket bound but not listening refuses connections too. Why backlog 1 refused
+was not established. The unit test had missed it because it held the port differently.
+A port is now free only if it can be bound, and backlogs 1 and 16 both read as held.
+This is a snapshot, not a reservation: another process can take the port afterwards.
+A service that loses the race exits, and `readiness` names it (D28).
+
+**Rejected: the reviewers' `scripts/deployment/` package and a second entry point.** One
+file with one entry point holds this. A package can follow if a second caller appears.
+
+**What stops STMS being general, recorded rather than fixed here.**
+- **The lane map is a convention, not a fact.** `lane_0=N lane_1=S lane_2=E lane_3=W` is
+  a default in `demo_e2e.py`, `benchmark_decode.py` and `benchmark_live.py`. Nothing on
+  record shows those lanes feed those approaches on the Bellevue cameras, so the compass
+  letters on the dashboard for them are labels, not established directions. The
+  preflight warns on every run. The forecasts are per lane and do not depend on the
+  letters.
+- **A camera has no single configuration.** Its lanes are in a corpus manifest or a
+  reviewed lane file, its thresholds in the frozen persistence spec, and its lane map on
+  a command line. Nothing declares them as one thing.
+- **There is no path for adding a camera.** Placing lanes, importing them and
+  `edge.persistence.calibrate` exist as separate parts. Adding thresholds changes the
+  frozen spec, and so the model id.
+- **Evidence is three cameras of one road network.** All of it is Bellevue, and the
+  `domain` claim stays red. Ridge is level-free by design (P103, P105), and that was
+  measured on these cameras only.
+
+**Tests.**
+- **Unit:** `tests/test_check_deployment.py`, 48 pass and 2 skip (one needs POSIX, one a
+  real Mosquitto), including a real clip decoded with no frame written.
+- **Mutation check:** 21 protections, each broken once; the suite caught 21 of 21.
+- **Real, on this machine:** the installation level, READY with 2 warnings; a good
+  combination; the calibration hour warned; a camera with no lanes and an unknown camera
+  refused; a dead stream `unreachable` after 20 s with its URL's password absent from
+  the output; a held port blocked and named.
+- **Not done:** another machine, and a real camera stream.
