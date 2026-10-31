@@ -166,6 +166,25 @@ def test_a_moved_lane_voids_all_of_it(tmp_path):
     assert not p.evidence("direction") and not p.evidence("replay") and not p.evidence("live")
 
 
+def test_a_wider_lane_radius_voids_all_of_it(tmp_path):
+    path = with_all_evidence(tmp_path)
+    rewrite(path, lambda r: r["geometry"].update(max_radius=0.3))
+    p = load(path)
+    assert not p.evidence("direction") and not p.evidence("replay") and not p.evidence("live")
+
+
+def test_new_thresholds_void_what_was_counted_and_leave_direction(tmp_path):
+    path = with_all_evidence(tmp_path)
+    other = tmp_path / "spec_2.json"
+    other.write_bytes(json.dumps({"cameras": {"cam_a": {"low": 3, "med": 5, "lanes": 2}}}).encode())
+    digest = hashlib.sha256(other.read_bytes()).hexdigest()
+    rewrite(path, lambda r: r["calibration"].update(persistence_spec="spec_2.json", spec_sha256=digest))
+    p = load(path)
+    assert p.evidence("direction") and p.directions_verified
+    assert not p.evidence("replay") and p.stale_evidence("replay")
+    assert not p.evidence("live") and p.stale_evidence("live")
+
+
 def test_new_limitations_or_provenance_void_nothing(tmp_path):
     path = with_all_evidence(tmp_path)
     rewrite(path, lambda r: r["limitations"].append("a note"))
