@@ -11843,3 +11843,77 @@ accuracy, not Indian traffic, not a fresh machine.
   in all. No stack process was left running.
 - **Not done:** a rehearsal in front of anyone, or on another machine. The video
   player beside the page was not exercised.
+
+## D29 — "Try a clip": a page that starts the demonstration, outside the product (2026-10-31)
+
+The owner asked for a browser option where an evaluator picks a video and sees the
+forecasts. The reviewers proposed `GET /demo/clips` and `POST /demo/run` on the
+server, with a Try a Clip section in the dashboard.
+
+**Rejected: endpoints on the server and a section in the dashboard.**
+- **The server cannot do it.** Its image holds no detector, no OpenCV and no footage,
+  and the edge is not part of its stack (ADR-003).
+- **The browser cannot ask.** Writes need a token the page does not hold (D9).
+- **The dashboard must not.** It is read-only by construction, its tests fail on any
+  POST, and it says "this page cannot send commands". Adding a run button would make
+  that sentence false.
+- **A read-only clip list first** would show an evaluator a dropdown that does nothing.
+
+**Built instead: `scripts/demo_launcher.py`.** A separate process on the laptop that
+holds the footage, which exists only for the demonstration. It serves one page and
+runs `demo_live.py` on the chosen clip. Nothing in `server/` or `dashboard/` changes,
+and a test pins that neither gains a way to start a run.
+
+**Rejected: video upload.** Frames would cross the network (NFR-13), and an unknown
+video could not run anyway: a camera needs lane geometry and calibrated thresholds.
+
+**What crosses the browser:** a clip's number from the list, and text about the run.
+Never a path, and never a frame.
+
+**Another site cannot start a run.** It binds to 127.0.0.1 only. A request is refused
+unless its Host names this address, so DNS rebinding gets nowhere, and its Origin, if
+any, is this page. A POST must be JSON, which a cross-site form cannot send, and is
+bounded in size. A clip must be a whole number on the list.
+
+**The D27 gap cannot occur here.** Every run starts a new stack with a new database, so
+the previous run's forecast is gone before the next begins. So the forecast messages
+did not need a session id for this, and they stay unchanged. The gap remains on a
+long-running server (D27).
+
+**The page says what is happening:** starting the pipeline, warming up, forecasts
+available, replay finished, stopping, stopped, finished, or failed with the reason.
+Each step shows its expected range until it happens, then its real time. The Open the
+dashboard link appears only once the stack is ready. After the footage ends the stack
+stays up for 15 minutes, for explaining, unless Stop is pressed.
+
+**Timing, corrected.** The real runs had the edge reporting at 25 to 57 s on a cold
+start, not the 12 s of D28's rehearsal, with the first class forecast up to 101 s.
+So the page gives ranges, and `demo_live.py`'s run sheet says the times follow the
+edge reporting.
+
+**What it does not establish:** the same as `demo_live.py`. Not a live camera, not
+accuracy, not Indian traffic, not a fresh machine.
+
+**Tests.**
+- **Unit:** `tests/test_demo_launcher.py`, 34 tests over real HTTP on a real socket,
+  with a fake run:
+  - no path reaches the browser;
+  - only a number on the list starts a run, and a second run or a busy port is refused;
+  - another site's Host or Origin, and a cross-site form, are refused;
+  - the status at every stage, failure, Stop, and a new run after each;
+  - the page's wording and its colours;
+  - the product gains no way to start a run.
+- **Mutation check:** 19 protections, each broken once; the suite caught 19 of 19. The
+  size limit first got through, because the oversized test body was also invalid JSON.
+- **Real stack, in a real browser, over Mosquitto with TLS:**
+  - a full 5-minute run on Eastgate from the page, every step reached, no contrast
+    failure;
+  - a run stopped at 125 s and another started on the same page: the new run's first
+    forecast came at 72 s, so the old one was gone;
+  - a second run refused with 409, and another site's Host with 403;
+  - Stop, and Ctrl+C on the launcher mid-run: ports free, no database, no process left.
+- **A flaky test found a real bug.** A refusal replied without reading the request
+  body, and closing with unread data resets the connection, so on Windows a client
+  could see an abort instead of the 403 and its reason. The body is now read before
+  any refusal, up to 1 MiB. It had failed 2 runs of 3, and then 0 of 25.
+- **Not done:** a run on the presentation laptop, or in front of anyone.

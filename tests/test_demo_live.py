@@ -343,7 +343,7 @@ def test_every_ending_stops_what_it_started_and_restores_the_database(tmp_path, 
     monkeypatch.setattr(demo_live, "DATABASE", database)
     monkeypatch.setattr(demo_live, "Stack", CleanupStack)
 
-    def run(_args, stack):
+    def run(_args, stack, sleep=None):
         stack.start_broker(), stack.start_server(), stack.start_ingest()
         database.write_text("this demo's store", encoding="utf-8")
         if outcome is KeyboardInterrupt:
@@ -360,6 +360,6 @@ def test_with_no_earlier_database_none_is_left_behind(tmp_path, monkeypatch):
     database = tmp_path / "stms.sqlite"
     monkeypatch.setattr(demo_live, "DATABASE", database)
     monkeypatch.setattr(demo_live, "Stack", CleanupStack)
-    monkeypatch.setattr(demo_live, "run_demo", lambda _a, _s: database.write_text("x", encoding="utf-8") and 0)
+    monkeypatch.setattr(demo_live, "run_demo", lambda _a, _s, sleep=None: database.write_text("x", encoding="utf-8") and 0)
     assert demo_live.run_with_cleanup(SimpleNamespace()) == 0
     assert not database.exists()

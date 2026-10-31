@@ -205,6 +205,7 @@ def run_sheet(clip: Clip, minutes: float, url: str) -> str:
         "    about 2 min   first count forecast; first ribbon cell (class only)",
         "    about 3 min   first count comparison in the ribbon",
         "    each minute   one more ribbon cell",
+        "    (these follow the edge reporting a replay, which took 12 to 57 s; a cold start is the slow end)",
         "",
         "  If asked about the ribbon: it is agreement with the detector's own later counts, not accuracy.",
         "  Do not restart the edge during the demo: for up to 60 s the old forecast can look fresh (D27).",
@@ -336,17 +337,18 @@ def main(argv: list[str] | None = None) -> int:
     return run_with_cleanup(args)
 
 
-def run_with_cleanup(args) -> int:
-    """Stops only what this run started, and puts an existing database back."""
+def run_with_cleanup(args, stack_class=None, sleep=time.sleep) -> int:
+    """Stops only what this run started, and puts an existing database back.
+    `stack_class` and `sleep` let `demo_launcher` report and stop a run."""
     aside = DATABASE.with_name(DATABASE.name + ".before-demo")
     if DATABASE.exists():
         os.replace(DATABASE, aside)
     # ignore_cleanup_errors: on Windows a log can still be held as the last child exits.
     with tempfile.TemporaryDirectory(prefix="stms-demo-", ignore_cleanup_errors=True) as tmp:
-        stack = Stack(args, Path(tmp))
+        stack = (stack_class or Stack)(args, Path(tmp))
         try:
             stack.prepare_broker()
-            return run_demo(args, stack)
+            return run_demo(args, stack, sleep=sleep)
         except KeyboardInterrupt:
             stack.mark("interrupted; stopping what this run started")
             return 130

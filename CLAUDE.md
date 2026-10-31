@@ -539,6 +539,10 @@ python scripts/evaluate_detector_arms.py --weights <pt>         # A31 viewpoint 
 broker and ingest work before the edge starts, and prints a run sheet. It takes
 about 8 minutes, and under 5 minutes of footage is refused because the ribbon
 would be empty. It is a replay, not S65, and it forecasts traffic, not the signal.
+`python scripts/demo_launcher.py` does the same from a browser page (D29): a
+separate process on 127.0.0.1, deliberately not a dashboard section or a server
+route, because the dashboard is read-only and the server holds no detector or
+footage. Every run gets a new stack and database.
 
 ONNX export, the FastAPI control server and the edge node all exist —
 `server/app.py`, `server/safety.py`, `edge/node.py`, `contracts/mqtt.py`. The
