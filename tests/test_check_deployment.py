@@ -57,8 +57,14 @@ def test_the_exit_status_follows_the_result(monkeypatch, capsys):
     assert data["result"].startswith("BLOCKED") and data["checks"][0]["kind"] == MISSING
 
 
+def test_a_profile_beside_a_camera_is_refused(capsys):
+    with pytest.raises(SystemExit):
+        cd.main(["--source", "x.mp4", "--profile", "p.json", "--camera", "c"])
+    assert "already says" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("partial", [["--source", "x.mp4"], ["--camera", "c"], ["--approaches", "a=N"],
-                                     ["--source", "x.mp4", "--camera", "c"]])
+                                     ["--profile", "p.json"], ["--source", "x.mp4", "--camera", "c"]])
 def test_half_a_combination_is_refused_not_guessed(partial, capsys):
     with pytest.raises(SystemExit) as stop:
         cd.main(partial)
@@ -166,12 +172,29 @@ def test_missing_and_unreadable_specs_are_told_apart(tmp_path):
     assert cd.check_specs(tmp_path)[0].kind == INVALID
 
 
-def test_a_camera_without_lanes_is_a_note_at_the_installation_level(tmp_path):
-    (tmp_path / "persistence_v1.json").write_text(json.dumps({"cameras": {"a": {}, "b": {}}}), encoding="utf-8")
-    corpus = tmp_path / "corpus"
-    (corpus / "a").mkdir(parents=True)
-    (corpus / "a" / "manifest.json").write_text("{}", encoding="utf-8")
-    assert statuses(cd.check_cameras(tmp_path, corpus)) == [PASS, WARN]
+def test_no_profiles_are_missing_and_never_a_pass(tmp_path):
+    check = cd.check_cameras(tmp_path, tmp_path)[0]
+    assert (check.status, check.kind) == (FAIL, MISSING)
+
+
+def test_a_broken_profile_fails_with_its_reason_beside_the_good_ones(tmp_path):
+    (tmp_path / "bad.json").write_text("{ not json", encoding="utf-8")
+    check = cd.check_cameras(tmp_path, tmp_path)[0]
+    assert (check.status, check.kind) == (FAIL, INVALID) and "not readable JSON" in check.what
+
+
+def test_the_committed_profiles_pass_and_say_each_level_apart():
+    checks = cd.check_cameras()
+    assert statuses(checks) == [PASS, PASS, PASS]
+    for check in checks:
+        assert "direction declared" in check.what and "direction evidence none" in check.what
+        assert "replay evidence none" in check.what and "live qualification none" in check.what
+
+
+def test_stale_evidence_is_called_stale_not_absent():
+    profile = SimpleNamespace(direction_status="verified", evidence=lambda k: [],
+                              stale_evidence=lambda k: [{"kind": k}] if k == "direction" else [])
+    assert "direction evidence stale" in cd.evidence_line(profile) and "replay evidence none" in cd.evidence_line(profile)
 
 
 # -------------------------------------------------------------------- the broker --
@@ -317,6 +340,17 @@ def test_a_refusal_lists_the_cameras_that_are_configured(tmp_path, edge_ready):
 def test_no_lane_map_warning_when_the_edge_has_already_refused(tmp_path, edge_ready):
     checks = cd.selected(camera_args(tmp_path, camera="Nowhere"))
     assert not any("lane map" in c.what for c in checks)
+
+
+def test_a_committed_profile_runs_the_camera_level_with_its_weaknesses_shown(tmp_path, edge_ready):
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"x")
+    args = SimpleNamespace(source=str(clip), profile=Path("cameras/150th_Newport.json"), camera=None, approaches=None,
+                           lanes=None, intersection_id="check", quick=True)
+    checks = cd.selected(args)
+    assert checks[0].status == PASS and "150th_Newport" in checks[0].what
+    assert any(c.status == WARN and "signal housing" in c.what for c in checks)
+    assert any(c.status == WARN and "as you declared" in c.what for c in checks)
 
 
 def test_the_lane_map_is_never_passed_as_verified(tmp_path, edge_ready):

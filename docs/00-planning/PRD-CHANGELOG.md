@@ -11981,3 +11981,44 @@ file with one entry point holds this. A package can follow if a second caller ap
   refused; a dead stream `unreachable` after 20 s with its URL's password absent from
   the output; a held port blocked and named.
 - **Not done:** another machine, and a real camera stream.
+
+## D31 — camera profiles: a clean clone now knows its cameras (2026-10-31)
+
+ADR-028, accepted by the project owner, who also directed that work must not wait on anyone
+watching footage: its `declared` status exists for exactly that.
+
+**What changed.**
+- **`cameras/<camera_id>.json`, committed, one per camera.** Eastgate, Newport and SE38th, from the
+  lane centres the owner already placed and recorded (P103 Amendment 1). They equal the corpus
+  manifests exactly, and a test reads them back against the pre-registration.
+- **`edge/profile.py`, the one loader.** The edge, the preflight and the demonstration tools all use
+  it. A missing, malformed or unsupported profile fails with its reason, and so does a spec whose
+  hash does not match. Unknown fields are refused, so a stream URL has nowhere to go.
+- **`edge.run --profile`.** It fills in what `--lanes`, `--approaches`, `--camera` and
+  `--persistence-spec` would, and refuses any of them beside it. Runs without it behave as before.
+- **`demo_live`, `demo_launcher`, `check_deployment`** read profiles instead of `data/corpus_p103`.
+  `demo_e2e` verify mode still needs that corpus, for the offline counts it compares against.
+- **`scripts/camera_profile.py`** writes a profile, and records evidence by computing what it binds.
+- **`directions_verified` on the heartbeat,** optional and read as false when absent, with
+  `SCHEMA_VERSION` unchanged. It comes from the edge because the server holds no camera files.
+- **The dashboard** says "N, S, E and W are labels. Their directions have not been verified for this
+  camera." on Live and Analytics, unless the edge says true.
+
+**What the owner's lane file settled.** Its `approach` fields are blank, as P103 records. So the three
+profiles keep the existing labels with `direction: declared`. The system runs fully on that. Only the
+meaning of the letters waits, and the notice says so.
+
+**Evidence is bound to what it depends on.** Changing a lane map voids direction evidence and leaves
+replay evidence standing; moving a lane voids both; reformatting a file voids nothing. A stated
+`verified` with no matching evidence does not count.
+
+**Not established.** Replay and live evidence are empty on all three. This does not make STMS
+universal: the evidence is three cameras on one road network. Adding a camera still has no script for
+its calibration step. Publishing stays blocked on the footage's licence, not on these files.
+
+**Tests.**
+- **New:** `tests/test_camera_profile.py`, one test or more for each ADR-028 criterion; 4 dashboard
+  tests. 455 pass across the affected Python suites, 2 skip; 94 dashboard.
+- **Mutation check:** 24 protections, each broken once; the suites caught 24 of 24.
+- **Real run:** `demo_live` on Newport through `--profile`, over Mosquitto with TLS, every milestone
+  reached, the browser showing the notice.

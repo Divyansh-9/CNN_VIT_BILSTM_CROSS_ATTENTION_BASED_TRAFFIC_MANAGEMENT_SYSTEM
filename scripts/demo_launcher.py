@@ -176,7 +176,8 @@ def run_clip(args):
                 raise KeyboardInterrupt      # demo_live's own way out: it stops what it started
 
         run = SimpleNamespace(mosquitto=args.mosquitto, http_port=args.http_port, mqtt_port=args.mqtt_port,
-                              minutes=args.minutes, hold=HOLD_S, chosen=clip, clip=clip.path, camera=clip.camera)
+                              minutes=args.minutes, hold=HOLD_S, chosen=clip, clip=clip.path, camera=clip.camera,
+                              profile=clip.profile)
         return run_with_cleanup(run, stack_class=Reporting, sleep=sleep)
 
     return runner

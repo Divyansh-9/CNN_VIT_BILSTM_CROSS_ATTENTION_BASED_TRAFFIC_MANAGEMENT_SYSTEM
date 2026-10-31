@@ -8,10 +8,9 @@ It adds a menu, a readiness gate and a run sheet to `scripts/demo_e2e.py`'s
 `Stack`, and no logic of its own: the broker, the server, the ingest and
 `python -m edge.run` run exactly as deployed.
 
-**Only clips that can run are offered.** A camera needs thresholds in the frozen
-persistence spec and lane geometry in `data/corpus_p103/<camera>/`, and the edge
-refuses to start without them. The hour its thresholds were calibrated on is
-left out, so a demonstration never runs on its own calibration data.
+**Only clips that can run are offered.** A camera needs a valid profile in `cameras/`
+(ADR-028), and a clip is matched to it by name. The hour its thresholds were calibrated
+on is left out, so a demonstration never runs on its own calibration data.
 
 **Nothing starts on a stack that is not ready.** `Stack` would answer a health
 check from an old server still holding the port, so a busy port is refused
@@ -31,7 +30,6 @@ accuracy. The dashboard shows no video, and none leaves the edge (NFR-13).
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import socket
@@ -47,21 +45,19 @@ if str(ROOT) not in sys.path:
 
 from contracts.broker import PASSWORD_ENV, USERNAME_ENV, Credentials  # noqa: E402
 from contracts.mqtt import Heartbeat, Mode, Topic  # noqa: E402
+from edge.profile import PROFILES, load_profiles  # noqa: E402
 from scripts.console import use_utf8  # noqa: E402
-from scripts.demo_e2e import APPROACHES, Stack  # noqa: E402
+from scripts.demo_e2e import Stack  # noqa: E402
 
 use_utf8()
 
 __all__ = ["Clip", "NotReady", "available_clips", "main", "readiness", "run_demo", "run_sheet"]
 
-SPEC = ROOT / "experiments" / "results" / "bellevue_pilot" / "persistence_v1.json"
-CORPUS = ROOT / "data" / "corpus_p103"
 DATABASE = ROOT / "data" / "server" / "stms.sqlite"
 LIVE_ID = "live"
 PROBE_ID = "readiness-probe"
 #: The clip every integration run used, so it is offered first and marked.
 REHEARSED = "Bellevue_150th_Eastgate__2017-09-11_10-08-31"
-NAME = re.compile(r"^Bellevue_(?P<camera>.+?)__(?P<stamp>\d{4}-\d{2}-\d{2}_\d{2}-\d{2})-\d{2}$")
 CALIBRATED_ON = re.compile(r"(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})")
 MIN_MINUTES = 5.0
 DEFAULT_MINUTES = 7.0
@@ -79,36 +75,25 @@ class NotReady(RuntimeError):
 class Clip:
     path: Path
     camera: str
+    profile: Path | None = None
 
     @property
     def id(self) -> str:
         return self.path.stem
 
 
-def supported_cameras(spec_path: Path = SPEC, corpus: Path = CORPUS) -> dict[str, str | None]:
-    """Camera -> the hour its thresholds were calibrated on, for each camera with
-    thresholds and with lane geometry covering the stack's lane map."""
-    lanes = sorted(item.split("=")[0] for item in APPROACHES)
-    cameras = {}
-    for camera, entry in json.loads(spec_path.read_text(encoding="utf-8"))["cameras"].items():
-        manifest = corpus / camera / "manifest.json"
-        if not manifest.is_file():
-            continue
-        if sorted(json.loads(manifest.read_text(encoding="utf-8")).get("lanes", [])) != lanes:
-            continue
-        hour = CALIBRATED_ON.search(entry.get("source", ""))
-        cameras[camera] = f"{hour[1]}_{hour[2]}-{hour[3]}" if hour else None
-    return cameras
-
-
-def available_clips(root: Path, spec_path: Path = SPEC, corpus: Path = CORPUS) -> list[Clip]:
-    """Every clip that can run, the rehearsed one first."""
-    cameras = supported_cameras(spec_path, corpus)
+def available_clips(root: Path, profiles: Path = PROFILES, project: Path = ROOT) -> list[Clip]:
+    """Every clip that can run, the rehearsed one first. A clip belongs to a camera
+    when its name holds `<camera_id>__`, which is how recorded clips are named."""
+    good, _ = load_profiles(profiles, project)
     clips = []
     for path in root.rglob("*.mp4"):
-        name = NAME.match(path.stem)
-        if name and name["camera"] in cameras and name["stamp"] != cameras[name["camera"]]:
-            clips.append(Clip(path, name["camera"]))
+        for profile in good:
+            if f"{profile.camera_id}__" in path.stem:
+                hour = profile.calibrated_on
+                if not (hour and hour in path.stem):
+                    clips.append(Clip(path, profile.camera_id, profile.path))
+                break
     return sorted(clips, key=lambda c: (c.id != REHEARSED, c.id))
 
 
@@ -324,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
         ap.error(f"--clips-root is not a folder: {args.clips_root}")
     clips = available_clips(args.clips_root)
     if not clips:
-        ap.error(f"no clip that can run under {args.clips_root}: it needs a camera with thresholds and lane geometry")
+        ap.error(f"no clip that can run under {args.clips_root}: it needs a camera with a valid profile in cameras/")
     if args.list:
         print_menu(clips)
         return 0
@@ -342,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"NOT READY, nothing was started. {flag} {port} is already in use: stop what holds it "
                   f"(an earlier demo?) or choose another port.", file=sys.stderr, flush=True)
             return 1
-    args.clip, args.camera = args.chosen.path, args.chosen.camera
+    args.clip, args.camera, args.profile = args.chosen.path, args.chosen.camera, args.chosen.profile
     return run_with_cleanup(args)
 
 

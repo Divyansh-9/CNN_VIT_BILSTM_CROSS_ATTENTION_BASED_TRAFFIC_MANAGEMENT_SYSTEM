@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "camera_id": "150th_Eastgate",
+  "geometry": {
+    "coordinates": "normalised_image",
+    "max_radius": 0.25,
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.207,
+          0.7197
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.2708,
+          0.2382
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.5599,
+          0.153
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.6541,
+          0.6334
+        ]
+      }
+    ]
+  },
+  "lane_map": {
+    "lane_0": "N",
+    "lane_1": "S",
+    "lane_2": "E",
+    "lane_3": "W"
+  },
+  "calibration": {
+    "persistence_spec": "experiments/results/bellevue_pilot/persistence_v1.json",
+    "spec_sha256": "2431c6641b9c6bd2f0ad823aa293ed8b13048b96825a0ff8c9ff87871c70e110",
+    "key": "150th_Eastgate"
+  },
+  "limitations": [
+    "lane_1 covers a roof and a parking area beside its road, so parked vehicles count",
+    "The camera faces the low sun: heavy glare at the calibration hour and at dawn"
+  ],
+  "provenance": {
+    "placed_by": "project owner",
+    "how": "calibration-hour frames (scripts/p103_lane_page.py)",
+    "record": "PREREGISTRATION_P103.md, Amendment 1"
+  },
+  "direction": {
+    "status": "declared"
+  },
+  "evidence": []
+}

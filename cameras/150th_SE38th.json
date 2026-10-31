@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "camera_id": "150th_SE38th",
+  "geometry": {
+    "coordinates": "normalised_image",
+    "max_radius": 0.25,
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.1699,
+          0.3919
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.2948,
+          0.8347
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.5423,
+          0.2079
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.7538,
+          0.5985
+        ]
+      }
+    ]
+  },
+  "lane_map": {
+    "lane_0": "N",
+    "lane_1": "S",
+    "lane_2": "E",
+    "lane_3": "W"
+  },
+  "calibration": {
+    "persistence_spec": "experiments/results/bellevue_pilot/persistence_v1.json",
+    "spec_sha256": "2431c6641b9c6bd2f0ad823aa293ed8b13048b96825a0ff8c9ff87871c70e110",
+    "key": "150th_SE38th"
+  },
+  "limitations": [],
+  "provenance": {
+    "placed_by": "project owner",
+    "how": "calibration-hour frames (scripts/p103_lane_page.py)",
+    "record": "PREREGISTRATION_P103.md, Amendment 1"
+  },
+  "direction": {
+    "status": "declared"
+  },
+  "evidence": []
+}

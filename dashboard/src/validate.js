@@ -126,6 +126,8 @@ function sourceProblem(source) {
 export function validateHeartbeat(json) {
   if (!json || typeof json !== "object") return fail("not an object");
   if (typeof json.age_s !== "number" || typeof json.stale !== "boolean") return fail("age or stale flag missing");
+  if ("directions_verified" in json && typeof json.directions_verified !== "boolean")
+    return fail("directions_verified must be true or false");
   if (json.source !== null) {
     const problem = sourceProblem(json.source);
     if (problem) return fail(problem);

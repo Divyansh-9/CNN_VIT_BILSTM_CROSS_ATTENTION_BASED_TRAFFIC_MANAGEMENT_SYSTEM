@@ -1,14 +1,13 @@
 """Is this machine able to run STMS, and this camera and source on it? (D30)
 
     python scripts/check_deployment.py --mosquitto <mosquitto.exe>
-    python scripts/check_deployment.py --mosquitto <exe> --camera 150th_Eastgate --source clip.mp4 \\
-        --approaches lane_0=N lane_1=S lane_2=E lane_3=W
-    python scripts/check_deployment.py --camera 150th_Eastgate --source camera --approaches ...   # reads STMS_CAMERA_URL
+    python scripts/check_deployment.py --mosquitto <exe> --profile cameras/150th_Eastgate.json --source clip.mp4
+    python scripts/check_deployment.py --profile cameras/150th_Eastgate.json --source camera   # reads STMS_CAMERA_URL
 
 Two levels. Without `--source` it checks the installation: runtime, detector, frozen
-specs, broker, secrets tool, dashboard build, storage, ports, and which cameras are
-configured. With `--source`, `--camera` and `--approaches` it also checks that exact
-combination. `scripts/check_env.py` comes earlier: it runs on a bare interpreter
+specs, broker, secrets tool, dashboard build, storage, ports, and which camera profiles
+are valid. With `--source` and `--profile` (or the older `--camera` and `--approaches`)
+it also checks that exact combination. `scripts/check_env.py` comes earlier: it runs on a bare interpreter
 before anything is installed.
 
 **Each line says how strong its evidence is.** PASS means what its text says and no
@@ -24,8 +23,9 @@ refuse, in the edge's own words, and the two cannot drift apart.
 starting. Only `scripts/demo_e2e.py` shows the deployed path working, and neither says
 anything about forecast quality (S67) or a real camera's timing (S65).
 
-**A lane map is declared, not verified.** Nothing in a video says which approach a
-lane feeds, so the check says so rather than passing it.
+**A lane map is a label until someone has looked.** Nothing in a video says which
+approach a lane feeds, so unless direction evidence matches the active configuration
+(ADR-028) the check says so rather than passing it.
 
 No frame is written or sent: one is decoded to prove the source is readable, and
 dropped (NFR-13). The stream URL is never printed: it can carry credentials.
@@ -68,6 +68,7 @@ PACKAGES = {"fastapi": "fastapi", "pydantic": "pydantic", "uvicorn": "uvicorn", 
             "psutil": "psutil"}
 SPEC_DIR = ROOT / "experiments" / "results" / "bellevue_pilot"
 CORPUS = ROOT / "data" / "corpus_p103"
+PROFILES = ROOT / "cameras"
 DIST = ROOT / "dashboard" / "dist"
 STORE = ROOT / "data" / "server"
 MIN_FREE_BYTES = 1024 ** 3
@@ -214,20 +215,27 @@ def check_specs(spec_dir: Path = SPEC_DIR) -> list[Check]:
     return out
 
 
-def check_cameras(spec_dir: Path = SPEC_DIR, corpus: Path = CORPUS) -> list[Check]:
-    """What is configured. A camera with thresholds and no lanes here is not a fault of
-    the installation, so it is a note; the camera level is where it would stop a run."""
-    try:
-        cameras = json.loads((spec_dir / "persistence_v1.json").read_text(encoding="utf-8"))["cameras"]
-    except (OSError, ValueError, KeyError, TypeError):
-        return [skipped("cameras", "no persistence spec to read")]
-    out = []
-    for camera in cameras:
-        if (corpus / camera / "manifest.json").is_file():
-            out.append(passed("cameras", f"{camera}: thresholds and lane geometry present"))
-        else:
-            out.append(warned("cameras", f"{camera}: thresholds present, no lane geometry at {corpus / camera}",
-                              "pass --lanes at the camera level, or restore the corpus"))
+def evidence_line(profile) -> str:
+    """What is on record for a camera, each level on its own: none implies another."""
+    def state(kind):
+        if profile.evidence(kind):
+            return "on record"
+        return "stale: its configuration changed" if profile.stale_evidence(kind) else "none"
+
+    return (f"direction {profile.direction_status}; direction evidence {state('direction')}; "
+            f"replay evidence {state('replay')}; live qualification {state('live')}")
+
+
+def check_cameras(profiles: Path = PROFILES, root: Path = ROOT) -> list[Check]:
+    """Which profiles are valid, by the loader the edge uses (ADR-028)."""
+    from edge.profile import load_profiles
+
+    good, bad = load_profiles(profiles, root)
+    out = [passed("cameras", f"{p.camera_id}: profile valid; {evidence_line(p)}") for p in good]
+    out += [failed("cameras", INVALID, reason) for _, reason in bad]
+    if not good and not bad:
+        out.append(failed("cameras", MISSING, f"no camera profiles in {profiles}",
+                          "add one: python scripts/camera_profile.py make --help"))
     return out
 
 
@@ -349,6 +357,9 @@ def installation(args) -> list[Check]:
 # ------------------------------------------------------------------ one camera --
 
 def edge_argv(args) -> list[str]:
+    if getattr(args, "profile", None):
+        return ["--source", str(args.source), "--profile", str(args.profile),
+                "--intersection-id", args.intersection_id]
     lanes = args.lanes or CORPUS / args.camera / "manifest.json"
     return ["--source", str(args.source), "--lanes", str(lanes), "--camera", args.camera,
             "--intersection-id", args.intersection_id, "--approaches", *args.approaches]
@@ -367,7 +378,7 @@ def check_edge_accepts(args):
         reason = lines[-1].split("error:", 1)[1].strip() if lines else "refused"
         kind = MISSING if "no such" in reason or "not set" in reason else INVALID
         return failed("camera", kind, f"the edge would refuse this: {reason}", configured_note()), None
-    return passed("camera", f"the edge accepts {args.camera}: lanes, approaches and thresholds agree"), settings
+    return passed("camera", f"the edge accepts {settings.camera}: lanes, approaches and thresholds agree"), settings
 
 
 def configured_note(spec_dir: Path = SPEC_DIR) -> str:
@@ -466,6 +477,19 @@ def check_source(args, reader=read_source) -> list[Check]:
     return out + [passed("source", f"{duration / 60:.0f} minutes long, enough for every forecast and check")]
 
 
+def check_profile_notes(args) -> list[Check]:
+    """Known weaknesses travel with the camera, and stale evidence is said out loud."""
+    if not getattr(args, "profile", None):
+        return []
+    from edge.profile import load_profile
+
+    profile = load_profile(args.profile)
+    out = [warned("camera", f"known limitation: {text}") for text in profile.limitations]
+    out += [warned("camera", f"{kind} evidence no longer counts: its configuration has changed")
+            for kind in ("direction", "replay", "live") if profile.stale_evidence(kind)]
+    return out
+
+
 def selected(args) -> list[Check]:
     accepted, settings = check_edge_accepts(args)
     out = [accepted]
@@ -473,8 +497,12 @@ def selected(args) -> list[Check]:
         out.append(skipped("camera", "forecasters not built: the edge would not start"))
     else:
         out += check_forecasters(settings)
-        out += check_calibration_overlap(args.camera, args.source)
-        out.append(warned("camera", "the lane map is as you declared it: nothing here can tell which approach a lane feeds"))
+        out += check_calibration_overlap(settings.camera, args.source)
+        out += check_profile_notes(args)
+        if settings.directions_verified:
+            out.append(passed("camera", "direction evidence matches this configuration"))
+        else:
+            out.append(warned("camera", "the lane map is as you declared it: nothing here can tell which approach a lane feeds"))
     return out + check_source(args)
 
 
@@ -506,6 +534,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--mosquitto", type=Path, help="mosquitto executable; otherwise looked for on PATH")
     ap.add_argument("--source", help="a video file, or 'camera' for the stream in STMS_CAMERA_URL")
+    ap.add_argument("--profile", type=Path, help="a camera profile (ADR-028), instead of --camera and --approaches")
     ap.add_argument("--camera", help="the camera's key in the persistence spec")
     ap.add_argument("--approaches", nargs="+", metavar="LANE=DIR", help="every lane's approach, e.g. lane_0=N")
     ap.add_argument("--lanes", type=Path, help="a reviewed lane file; default data/corpus_p103/<camera>/manifest.json")
@@ -515,9 +544,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--http-port", type=int, default=18000)
     ap.add_argument("--mqtt-port", type=int, default=18883)
     args = ap.parse_args(argv)
-    given = [args.source, args.camera, args.approaches]
-    if any(given) and not all(given):
-        ap.error("--source, --camera and --approaches go together: they name one combination")
+    if args.profile and (args.camera or args.approaches or args.lanes):
+        ap.error("--profile already says --camera, --approaches and --lanes")
+    given = [args.source, args.profile or (args.camera and args.approaches)]
+    if (args.source or args.profile or args.camera or args.approaches) and not all(given):
+        ap.error("--source and --profile (or --camera and --approaches) go together: they name one combination")
     checks = installation(args)
     if args.source:
         checks += selected(args)

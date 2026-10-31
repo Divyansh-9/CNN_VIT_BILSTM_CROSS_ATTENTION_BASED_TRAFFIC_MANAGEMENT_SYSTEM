@@ -36,7 +36,7 @@ ADR-006 and ADR-008 were **accepted 2026-08-13 by the project owner**, and both 
 
 ## Decisions that override the original PRD text
 
-Twenty-seven ADRs (ADR-001 to ADR-027) in [docs/00-planning/decisions/](docs/00-planning/decisions/) changed how the project executes. Read them before acting on PRD §8, §12, §15, or §20. ADR-001 to ADR-008 are the ones that rewrite the architecture; ADR-009 to ADR-023 mostly settle how something is measured, and several of them are the reason a number in the PRD is no longer the number to quote. The four newest set data scope (ADR-024 synthetic data, ADR-025 Indian-only headline folds) and deployment (ADR-026 MFSTNet on the edge, ADR-027 the two forecasting roles):
+Twenty-eight ADRs (ADR-001 to ADR-028) in [docs/00-planning/decisions/](docs/00-planning/decisions/) changed how the project executes. Read them before acting on PRD §8, §12, §15, or §20. ADR-001 to ADR-008 are the ones that rewrite the architecture; ADR-009 to ADR-023 mostly settle how something is measured, and several of them are the reason a number in the PRD is no longer the number to quote. The four newest set data scope (ADR-024 synthetic data, ADR-025 Indian-only headline folds) and deployment (ADR-026 MFSTNet on the edge, ADR-027 the two forecasting roles):
 
 - **ADR-001** — dataset is two-track. YOLOv8 bootstraps on a public Indian dataset from Week 2; IndiaTrafficNet runs in parallel and swaps in at Week 8. Between Weeks 2–8 two sets of detector weights exist, so every experiment must record which it used.
 - **ADR-002** — MFSTNet's training corpus is built by auto-labelling real 5-minute video clips with the fine-tuned YOLOv8 (counts → PRD §14.1 thresholds → congestion label at t+60s). The PRD originally had no corpus specification, and §20 L1's claim that MFSTNet trains on SUMO sequences was wrong. **Splits are cut by source clip, never by sequence** — overlapping windows would leak.
@@ -65,6 +65,7 @@ correct to report, so check the ADR before quoting the PRD:
   - **Fail-safe gate:** a forecast-aware policy may act only when every required input is complete, fresh (at most 10 s) and valid. Otherwise the no-forecast policy decides, or Webster for invalid counts (`simulation/forecast_state.py`).
 - **ADR-022** — the full-model-versus-linear-probe test is pre-registered before the LOCO suite completes. A fold's test split is 140 / 252 / 44 / 136 lane-windows, 572 paired observations, 44 in the smallest.
 - **ADR-023** — the two claims are stated separately: C1, the count-based forecaster plus RL controller, ships independent of C2, the vision claim.
+- **ADR-028** — one committed profile per camera, `cameras/<id>.json` (accepted by the owner, not the guide; D31). Run a camera with `edge.run --profile`. `lane_0=N` and the rest are labels with `direction: declared`: the owner's lane file names no approaches. Evidence is bound by hash to what it depends on, and `scripts/camera_profile.py record` is how it gets added.
 
 **Read the Status field, and do not trust it as a record of what is running.**
 ADR-016, ADR-019 and ADR-021 to ADR-025 are still marked *Proposed*, yet
@@ -642,6 +643,8 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
 - **Validation:** browser-checked at desktop and phone widths, including a
   real-data end-to-end test, stale responses, missing approaches and API error
   states. `cd dashboard && npm test` runs its tests.
+- **Direction notice (D31, ADR-028):** Live and Analytics say N, S, E and W are
+  labels unless the edge's heartbeat says `directions_verified`.
 
 **Not implemented:** WebSocket updates, forecast charts,
 the detection overlay and authentication. Dashboard tests do run in CI: the

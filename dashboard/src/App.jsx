@@ -69,6 +69,8 @@ export default function App({ fetcher, search = window.location.search, hash = w
   // D26: no check yet reads as warming up only while the edge is reporting.
   const edgeLive = Boolean(beat?.ok && !beat.data.stale);
   const runSession = beat?.ok ? beat.data.source?.session ?? null : null;
+  // ADR-028: the letters are labels unless the edge says evidence matches its camera.
+  const directionsVerified = beat?.ok && beat.data.directions_verified === true;
   return (
     <main className={styles.page}>
       <header className={styles.top}>
@@ -89,6 +91,11 @@ export default function App({ fetcher, search = window.location.search, hash = w
         </div>
       </header>
       <ReplayNote state={heartbeat} />
+      {section !== "results" && !directionsVerified && (
+        <p className={styles.directions} data-directions="unverified">
+          N, S, E and W are labels. Their directions have not been verified for this camera.
+        </p>
+      )}
 
       {section === "live" && (
         <section className={styles.live} aria-label="Live monitor">

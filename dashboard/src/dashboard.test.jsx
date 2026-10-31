@@ -734,6 +734,41 @@ describe("overflow and direction (step 3b)", () => {
   });
 });
 
+// D31, ADR-028: the letters are labels until direction evidence matches the camera.
+describe("direction notice (ADR-028)", () => {
+  const beat = (over) => ({ at: 1, age_s: 1, stale: false, edge_status: "online", mode: "M-NORMAL", source: null, lanes: null, note: "n", ...over });
+  const notice = () => document.querySelector('[data-directions="unverified"]');
+  const appWith = (answer, hash = "#live") => render(<App hash={hash} search="?id=j1" fetcher={async (path) =>
+    path === "/heartbeat/j1/latest" && answer ? { ok: true, status: 200, json: async () => answer } : { ok: false, status: 404 }} />);
+  const beatRead = (kind) => waitFor(() => expect(document.querySelector('[data-check="Edge heartbeat"]').dataset.kind).toBe(kind));
+
+  it("shows when the edge says false, when it says nothing, and with no heartbeat at all", async () => {
+    for (const [answer, kind] of [[beat({ directions_verified: false }), "fresh"], [beat({}), "fresh"], [null, "none"]]) {
+      appWith(answer);
+      await beatRead(kind);
+      expect(notice().textContent).toBe("N, S, E and W are labels. Their directions have not been verified for this camera.");
+      cleanup();
+    }
+  });
+  it("goes only when the edge says true", async () => {
+    appWith(beat({ directions_verified: true }));
+    await beatRead("fresh");
+    expect(notice()).toBeNull();
+  });
+  it("shows on Analytics, where lanes are named by those letters, and not on Results", async () => {
+    appWith(beat({}), "#analytics");
+    await waitFor(() => expect(notice()).toBeTruthy());
+    cleanup();
+    appWith(beat({}), "#results");
+    expect(notice()).toBeNull();
+  });
+  it("refuses a heartbeat whose flag is not true or false", () => {
+    expect(validateHeartbeat(beat({ directions_verified: "yes" })).ok).toBe(false);
+    expect(validateHeartbeat(beat({ directions_verified: true })).ok).toBe(true);
+    expect(validateHeartbeat(beat({})).ok).toBe(true);
+  });
+});
+
 // D26: the ADR-014 agreement ribbon. Facts from the edge, k of n here, never a percentage.
 describe("forecast check (D26, ADR-014)", () => {
   const SLOT = (made, cls, cnt) => ({ kind: "check", made_ts: made, checked_ts: made + 60, classes: cls, counts: cnt });

@@ -541,6 +541,9 @@ class Heartbeat(_Payload):
     ts: float = field(default_factory=time.time)
     source: Mapping[str, Any] | None = None
     lanes: Mapping[str, str] | None = None
+    # ADR-028: whether direction evidence matches this camera's active configuration.
+    # Absent reads as False: N, S, E and W are labels until someone has looked.
+    directions_verified: bool = False
 
     def __post_init__(self) -> None:
         if self.edge_status not in ("online", "degraded"):
@@ -558,6 +561,8 @@ class Heartbeat(_Payload):
             _check_source(self.source)
         if self.lanes is not None:
             _check_lanes(self.lanes)
+        if not isinstance(self.directions_verified, bool):
+            raise ContractError("directions_verified must be true or false")
 
 
 CLASS_NAMES = tuple(c.value for c in CongestionClass)

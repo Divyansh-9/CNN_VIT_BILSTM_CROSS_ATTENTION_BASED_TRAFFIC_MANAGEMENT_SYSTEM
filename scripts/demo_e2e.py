@@ -131,9 +131,11 @@ class Stack:
 
     def start_edge(self, intersection: str, samples: int) -> None:
         ca = str(self.work / "secrets" / "ca.crt")
-        self.start("edge", [sys.executable, "-m", "edge.run", "--source", str(self.args.clip),
-                            "--lanes", f"data/corpus_p103/{self.args.camera}/manifest.json",
-                            "--approaches", *APPROACHES, "--camera", self.args.camera,
+        profile = getattr(self.args, "profile", None)
+        config = (["--profile", str(profile)] if profile else
+                  ["--lanes", f"data/corpus_p103/{self.args.camera}/manifest.json",
+                   "--approaches", *APPROACHES, "--camera", self.args.camera])
+        self.start("edge", [sys.executable, "-m", "edge.run", "--source", str(self.args.clip), *config,
                             "--intersection-id", intersection, "--broker-host", "localhost",
                             "--broker-port", str(self.args.mqtt_port), "--samples", str(samples), "--realtime"],
                    {**self.env("edge.env"), "STMS_MQTT_CA_FILE": ca})

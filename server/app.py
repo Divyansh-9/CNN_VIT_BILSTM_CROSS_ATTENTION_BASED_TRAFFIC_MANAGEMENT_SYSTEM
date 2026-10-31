@@ -739,6 +739,7 @@ def latest_heartbeat(intersection_id: str) -> dict:
             "edge_status": payload.edge_status, "mode": payload.mode.value,
             "source": dict(payload.source) if payload.source else None,
             "lanes": dict(payload.lanes) if payload.lanes else None,
+            "directions_verified": payload.directions_verified,
             "note": HEARTBEAT_NOTE}
 
 

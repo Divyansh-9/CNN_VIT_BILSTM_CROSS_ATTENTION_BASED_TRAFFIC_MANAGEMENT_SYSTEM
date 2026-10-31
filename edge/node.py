@@ -123,6 +123,7 @@ class EdgeNode:
     # sets them, and absent is read as unknown, never as a live camera.
     source: dict | None = None
     lanes: dict[str, str] | None = None
+    directions_verified: bool = False    # ADR-028, from the camera's profile
 
     def __post_init__(self) -> None:
         # P142: the server refuses every message whose topic carries an id
@@ -224,7 +225,8 @@ class EdgeNode:
             ppo_active=False,
             ts=now,
             source=self.source,
-            lanes=self.lanes)
+            lanes=self.lanes,
+            directions_verified=self.directions_verified)
         topic = Topic.HEARTBEAT.render(self.intersection_id)
         try:
             self.transport.publish(topic, payload.encode(), Topic.HEARTBEAT.qos)

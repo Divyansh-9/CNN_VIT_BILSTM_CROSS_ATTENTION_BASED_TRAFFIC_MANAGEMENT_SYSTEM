@@ -6,6 +6,7 @@ hand and recorded in the changelog: these pin the decisions around it.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import socket
 import sys
@@ -26,18 +27,25 @@ CALIBRATION = "P103 calibration hour, Sun 2017-09-10 18:08 (q33/q67 of 60 s mean
 
 @pytest.fixture
 def world(tmp_path):
-    """Three cameras: one ready, one with no lanes, one with the wrong lanes."""
+    """Cameras: one with a valid profile, one whose spec changed, others with none."""
     spec = tmp_path / "spec.json"
     spec.write_text(json.dumps({"cameras": {
         "150th_Eastgate": {"low": 1, "med": 2, "source": CALIBRATION},
         "150th_Absent": {"low": 1, "med": 2, "source": CALIBRATION},
         "NE8th": {"low": 2, "med": 8, "source": "absolute 2/8"},
     }}), encoding="utf-8")
-    corpus = tmp_path / "corpus"
-    (corpus / "150th_Eastgate").mkdir(parents=True)
-    (corpus / "150th_Eastgate" / "manifest.json").write_text(json.dumps({"lanes": LANES}), encoding="utf-8")
-    (corpus / "NE8th").mkdir()
-    (corpus / "NE8th" / "manifest.json").write_text(json.dumps({"lanes": LANES[:3]}), encoding="utf-8")
+    profiles = tmp_path / "cameras"
+    profiles.mkdir()
+    digest = hashlib.sha256(spec.read_bytes()).hexdigest()
+    for camera, sha in (("150th_Eastgate", digest), ("NE8th", "0" * 64)):   # NE8th: a stale hash, so invalid
+        (profiles / f"{camera}.json").write_text(json.dumps({
+            "schema_version": 1, "camera_id": camera,
+            "geometry": {"coordinates": "normalised_image", "max_radius": 0.25,
+                         "lanes": [{"name": n, "centre": [0.1 + i / 10, 0.5]} for i, n in enumerate(LANES)]},
+            "lane_map": dict(zip(LANES, "NSEW")),
+            "calibration": {"persistence_spec": "spec.json", "spec_sha256": sha, "key": camera},
+            "limitations": [], "provenance": {}, "direction": {"status": "declared"}, "evidence": [],
+        }), encoding="utf-8")
     clips = tmp_path / "clips" / "nested"
     clips.mkdir(parents=True)
     for stem in ("Bellevue_150th_Eastgate__2017-09-10_22-08-28",     # sorts before the rehearsed one
@@ -48,11 +56,11 @@ def world(tmp_path):
                  "Bellevue_Unknown__2017-09-11_10-08-31",            # no thresholds
                  "holiday"):
         (clips / f"{stem}.mp4").write_bytes(b"")
-    return SimpleNamespace(root=tmp_path / "clips", spec=spec, corpus=corpus)
+    return SimpleNamespace(root=tmp_path / "clips", profiles=profiles, project=tmp_path)
 
 
 def clips_of(world):
-    return available_clips(world.root, world.spec, world.corpus)
+    return available_clips(world.root, world.profiles, world.project)
 
 
 # ------------------------------------------------------------------ the menu --
@@ -63,11 +71,17 @@ def test_only_calibrated_clips_are_offered_the_rehearsed_one_first(world):
                                                "Bellevue_150th_Eastgate__2017-09-11_14-08-31"]
 
 
-def test_the_committed_spec_offers_exactly_the_three_ready_cameras():
-    """When the local data is present; CI has neither corpus nor footage."""
-    if not (demo_live.CORPUS / "150th_Eastgate" / "manifest.json").is_file():
-        pytest.skip("data/corpus_p103 is not committed")
-    assert set(demo_live.supported_cameras()) == {"150th_Eastgate", "150th_Newport", "150th_SE38th"}
+def test_the_committed_profiles_offer_exactly_the_three_ready_cameras(tmp_path):
+    """A clean checkout: the profiles are committed, only the footage is not."""
+    for camera in ("150th_Eastgate", "150th_Newport", "150th_SE38th", "NE8th"):
+        (tmp_path / f"Bellevue_{camera}__2017-09-11_10-08-31.mp4").write_bytes(b"")
+    clips = available_clips(tmp_path)
+    assert {c.camera for c in clips} == {"150th_Eastgate", "150th_Newport", "150th_SE38th"}
+    assert all(c.profile.name == f"{c.camera}.json" for c in clips)
+
+
+def test_every_clip_runs_through_its_own_profile(world):
+    assert {c.profile.name for c in clips_of(world)} == {"150th_Eastgate.json"}
 
 
 def test_a_clip_is_chosen_by_number_or_id_and_anything_else_is_refused(world):
@@ -129,6 +143,7 @@ def test_a_good_selection_runs_with_the_camera_of_that_clip(refusals):
     assert main(refusals.argv("--clip", "3")) == 0
     args = refusals.started[0]
     assert args.camera == "150th_Eastgate" and args.clip.stem.endswith("14-08-31")
+    assert args.profile.name == "150th_Eastgate.json"
 
 
 # --------------------------------------------------------------- readiness -----

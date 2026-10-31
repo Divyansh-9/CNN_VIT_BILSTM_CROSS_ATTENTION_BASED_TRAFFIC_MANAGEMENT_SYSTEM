@@ -63,6 +63,7 @@ from edge.classes import MAPPING_FILE
 from edge.count_forecast import RidgeCountForecaster
 from edge.node import EdgeNode
 from edge.persistence import APPROACHES, PersistenceForecaster
+from edge.profile import ProfileError, load_profile
 from edge.samples import STEP_S, SampleError
 from mfstnet.corpus.counting import Detection, count_frame
 from mfstnet.corpus.lanes import LaneCentres
@@ -101,6 +102,7 @@ class Settings:
     samples: int | None
     realtime: bool
     credentials: Credentials | None = None   # from the environment; repr hides the password
+    directions_verified: bool = False        # ADR-028, only ever true through a profile
     ca_file: Path | None = None              # STMS_MQTT_CA_FILE: TLS when set (D10)
 
 
@@ -161,11 +163,14 @@ def parse_args(argv: list[str] | None = None) -> Settings:
     parser.add_argument("--source", required=True,
                         help=f"a video file, or '{CAMERA_SOURCE}' to read the stream "
                              f"URL from {CAMERA_ENV}")
-    parser.add_argument("--lanes", required=True, type=Path,
+    parser.add_argument("--profile", type=Path,
+                        help="a camera profile (ADR-028), instead of --lanes, --approaches, "
+                             "--camera and --persistence-spec")
+    parser.add_argument("--lanes", type=Path,
                         help="reviewed lane centres, or a corpus manifest")
-    parser.add_argument("--approaches", required=True, nargs="+", metavar="LANE=DIR",
+    parser.add_argument("--approaches", nargs="+", metavar="LANE=DIR",
                         help="every lane mapped to a distinct approach, N S E or W")
-    parser.add_argument("--camera", required=True,
+    parser.add_argument("--camera",
                         help="this camera's key in the persistence spec")
     parser.add_argument("--intersection-id", required=True)
     parser.add_argument("--broker-host", default="127.0.0.1")
@@ -176,14 +181,30 @@ def parse_args(argv: list[str] | None = None) -> Settings:
                         help="default: the counting block of class_mapping.yaml")
     parser.add_argument("--imgsz", type=_positive, default=imgsz,
                         help="default: the counting block of class_mapping.yaml")
-    parser.add_argument("--persistence-spec", type=Path,
-                        default=PILOT / "persistence_v1.json")
+    parser.add_argument("--persistence-spec", type=Path, help=f"default {PILOT / 'persistence_v1.json'}")
     parser.add_argument("--ridge-spec", type=Path, default=PILOT / "p105_ridge_v1.json")
     parser.add_argument("--samples", type=_positive, default=None,
                         help="stop after this many 2 s samples")
     parser.add_argument("--realtime", action="store_true",
                         help="pace a video file at one sample per 2 s, like a camera")
     args = parser.parse_args(argv)
+    profile = None
+    if args.profile:
+        # One source for each fact: a flag beside a profile would silently disagree with it.
+        if args.lanes or args.approaches or args.camera or args.persistence_spec:
+            parser.error("--profile already says --lanes, --approaches, --camera and --persistence-spec")
+        try:
+            profile = load_profile(args.profile)
+        except ProfileError as error:
+            parser.error(str(error))
+        args.camera = profile.spec_key
+        args.persistence_spec = profile.spec_path
+        args.approaches = [f"{lane}={approach}" for lane, approach in profile.lane_map.items()]
+    else:
+        for flag, value in (("--lanes", args.lanes), ("--approaches", args.approaches), ("--camera", args.camera)):
+            if not value:
+                parser.error(f"{flag} is required without --profile")
+        args.persistence_spec = args.persistence_spec or PILOT / "persistence_v1.json"
 
     try:
         credentials = credentials_from_env()
@@ -204,12 +225,17 @@ def parse_args(argv: list[str] | None = None) -> Settings:
         parser.error(f"--conf must be in (0, 1], got {args.conf}")
     for path, flag in ((args.weights, "--weights"), (args.persistence_spec, "--persistence-spec"),
                        (args.ridge_spec, "--ridge-spec"), (args.lanes, "--lanes")):
-        if not path.is_file():
+        if path is not None and not path.is_file():
             parser.error(f"{flag} {path}: no such file")
-    try:
-        lanes = load_lanes(args.lanes)
-    except (ValueError, KeyError, TypeError) as error:
-        parser.error(f"--lanes {args.lanes}: {error}")
+    if profile is not None:
+        lanes = LaneCentres(names=tuple(name for name, _ in profile.lanes),
+                            centres=tuple(centre for _, centre in profile.lanes),
+                            max_radius=profile.max_radius)
+    else:
+        try:
+            lanes = load_lanes(args.lanes)
+        except (ValueError, KeyError, TypeError) as error:
+            parser.error(f"--lanes {args.lanes}: {error}")
 
     approaches = {}
     for item in args.approaches:
@@ -239,7 +265,8 @@ def parse_args(argv: list[str] | None = None) -> Settings:
                     weights=args.weights, conf=args.conf, imgsz=args.imgsz,
                     persistence_spec=args.persistence_spec, ridge_spec=args.ridge_spec,
                     samples=args.samples, realtime=args.realtime, credentials=credentials,
-                    ca_file=ca_file)
+                    ca_file=ca_file,
+                    directions_verified=bool(profile and profile.directions_verified))
 
 
 class EdgeLoop:
@@ -451,6 +478,7 @@ def run(settings: Settings, *, node: EdgeNode,
     """The loop, with its parts handed in, so it is testable without a camera,
     a detector or a broker."""
     node.source, node.lanes = source, dict(settings.approaches)
+    node.directions_verified = settings.directions_verified
     persistence = PersistenceForecaster(settings.persistence_spec, settings.camera,
                                         settings.approaches)
     # D26: checks carry the heartbeat's session, so the server never mixes runs.
