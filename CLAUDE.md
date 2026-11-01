@@ -645,9 +645,29 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   states. `cd dashboard && npm test` runs its tests.
 - **Direction notice (D31, ADR-028):** Live and Analytics say N, S, E and W are
   labels unless the edge's heartbeat says `directions_verified`.
+- **Operator view (D32):** Live opens with a status banner, a headline, one table
+  of both forecasts, the drawing, and a statement that signals are not controlled.
+  Panels, model ids, the age ruler and P97a sit in a closed "Technical details"
+  section. Banner text comes only from the existing polls, and "arriving" needs a
+  fresh heartbeat. Where this section describes wording or the Live layout from
+  before D32, D32 is newer. No non-technical person has tested it yet.
+- **Operator console (D33):** Live adds summary tiles, counted history per
+  approach, a share bar and a 20-minute row coloured by the level the counts
+  showed, where a cut corner marks a miss. `Tour.jsx` holds the walkthrough and
+  glossary; tour examples stay inside its card, so real data is never replaced.
+  `docs/demo/ui_prototype_v2.html` is the design reference.
+- **The rest of the console (D34):**
+  - **Analyze a video:** `scripts/analyze_video.py --video V --profile cameras/X.json --out R.json`
+    writes counts, boxes and forecasts, never frames. The page opens V and R in the browser and
+    uploads nothing.
+  - **Live:** a corridor strip from `GET /sites`, only what has reported. A panel, "If signals were
+    timed from this forecast", gives shares of green and reaches no signal.
+  - **Analytics and Results:** when each lane is busy, and the P130 signal study. Hold that study back
+    from evaluators until the guide replies (P131).
+  - **Signal heads stay `?`:** no signal state reaches this system. Do not light them from demand.
 
 **Not implemented:** WebSocket updates, forecast charts,
-the detection overlay and authentication. Dashboard tests do run in CI: the
+a detection overlay on the live view and authentication. Dashboard tests do run in CI: the
 `dashboard (vitest + build)` job runs `npm test`.
 
 **Forecasting roles:** ADR-027 remains authoritative. MFSTNet's edge path

@@ -58,6 +58,11 @@ function overflowBars() {
   return [out + 4, out + 9].map((y) => ({ x: RX - W2 - 3, y, width: THICK + 6, height: 2 }));
 }
 
+// The scale behind a ribbon, so a short one reads as little traffic in a lane
+// and not as a stray mark. Drawn only beside a ribbon: an empty track on an
+// approach with no forecast would read as an empty lane, which is not known.
+export const TRACK = { x: RX - W2 - 2, y: HEAD - REACH - 2, width: THICK + 4, height: REACH + 2, rx: 2 };
+
 const STOP_LINES = {
   N: { x: C - HALF, y: C - STOP, width: HALF, height: 2.5 },
   S: { x: C, y: C + STOP - 2.5, width: HALF, height: 2.5 },
@@ -98,6 +103,7 @@ export function Intersection({ cls, count }) {
         {APPROACHES.map((a) => <rect key={a} className={styles.stop} {...STOP_LINES[a]} />)}
         {APPROACHES.filter((a) => j.lanes[a].kind !== "none").map((a) => (
           <g key={a} transform={`rotate(${TURN[a]} ${C} ${C})`}>
+            <rect data-track={a} className={styles.track} {...TRACK} />
             <path data-ribbon={a} data-kind={j.lanes[a].kind} strokeLinejoin="round"
                   className={`${styles[j.lanes[a].cls]} ${j.lanes[a].kind === "stale" ? styles.hollow : ""}`}
                   d={ribbonPath(ribbonLength(j.lanes[a].count))} />
@@ -107,7 +113,10 @@ export function Intersection({ cls, count }) {
           </g>
         ))}
         {[[C - g, C - g], [C + g - 12, C - g], [C + g - 12, C + g - 12], [C - g, C + g - 12]].map(([x, y], i) => (
-          <rect key={i} className={styles.head} x={x} y={y} width="12" height="12" rx="2" data-signal="not connected" />
+          <g key={i} data-signal="not connected">
+            <rect className={styles.head} x={x} y={y} width="12" height="12" rx="2" />
+            <text className={styles.headMark} x={x + 6} y={y + 9.5} textAnchor="middle">?</text>
+          </g>
         ))}
         {APPROACHES.map((a) => (
           <text key={a} data-label={a} className={j.lanes[a].kind === "fresh" ? styles.label : styles.labelMuted}
@@ -119,10 +128,10 @@ export function Intersection({ cls, count }) {
         ))}
       </svg>
       <figcaption className={styles.caption}>
-        Ribbon length: next-minute count forecast (ridge), 0 to {SCALE_MAX} vehicles; two cuts near its outer
-        end mean more than {SCALE_MAX}, with the exact count written beside it. Each ribbon points into the
-        junction. Colour and word: congestion class (persistence). Hollow ribbons are past their horizon. Dashed
-        squares: signal heads, not connected (P97a). No vehicles or video are shown (NFR-13).
+        A longer ribbon means more vehicles expected; its outlined track is the scale, 0 to {SCALE_MAX}. Two cuts
+        near its outer end mean more than {SCALE_MAX}. Each ribbon points into the junction. Colour and word:
+        congestion level. Dashed ribbons are out of date. No track and no ribbon means no forecast. Squares with
+        a ? mark signals, which are not connected, so their colour is not known here.
       </figcaption>
     </figure>
   );

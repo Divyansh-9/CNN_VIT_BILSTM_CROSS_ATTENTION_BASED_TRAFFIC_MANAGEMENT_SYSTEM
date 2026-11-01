@@ -12,6 +12,8 @@ export const ALLOWED = [
   /^\/heartbeat\/[A-Za-z0-9_-]{1,32}\/latest$/,
   // D26: forecast checks, a minute apart (ADR-014 §2).
   /^\/forecast_check\/[A-Za-z0-9_-]{1,32}\/recent$/,
+  // D34: the intersections the server has heard from.
+  /^\/sites$/,
   /^\/evidence$/,
   /^\/health$/,
 ];

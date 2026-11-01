@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STMS Operator Prototype</title>
+<style>
+/* Colours copied from dashboard/src/theme.css. Orange is interface only, never traffic data (D18). */
+:root {
+  --bg: #080808; --panel: #141311; --ink: #fffdfb; --muted: #a8a29e; --line: #2e2a26;
+  --brand: #ec7c22; --on-brand: #080808;
+  --low: #36d982; --medium: #eeee3f; --high: #e43a73; --on-class: #080808;
+  --ok: #3accd9; --stale: #427fff; --bad: #ce3bf7; --stale-bg: #191e29; --notice-bg: #161412;
+  --road: #1a1816; --road-box: #211e1b; --road-edge: #3a3531; --frame-count: #6e6a65;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--sans); }
+h1, h2, h3, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.page { max-width: 1120px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+
+/* The prototype's own controls. Deliberately unlike the design, so nobody reads them as part of it. */
+.proto { border: 2px dashed var(--brand); border-radius: 8px; padding: 12px; display: grid; gap: 10px; }
+.proto strong { color: var(--brand); }
+.proto p { font-size: 14px; }
+.states { display: flex; flex-wrap: wrap; gap: 6px; }
+.states button { font: 13px var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--frame-count);
+  border-radius: 6px; padding: 6px 10px; cursor: pointer; min-height: 32px; }
+.states button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.brand { font-size: 20px; }
+.brand small { color: var(--muted); font-size: 14px; font-weight: 400; margin-left: 6px; }
+.nav { display: flex; gap: 14px; font-size: 14px; color: var(--muted); }
+.nav b { color: var(--ink); border-bottom: 2px solid var(--brand); font-weight: 600; }
+.chips { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13px; }
+.source { border: 1px solid var(--frame-count); border-radius: 6px; padding: 3px 9px; }
+.source b { margin-right: 6px; }
+.source[data-kind="replay"] { border: 2px solid var(--ink); }
+.readonly { color: var(--muted); }
+
+/* First answer: are updates arriving, and how old is what is shown. */
+.status { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; align-items: center; background: var(--panel);
+  border: 1px solid var(--line); border-left-width: 6px; border-radius: 8px; padding: 14px 16px; }
+.status[data-kind="ok"] { border-left-color: var(--ok); }
+.status[data-kind="stale"] { border-left-color: var(--stale); background: var(--stale-bg); }
+.status[data-kind="none"] { border-left-color: var(--muted); }
+.status[data-kind="bad"] { border-left-color: var(--bad); }
+.mark { grid-row: span 2; width: 18px; height: 18px; }
+.status[data-kind="ok"] .mark { background: var(--ok); border-radius: 50%; }
+.status[data-kind="stale"] .mark { border: 4px solid var(--stale); border-radius: 50%; }
+.status[data-kind="none"] .mark { height: 4px; background: var(--muted); }
+.status[data-kind="bad"] .mark { background: var(--bad); transform: rotate(45deg); }
+.status h2 { font-size: 22px; line-height: 1.25; }
+.status p { color: var(--ink); }
+
+.note { font-size: 14px; border-left: 3px solid var(--frame-count); padding-left: 10px; }
+.replay { border-left-color: var(--ink); }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); gap: 16px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.eyebrow { color: var(--muted); font-size: 14px; }
+.headline { font-size: 28px; line-height: 1.25; font-weight: 700; }
+.chip { display: inline-block; padding: 1px 9px; border-radius: 6px; font: 700 14px var(--mono); color: var(--on-class); border: 2px solid transparent; }
+.headline .chip { font-size: 20px; vertical-align: 3px; }
+.LOW { background: var(--low); } .MEDIUM { background: var(--medium); } .HIGH { background: var(--high); }
+.past .chip { background: transparent; color: var(--ink); border-style: dashed; }
+.past .chip.LOW { border-color: var(--low); } .past .chip.MEDIUM { border-color: var(--medium); } .past .chip.HIGH { border-color: var(--high); }
+.detail { color: var(--ink); }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; color: var(--muted); font-size: 13px; font-weight: 500; padding: 4px 8px 4px 0; vertical-align: bottom; }
+td { padding: 8px 8px 8px 0; border-top: 1px solid var(--line); }
+td:first-child { font-weight: 700; }
+.num { font: 600 18px var(--mono); }
+.past .num { color: var(--muted); }
+.absent { color: var(--muted); font-style: italic; }
+.fine { color: var(--muted); font-size: 13px; }
+.limit { background: var(--notice-bg); border: 1px solid var(--frame-count); border-radius: 8px; padding: 10px 14px; font-weight: 600; }
+
+/* The drawing: same geometry as dashboard/src/Intersection.jsx. */
+figure { margin: 0; display: grid; gap: 8px; justify-items: center; }
+svg.junction { width: 100%; max-width: 320px; height: auto; }
+.road { fill: var(--road); } .box { fill: var(--road-box); } .zebra { fill: var(--road-edge); }
+.centre { fill: none; stroke: var(--frame-count); stroke-width: 1.5; stroke-dasharray: 8 8; }
+.stop { fill: var(--ink); } .track { fill: none; stroke: var(--frame-count); } .head { fill: none; stroke: var(--muted); stroke-dasharray: 2 2; }
+path.LOW { fill: var(--low); stroke: var(--low); } path.MEDIUM { fill: var(--medium); stroke: var(--medium); } path.HIGH { fill: var(--high); stroke: var(--high); }
+path.hollow { fill: none; stroke-width: 2; stroke-dasharray: 4 3; }
+text.lab { fill: var(--ink); font: 12px var(--mono); } text.lab.dim { fill: var(--muted); } .labHead { font-weight: 700; }
+figcaption { color: var(--muted); font-size: 13px; }
+
+.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rows li { display: grid; grid-template-columns: 20px auto minmax(0, 1fr); gap: 4px 10px; align-items: center; }
+.cells { display: flex; gap: 3px; }
+.cell { width: 14px; height: 14px; display: block; }
+.agreed { background: var(--ink); border-radius: 2px; }
+.differed { background: linear-gradient(45deg, transparent 44%, var(--ink) 44% 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, var(--ink) 44% 56%, transparent 56%); }
+.gap { border: 1px dashed var(--muted); border-radius: 2px; }
+.axis { display: flex; align-items: center; gap: 8px; margin: 6px 0 0 30px; max-width: 241px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.axis i { flex: 1; height: 1px; background: var(--frame-count); }
+.summary { font-size: 14px; }
+
+details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+summary { cursor: pointer; font-weight: 600; }
+dl { display: grid; grid-template-columns: minmax(150px, max-content) minmax(0, 1fr); gap: 4px 16px; margin: 12px 0; font-size: 14px; }
+dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
+.mono { font-family: var(--mono); }
+.tech p { font-size: 14px; margin-top: 8px; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .chips { margin-left: 0; }
+  .headline { font-size: 24px; }
+  .rows li { grid-template-columns: 20px minmax(0, 1fr); }
+  .summary { grid-column: 1 / -1; }
+  .cell { width: 11px; height: 11px; }
+  .axis { margin-left: 0; max-width: 199px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <section class="proto" aria-label="About this prototype">
+    <p><strong>PROTOTYPE. All numbers are made-up examples.</strong> Not connected to any server, camera or broker. Layout and wording only.</p>
+    <div class="states" role="group" aria-label="Show a state" id="states"></div>
+  </section>
+
+  <header class="top">
+    <h1 class="brand">STMS <small>intersection <span class="mono">example</span></small></h1>
+    <div class="nav" aria-label="Sections (only Live is prototyped)"><b>Live</b><span>Analytics</span><span>Results</span></div>
+    <div class="chips">
+      <p class="source" id="source"></p>
+      <p class="readonly">Read-only: this page cannot send commands</p>
+    </div>
+  </header>
+
+  <section class="status" id="status" aria-live="polite">
+    <span class="mark" aria-hidden="true"></span>
+    <h2 id="statusHead"></h2>
+    <p id="statusSub"></p>
+  </section>
+  <p class="note replay" id="replayNote" hidden>Recorded footage, replayed. It is not a live camera. Clock times on this page are when the server received each message, not when the footage was recorded.</p>
+
+  <div class="hero">
+    <section class="card" id="forecast" aria-label="Next 60 seconds">
+      <p class="eyebrow" id="eyebrow">Example forecast for the next 60 seconds</p>
+      <p class="headline" id="headline" aria-live="polite"></p>
+      <p class="detail" id="detail"></p>
+      <p class="note" data-directions="unverified">N, S, E and W are labels. Their directions have not been verified for this camera.</p>
+      <table>
+        <thead><tr><th scope="col">Approach</th><th scope="col">Congestion level</th><th scope="col">Expected vehicles in view (60 s avg)</th></tr></thead>
+        <tbody id="table"></tbody>
+      </table>
+      <p class="fine">These are forecasts, not measurements. The vehicle number is the average of the counts across the next 60 seconds, which is why it can be a fraction; it counts vehicles in view, not vehicles passing through. Levels are set separately for each camera, so HIGH here is not the same amount of traffic as HIGH elsewhere. The level and the vehicle number are two separate forecasts, so they may not always match.</p>
+    </section>
+    <figure class="card">
+      <div id="drawing" style="width:100%;display:grid;justify-items:center"></div>
+      <figcaption>A longer ribbon means more vehicles expected; its outlined track is the scale, 0 to 10. Dashed ribbons are out of date. No track and no ribbon means no forecast. Dashed squares mark signals, which are not connected.</figcaption>
+    </figure>
+  </div>
+
+  <p class="limit" data-limit="signal">This system forecasts traffic conditions. It does not control physical traffic signals.</p>
+
+  <section class="card" aria-label="How recent forecasts compared with later counts">
+    <h2 style="font-size:18px">How recent forecasts compared with later counts</h2>
+    <div id="check"></div>
+    <p class="fine">Rolling agreement with auto-labels over the last 20 checked minutes. Not a benchmark: the observed values come from the same detector counts the forecasts are made from. Each square is one minute. Filled: the level matched. Crossed: it did not. Dashed: no valid check that minute.</p>
+  </section>
+
+  <details class="tech">
+    <summary>Technical details and research information</summary>
+    <dl id="tech"></dl>
+    <p>Display only: neither forecast is connected to signal timing. In the controller's state, 0.0 means an approach has no forecast and LOW is encoded as 1/3 (ADR-020 as amended, P110). Still open: P97a Part 2, the controller's behaviour under forecast faults, which is deferred.</p>
+    <p>No accuracy is shown here: a live score against the detector's own counts would be circular (ADR-014). Forecasters are persistence and ridge, not MFSTNet (ADR-027). No vehicles or video are shown (NFR-13). Forecasts count bicycles; the published vehicle counts do not (D1).</p>
+    <p>The edge reports itself through its heartbeat; the broker and the ingest do not report their own health, so a stream going stale is how a stopped one shows here.</p>
+  </details>
+</div>
+
+<script>
+// Static prototype: no fetch, no WebSocket, no storage. Every value below is an invented example.
+const ROADS = ["N", "S", "E", "W"];
+const FULL = { N: ["HIGH", 2.4], E: ["HIGH", 1.9], S: ["MEDIUM", 1.1], W: ["LOW", 0.3] };
+const NO_W = { N: ["HIGH", 2.4], E: ["HIGH", 1.9], S: ["MEDIUM", 1.1] };
+const CHECKS = "aaadaagaaadaaa";
+
+const STATES = {
+  normal: { label: "Normal", status: ["ok", "Updates are arriving", "Last updated 12 s ago. This forecast is valid for 48 s more."],
+    source: ["camera", "Live camera", "example"], roads: FULL, checks: true, age: "12 s", beat: "fresh, 2 s old", cls: "fresh", cnt: "fresh", server: "reachable, reports ok" },
+  replay: { label: "Replay", status: ["ok", "Updates are arriving from a recording", "Last updated 12 s ago. This forecast is valid for 48 s more."],
+    source: ["replay", "Replay", "example-clip, 02:22 of 59:59"], roads: FULL, checks: true, replay: true, age: "12 s", beat: "fresh, 2 s old", cls: "fresh", cnt: "fresh", server: "reachable, reports ok" },
+  partial: { label: "One approach missing", status: ["ok", "Updates are arriving, with approach W missing", "Last updated 12 s ago. This forecast is valid for 48 s more."],
+    source: ["camera", "Live camera", "example"], roads: NO_W, checks: true, age: "12 s", beat: "fresh, 2 s old", cls: "fresh", cnt: "fresh", server: "reachable, reports ok" },
+  silent: { label: "Edge unit silent", status: ["stale", "The edge unit has stopped reporting", "Last heard from 30 s ago. This is its last forecast, valid for 18 s more. No new forecast is being made."],
+    source: ["stale", "Source out of date", "last heard from 30 s ago"], roads: FULL, checks: true, age: "42 s", beat: "stale, 30 s old", cls: "fresh", cnt: "fresh", server: "reachable, reports ok" },
+  stale: { label: "Out of date", status: ["stale", "No recent updates", "Last updated 72 s ago. The forecast below describes a minute that has passed."],
+    source: ["stale", "Source out of date", "last heard from 75 s ago"], roads: FULL, past: true, checks: true, age: "72 s", beat: "stale, 75 s old", cls: "stale", cnt: "stale", server: "reachable, reports ok",
+    head: "No current forecast" },
+  missing: { label: "No forecast yet", status: ["none", "No forecast yet", "The server is reachable, but nothing has been published for this intersection."],
+    source: ["unknown", "Source unknown", "nothing reported yet"], roads: {}, age: "unknown", beat: "nothing published yet", cls: "nothing published yet", cnt: "nothing published yet", server: "reachable, reports ok",
+    head: "No forecast", detail: "No forecast is available. This does not mean the roads are empty." },
+  unreachable: { label: "Server unreachable", status: ["bad", "Cannot reach the server", "This page is not receiving anything, so it cannot say what the system or the roads are doing."],
+    source: ["unknown", "Source unknown", "server not reachable"], roads: {}, unreachable: true, age: "unknown", beat: "unavailable", cls: "unavailable", cnt: "unavailable", server: "unreachable",
+    head: "Forecasts unavailable", detail: "No forecast is available. This does not mean the roads are empty." },
+};
+
+const $ = (id) => document.getElementById(id);
+const chip = (c) => `<span class="chip ${c}">${c}</span>`;
+const join = (list) => list.length < 2 ? list.join("") : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`;
+const named = (list) => join(list.map((r) => `Approach ${r}`));
+
+function headline(s) {
+  if (s.head) return s.head;
+  const known = ROADS.filter((r) => r in s.roads);
+  const worst = ["HIGH", "MEDIUM", "LOW"].find((c) => known.some((r) => s.roads[r][0] === c));
+  return `Highest congestion expected: ${named(known.filter((r) => s.roads[r][0] === worst))} ${chip(worst)}`;
+}
+function reading(s) {
+  return ROADS.filter((r) => r in s.roads).map((r) => `${r} ${s.roads[r][0]}`).join(", ");
+}
+
+// Geometry from dashboard/src/Intersection.jsx.
+const SIZE = 320, C = SIZE / 2, HALF = 34, STOP = HALF + 14, REACH = C - STOP - 6, LANE = HALF / 2, THICK = 10;
+const TURN = { N: 0, E: 90, S: 180, W: 270 }, RX = C - LANE, HEADY = C - STOP, W2 = THICK / 2;
+const LABELS = { N: [C - HALF - 8, 20, "end"], E: [SIZE - 6, C - HALF - 30, "end"], S: [C + HALF + 8, SIZE - 30, "start"], W: [6, C + HALF + 20, "start"] };
+const STOPS = { N: [C - HALF, C - STOP, HALF, 2.5], S: [C, C + STOP - 2.5, HALF, 2.5], E: [C + STOP - 2.5, C - HALF, 2.5, HALF], W: [C - STOP, C, 2.5, HALF] };
+function ribbon(count) {
+  const len = 8 + (Math.min(count, 10) / 10) * (REACH - 8), out = HEADY - len, neck = HEADY - Math.min(6, len);
+  return `M${RX - W2},${out} H${RX + W2} V${neck} L${RX},${HEADY} L${RX - W2},${neck} Z`;
+}
+function drawing(s) {
+  const rect = (cls, x, y, w, h) => `<rect class="${cls}" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
+  let out = rect("road", 0, C - HALF, SIZE, HALF * 2) + rect("road", C - HALF, 0, HALF * 2, SIZE) + rect("box", C - HALF, C - HALF, HALF * 2, HALF * 2);
+  for (let i = 0; i < 8; i++) {
+    const o = -HALF + 3 + i * 8.5;
+    out += rect("zebra", C + o, C - HALF - 13, 4, 10) + rect("zebra", C + o, C + HALF + 3, 4, 10) + rect("zebra", C - HALF - 13, C + o, 10, 4) + rect("zebra", C + HALF + 3, C + o, 10, 4);
+  }
+  out += `<path class="centre" d="M${C},0 V${C - STOP} M${C},${C + STOP} V${SIZE} M0,${C} H${C - STOP} M${C + STOP},${C} H${SIZE}"/>`;
+  for (const r of ROADS) out += rect("stop", ...STOPS[r]);
+  for (const r of ROADS) if (r in s.roads) {
+    out += `<g transform="rotate(${TURN[r]} ${C} ${C})"><rect class="track" data-track="${r}" x="${RX - W2 - 2}" y="${HEADY - REACH - 2}" width="${THICK + 4}" height="${REACH + 2}" rx="2"/><path data-ribbon="${r}" stroke-linejoin="round" class="${s.roads[r][0]}${s.past ? " hollow" : ""}" d="${ribbon(s.roads[r][1])}"/></g>`;
+  }
+  const g = HALF + 22;
+  for (const [x, y] of [[C - g, C - g], [C + g - 12, C - g], [C + g - 12, C + g - 12], [C - g, C + g - 12]]) {
+    out += `<rect class="head" x="${x}" y="${y}" width="12" height="12" rx="2"/>`;
+  }
+  for (const r of ROADS) {
+    const [x, y, anchor] = LABELS[r], has = r in s.roads;
+    const lines = has ? [`${r} ${s.roads[r][0]}`, `${s.roads[r][1].toFixed(1)} veh`] : [r, s.unreachable ? "no data" : "no forecast"];
+    out += `<text class="lab${has && !s.past ? "" : " dim"}" x="${x}" y="${y}" text-anchor="${anchor}"><tspan class="labHead" x="${x}">${lines[0]}</tspan><tspan x="${x}" dy="15">${lines[1]}</tspan></text>`;
+  }
+  return `<svg class="junction" viewBox="0 0 ${SIZE} ${SIZE}" role="img" aria-label="Drawing of the junction. The table beside it holds the same forecast.">${out}</svg>`;
+}
+function checks(s) {
+  if (!s.checks) return `<p class="absent">${s.unreachable ? "Unavailable: the server cannot be reached." : "No comparison has been reported yet."}</p>`;
+  const cls = { a: "agreed", d: "differed", g: "gap" };
+  const rows = ROADS.filter((r) => r in s.roads).map((r, i) => {
+    const seq = [...CHECKS.slice(i) + CHECKS.slice(0, i)];
+    const cells = seq.map((k) => `<span class="cell ${cls[k]}"></span>`).join("");
+    return `<li><b>${r}</b><span class="cells" role="img" aria-label="Example squares for approach ${r}">${cells}</span><span class="summary">Example: level matched 11 of 13. Vehicle number off by 0.40 on average over 12.</span></li>`;
+  }).join("");
+  return `<ul class="rows">${rows}</ul><p class="axis" data-axis="time"><span>${CHECKS.length - 1} min earlier</span><i></i><span>Latest check</span></p>`;
+}
+function tech(s) {
+  const rows = [
+    ["Class forecaster", "persistence (model id from each forecast message)"],
+    ["Count forecaster", "ridge, point estimate (model id from each forecast message)"],
+    ["Horizon", "60 s"], ["Forecast age", s.age],
+    ["Server", s.server], ["Class forecast stream", s.cls], ["Count forecast stream", s.cnt], ["Edge heartbeat", s.beat],
+    ["Directions verified", "false (ADR-028)"],
+    ["Server round trip", s.unreachable ? "not measured" : "example only: measured by this browser on the last health check"],
+    ["Count unit", "mean of the next 30 samples at 2 s, per lane (P105)"],
+  ];
+  return rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+}
+function show(key) {
+  const s = STATES[key] ? STATES[key] : STATES.normal, name = STATES[key] ? key : "normal";
+  document.querySelectorAll("#states button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === name)));
+  const [kind, head, sub] = s.status;
+  $("status").dataset.kind = kind; $("statusHead").textContent = head; $("statusSub").textContent = sub;
+  $("source").dataset.kind = s.source[0]; $("source").innerHTML = `<b>${s.source[1]}</b>${s.source[2]}`;
+  $("replayNote").hidden = !s.replay;
+  $("forecast").classList.toggle("past", Boolean(s.past));
+  $("forecast").dataset.state = name;
+  $("eyebrow").textContent = s.past ? "Last example forecast, now out of date" : name === "silent" ? "Last example forecast, next 60 seconds"
+    : ROADS.some((r) => r in s.roads) ? "Example forecast for the next 60 seconds" : "Next 60 seconds";
+  $("headline").innerHTML = headline(s);
+  $("detail").textContent = s.detail ?? (s.past ? `It read: ${reading(s)}.` : "");
+  $("detail").hidden = !s.detail && !s.past;
+  $("table").innerHTML = ROADS.map((r) => {
+    const none = s.unreachable ? "No data" : "No forecast";
+    return r in s.roads
+      ? `<tr><td>${r}</td><td>${chip(s.roads[r][0])}</td><td class="num">${s.roads[r][1].toFixed(1)}</td></tr>`
+      : `<tr><td>${r}</td><td class="absent" colspan="2">${none}</td></tr>`;
+  }).join("");
+  $("drawing").innerHTML = drawing(s);
+  $("check").innerHTML = checks(s);
+  $("tech").innerHTML = tech(s);
+}
+for (const [key, s] of Object.entries(STATES)) {
+  const b = document.createElement("button");
+  b.type = "button"; b.dataset.state = key; b.textContent = s.label;
+  b.addEventListener("click", () => { show(key); });
+  $("states").append(b);
+}
+show(location.hash.slice(1));
+</script>
+</body>
+</html>

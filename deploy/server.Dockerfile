@@ -39,6 +39,7 @@ COPY experiments/results/bellevue_pilot/p103_results.json \
      experiments/results/bellevue_pilot/p105_results.json \
      experiments/results/bellevue_pilot/p105_eligibility.json \
      ./experiments/results/bellevue_pilot/
+COPY experiments/results/ceiling/ceiling_stats.json ./experiments/results/ceiling/ceiling_stats.json
 COPY --from=dashboard /dashboard/dist ./dashboard/dist
 COPY --from=evidence /evidence_commits.json ./evidence_commits.json
 RUN useradd --create-home --uid 10001 stms && mkdir -p data/server && chown stms:stms data/server

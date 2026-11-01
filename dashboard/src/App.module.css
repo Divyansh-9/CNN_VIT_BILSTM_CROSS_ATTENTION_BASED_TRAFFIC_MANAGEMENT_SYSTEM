@@ -1,4 +1,4 @@
-.page { max-width: 1180px; margin: 0 auto; padding: 16px; }
+.page { max-width: 1280px; margin: 0 auto; padding: 16px; }
 /* Top bar (UX step 2). Orange appears here only as chrome: the mark and the
    active section's edge (and the focus ring, from theme.css). */
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
@@ -11,20 +11,42 @@
          border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 500; }
 .nav a:hover { color: var(--ink); }
 .nav a[aria-current="page"] { color: var(--ink); border-color: var(--brand); }
-.directions { margin: -8px 0 16px; color: var(--ink); font-size: 13px; border-left: 3px solid var(--line); padding: 2px 0 2px 10px; }
+.directions { margin: 0; color: var(--ink); font-size: 13px; border-left: 3px solid var(--line); padding: 2px 0 2px 10px; }
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .readonly { margin: 0; color: var(--muted); font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
 .mono { font-family: var(--mono); }
 .region { font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
-/* The hero (UX step 3): the answer and its age beside the intersection. */
-.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center;
-        background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-.heroText { display: grid; gap: 18px; align-content: start; min-width: 0; }
-@media (max-width: 760px) { .hero { grid-template-columns: minmax(0, 1fr); padding: 14px; } }
+/* D33: the operator's Live page. Tiles, then the drawing beside the numbers. */
+.clock { font: 600 14px var(--mono); }
+.tourButton { background: transparent; color: var(--ink); border: 1px solid var(--brand); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; font-weight: 600; transition: background-color .15s, color .15s; }
+.tourButton:hover { background: var(--brand); color: var(--on-brand); }
+.linkButton { background: none; border: 0; padding: 4px 6px; cursor: pointer; color: var(--muted); font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.linkButton:hover { color: var(--ink); }
+.invite { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 14px; margin-bottom: 12px; background: var(--notice-bg); border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 6px; font-size: 14px; }
+.tiles { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.main { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 12px; margin-bottom: 12px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.cardHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.cardHead h2 { font-size: 15px; }
+.cardHead span { color: var(--muted); font-size: 13px; }
+.levels { margin: 0; color: var(--ink); font-size: 13px; }
+.how { color: var(--muted); font-size: 13px; }
+.how summary { cursor: pointer; color: var(--ink); }
+.how p { margin: 6px 0 0; }
+@media (max-width: 960px) {
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .main { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
 /* Live and Results are separate sections, never on screen together (ADR-014). */
 .live { padding-bottom: 8px; }
 .warning { border-left: 3px solid var(--muted); background: var(--notice-bg); padding: 8px 12px; margin: 0 0 12px; border-radius: 4px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
 .footnote { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+.limit { margin: 0; padding: 8px 12px; font-size: 13px; font-weight: 600; text-align: center; background: var(--notice-bg); border: 1px solid var(--frame-count); border-radius: 8px; }
+.technical { margin-top: 16px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.technical summary { cursor: pointer; font-weight: 600; }
+.technical[open] summary { margin-bottom: 12px; }
+.technical .warning { margin-top: 12px; }
 .below { margin-top: 16px; }

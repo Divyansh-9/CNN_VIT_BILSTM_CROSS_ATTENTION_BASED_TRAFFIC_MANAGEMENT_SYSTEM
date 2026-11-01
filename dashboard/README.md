@@ -13,6 +13,15 @@ The roles are ADR-027's. The page cannot send anything: its API client
 (`src/api.js`) issues only `GET`, and only to those three endpoints, and a test
 pins that.
 
+Live also shows what was counted, from `GET /vehicle_count/{id}/history` and the
+heartbeat's lane map, and a walkthrough and glossary (`src/Tour.jsx`, D33). The
+walkthrough's examples stay inside its card: it never replaces real data.
+
+Analyze a video (D34) plays a recording beside a results file from
+`scripts/analyze_video.py`. Both are opened in the browser and nothing is sent
+anywhere. Live also lists what has reported (`GET /sites`) and a labelled
+calculation of green shares, which reaches no signal. The signal heads stay `?`.
+
 ## What the page refuses to do
 
 - **Show a missing approach as zero or LOW.** An approach with no forecast
@@ -26,7 +35,7 @@ pins that.
 - **Show live accuracy.** Scoring forecasts against the detector's own counts
   would be circular (ADR-014). Evaluation numbers appear only in Results, as
   historical evidence.
-- **Hide P97a.** The live region states that 0.0 in the controller's state
+- **Hide P97a.** The live region's technical details state that 0.0 in the controller's state
   means "no forecast for this approach" and that LOW is encoded as 1/3
   (ADR-020 as amended, P110), and that P97a Part 2 (the controller under
   forecast faults) is deferred and still open. Before D2 it said a missing

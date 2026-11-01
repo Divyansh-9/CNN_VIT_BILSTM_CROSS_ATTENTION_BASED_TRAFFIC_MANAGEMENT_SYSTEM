@@ -12022,3 +12022,150 @@ its calibration step. Publishing stays blocked on the footage's licence, not on 
 - **Mutation check:** 24 protections, each broken once; the suites caught 24 of 24.
 - **Real run:** `demo_live` on Newport through `--profile`, over Mosquitto with TLS, every milestone
   reached, the browser showing the notice.
+
+## D32 — Live, rewritten for a non-technical operator (2026-10-31)
+
+Prototype first (`docs/demo/ui_prototype.html`), reviewed, then migrated on the owner's instruction.
+Presentation only: no endpoint, payload, threshold, claim or stored value changed. This is the bounded
+wording and hierarchy exception to the scope freeze after D31.
+
+**What changed on Live.**
+- **A status banner answers first,** worked out from the health, forecast and heartbeat polls already
+  made. It says "Updates are arriving" only from a fresh heartbeat. A forecast stays valid for 60 s
+  after the edge stops, so without a heartbeat it says "A current forecast is available".
+- **One table holds both forecasts,** each column judged on its own, so a stale or refused forecast
+  changes only its column and is never filled in from the other.
+- **The headline names approaches** ("Highest congestion expected: Approach N"), not "North": the
+  letters are labels until verified (ADR-028).
+- **A statement that the system does not control signals stays visible.** P97a, model ids, the age
+  ruler, the stream statuses and the round trip moved to a closed "Technical details" section, still in
+  the page.
+- **The drawing has a track behind each ribbon,** showing the 0 to 10 scale.
+- **The check row has a time axis.**
+
+**Three requests from the review were changed, and why.**
+- **"Expected Vehicles (60s avg)" became "Expected vehicles in view (60 s avg)".** The number is the
+  mean of counts of vehicles in view (P105). Without "in view" it reads as vehicles passing through.
+- **"20m ago to Now" became "N min earlier to Latest check".** The server starts the row at the first
+  minute with a check, so it is often under 20 cells, and a check exists only 60 s after its forecast
+  and may be stale, so the right end is not now. Under 10 cells there is no axis.
+- **No track on an approach with no forecast.** An empty track reads as an empty lane, and a missing
+  approach is never shown as empty.
+
+**Retained on purpose.** The ADR-014 §2 label stays visible on the check row, because that ADR requires
+it in the interface, not only in documentation.
+
+**Not established.** No non-technical person has used this, so comprehension is untested. The browser
+check used invented API answers, not a real run of the stack. N is still drawn at the top while
+directions are unverified, with the notice beside the forecast.
+
+## D33 — the operator console's Live page and walkthrough, on real data (2026-11-01)
+
+The owner approved moving `docs/demo/ui_prototype_v2.html` into the dashboard. This entry is the first
+part: Live, the walkthrough and the glossary. No endpoint, payload, threshold or claim changed, and the
+page is still GET-only.
+
+**What changed.**
+- **Summary tiles:** the headline, the busiest approach, approaches with both forecasts, and the time
+  left. Each says when it cannot answer, and none turns an unknown into a zero.
+- **Counted history in the table:** the last 15 minutes per approach, from the existing
+  `GET /vehicle_count/{id}/history?window=1h` and the heartbeat's lane map. A bucket with no samples is a
+  break in the line, never zero. These counts exclude bicycles (D1), and the page says so.
+- **Share of expected vehicles:** from current count forecasts only.
+- **The 20-minute row:** a cell's colour and letter are now the level the counts showed, so the row also
+  shows the pattern. This revises D26 in one respect: a cell may now carry a class colour, for the
+  observed level. Agreement itself is still shape, a cut corner, and still k of n.
+- **Walkthrough and glossary:** `dashboard/src/Tour.jsx`. An invitation is remembered per browser, with
+  storage failure handled. Answers to its three questions are not recorded.
+
+**Where it differs from the prototype, and why.**
+- **Tour examples stay inside the card.** The prototype switched the whole page to fake states. On a
+  monitor that could be mistaken for the real state, so the page behind keeps showing real data.
+- **No corridor strip yet.** The server has no list of cameras, and a run's intersection id is not a
+  camera id, so a strip now would have to invent the relation.
+
+**Still prototype only.**
+- **Analyze a video:** needs a real analysis path. Showing invented numbers in the product is refused.
+- **The signal study in Results:** needs a server change, and P131 asks for the guide's reply before
+  wider citation.
+- **The 24-hour busy view:** Analytics keeps its existing charts for now.
+
+**Verified.**
+- **Tests:** 127 dashboard tests pass, 19 of them new.
+- **Real run:** `demo_live` on `Bellevue_150th_Eastgate__2017-09-11_12-08-32` over Mosquitto with TLS.
+  Tiles, counted history, the row and the tour were read in a browser against that run. The real banner
+  stayed unchanged while an example showed inside the tour card.
+- **Layout:** no sideways scrolling at exactly 1366, 1280, 390 and 360 px.
+
+**Not established.**
+- **Comprehension:** no non-technical person has used this.
+- **Tall sections:** the tour card covers 22 to 34% of three sections taller than a laptop window, and up
+  to half of a section as a bottom sheet on a phone.
+- **Accuracy:** none of this is evidence of forecast accuracy, and a replay is not S65.
+
+**Signal heads and what a level means (same day).** The owner asked what the four squares and the levels
+represent.
+- **Signal heads stay unknown.** A review proposed lighting them green or red from demand, with a 35 s
+  split. No signal state or phase reaches this system, the demand is counts in view rather than flow, and
+  the letters are unverified, so N and S cannot be paired into a phase. P130 also found PPO behind Webster.
+  Colours there would be invented and could be read as the real signal. Each square now holds a `?`.
+- **The page now says what a level is:** vehicles in view compared with one calibration hour's q33 and q67
+  (ADR-017), not speed or queues.
+- **Observed weakness, reported and not fixed.** Eastgate's limits are 0.133 and 0.967 vehicles, from a
+  Sunday evening hour, so a Monday midday run read HIGH in 19 of 20 checks across five minutes. One run on
+  one camera shows only that the level can saturate. The limits stay frozen; changing them is a
+  pre-registered decision, not a display fix.
+
+## D34 — the rest of the operator console, on real data (2026-11-01)
+
+The owner asked for the full prototype in the product. Every part now reads real data, or is left out and
+says why. The dashboard stays GET-only.
+
+**What was added.**
+- **`scripts/analyze_video.py` and the Analyze a video page.** The tool runs the deployed detector, counting
+  and forecasters over a whole recording and writes one JSON file of numbers: counts, boxes, forecasts and
+  what the next 60 s showed. No frame is written (NFR-13). The page opens the video and that file in the
+  browser, checks the file whole, and follows the position in the video. With no results file it shows no
+  numbers. With no video it shows the numbers and no picture. If the lengths differ, nothing is drawn.
+- **`GET /sites`,** the corridor strip's data: the intersections that have sent a heartbeat. The server
+  holds no camera list (ADR-028), so a camera with no running edge unit is absent, not listed as idle.
+- **When each lane is busy,** in Analytics, from the existing 24 h counts.
+- **The signal study in Results,** P130's arms read from `ceiling_stats.json`, with its reading, qualifiers
+  and commit. `deploy/server.Dockerfile` copies the file; where it is absent the study is not shown.
+- **"If signals were timed from this forecast",** on Live.
+
+**A guard was narrowed, on purpose.** `test_the_dashboard_has_no_way_to_show_video` (D28) forbade `<video>` in
+the dashboard, which is stricter than NFR-13: that requirement forbids sending frames over the network or storing
+them. It failed on this work, as it should. The owner asked for video on this page, so the guard now says exactly
+what must hold: only the Analyze page may have a player, its source is an object URL of a file the viewer opened,
+that page makes no request, and no other page can show a picture. D28's "the dashboard itself still shows no video"
+is true of Live, not of this page. The reviewers who approved D28 should know.
+
+**The signal question.** The owner asked for the current signal and the signal predicted 60 s ahead.
+- **Current signal: not built, because it is not known.** No signal state reaches this system, so the four
+  heads keep their `?`. A green or red there would be invented and could be read as the real signal.
+- **Predicted signal: not a forecast this system makes.** What is built instead is a labelled calculation:
+  each pair's share of the expected vehicles, as a share of green. It reaches nothing (P97a stands), needs a
+  current forecast for all four approaches, and shows no seconds, because a cycle length needs flow and this
+  counts vehicles in view. It pairs approaches by their labels, and the panel says so.
+- **Rejected:** lighting the heads from demand, "Phase 2 priority", a "35 s split" and any "PPO advisory".
+  P130 has every PPO arm behind both Webster arms, so PPO cannot be presented as the adviser.
+
+**Left out on purpose.**
+- **Check the directions form.** A form that saves nothing would look like a check. Evidence is recorded with
+  `scripts/camera_profile.py record`.
+- **Marking lanes on a new camera, and uploads.** A new camera needs lanes placed and levels calibrated first.
+- **Starting an analysis from the page.** The dashboard cannot send commands. Starting one from the local
+  launcher (D29) is the natural next step.
+
+**Not established.**
+- **The signal study has not been cleared for wider citation.** P131 asks for the guide's reply first. It is
+  in the product, so it must not be shown to evaluators until that reply arrives.
+- **The timing share is not a tested plan,** and is not P125's controller, which uses flow and a clamped cycle.
+- **Footage licence.** The Bellevue licence is unresolved, so showing footage outside the team needs the
+  guide's clearance. The page can show numbers without any picture.
+- **Comprehension:** still no test with a non-technical person.
+- **Observed in the first real analysis, reported and not fixed.** On one Newport hour, 335 of 1,799 samples held a
+  detection box covering more than a quarter of the frame, for example from 0.17 to 0.90 of its width. Such a box
+  enters that sample's counts. It sits beside the camera's recorded limit about its foreground signal housing, but
+  nobody has yet looked at what it is. The detector and limits stay frozen.

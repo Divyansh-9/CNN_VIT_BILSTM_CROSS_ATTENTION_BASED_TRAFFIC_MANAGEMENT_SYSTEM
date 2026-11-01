@@ -207,3 +207,57 @@ function sameSummary(mine, theirs) {
     return typeof t.count.mean_abs_diff === "number" && Math.abs(t.count.mean_abs_diff - m.count.mean_abs_diff) <= 0.011;
   });
 }
+
+// D34: GET /sites. A bad row refuses the whole list, as every response does.
+export function validateSites(json) {
+  if (!json || !Array.isArray(json.sites)) return fail("no sites");
+  for (const s of json.sites) {
+    if (typeof s?.id !== "string" || !LANE.test(s.id)) return fail("invalid site id");
+    if (!seconds(s.age_s) || typeof s.stale !== "boolean") return fail("age or stale flag missing");
+    if (s.kind !== null && !["camera", "replay"].includes(s.kind)) return fail("unknown source kind");
+    if (s.label !== null && (typeof s.label !== "string" || !LANE.test(s.label))) return fail("invalid source label");
+  }
+  return { ok: true, data: json };
+}
+
+// D34: a results file from scripts/analyze_video.py, opened by hand, so it is
+// checked like any response: shown whole or refused with the reason.
+const unit = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1;
+const number = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MAX_LANE_COUNT;
+
+function sampleProblem(s, laneNames, approaches) {
+  if (!s || !seconds(s.t)) return "no time";
+  const sameKeys = (o, keys) => o && typeof o === "object" && Object.keys(o).sort().join() === [...keys].sort().join();
+  if (!sameKeys(s.counts, laneNames)) return "counts do not cover its lanes";
+  if (!Object.values(s.counts).every((n) => Number.isInteger(n) && n >= 0 && n <= MAX_LANE_COUNT)) return "invalid count";
+  if (!Array.isArray(s.boxes) || !s.boxes.every((b) => Array.isArray(b) && b.length === 4 && b.every(unit))) return "invalid box";
+  if (s.level !== null && (!sameKeys(s.level, approaches) || !Object.values(s.level).every((c) => CLASSES.includes(c)))) return "invalid level";
+  if (s.number !== null && (!sameKeys(s.number, approaches) || !Object.values(s.number).every(number))) return "invalid number";
+  if (s.then !== null && (!sameKeys(s.then, approaches)
+      || !Object.values(s.then).every((p) => CLASSES.includes(p?.level) && number(p?.number)))) return "invalid outcome";
+  return null;
+}
+
+export function validateAnalysis(json) {
+  if (!json || json.kind !== "stms-video-analysis") return fail("it is not an analysis results file");
+  if (json.schema !== 1) return fail(`unknown schema ${String(json.schema)}`);
+  if (json.step_s !== 2 || !seconds(json.duration_s) || json.duration_s <= 0) return fail("invalid timing");
+  if (typeof json.clip !== "string" || typeof json.camera !== "string") return fail("no clip or camera");
+  if (typeof json.directions_verified !== "boolean") return fail("directions_verified must be true or false");
+  if (!Array.isArray(json.known_limits) || !json.known_limits.every((l) => typeof l === "string")) return fail("invalid known limits");
+  if (!(number(json.limits?.low) && number(json.limits?.med) && json.limits.low < json.limits.med)) return fail("invalid level limits");
+  if (!Array.isArray(json.lanes) || json.lanes.length === 0) return fail("no lanes");
+  for (const lane of json.lanes) {
+    if (!LANE.test(lane?.name ?? "") || !APPROACHES.includes(lane?.approach)
+        || !Array.isArray(lane?.centre) || lane.centre.length !== 2 || !lane.centre.every(unit)) return fail("invalid lane");
+  }
+  const laneNames = json.lanes.map((l) => l.name), approaches = json.lanes.map((l) => l.approach);
+  if (new Set(approaches).size !== approaches.length) return fail("two lanes map to one approach");
+  if (!Array.isArray(json.samples) || json.samples.length === 0) return fail("no samples");
+  for (const [i, s] of json.samples.entries()) {
+    const problem = sampleProblem(s, laneNames, approaches);
+    if (problem) return fail(`sample ${i + 1}: ${problem}`);
+    if (i > 0 && s.t <= json.samples[i - 1].t) return fail(`sample ${i + 1}: out of order`);
+  }
+  return { ok: true, data: json };
+}

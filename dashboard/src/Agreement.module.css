@@ -1,13 +1,26 @@
-/* D26 agreement ribbon. Neutral marks only: agreement is shape, never a class
-   colour and never the brand orange. */
+/* D26 agreement ribbon, D33 level row. A cell's colour is the observed level,
+   named by its letter. Agreement is shape, a cut corner, never colour, and
+   nothing here uses the brand orange. */
 .panel { margin-top: 16px; border-top: 4px solid var(--frame-status); }
 .label { margin: 0 0 10px; font-size: 13px; }
 .rows { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 8px; }
-.rows li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.rows li { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(150px, 210px); align-items: center; gap: 4px 10px; }
+.axisRow { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(150px, 210px); gap: 10px; margin: -4px 0 10px; }
 .approach { font-family: var(--mono); width: 1.5ch; }
-.ribbon { flex: none; max-width: 100%; height: auto; }
+.ribbon { display: block; width: 100%; height: auto; max-height: 40px; }
 .summary { color: var(--muted); font: 12px var(--mono); }
-.agreed { fill: var(--ink); }
-.differed { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+/* Lined up with the cells: the approach letter's width, then the row's gap. */
+.axis { grid-column: 2; display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.axis i { flex: 1; height: 1px; background: var(--frame-count); }
+@media (max-width: 760px) {
+  .rows li { grid-template-columns: 22px minmax(0, 1fr); }
+  .summary { grid-column: 2; }
+  .axisRow { grid-template-columns: 22px minmax(0, 1fr); }
+}
+.LOW { fill: var(--low); }
+.MEDIUM { fill: var(--medium); }
+.HIGH { fill: var(--high); }
+.letter { fill: var(--on-class); font: 700 12px var(--mono); }
+.cut { fill: var(--panel); }
 .gap { fill: none; stroke: var(--muted); stroke-dasharray: 2 2; }
 .none { fill: var(--muted); }

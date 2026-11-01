@@ -1,12 +1,67 @@
-/* The overview, the page's first answer (UX step 2). Its class word is a chip,
+/* The status banner, the page's first answer. Its state has its own shape as
+   well as its colour, and the words carry it either way. */
+.banner { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 14px; align-items: center; margin: 0 0 16px;
+          padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.banner[data-status="stale"] { background: var(--stale-bg); border-color: var(--stale); }
+.banner h2 { font-size: 22px; line-height: 1.25; }
+.banner p { grid-column: 2; margin: 0; }
+.bannerMark { width: 16px; height: 16px; }
+/* The overview, the forecast's headline (UX step 2). Its class word is a chip,
    never coloured text, so its contrast is the chip's. */
-.overview { margin: 0 0 16px; }
+.overview { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 0; }
+.tile { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 0; display: grid; gap: 2px; align-content: start; }
+.tile p { margin: 0; }
+.tileLabel { color: var(--muted); font-size: 13px; }
+.tileValue { font-size: 21px; font-weight: 600; line-height: 1.25; }
+.tileSub { color: var(--muted); font-size: 13px; }
+.tileNone { color: var(--muted); }
+.validBar { height: 6px; margin-top: 6px; background: var(--road-edge); border-radius: 3px; overflow: hidden; }
+.validBar i { display: block; height: 100%; background: var(--ink); }
+.countedCol { min-width: 130px; }
+.counted { display: flex; align-items: center; gap: 8px; }
+.spark { display: block; width: 100%; max-width: 130px; height: 26px; }
+.spark path { fill: none; stroke: var(--frame-class); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark circle { fill: var(--ink); }
+.sites { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.sites a { display: grid; grid-template-columns: 12px auto; gap: 0 8px; align-items: center; min-width: 170px; padding: 6px 12px; color: var(--ink); text-decoration: none; background: var(--panel); border: 1px solid var(--line); border-radius: 7px; }
+.sites a[aria-current="true"] { border-color: var(--frame-class); background: var(--panel-raised); }
+.siteState { grid-column: 2; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.whatIf { display: grid; gap: 6px; padding: 10px 12px; border: 1px dashed var(--frame-class); border-radius: 8px; }
+.whatIf h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.whatIf p { margin: 0; }
+.whatIfWarn { font-size: 13px; }
+.whatIf ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.whatIf li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13px; }
+.whatIfBar { display: block; height: 10px; background: var(--road-edge); border-radius: 3px; overflow: hidden; }
+.whatIfBar i { display: block; height: 100%; background: var(--frame-class); }
+.plot { display: grid; gap: 3px; margin: 8px 0; font-size: 13px; }
+.plotRow { display: grid; grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) 150px; gap: 12px; align-items: center; }
+.plotTrack { position: relative; height: 22px; }
+.plotTrack::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line); }
+.plotCi { position: absolute; top: 50%; height: 2px; margin-top: -1px; background: var(--frame-class); }
+.plotRule, .plotPpo { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: var(--ink); }
+.plotPpo { border-radius: 50%; }
+@media (max-width: 560px) { .plotRow { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+.share { display: grid; gap: 6px; }
+.share h3 { margin: 0; color: var(--muted); font-size: 13px; font-weight: 500; }
+.shareBar { display: flex; gap: 2px; height: 18px; }
+.shareBar i { display: block; min-width: 3px; border-radius: 2px; }
+.shareKey { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 13px; }
+.shareKey b { font-family: var(--mono); }
+.shareKey i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+.shareN { background: var(--ink); }
+.shareS { background: var(--frame-class); }
+.shareE { background: var(--frame-count); }
+.shareW { background: var(--road-edge); border: 1px solid var(--frame-count); }
+@media (max-width: 560px) { .countedCol { display: none; } }
 .overviewLabel { color: var(--muted); font-size: 13px; margin: 0 0 2px; }
-.overviewHead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; font-size: 30px; font-weight: 600; line-height: 1.2; }
-.overviewHead .chip { font-size: 22px; padding: 1px 10px; }
+.overviewHead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; font-size: 21px; font-weight: 600; line-height: 1.25; }
+.overviewHead .chip { font-size: 16px; padding: 0 8px; }
 .overviewHead .dot { flex: none; }
-.overviewDetail { color: var(--muted); margin: 6px 0 0; }
-@media (max-width: 760px) { .overviewHead { font-size: 22px; } .overviewHead .chip { font-size: 17px; } }
+.overviewDetail { margin: 6px 0 0; }
+.forecast { border-collapse: collapse; width: 100%; }
+.forecast thead th { color: var(--muted); font-size: 13px; font-weight: 500; text-align: left; vertical-align: bottom; padding: 4px 8px 4px 0; }
+.forecast tbody th, .forecast td { text-align: left; padding: 7px 8px 7px 0; border-top: 1px solid var(--line); }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
 /* Distinct top borders so the count and the class are never read as one panel. */
 .count { border-top: 4px solid var(--frame-count); }
@@ -25,7 +80,7 @@
 .stale b { color: var(--stale); }
 .staleMark { flex: none; align-self: center; width: 8px; height: 8px; background: var(--stale); transform: rotate(45deg); }
 .staled .value { color: var(--muted); }
-.staled .chip { background: transparent; color: var(--ink); }
+.staled .chip { background: transparent; color: var(--ink); border-style: dashed; }
 .lanes { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 6px; }
 .lanes li { display: flex; align-items: center; gap: 12px; }
 .approach { width: 22px; font: 600 15px var(--mono); }

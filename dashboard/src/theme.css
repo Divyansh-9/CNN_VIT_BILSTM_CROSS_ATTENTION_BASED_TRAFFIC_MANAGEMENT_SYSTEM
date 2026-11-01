@@ -22,6 +22,7 @@
   /* surfaces and text */
   --bg: #080808;
   --panel: #141311;
+  --panel-raised: #1b1917;
   --ink: #fffdfb;
   --muted: #a8a29e;
   --line: #2e2a26;
@@ -45,6 +46,7 @@
   --warn: var(--stale);
   --stale-bg: #191e29;
   --notice-bg: #161412;
+  --scrim: rgba(8, 8, 8, 0.8);
   --focus: var(--brand);
 
   /* the intersection drawing (UX step 3): neutral, so only the class colours carry meaning */

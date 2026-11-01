@@ -24,7 +24,7 @@ class forecast comes after 1 min, the first count forecast and ribbon cell after
 
 **What it does not establish:** the same as `demo_e2e.py`. Replay is not a live
 camera (S65), and the ribbon is agreement with the detector's own counts, not
-accuracy. The dashboard shows no video, and none leaves the edge (NFR-13).
+accuracy. The Live page shows no video, and none leaves the edge (NFR-13).
 """
 
 from __future__ import annotations

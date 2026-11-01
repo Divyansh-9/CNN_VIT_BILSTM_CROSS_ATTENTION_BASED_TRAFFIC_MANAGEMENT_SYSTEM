@@ -103,3 +103,43 @@ def test_without_git_the_commit_comes_from_the_build_time_map(tmp_path, monkeypa
 def test_the_evidence_endpoint_is_read_only():
     client = TestClient(server.app)
     assert client.post("/evidence").status_code == 405
+
+
+# D34: the signal study comes from its committed file, unchanged, and the
+# intersections from their heartbeats alone.
+needs_ceiling = pytest.mark.skipif(not server.SIGNAL_STUDY.exists(), reason="ceiling stats absent (public tree)")
+
+
+@needs_ceiling
+def test_signal_study_numbers_are_the_committed_numbers():
+    stats = json.loads(server.SIGNAL_STUDY.read_text(encoding="utf-8"))
+    study = server.signal_study()
+    assert study["seeds"] == len(stats["primary_evaluation_seeds"])
+    assert study["reading"] == stats["decision"]["reading"]
+    assert [a["mean"] for a in study["arms"]] == sorted(a["mean"] for a in study["arms"])
+    named = {a["name"]: a for a in study["arms"]}
+    source = stats["arms"]["webster_split_clamped_s600_lost0"]
+    assert named["Webster split, clamped"]["mean"] == round(source["mean_total_delay_s"], 2)
+    assert named["Webster split, clamped"]["ci95"] == [round(v, 2) for v in source["ci95"]]
+    assert len(study["arms"]) == len(stats["arms"])
+    assert study["commit"]
+
+
+def test_sites_lists_only_what_has_reported_and_marks_silence(monkeypatch, tmp_path):
+    from contracts.mqtt import Heartbeat, Mode
+
+    monkeypatch.setattr(server, "DATABASE", tmp_path / "s.db")
+    with TestClient(server.app) as client:
+        assert client.get("/sites").json() == {"sites": []}
+        beat = Heartbeat(edge_status="online", mode=Mode.NORMAL, mfstnet_active=False, ppo_active=False,
+                         source={"kind": "replay", "session": "0123456789ab", "label": "clip", "position_s": 1.0, "duration_s": 9.0})
+        server.store_heartbeat("a", beat.encode())
+        site = client.get("/sites").json()["sites"][0]
+        assert (site["id"], site["kind"], site["label"], site["stale"]) == ("a", "replay", "clip", False)
+        monkeypatch.setattr(server.time, "time", lambda real=server.time.time: real() + 60)
+        assert client.get("/sites").json()["sites"][0]["stale"] is True
+
+
+def test_signal_study_is_absent_when_its_file_is(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "SIGNAL_STUDY", tmp_path / "none.json")
+    assert server.signal_study() is None

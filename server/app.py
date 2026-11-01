@@ -702,6 +702,27 @@ def store_heartbeat(intersection_id: str, raw: str | bytes):
     return payload
 
 
+@app.get("/sites")
+def sites() -> dict:
+    """D34: the intersections this server has heard from, from their heartbeats
+    alone. It holds no camera list (ADR-028), so nothing here is declared or
+    assumed: an intersection with no edge unit has never reported and is absent."""
+    with closing(connect()) as connection:
+        rows = connection.execute("SELECT intersection_id, at, payload FROM heartbeats "
+                                  "ORDER BY intersection_id").fetchall()
+    now, out = time.time(), []
+    for intersection_id, at, raw in rows:
+        try:
+            payload = decode(Topic.HEARTBEAT, raw)
+        except ContractError:
+            continue                     # refused here as anywhere; not shown as a site
+        age = round(now - at, 1)
+        source = payload.source or {}
+        out.append({"id": intersection_id, "age_s": age, "stale": age > SafetyLimits().mqtt_timeout_s,
+                    "label": source.get("label"), "kind": source.get("kind")})
+    return {"sites": out}
+
+
 @app.post("/heartbeat/{intersection_id}", dependencies=WRITE)
 def heartbeat(intersection_id: str, raw: str = Body(..., media_type="text/plain")) -> dict:
     """One `Heartbeat`, exactly as the edge encoded it: the HTTP stand-in for
@@ -920,6 +941,30 @@ def _row(metric, a_name, a, b_name, b, test=None, lower_is_better=False):
     return row
 
 
+SIGNAL_STUDY = Path("experiments/results/ceiling/ceiling_stats.json")
+SIGNAL_ARMS = {"webster_split_clamped_s600_lost0": ("Webster split, clamped", "rule"),
+               "webster_s660_lost4": ("Tuned Webster", "rule"), "no-forecast": ("PPO, no forecast", "ppo"),
+               "fixed_30": ("Fixed 30 s", "rule"), "persistence": ("PPO, persistence forecast", "ppo"),
+               "oracle": ("PPO, perfect forecast", "ppo")}
+
+
+def signal_study() -> dict | None:
+    """D34: P130's frozen result, read from its file. Absent from the sanitised
+    public tree, where the page simply shows no signal study."""
+    import json
+
+    if not SIGNAL_STUDY.exists():
+        return None
+    stats = json.loads(SIGNAL_STUDY.read_text(encoding="utf-8"))
+    arms = [{"name": name, "kind": kind, "mean": round(stats["arms"][key]["mean_total_delay_s"], 2),
+             "ci95": [round(v, 2) for v in stats["arms"][key]["ci95"]]}
+            for key, (name, kind) in SIGNAL_ARMS.items()]
+    return {"id": "P130", "question": "Does a forecast help a signal controller, in simulation?",
+            "metric": "mean total delay (s)", "seeds": len(stats["primary_evaluation_seeds"]),
+            "reading": stats["decision"]["reading"], "qualifiers": stats["decision"]["qualifiers"],
+            "arms": sorted(arms, key=lambda arm: arm["mean"]), **committed_at(SIGNAL_STUDY)}
+
+
 @app.get("/evidence")
 def evidence() -> dict:
     """ADR-014 Panel A: frozen numbers read from committed result files.
@@ -939,7 +984,7 @@ def evidence() -> dict:
         raise HTTPException(503, f"evidence file missing: {error.filename}") from error
     p105_cams = sorted(p105["per_camera"])
     return {
-        "label": EVIDENCE_LABEL, "limitations": EVIDENCE_LIMITS,
+        "label": EVIDENCE_LABEL, "limitations": EVIDENCE_LIMITS, "signal_study": signal_study(),
         "studies": [
             {"id": "P105", "role": "next_minute_count (ridge)",
              "question": "Does the level-free ridge forecast next-minute counts better than persistence?",

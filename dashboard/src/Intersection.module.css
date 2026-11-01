@@ -7,7 +7,9 @@
 .zebra { fill: var(--road-edge); }
 .centre { fill: none; stroke: var(--frame-count); stroke-width: 1.5; stroke-dasharray: 8 8; }
 .stop { fill: var(--ink); }
+.track { fill: none; stroke: var(--frame-count); }
 .head { fill: none; stroke: var(--muted); stroke-dasharray: 2 2; }
+.headMark { fill: var(--muted); font: 700 9px var(--mono); }
 .LOW { fill: var(--low); stroke: var(--low); }
 .MEDIUM { fill: var(--medium); stroke: var(--medium); }
 .HIGH { fill: var(--high); stroke: var(--high); }
