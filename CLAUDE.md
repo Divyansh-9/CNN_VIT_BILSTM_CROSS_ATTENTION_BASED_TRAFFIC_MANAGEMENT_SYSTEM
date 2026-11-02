@@ -666,6 +666,16 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
     from evaluators until the guide replies (P131).
   - **Signal heads stay `?`:** no signal state reaches this system. Do not light them from demand.
 
+- **Engineering view (D35):** an `Operator | Engineering` control on Live and Analyze, Operator by default,
+  with no memory across a reload.
+  - **Shown, each with its source:** counts and class breakdown (Detector), PCU with its working
+    (Calculated), forecasts (Model).
+  - **Queue always reads "Not measured".** The camera path has no speed or stop line. Do not derive one from
+    counts, and do not put simulator queues in the live region (ADR-014).
+  - **Data:** `GET /vehicle_count/{id}/latest`, and schema 2 of `analyze_video.py`'s results. Schema 1 still opens.
+  - **PCU values:** `mfstnet/corpus/pcu.py`. The server lists them because its image has no mfstnet, and a
+    test holds the two equal.
+
 **Not implemented:** WebSocket updates, forecast charts,
 a detection overlay on the live view and authentication. Dashboard tests do run in CI: the
 `dashboard (vitest + build)` job runs `npm test`.

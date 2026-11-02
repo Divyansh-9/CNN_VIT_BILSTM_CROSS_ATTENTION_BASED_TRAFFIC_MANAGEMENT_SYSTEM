@@ -293,6 +293,18 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     connection.execute(
         "CREATE INDEX IF NOT EXISTS vehicle_counts_at "
         "ON vehicle_counts (intersection_id, at)")
+    # D35: each lane's latest count with its class breakdown, for the Engineering
+    # view. One row per lane, so it needs no pruning, and vehicle_counts stays as it was.
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS vehicle_count_latest (
+            intersection_id TEXT NOT NULL,
+            lane TEXT NOT NULL,
+            at REAL NOT NULL,
+            count INTEGER NOT NULL,
+            types TEXT NOT NULL,
+            fps REAL NOT NULL,
+            PRIMARY KEY (intersection_id, lane)
+        )""")
     # D26: forecast checks (ADR-014 §2), kept apart from the forecasts so that
     # neither history depends on the other, and bounded by age on their own.
     connection.execute("""
@@ -570,6 +582,9 @@ def store_vehicle_count(intersection_id: str, lane: str, raw: str | bytes):
     with closing(connect()) as connection:
         connection.execute("INSERT INTO vehicle_counts VALUES (?,?,?,?,?)",
                            (now, intersection_id, lane, payload.count, payload.fps))
+        connection.execute("INSERT OR REPLACE INTO vehicle_count_latest VALUES (?,?,?,?,?,?)",
+                           (intersection_id, lane, now, payload.count,
+                            json.dumps(dict(payload.types), sort_keys=True), payload.fps))
         connection.commit()
     maybe_prune_vehicle_counts(now)
     return payload
@@ -674,6 +689,33 @@ def vehicle_count_history(intersection_id: str,
     1, 5 or 15 minute buckets (D21). Read-only, like every GET here."""
     valid_id(intersection_id)
     return count_buckets(intersection_id, window, time.time())
+
+
+#: D35: PCU per contract class, the values of `mfstnet/corpus/pcu.py`. The server
+#: image does not carry mfstnet, so they are listed here and a test holds the two equal.
+PCU_BY_WIRE_CLASS = {"car": 1.0, "motorcycle": 0.3, "auto-rickshaw": 1.2, "e-rickshaw": 1.2,
+                     "bus": 4.5, "truck": 5.0, "pedestrian": 0.0, "cattle": 1.5}
+PCU_ASSUMED = ("e-rickshaw", "cattle")
+PCU_SOURCE = "Indo-HCM 2017, intermediate/two-lane urban (ADR-017, proposed, not signed off by the guide)"
+
+
+@app.get("/vehicle_count/{intersection_id}/latest")
+def vehicle_count_latest(intersection_id: str) -> dict:
+    """D35: each lane's latest count by class, as the edge sent it. A lane that has
+    not reported is absent, never zero, and a queue is not something this measures."""
+    valid_id(intersection_id)
+    now = time.time()
+    with closing(connect()) as connection:
+        rows = connection.execute("SELECT lane, at, count, types, fps FROM vehicle_count_latest "
+                                  "WHERE intersection_id = ?", (intersection_id,)).fetchall()
+    if not rows:
+        raise HTTPException(404, "no counts received yet")
+    timeout = SafetyLimits().mqtt_timeout_s
+    return {"intersection_id": intersection_id,
+            "lanes": {lane: {"count": count, "types": json.loads(types), "fps": fps,
+                             "age_s": round(max(now - at, 0.0), 1), "stale": now - at > timeout}
+                      for lane, at, count, types, fps in rows},
+            "pcu": {"weights": PCU_BY_WIRE_CLASS, "assumed": list(PCU_ASSUMED), "source": PCU_SOURCE}}
 
 
 def store_heartbeat(intersection_id: str, raw: str | bytes):

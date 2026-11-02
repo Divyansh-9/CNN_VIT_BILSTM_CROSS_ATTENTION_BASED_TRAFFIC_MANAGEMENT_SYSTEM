@@ -8,6 +8,8 @@ export const ALLOWED = [
   /^\/prediction\/[A-Za-z0-9_-]{1,32}\/(latest|history)$/,
   // FR-UI03: observed counts, one of the three windows and nothing else (D21).
   /^\/vehicle_count\/[A-Za-z0-9_-]{1,32}\/history\?window=(1h|6h|24h)$/,
+  // D35: each lane's latest count by class, for the Engineering view.
+  /^\/vehicle_count\/[A-Za-z0-9_-]{1,32}\/latest$/,
   // D22: the edge's latest heartbeat, for the source badge and the lane map.
   /^\/heartbeat\/[A-Za-z0-9_-]{1,32}\/latest$/,
   // D26: forecast checks, a minute apart (ADR-014 §2).

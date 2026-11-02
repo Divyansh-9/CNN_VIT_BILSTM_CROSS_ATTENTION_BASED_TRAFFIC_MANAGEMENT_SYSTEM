@@ -32,19 +32,39 @@ from typing import Callable, Iterable, Iterator
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from edge.classes import load_itd_mapping  # noqa: E402
 from edge.count_forecast import RidgeCountForecaster  # noqa: E402
 from edge.persistence import WINDOW, PersistenceForecaster, classify  # noqa: E402
 from edge.profile import CameraProfile, ProfileError, load_profile  # noqa: E402
 from edge.run import COUNTING_FILE, PILOT, YoloDetector, clip_duration, file_frames, load_counting  # noqa: E402
 from edge.samples import STEP_S  # noqa: E402
 from mfstnet.corpus.counting import Detection, count_frame  # noqa: E402
-from mfstnet.corpus.lanes import LaneCentres  # noqa: E402
+from mfstnet.corpus.lanes import LaneCentres, assign_to_lane  # noqa: E402
+from mfstnet.corpus.pcu import ASSUMED, pcu_of  # noqa: E402
 from scripts.console import use_utf8  # noqa: E402
 
 KIND = "stms-video-analysis"
-SCHEMA = 1
+SCHEMA = 2
 MIN_S = 300.0                    # as demo_live: the forecasters need history first
 RIDGE_SPEC = PILOT / "p105_ridge_v1.json"
+
+
+def pcu_table(names: Iterable[str]) -> dict:
+    """D35: PCU for the detector's own class names, through the project's one class
+    mapping. A class with no decided PCU is left out, so the page says Not available
+    rather than guessing, and an analysis never fails over a display value."""
+    mapping = load_itd_mapping(spelling="dataset")
+    weights, assumed = {}, []
+    for name in sorted(set(names)):
+        ours = mapping.get(name) or name
+        try:
+            weights[name] = pcu_of(ours)
+        except KeyError:
+            continue
+        if ours in ASSUMED:
+            assumed.append(name)
+    return {"weights": weights, "assumed": assumed,
+            "source": "Indo-HCM 2017, intermediate/two-lane urban (ADR-017, proposed, not signed off by the guide)"}
 
 
 def analyse(frames: Iterable[tuple[float, object]], detector: Callable[[object], list[Detection]],
@@ -58,16 +78,22 @@ def analyse(frames: Iterable[tuple[float, object]], detector: Callable[[object],
     persistence = PersistenceForecaster(profile.spec_path, profile.spec_key, profile.lane_map)
     ridge = RidgeCountForecaster(ridge_spec, profile.lane_map)
     samples: list[dict] = []
+    seen_classes: set[str] = set()
     for ts, frame in frames:
         detections = detector(frame)
         del frame                                # NFR-13: counted, then dropped
         counted = count_frame(detections, lanes, min_confidence=min_confidence)
         totals = {lane: int(n) for lane, n in counted.per_lane.items()}
+        seen_classes.update(d.cls for d in detections)
         level = persistence.step(totals, ts)
         number = ridge.step(totals, ts)
         samples.append({
             "t": ts, "counts": totals,
             "boxes": [[round(d.x1, 4), round(d.y1, 4), round(d.x2, 4), round(d.y2, 4)] for d in detections],
+            # D35: parallel to boxes. The lane is the one this detection was counted in.
+            "detections": [[d.cls, round(d.confidence, 3),
+                            assign_to_lane(d.centroid, lanes) if d.confidence >= min_confidence else None]
+                           for d in detections],
             "level": {a: c.value for a, c in level.predictions.items()} if level else None,
             "number": dict(number.counts) if number else None,
             "then": None})
@@ -87,6 +113,8 @@ def analyse(frames: Iterable[tuple[float, object]], detector: Callable[[object],
         "step_s": STEP_S, "duration_s": duration_s if duration_s is not None else len(samples) * STEP_S,
         "lanes": [{"name": name, "centre": list(centre), "approach": profile.lane_map[name]}
                   for name, centre in profile.lanes],
+        "min_confidence": min_confidence,
+        "pcu": pcu_table(seen_classes),
         "limits": {"low": persistence.low, "med": persistence.med},
         "known_limits": list(profile.limitations),
         "directions_verified": profile.directions_verified,

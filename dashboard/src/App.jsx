@@ -4,6 +4,7 @@ import { AnalyzeVideo } from "./Analyze.jsx";
 import { BusyByHour } from "./Busy.jsx";
 import { ObservedCounts } from "./Analytics.jsx";
 import styles from "./App.module.css";
+import { LiveEngineering, ViewToggle } from "./Engineering.jsx";
 import { Icon } from "./icons.jsx";
 import { Horizon, Intersection } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, EvidencePanel, ExpectedShare, ForecastTable, HistoryPanel, Overview, SiteStrip, StatusBanner, StatusPanel, SummaryTiles, TimingSuggestion } from "./Panels.jsx";
@@ -82,6 +83,10 @@ export default function App({ fetcher, search = window.location.search, hash = w
   const recent = usePoll(`/vehicle_count/${id}/history?window=1h`, COUNTS_MS, fetcher);
   const day = usePoll(`/vehicle_count/${id}/history?window=24h`, COUNTS_MS, fetcher);
   const sites = usePoll("/sites", HISTORY_MS, fetcher);
+  const latestCounts = usePoll(`/vehicle_count/${id}/latest`, REFRESH_MS, fetcher);
+  // D35: Operator is the default, and a reload returns to it. Shared by Live and
+  // Analyze, so one choice holds across both.
+  const [view, setView] = useState("operator");
   const [touring, setTouring] = useState(false);
   const [glossary, setGlossary] = useState(false);
   const [invite, setInvite] = useState(() => !tourSeen());
@@ -140,6 +145,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
       )}
       {section !== "live" && section !== "analyze" && <ReplayNote state={heartbeat} />}
       {section === "analytics" && directions}
+      {(section === "live" || section === "analyze") && <ViewToggle view={view} onChange={setView} />}
 
       {section === "live" && (
         <section className={styles.live} aria-label="Live monitor">
@@ -181,6 +187,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
               </details>
             </section>
           </div>
+          {view === "engineering" && <LiveEngineering state={latestCounts} cls={cls} count={count} lanes={laneMap} />}
           <div data-tour="heat"><Agreement state={checks} edgeLive={edgeLive} runSession={runSession} /></div>
           <details className={styles.technical} data-technical="true" data-tour="technical">
             <summary>Technical details and research information</summary>
@@ -206,7 +213,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
         </section>
       )}
 
-      {section === "analyze" && <AnalyzeVideo />}
+      {section === "analyze" && <AnalyzeVideo view={view} />}
 
       {section === "analytics" && (
         <section aria-label="Analytics" data-tour="analytics">

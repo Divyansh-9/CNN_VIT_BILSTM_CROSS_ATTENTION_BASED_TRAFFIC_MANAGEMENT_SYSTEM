@@ -208,6 +208,33 @@ function sameSummary(mine, theirs) {
   });
 }
 
+// D35: a PCU table, from the server or a results file. A class it leaves out shows
+// as Not available on the page; a malformed table is refused.
+function pcuProblem(pcu) {
+  if (!pcu || typeof pcu.weights !== "object" || pcu.weights === null || Array.isArray(pcu.weights)) return "no PCU table";
+  if (!Object.values(pcu.weights).every((v) => typeof v === "number" && Number.isFinite(v) && v >= 0)) return "invalid PCU weight";
+  if (!Array.isArray(pcu.assumed) || typeof pcu.source !== "string" || !pcu.source) return "PCU table has no source";
+  return null;
+}
+
+// D35: GET /vehicle_count/{id}/latest. Shown whole or refused. A breakdown that
+// disagrees with its own total is refused, as the contract refuses it.
+export function validateLatestCounts(json) {
+  if (!json || typeof json.lanes !== "object" || json.lanes === null || Array.isArray(json.lanes)) return fail("no lanes");
+  const problem = pcuProblem(json.pcu);
+  if (problem) return fail(problem);
+  for (const [lane, row] of Object.entries(json.lanes)) {
+    if (!LANE.test(lane)) return fail("invalid lane name");
+    if (!Number.isInteger(row?.count) || row.count < 0 || row.count > MAX_LANE_COUNT) return fail("invalid count");
+    if (!seconds(row.age_s) || typeof row.stale !== "boolean") return fail("age or stale flag missing");
+    if (!row.types || typeof row.types !== "object" || Array.isArray(row.types)) return fail("no class breakdown");
+    const values = Object.values(row.types);
+    if (!values.every((n) => Number.isInteger(n) && n >= 0)) return fail("invalid class count");
+    if (values.reduce((a, b) => a + b, 0) !== row.count) return fail("classes do not add up to the count");
+  }
+  return { ok: true, data: json };
+}
+
 // D34: GET /sites. A bad row refuses the whole list, as every response does.
 export function validateSites(json) {
   if (!json || !Array.isArray(json.sites)) return fail("no sites");
@@ -225,7 +252,18 @@ export function validateSites(json) {
 const unit = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1;
 const number = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MAX_LANE_COUNT;
 
-function sampleProblem(s, laneNames, approaches) {
+function detectionsProblem(s, laneNames) {
+  if (!Array.isArray(s.detections) || s.detections.length !== s.boxes.length) return "detections do not match its boxes";
+  const counted = Object.fromEntries(laneNames.map((n) => [n, 0]));
+  for (const d of s.detections) {
+    if (!Array.isArray(d) || d.length !== 3 || typeof d[0] !== "string" || !d[0] || !unit(d[1])) return "invalid detection";
+    if (d[2] !== null && !laneNames.includes(d[2])) return "a detection names an unknown lane";
+    if (d[2] !== null) counted[d[2]] += 1;
+  }
+  return laneNames.some((n) => counted[n] !== s.counts[n]) ? "detections disagree with its counts" : null;
+}
+
+function sampleProblem(s, laneNames, approaches, schema) {
   if (!s || !seconds(s.t)) return "no time";
   const sameKeys = (o, keys) => o && typeof o === "object" && Object.keys(o).sort().join() === [...keys].sort().join();
   if (!sameKeys(s.counts, laneNames)) return "counts do not cover its lanes";
@@ -235,12 +273,17 @@ function sampleProblem(s, laneNames, approaches) {
   if (s.number !== null && (!sameKeys(s.number, approaches) || !Object.values(s.number).every(number))) return "invalid number";
   if (s.then !== null && (!sameKeys(s.then, approaches)
       || !Object.values(s.then).every((p) => CLASSES.includes(p?.level) && number(p?.number)))) return "invalid outcome";
-  return null;
+  return schema === 2 ? detectionsProblem(s, laneNames) : null;
 }
 
 export function validateAnalysis(json) {
   if (!json || json.kind !== "stms-video-analysis") return fail("it is not an analysis results file");
-  if (json.schema !== 1) return fail(`unknown schema ${String(json.schema)}`);
+  if (json.schema !== 1 && json.schema !== 2) return fail(`unknown schema ${String(json.schema)}`);
+  if (json.schema === 2) {
+    const problem = pcuProblem(json.pcu);
+    if (problem) return fail(problem);
+    if (!unit(json.min_confidence)) return fail("no confidence threshold");
+  }
   if (json.step_s !== 2 || !seconds(json.duration_s) || json.duration_s <= 0) return fail("invalid timing");
   if (typeof json.clip !== "string" || typeof json.camera !== "string") return fail("no clip or camera");
   if (typeof json.directions_verified !== "boolean") return fail("directions_verified must be true or false");
@@ -255,7 +298,7 @@ export function validateAnalysis(json) {
   if (new Set(approaches).size !== approaches.length) return fail("two lanes map to one approach");
   if (!Array.isArray(json.samples) || json.samples.length === 0) return fail("no samples");
   for (const [i, s] of json.samples.entries()) {
-    const problem = sampleProblem(s, laneNames, approaches);
+    const problem = sampleProblem(s, laneNames, approaches, json.schema);
     if (problem) return fail(`sample ${i + 1}: ${problem}`);
     if (i > 0 && s.t <= json.samples[i - 1].t) return fail(`sample ${i + 1}: out of order`);
   }

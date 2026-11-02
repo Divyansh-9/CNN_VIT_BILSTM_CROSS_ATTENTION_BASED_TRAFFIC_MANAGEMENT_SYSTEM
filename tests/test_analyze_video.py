@@ -98,3 +98,23 @@ def test_refuses_a_video_too_short_to_forecast(tmp_path, capsys):
     video.write_bytes(b"not a video")
     assert tool.main(["--video", str(video), "--profile", str(PROFILE), "--out", str(tmp_path / "o.json")]) == 1
     assert "at least 5 minutes" in capsys.readouterr().err
+
+
+# D35: class details for the Engineering view, in a new schema.
+@needs_specs
+def test_detections_match_the_boxes_and_rebuild_the_counts():
+    _, result = run(40, lambda k, i: i)
+    assert result["schema"] == 2
+    for sample in result["samples"]:
+        assert len(sample["detections"]) == len(sample["boxes"])
+        rebuilt = {lane: 0 for lane in sample["counts"]}
+        for cls, confidence, lane in sample["detections"]:
+            assert cls == "car" and confidence == 0.9
+            rebuilt[lane] += 1
+        assert rebuilt == sample["counts"]
+
+
+def test_pcu_table_uses_the_projects_mapping_and_never_guesses():
+    table = tool.pcu_table(["car", "two wheeler", "LCV", "bicycle", "autorickshaw", "not a class"])
+    assert table["weights"] == {"car": 1.0, "two wheeler": 0.3, "LCV": 5.0, "bicycle": 0.2, "autorickshaw": 1.2}
+    assert "ADR-017" in table["source"]

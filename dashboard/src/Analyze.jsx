@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import panel from "./Panels.module.css";
 import styles from "./Analyze.module.css";
+import { VideoEngineering } from "./Engineering.jsx";
 import { CLASSES, validateAnalysis } from "./validate.js";
 
 // D34: a recording beside the results of scripts/analyze_video.py. Both files are
@@ -89,7 +90,7 @@ function Timeline({ analysis, t, onSeek }) {
   );
 }
 
-export function AnalyzeVideo() {
+export function AnalyzeVideo({ view = "operator" }) {
   const [video, setVideo] = useState(null);       // { url, name }
   const [length, setLength] = useState(null);
   const [aspect, setAspect] = useState("16 / 9");
@@ -101,6 +102,7 @@ export function AnalyzeVideo() {
   const [rate, setRate] = useState(1);
   const [showLanes, setShowLanes] = useState(true);
   const [showBoxes, setShowBoxes] = useState(true);
+  const [showClasses, setShowClasses] = useState(false);
   const player = useRef(null);
 
   useEffect(() => () => { if (video) URL.revokeObjectURL(video.url); }, [video]);
@@ -205,6 +207,9 @@ export function AnalyzeVideo() {
                 {sample.boxes.map(([x1, y1, x2, y2], i) => <rect key={i} data-box="true" x={x1} y={y1} width={x2 - x1} height={y2 - y1} vectorEffect="non-scaling-stroke" />)}
               </svg>
             )}
+            {sample && view === "engineering" && showClasses && sample.detections?.map(([cls], i) => (
+              <span key={i} className={styles.classLabel} data-box-class="true" style={{ left: `${sample.boxes[i][0] * 100}%`, top: `${sample.boxes[i][1] * 100}%` }}>{cls}</span>
+            ))}
             {sample && showLanes && analysis.lanes.map(({ name, centre }, i) => (
               <span key={name} className={styles.pin} data-pin={`L${i}`} style={{ left: `${centre[0] * 100}%`, top: `${centre[1] * 100}%` }}><b>L{i}</b> {sample.counts[name]}</span>
             ))}
@@ -226,6 +231,7 @@ export function AnalyzeVideo() {
             <div className={styles.toggles}>
               <label><input type="checkbox" checked={showLanes} onChange={(e) => setShowLanes(e.target.checked)} /> Lane markers</label>
               <label><input type="checkbox" checked={showBoxes} onChange={(e) => setShowBoxes(e.target.checked)} /> Vehicle boxes</label>
+              {view === "engineering" && sample?.detections && <label><input type="checkbox" checked={showClasses} data-show-classes="true" onChange={(e) => setShowClasses(e.target.checked)} /> Class labels</label>}
               <span className={styles.small}>Boxes update every 2 seconds, the rate the system samples at.</span>
             </div>
           )}
@@ -237,6 +243,8 @@ export function AnalyzeVideo() {
             : <p className={styles.absent} data-state="no-results">{mismatch ? "Open the results for this video." : "No results yet. Open a results file to see counts and forecasts here."}</p>}
           {sample && !analysis.directions_verified && <p className={styles.notice} data-directions="unverified">N, S, E and W are labels. Their directions have not been verified for this camera.</p>}
         </section>
+
+        {sample && view === "engineering" && <VideoEngineering analysis={analysis} sample={sample} className={`${styles.card} ${styles.wide}`} />}
 
         {synced && (
           <section className={`${styles.card} ${styles.wide}`} aria-label="The whole video">

@@ -12116,6 +12116,51 @@ represent.
   one camera shows only that the level can saturate. The limits stay frozen; changing them is a
   pre-registered decision, not a display fix.
 
+## D35 — an Engineering view, showing only what is measured (2026-11-02)
+
+The owner asked for PCU, queue and vehicle counts behind a button, on Live and on Analyze a video, for
+engineers and evaluators. This is a new feature after the owner's own scope freeze (D31), at the owner's request.
+
+**Audit first, because it decides what is honest.**
+
+| Field | Live | Analyze a video | Shown as |
+|---|---|---|---|
+| Observed count | sent by the edge | in the results file | Detector |
+| Class breakdown | sent by the edge, then discarded by the server | detected, not recorded | Detector, after the changes below |
+| PCU | calculable | calculable | Calculated, with its working |
+| Forecast | yes | yes | Model, in its own column |
+| Queue | no source | no source | **Not measured** |
+| Confidence | not sent | recorded now | Not available on Live |
+
+**What changed.**
+- **One control,** `Operator | Engineering`, on both pages. Operator is the default and a reload returns to it.
+- **`GET /vehicle_count/{id}/latest`,** from a new one-row-per-lane table, `vehicle_count_latest`. The edge
+  and the MQTT contract are unchanged. A lane that has not reported is absent, never zero.
+- **`analyze_video.py` schema 2** adds each detection's class, confidence and lane, the threshold and a PCU
+  table. Counts, boxes and forecasts were identical to schema 1 on the real Newport hour (1,799 of 1,799
+  samples). Schema 1 files still open, and their class details read Not available.
+
+**Rejected from the proposals, with the reason.**
+- **Weights of 1.0 / 2.5 / 0.5.** They are not the project's. `mfstnet/corpus/pcu.py` holds car 1.00,
+  motorcycle 0.30, bus 4.50, truck 5.00. The server image has no mfstnet, so the server lists them and a
+  test holds the two equal.
+- **"Queue: vehicles below 5 km/h".** Nothing measures speed, and low speed is not a queue.
+- **"Granular vehicular saturation".** PCU weighs vehicles; saturation needs a capacity to divide by.
+- **A SUMO queue beside live numbers.** ADR-014 keeps simulated and benchmark values out of the live region.
+- **Stopping at a prototype.** One review asked for this, but the owner's own request was to add the feature.
+  It is uncommitted until the owner reviews it.
+
+**What it found at once.** On the Newport hour, 271 of 276 "truck" detections are the oversized boxes D34
+recorded, at a median confidence of 0.513 against a threshold of 0.45. PCU weights a truck at 5, so where
+one lands in a lane it moves PCU far more than it moves the count. The page marks any box over 25% of the
+frame "large: check by eye", and says the flag is a request to look, not a verdict, and that confidence is
+the detector's own score, not correctness. The same hour holds 65 "autorickshaw" detections on a road in Bellevue, Washington.
+No threshold, profile or detector changed, and nobody has yet looked at the footage.
+
+**Not established.** The Live panel's counts are one 2-second sample. ADR-017 is still proposed, so the page
+marks PCU "Provisional" and names that status in its source line. These are Indian road values on non-Indian footage, so PCU here is a
+yardstick and not evidence about Indian traffic. No engineer or evaluator has used this view.
+
 ## D34 — the rest of the operator console, on real data (2026-11-01)
 
 The owner asked for the full prototype in the product. Every part now reads real data, or is left out and

@@ -197,3 +197,36 @@ def test_the_ingest_stores_a_lane_count_and_refuses_a_bad_one(ingest):
     assert (receiver.stored, len(receiver.refused), len(receiver.failed)) == (1, 1, 0)
     with sqlite3.connect(server.DATABASE) as connection:
         assert connection.execute("SELECT lane, count FROM vehicle_counts").fetchall() == [("lane_2", 4)]
+
+
+# D35: the Engineering view's latest counts, by class, for each lane.
+def test_latest_keeps_the_class_breakdown_and_a_silent_lane_stays_absent(client):
+    http, _ = client
+    assert http.get("/vehicle_count/j1/latest").status_code == 404
+    payload = VehicleCount(count=3, types={"car": 2, "bus": 1}, fps=0.5).encode()
+    assert http.post("/vehicle_count/j1/lane_0", content=payload, headers=TEXT).status_code < 300
+    body = http.get("/vehicle_count/j1/latest").json()
+    assert list(body["lanes"]) == ["lane_0"]
+    row = body["lanes"]["lane_0"]
+    assert (row["count"], row["types"], row["stale"]) == (3, {"bus": 1, "car": 2}, False)
+    assert "queue" not in json.dumps(body).lower()
+
+
+def test_latest_replaces_the_older_row_and_leaves_the_history_alone(client):
+    http, _ = client
+    for n in (1, 2):
+        http.post("/vehicle_count/j1/lane_0", content=VehicleCount(count=n, types={"car": n}, fps=0.5).encode(), headers=TEXT)
+    assert http.get("/vehicle_count/j1/latest").json()["lanes"]["lane_0"]["count"] == 2
+    history = http.get("/vehicle_count/j1/history?window=1h").json()
+    assert sum(b["lanes"]["lane_0"]["n"] for b in history["buckets"] if "lane_0" in b["lanes"]) == 2
+
+
+def test_server_pcu_values_are_the_projects_own():
+    import server.app as app
+    from contracts.mqtt import VEHICLE_CLASSES
+    from mfstnet.corpus.pcu import ASSUMED, pcu_of
+
+    assert set(app.PCU_BY_WIRE_CLASS) == set(VEHICLE_CLASSES)
+    for name, value in app.PCU_BY_WIRE_CLASS.items():
+        assert value == pcu_of(name.replace("-", "_"))
+    assert {n.replace("-", "_") for n in app.PCU_ASSUMED} == set(ASSUMED)

@@ -313,6 +313,8 @@ export const GLOSSARY = [
   ["Check", "A past forecast beside what the counts then showed. Both sides come from the same detector."],
   ["Persistence", "The forecast method behind the level: it expects the current level to continue."],
   ["Ridge", "The forecast method behind the vehicle number: a simple statistical model of recent counts."],
+  ["Engineering view", "The same page with its underlying measurements: counts by class, PCU, and where each number came from."],
+  ["PCU", "Passenger car unit. Weights each vehicle by the road space it takes, with a car as 1. It is not a measure of saturation."],
   ["Webster", "A long-established formula that sets signal timing from traffic demand."],
   ["PPO", "A reinforcement learning method, tested on signal timing only in simulation here."],
   ["95% interval", "The range the measured value plausibly falls in. Wide means less certain."],

@@ -22,6 +22,10 @@ Analyze a video (D34) plays a recording beside a results file from
 anywhere. Live also lists what has reported (`GET /sites`) and a labelled
 calculation of green shares, which reaches no signal. The signal heads stay `?`.
 
+The Engineering view (D35) sits behind one control on Live and on Analyze, and is off by default. It adds
+counts by class, PCU with its working, and the source of each number, from `GET /vehicle_count/{id}/latest`
+or the results file. Queue reads "Not measured", because nothing on the camera path measures one.
+
 ## What the page refuses to do
 
 - **Show a missing approach as zero or LOW.** An approach with no forecast

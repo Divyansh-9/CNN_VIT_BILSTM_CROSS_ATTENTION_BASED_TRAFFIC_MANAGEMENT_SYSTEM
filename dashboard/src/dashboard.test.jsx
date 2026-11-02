@@ -1,7 +1,9 @@
+import { LiveEngineering, VideoEngineering, pcuWorking } from "./Engineering.jsx";
+import { validateLatestCounts } from "./validate.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import App, { SECTIONS, intersectionFromUrl, sectionFromHash } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
@@ -1405,5 +1407,121 @@ describe("Analyze a video (D34)", () => {
     expect(screen.getByLabelText("Analyze a video", { selector: "section" })).toBeTruthy();
     expect(screen.queryByLabelText("Live monitor")).toBeNull();
     expect(document.querySelector("[data-source]")).toBeNull();
+  });
+});
+
+describe("Engineering view (D35)", () => {
+  const LATEST = { intersection_id: "j1", lanes: {
+    lane_0: { count: 3, types: { car: 2, bus: 1 }, fps: 0.5, age_s: 2, stale: false },
+    lane_1: { count: 0, types: {}, fps: 0.5, age_s: 45, stale: true } },
+    pcu: { weights: { car: 1, bus: 4.5 }, assumed: [], source: "Indo-HCM test" } };
+  const idle = { status: "unavailable" };
+  const show = (state, lanes = { lane_0: "N", lane_1: "S", lane_2: "E" }) => render(<LiveEngineering state={state} cls={idle} count={idle} lanes={lanes} />);
+
+  it("is off by default, on both pages, and one click shows it", async () => {
+    const fetcher = async () => ({ ok: false, status: 404 });
+    const { container, unmount } = render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
+    expect(container.querySelector("[data-engineering]")).toBeNull();
+    expect(container.querySelector('[data-view="operator"]').getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(container.querySelector('[data-view="engineering"]'));
+    expect(container.querySelector('[data-engineering="live"]')).not.toBeNull();
+    unmount();
+    const other = render(<App fetcher={fetcher} search="?id=j1" hash="#analyze" />);
+    expect(other.container.querySelector("[data-view-toggle]")).not.toBeNull();
+    other.unmount();
+    const results = render(<App fetcher={fetcher} search="?id=j1" hash="#results" />);
+    expect(results.container.querySelector("[data-view-toggle]")).toBeNull();
+  });
+
+  it("shows the counts, the classes and the working behind the PCU", () => {
+    const { container } = show({ status: "ok", data: LATEST });
+    const row = container.querySelector('[data-engineering-row="lane_0"]');
+    expect(row.textContent).toContain("1 bus");
+    expect(row.textContent).toContain("2 car");
+    expect(row.textContent).toContain("6.50");
+    expect(row.textContent).toContain("1 × 4.50 + 2 × 1.00");
+    expect(container.textContent).toContain("Indo-HCM test");
+  });
+
+  it("says Not measured for queue on every row and never gives a queue number", () => {
+    const { container } = show({ status: "ok", data: LATEST });
+    container.querySelectorAll("[data-engineering-row]").forEach((r) => expect(r.textContent).toContain("Not measured"));
+    expect(container.querySelector("[data-queue-note]").textContent).toContain("not a queue");
+  });
+
+  it("shows a lane with no report as not available, not zero, and a stale row as stale", () => {
+    const { container } = show({ status: "ok", data: LATEST });
+    const missing = container.querySelector('[data-engineering-row="lane_2"]');
+    expect(missing.textContent).toContain("Not available");
+    expect(missing.querySelector("td").textContent).not.toContain("0");
+    expect(container.querySelector('[data-received="lane_1"]').textContent).toContain("Stale, 45 s ago");
+  });
+
+  it("marks an out-of-date forecast as out of date", () => {
+    const stale = { status: "ok", data: { model: "ridge@73532968dcf2", role: "next_minute_count (ridge)", age_s: 90, stale: true, horizon_sec: 60, counts: { N: 1, S: 2, E: 0, W: 1 }, missing_approaches: [] } };
+    const { container } = render(<LiveEngineering state={{ status: "ok", data: LATEST }} cls={idle} count={stale} lanes={{ lane_0: "N" }} />);
+    const forecast = validateCount(stale.data);
+    expect(forecast.ok).toBe(true);
+    expect(container.querySelector('[data-engineering-row="lane_0"] [data-forecast-stale]').textContent).toContain("out of date");
+  });
+
+  it("gives no PCU total when a class has no weight", () => {
+    const data = { ...LATEST, lanes: { lane_0: { count: 1, types: { cattle: 1 }, fps: 0.5, age_s: 1, stale: false } } };
+    const { container } = show({ status: "ok", data });
+    expect(container.querySelector('[data-engineering-row="lane_0"]').textContent).toContain("Not available: a class has no PCU value");
+    expect(pcuWorking({ cattle: 1 }, {})).toBeNull();
+  });
+
+  it("refuses a breakdown that disagrees with its total, and says when the server is down", () => {
+    const bad = { ...LATEST, lanes: { lane_0: { count: 9, types: { car: 1 }, fps: 0.5, age_s: 1, stale: false } } };
+    expect(validateLatestCounts(bad).ok).toBe(false);
+    const first = show({ status: "ok", data: bad });
+    expect(first.container.querySelector('[data-state="invalid"]')).not.toBeNull();
+    expect(first.container.querySelector("[data-engineering-row]")).toBeNull();
+    first.unmount();
+    const down = show({ status: "error", reason: "server unreachable" });
+    expect(down.container.querySelector('[data-state="unavailable"]').textContent).toContain("server unreachable");
+  });
+
+  const analysis = (over = {}) => ({
+    kind: "stms-video-analysis", schema: 2, camera: "c", clip: "clip", step_s: 2, duration_s: 4,
+    lanes: [{ name: "lane_0", centre: [0.2, 0.7], approach: "N" }], limits: { low: 0.1, med: 1 }, known_limits: [],
+    directions_verified: false, models: {}, min_confidence: 0.25,
+    pcu: { weights: { car: 1, bus: 4.5 }, assumed: [], source: "Indo-HCM test" },
+    samples: [
+      { t: 0, counts: { lane_0: 1 }, boxes: [[0.1, 0.1, 0.2, 0.2]], detections: [["car", 0.9, "lane_0"]], level: null, number: null, then: null },
+      { t: 2, counts: { lane_0: 2 }, boxes: [[0.1, 0.1, 0.2, 0.2], [0.1, 0.1, 0.9, 0.9], [0.3, 0.3, 0.4, 0.4]],
+        detections: [["car", 0.9, "lane_0"], ["bus", 0.6, "lane_0"], ["car", 0.5, null]], level: null, number: null, then: null }],
+    ...over });
+
+  it("Analyze shows this sample's classes, the mean per 2-second sample, and flags what needs a look", () => {
+    const a = analysis();
+    const { container } = render(<VideoEngineering analysis={a} sample={a.samples[1]} className="x" />);
+    const row = container.querySelector('[data-engineering-row="lane_0"]');
+    expect(row.textContent).toContain("5.50");
+    expect(row.textContent).toContain("1.50");
+    expect(row.textContent).toContain("Not measured");
+    expect(container.querySelector("[data-detections] summary").textContent).toContain("1 outside every lane, 1 flagged as large");
+    expect(container.querySelector('[data-large-box="true"]')).not.toBeNull();
+    // A review flag, never a verdict, and confidence is not correctness.
+    expect(container.querySelector("[data-review-note]").textContent).toContain("does not mean the detection is wrong");
+    expect(container.querySelector("[data-review-note]").textContent).toContain("not a check that the class is right");
+    expect(container.querySelector("[data-pcu-note]").textContent).toMatch(/^Provisional\./);
+    expect(container.textContent).toContain("Calculated, provisional");
+    // A mean over the samples so far, per 2-second sample: never called a full minute.
+    expect(container.textContent).toContain("Mean per 2-second sample (up to 60 s)");
+    expect(container.textContent).not.toContain("Mean, last 60 s");
+  });
+
+  it("an older results file says it has no class details, and a bad one is refused", () => {
+    const { detections, ...old } = analysis().samples[0];
+    const a = { ...analysis(), schema: 1, samples: [old] };
+    expect(validateAnalysis(a).ok).toBe(true);
+    const { container } = render(<VideoEngineering analysis={a} sample={old} className="x" />);
+    expect(container.querySelector('[data-state="no-class-details"]')).not.toBeNull();
+    expect(validateAnalysis(analysis({ schema: 3 })).ok).toBe(false);
+    const wrong = analysis();
+    wrong.samples[0].detections = [["car", 0.9, null]];
+    expect(validateAnalysis(wrong).reason).toContain("disagree");
   });
 });

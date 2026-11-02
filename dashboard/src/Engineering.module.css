@@ -1,0 +1,29 @@
+/* D35: the Engineering view. Orange marks only the control; no colour here carries a class. */
+.toggle { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px; font-size: 13px; }
+.toggleLabel { color: var(--muted); margin-right: 6px; }
+.toggle button { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; cursor: pointer; font: inherit; min-height: 32px; }
+.toggle button:hover { color: var(--ink); }
+.toggle button[aria-pressed="true"] { color: var(--ink); border-color: var(--brand); font-weight: 600; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; margin-bottom: 16px; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.head h2 { margin: 0; font-size: 15px; }
+.head span, .small { color: var(--muted); font-size: 13px; font-weight: 400; }
+
+.scroll { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table thead th { color: var(--muted); font-size: 12px; font-weight: 500; text-align: left; vertical-align: bottom; padding: 0 12px 6px 0; }
+.table tbody th, .table td { text-align: left; font-weight: 400; vertical-align: top; padding: 6px 12px 6px 0; border-top: 1px solid var(--line); white-space: nowrap; }
+.table small { color: var(--muted); font-size: 12px; }
+.mono { font-family: var(--mono); }
+
+.source { display: block; width: fit-content; margin-top: 2px; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; color: var(--ink); }
+.absent { color: var(--muted); font-style: italic; font-size: 13px; }
+.bad { margin: 0; font-size: 13px; color: var(--ink); border-left: 3px solid var(--bad); padding-left: 8px; }
+.stale { color: var(--stale); font-weight: 600; }
+.classes { display: grid; gap: 1px; }
+.pcu { display: grid; gap: 1px; font-family: var(--mono); }
+.pcu b { font-weight: 600; }
+.pcu small { font-size: 11px; }
+.note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.details summary { cursor: pointer; font-size: 13px; padding: 4px 0; }
