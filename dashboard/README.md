@@ -58,6 +58,30 @@ Then start the server (`uvicorn server.app:app --port 8000`) and open
 `http://127.0.0.1:8000/dashboard/?id=<intersection>`. During development, run
 `npm run dev`, which proxies the three endpoints to port 8000.
 
+## Testing a state without a camera (D36)
+
+`scripts/ui_fixture.py` runs the real server, holding one chosen state, behind a small page host.
+No camera, broker or edge is needed, and nothing touches the deployment database.
+
+```bash
+python scripts/ui_fixture.py --list                  # the states
+python scripts/ui_fixture.py --state missing_count   # then open the address it prints
+```
+
+While it runs, type a state name to switch with the page left open (`normal`, `stale_edge`,
+`edge_silent`, `partial`, `no_data`, `high`, `low`), `server_down` to stop only the API, or `quit`.
+The page stays open while the API is down and recovers when it returns. `--clean` removes folders
+left by a run that was killed.
+
+The values are made up to exercise the page. The badge reads `Replay · TEST_FIXTURE_<state>`, the
+model ids are `persistence@000000000000` and `ridge@000000000000`, and nothing here is evidence of
+anything.
+
+`src/fixtures/` holds each state's responses, generated from the real server with its clock fixed.
+`tests/test_ui_fixture.py` fails if the server no longer sends exactly them, and
+`src/fixtures.test.js` fails if the page's own validators refuse them. After an intended change to
+what the server sends, run `python scripts/ui_fixture.py --write-fixtures` and review the diff.
+
 ## Scope
 
 This is a deliberately small, ADR-008-descoped shape:

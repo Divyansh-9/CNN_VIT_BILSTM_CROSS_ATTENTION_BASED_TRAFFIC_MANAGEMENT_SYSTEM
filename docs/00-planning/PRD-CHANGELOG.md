@@ -12116,6 +12116,63 @@ represent.
   one camera shows only that the level can saturate. The limits stay frozen; changing them is a
   pre-registered decision, not a display fix.
 
+## D36 — UI fixtures: the real server holding a chosen state, and a contract check (2026-11-02)
+
+Test tooling, not a feature, approved in scope by an independent review after a Phase 0 inspection.
+No production behaviour changed: not `server/app.py`, the edge, the contracts, a model, a threshold, a
+profile or any evidence.
+
+**Why.** Seeing "stale" or "server down" in a real browser needed the 8-minute demo and processes
+stopped by hand, so each person in the five-person test could see a different state. And the
+dashboard's 142 tests answered from hand-written responses that nothing checked against the server.
+
+**What was found first.** Most of the original proposal already existed: the dashboard tests already
+cover every listed state. The video part did not fit: the Analyze page uploads and decodes nothing,
+so no MP4 files were added.
+
+**What changed.**
+- **`scripts/ui_fixture.py`.** Nine named states, loaded through the server's own `store_*` functions
+  with payloads from `contracts/mqtt.py`.
+  - **Two processes.** A page host serves the built dashboard and forwards GETs to the API process, so
+    `server_down` stops only the API and the page stays open.
+  - **Typed commands.** While it runs, typing a state switches to it with the page left open.
+  - **Labelled.** Every heartbeat says replay, `TEST_FIXTURE_<state>`, and the model ids are
+    `persistence@000000000000` and `ridge@000000000000`, which name no real model.
+  - **Contained.** The API process refuses any database outside its own new temp folder, has no
+    write token, and is stopped by its handle before the folder is deleted.
+- **The contract check, one chain.** `--write-fixtures` generates each state with the server's clock
+  fixed and commits `dashboard/src/fixtures/<state>.json`. `tests/test_ui_fixture.py` regenerates
+  them and fails on any difference, with nothing normalised. `dashboard/src/fixtures.test.js` runs
+  the same files through the page's own validators and renders each state's banner.
+- **Shown to fail.** A renamed field, an int where a float was and a changed value in the server's
+  output each fail the Python check. A fixture with a required field removed fails the page's
+  validators. These are permanent tests, not a one-off demonstration.
+- **Two dashboard media-event tests** (`dashboard.test.jsx`): an unplayable video shows its message,
+  and a video shorter than its results shows the mismatch and no results at any position. They fire
+  the player's media events in jsdom; they do not test real browser decoding or playback. Both were
+  seen to fail with the page's handling removed, and to pass with it restored.
+- **CI.** The `fast` job installs uvicorn, so the runner's process tests run there rather than skip.
+- **The tests fail rather than skip** when fastapi, httpx or uvicorn is missing: all three are pinned,
+  so a skip would only hide a broken environment.
+
+**A defect found while building it.** A replacement API process stalled at start-up whenever the
+runner's command reader was waiting for input: on Windows, a child that inherits a stdin handle with a
+read pending blocks until the next line is typed. The API process now gets no stdin. The first start
+had worked only because no read was pending yet.
+
+**Verified.** Dashboard 184 of 184, none skipped. Full Python suite 1,917 passed, 27 skipped, 0 failed;
+every skip predates D36 and waits on a broker or a download this machine lacks. The 25 new tests include
+a real Ctrl+C (CTRL_BREAK on Windows), two runs in a row, a busy port refused and the deployment
+database refused. In a real browser, the four usability states in order, then `server_down` with every request failing as
+`net::ERR_EMPTY_RESPONSE` while the page stays open, and recovery without a reload when the API
+returned. `edge_silent` turned into "No recent updates" when its forecasts passed 60 s.
+
+**Not established.** Nothing in a fixture says anything about traffic, the detector or a forecast.
+The usability sheet now uses these states, and has still not been rehearsed or run with anyone. The
+badge reads `TEST_FIXTURE_<state>` and stays visible. The facilitator says the session uses test data
+rather than a live camera and asks what the participant understands from the page, without suggesting
+how to answer (wording from the independent review, with "test fixture" put in plain words).
+
 ## D35 — an Engineering view, showing only what is measured (2026-11-02)
 
 The owner asked for PCU, queue and vehicle counts behind a button, on Live and on Analyze a video, for

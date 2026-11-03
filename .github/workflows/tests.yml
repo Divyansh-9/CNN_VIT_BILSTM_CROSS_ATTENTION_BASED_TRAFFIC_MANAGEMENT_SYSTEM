@@ -53,9 +53,11 @@ jobs:
         # pytest, pyyaml and python-pptx come pinned from requirements.txt: unpinned,
         # pytest 9.2.0's release failed test_pins_match_what_is_installed on
         # 2026-10-29 with no change to this repository.
+        # uvicorn (D36) for the same reason as the four above: the UI fixture runner's
+        # process tests start the real server, and without it they skip.
         run: >
           pip install $(grep -iE '^(pytest|pyyaml|python-pptx)==' requirements.txt) numpy==2.5.2
-          fastapi==0.141.1 pydantic==2.13.4 httpx==0.28.1
+          fastapi==0.141.1 pydantic==2.13.4 httpx==0.28.1 uvicorn==0.52.4
 
       - name: Run suites
         run: >

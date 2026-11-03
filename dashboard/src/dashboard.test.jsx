@@ -1408,6 +1408,54 @@ describe("Analyze a video (D34)", () => {
     expect(screen.queryByLabelText("Live monitor")).toBeNull();
     expect(document.querySelector("[data-source]")).toBeNull();
   });
+
+  // D36: when the video itself is the problem. No video file is needed: the player's own events
+  // are fired, as a browser fires them. jsdom has no object URLs, so they are stubbed for the test.
+  const openVideo = () => {
+    const input = document.querySelector("[data-open-video]");
+    Object.defineProperty(input, "files", { value: [new File(["x"], "clip.mp4", { type: "video/mp4" })], configurable: true });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  const withObjectUrls = async (body) => {
+    const saved = [URL.createObjectURL, URL.revokeObjectURL];
+    URL.createObjectURL = () => "blob:test-video";
+    URL.revokeObjectURL = () => {};
+    try { await body(); } finally { cleanup(); [URL.createObjectURL, URL.revokeObjectURL] = saved; }
+  };
+  const player = () => waitFor(() => {
+    const found = document.querySelector("[data-player]");
+    expect(found).toBeTruthy();
+    return found;
+  });
+
+  it("says so in words when the browser cannot play the video", () => withObjectUrls(async () => {
+    render(<AnalyzeVideo />);
+    openVideo();
+    fireEvent.error(await player());
+    await waitFor(() => expect(screen.getAllByText("This browser cannot play this video's format. MP4 with H.264 usually works.").length).toBeGreaterThan(0));
+    expect(document.querySelector('[data-state="invalid"]').textContent).toMatch(/cannot play this video's format/);
+  }));
+
+  it("shows no results over a video shorter than its results, at any moment", () => withObjectUrls(async () => {
+    render(<AnalyzeVideo />);
+    await open({ ...ANALYSIS, duration_s: 600 });
+    await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
+    openVideo();
+    const video = await player();
+    Object.defineProperty(video, "duration", { value: 10, configurable: true });
+    fireEvent.loadedMetadata(video);
+    await waitFor(() => expect(document.querySelector('[data-state="mismatch"]')).toBeTruthy());
+    expect(document.querySelector('[data-state="mismatch"]').textContent)
+      .toContain("These files do not match. The video is 00:10 long and the results cover 10:00, so no results are shown over it.");
+    for (const at of [0, 4, 9, 10]) {
+      scrub(at);
+      await waitFor(() => expect(document.querySelector('[data-state="no-results"]').textContent).toBe("Open the results for this video."));
+      expect(document.querySelector("[data-analysis-row]")).toBeNull();
+      expect(document.querySelector("[data-box]")).toBeNull();
+      expect(document.querySelector("[data-pin]")).toBeNull();
+      expect(document.querySelector("[data-timeline]")).toBeNull();
+    }
+  }));
 });
 
 describe("Engineering view (D35)", () => {
