@@ -72,6 +72,46 @@ describe("UI fixtures from the real server (D36)", () => {
     if (badge.dataset.source === "replay") expect(badge.textContent).toContain(`TEST_FIXTURE_${name}`);
   });
 
+  // D37: the usability test's first state, on the real server's responses. Every part of the page
+  // agrees that reporting is partial: no tile says none, and the drawing names the levels.
+  it("missing_count: the tile says partial and the drawing names every level (F1, F2)", async () => {
+    const fixture = FIXTURES.missing_count;
+    render(createElement(App, { fetcher: fetcherFor(fixture, new Set()), search: `?id=${ID}`, hash: "#live" }));
+    await waitFor(() => expect(banner().querySelector("h2").textContent).toBe(fixture.banner));
+    await waitFor(() => expect(document.querySelector('[data-tile="reporting"]').textContent).toContain("Partial"));
+    expect(document.querySelector('[data-tile="reporting"]').textContent).toContain("4 of 4 have a level. No vehicle number yet.");
+    expect(document.body.textContent).not.toContain("None yet");
+    // F6: the freshness tile names the current level instead of saying there is no forecast.
+    expect(document.querySelector('[data-tile="valid"]').textContent).toBe("Forecast valid forLevel: currentNo vehicle number forecast yet");
+    const levels = fixture.responses[`/prediction/${ID}/latest`].body.predictions;
+    const label = (a) => [...document.querySelectorAll(`[data-label="${a}"] tspan`)].map((t) => t.textContent).join(" ");
+    for (const [a, level] of Object.entries(levels)) expect(label(a)).toBe(`${a} ${level} no count yet`);
+  });
+
+  // D37, the reverse partial state, on the real server's `normal` responses with only the level
+  // endpoint answering 404. The committed fixture is read, never changed.
+  it("count only: the page shows the numbers, says the level has not arrived, and invents none", async () => {
+    const fixture = FIXTURES.normal;
+    const noLevel = { ...fixture, responses: { ...fixture.responses,
+      [`/prediction/${ID}/latest`]: { status: 404, body: { detail: "no prediction for this intersection yet" } } } };
+    render(createElement(App, { fetcher: fetcherFor(noLevel, new Set()), search: `?id=${ID}`, hash: "#live" }));
+    await waitFor(() => expect(banner().querySelector("h2").textContent).toBe("Only the vehicle number forecast is arriving"));
+    // F7: the first tile says the vehicle-count forecast is there, never that nothing was published.
+    expect(document.querySelector("[data-overview]").dataset.overview).toBe("count");
+    expect(document.querySelector("[data-overview]").textContent).toContain("Vehicle-count forecast available");
+    expect(document.body.textContent).not.toContain("Nothing has been published for this intersection");
+    expect(document.querySelector('[data-tile="reporting"]').textContent).toBe("Approaches reportingPartial4 of 4 have a vehicle number. No level yet.");
+    expect(document.querySelector('[data-tile="valid"]').textContent).toBe("Forecast valid forVehicle number: currentNo level forecast yet");
+    const counts = fixture.responses[`/count_forecast/${ID}/latest`].body.counts;
+    const label = (a) => [...document.querySelectorAll(`[data-label="${a}"] tspan`)].map((t) => t.textContent).join(" ");
+    for (const [a, n] of Object.entries(counts)) {
+      expect(label(a)).toBe(`${a} no level yet ${n.toFixed(1)} veh`);
+      expect(document.querySelector(`[data-ribbon="${a}"]`).dataset.level).toBe("none");
+    }
+    expect(document.querySelector('[data-tour="drawing"] figure').textContent).not.toMatch(/LOW|MEDIUM|HIGH/);
+    expect(fixture.responses[`/prediction/${ID}/latest`].status).toBe(200);    // the committed fixture is untouched
+  });
+
   it("server_down: every request fails as unreachable, and the page says so", async () => {
     const fetcher = async () => { throw new TypeError("Failed to fetch"); };
     render(createElement(App, { fetcher, search: `?id=${ID}`, hash: "#live" }));

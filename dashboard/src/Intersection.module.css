@@ -13,6 +13,8 @@
 .LOW { fill: var(--low); stroke: var(--low); }
 .MEDIUM { fill: var(--medium); stroke: var(--medium); }
 .HIGH { fill: var(--high); stroke: var(--high); }
+/* D37: a vehicle number with no level yet. Grey, which is no level's colour and not the brand's. */
+.noLevel { fill: var(--muted); stroke: var(--muted); }
 /* Past its horizon: the shape stays, the fill goes. */
 .hollow { fill: none; stroke-width: 2; stroke-dasharray: 4 3; }
 /* Step 3b: a count above the scale, cut into the ribbon in the road's own

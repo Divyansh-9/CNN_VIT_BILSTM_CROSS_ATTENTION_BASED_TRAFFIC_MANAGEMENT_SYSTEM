@@ -12116,9 +12116,81 @@ represent.
   one camera shows only that the level can saturate. The limits stay frozen; changing them is a
   pre-registered decision, not a display fix.
 
+## D37 — fix only: the first usability state contradicted itself (2026-11-03)
+
+Reviewed by ChatGPT, an AI-assisted technical review, before the five-person usability test;
+implementation and acceptance remain the project owner's responsibility. No new scope: no new feature,
+endpoint, contract, model, threshold, profile or evidence.
+
+**Found by** a heuristic inspection of the four usability states (AI-run, in a real browser, on D36's
+fixtures; recorded outside the repository). In `missing_count`, where only the level forecast has
+arrived, the banner and the table were right, and three parts of the page said otherwise:
+- **F1:** the "Approaches reporting" tile read "None yet", beside a table showing a level for all four
+  approaches;
+- **F2:** the intersection drawing labelled all four approaches "no data";
+- **F6,** seen while fixing F1 and F2: the "Forecast valid for" tile read "No forecast" while the level
+  forecast was current.
+
+F1 and F2 answered "no" to the test's first question, "Is the system reporting traffic right now?",
+whose answer in that state is "partly". F6 did the same to the second, "Can you trust this information
+as current?", whose answer is "only the one arriving".
+
+**What changed.**
+- **The reporting tile**, when one forecast has arrived and the other is not published yet, reads
+  "Partial", with "4 of 4 have a level. No vehicle number yet." (or the reverse). An unreachable or
+  refused forecast still reads "Unknown": a fault is not partial reporting.
+- **The freshness tile** says which forecast is current or out of date when they are not both current:
+  "Level: current" with "No vehicle number forecast yet", or "Vehicle number: out of date" with
+  "Level: current", and so on. It reads only the server's stale flags. It shows no countdown for one
+  forecast: the level response carries no horizon, and none is assumed. Both current: the countdown, as
+  before. Both out of date: "Expired", as before. An unreachable server or a refused response now reads
+  "Unknown", as the reporting tile does; it read "No data".
+- **The drawing**, when only the level has arrived, names each approach's level with "no count yet", as
+  it already did for one approach without a count. No ribbon is drawn, because its length is the number,
+  and no forecast age is claimed from half a forecast.
+- **The drawing, the reverse case**, found in review: when only the vehicle number has arrived, it said
+  "no data" and hid the numbers. It now draws each number's ribbon on the same scale, in the neutral grey
+  `--muted`, which is no level's colour and not the brand's, labelled "no level yet". No level is
+  inferred from a number; out-of-date numbers stay dashed; the scale break and the signal heads' "?" are
+  unchanged. The caption adds "A grey ribbon has a vehicle number but no level yet."
+- **The first tile, the same reverse case (F7),** said "No forecast published yet. Nothing has been
+  published for this intersection" beside four published vehicle numbers. It now reads "Vehicle-count
+  forecast available. Expected vehicles are available for the next 60 seconds. Congestion levels have not
+  been published yet.", or, when those numbers are old, says the last vehicle-count forecast is out of
+  date. No level is inferred. The tour's live line for the tiles reads the same answer, and its text
+  says so. The level-only and both-current states keep the level headline, which already states the
+  level forecast. With no level and a vehicle-count request that failed or was refused, it reads
+  "Forecasts unavailable", and while that request is still loading, "Waiting for the first forecast":
+  whether a count exists is then unknown, so it never says nothing was published.
+- **The caption and the tour** said "no track and no ribbon means no forecast". They now say "no vehicle
+  number is forecast there", which stays true when a level is shown. The tour's lines for the two tiles
+  now cover "Partial" and the one-forecast case.
+- **The fixture page host** (`scripts/ui_fixture.py`) now tells the browser not to keep its pages. While
+  re-checking, the browser showed the old page from its cache after a rebuild, with nothing on screen to
+  say it was old. A usability session could have run on a stale build unnoticed. After the change, a
+  plain navigation loaded the new build.
+
+**Tests.** Seven new dashboard tests: the reporting tile, the level-only drawing, the freshness tile in
+eleven states, the count-only drawing, the first tile in nine states with the tour checked against it,
+`missing_count` rendered from the real server's committed responses, and a count-only page from the committed `normal` responses with only the level endpoint
+answering 404 (the fixture itself is unchanged). Each failed on the code before its fix and passes on it. The runner test checks the
+no-store header on page, asset and API responses.
+
+**Verified.** Dashboard 191 of 191. Full Python suite 1,917 passed, 27 skipped, 0 failed. In a real browser, on the rebuilt
+page: `missing_count` reads "Partial" and "Level: current" and names every level, with "None yet" nowhere
+on the page; normal and stale read as before; server down reads "Unknown" in both tiles; after the API
+returns, the page recovers without a reload. A count-only state, made in the browser by answering the
+page's level requests with 404, reads "Only the vehicle number forecast is arriving", "Partial" and
+"Vehicle number: current", and draws four grey ribbons labelled "no level yet", in `--muted`
+(rgb 168, 162, 158) and no level's colour; the first tile reads "Vehicle-count forecast available".
+
+**Not changed, and recorded as known issues:** stale table values are marked by style only (F3); two
+ages on one screen (F4); shares that add up to 101% (F5).
+
 ## D36 — UI fixtures: the real server holding a chosen state, and a contract check (2026-11-02)
 
-Test tooling, not a feature, approved in scope by an independent review after a Phase 0 inspection.
+Test tooling, not a feature. Its scope was reviewed by ChatGPT, an AI-assisted technical review, after a
+Phase 0 inspection; implementation and acceptance remain the project owner's responsibility.
 No production behaviour changed: not `server/app.py`, the edge, the contracts, a model, a threshold, a
 profile or any evidence.
 
@@ -12171,7 +12243,7 @@ returned. `edge_silent` turned into "No recent updates" when its forecasts passe
 The usability sheet now uses these states, and has still not been rehearsed or run with anyone. The
 badge reads `TEST_FIXTURE_<state>` and stays visible. The facilitator says the session uses test data
 rather than a live camera and asks what the participant understands from the page, without suggesting
-how to answer (wording from the independent review, with "test fixture" put in plain words).
+how to answer (wording from the ChatGPT review, with "test fixture" put in plain words).
 
 ## D35 — an Engineering view, showing only what is measured (2026-11-02)
 

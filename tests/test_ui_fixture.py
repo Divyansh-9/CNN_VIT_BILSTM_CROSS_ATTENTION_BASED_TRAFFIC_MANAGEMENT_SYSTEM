@@ -326,6 +326,11 @@ def test_the_runner_serves_a_state_goes_down_recovers_and_cleans_up(tmp_path):
         runner.wait_for("Open: ")
         status, kind, page = runner.get("/dashboard/?id=test-fixture")
         assert status == 200 and b"stub page" in page
+        # D37: no browser may keep an old build, so every response says not to store it.
+        for path in ("/dashboard/?id=test-fixture", "/dashboard/assets/app.js", "/health"):
+            connection = http.client.HTTPConnection("127.0.0.1", runner.port, timeout=10)
+            connection.request("GET", path)
+            assert connection.getresponse().getheader("Cache-Control") == "no-store", path
         assert runner.get("/dashboard/assets/app.js")[1].startswith("text/javascript")
         status, _, raw = runner.get("/heartbeat/test-fixture/latest")
         beat = json.loads(raw)

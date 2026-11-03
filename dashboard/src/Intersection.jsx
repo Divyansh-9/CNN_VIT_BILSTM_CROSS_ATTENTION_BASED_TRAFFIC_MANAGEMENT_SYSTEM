@@ -21,6 +21,20 @@ export function ribbonLength(count) {
 export function junction(cls, count) {
   const c = cls.status === "ok" ? validateClass(cls.data) : null;
   const k = count.status === "ok" ? validateCount(count.data) : null;
+  // D37 (F2): in a run's first minutes only the level has been published. Name each approach's
+  // level and say the vehicle number has not arrived, as the table beside the drawing does. No
+  // ribbon is drawn: its length is the number.
+  if (c?.ok && count.status === "unavailable") {
+    return { stale: c.data.stale, age: null, horizon: 60, lanes: Object.fromEntries(APPROACHES.map((a) => [a,
+      a in c.data.predictions ? { kind: "none", note: "No count yet", cls: c.data.predictions[a] } : { kind: "none", note: "No forecast" }])) };
+  }
+  // D37, the reverse: the vehicle number has arrived and the level has not. Draw each number's
+  // ribbon on the same scale, in a neutral grey that is no level's colour, and say the level has
+  // not arrived. No level is inferred from a number.
+  if (k?.ok && cls.status === "unavailable") {
+    return { stale: k.data.stale, age: null, horizon: 60, lanes: Object.fromEntries(APPROACHES.map((a) => [a,
+      a in k.data.counts ? { kind: k.data.stale ? "stale" : "fresh", count: k.data.counts[a], cls: null } : { kind: "none", note: "No forecast" }])) };
+  }
   if (!c?.ok || !k?.ok) {
     const note = cls.status === "loading" || count.status === "loading" ? "Waiting" : "No data";
     return { stale: false, age: null, horizon: 60, lanes: Object.fromEntries(APPROACHES.map((a) => [a, { kind: "none", note }])) };
@@ -81,7 +95,7 @@ const LABELS = {
 
 export function labelLines(a, lane) {
   if (lane.kind === "none") return lane.cls ? [`${a} ${lane.cls}`, lane.note.toLowerCase()] : [a, lane.note.toLowerCase()];
-  return [`${a} ${lane.cls}`, `${lane.count.toFixed(1)} veh${lane.count > SCALE_MAX ? ` >${SCALE_MAX}` : ""}`];
+  return [lane.cls ? `${a} ${lane.cls}` : `${a} no level yet`, `${lane.count.toFixed(1)} veh${lane.count > SCALE_MAX ? ` >${SCALE_MAX}` : ""}`];
 }
 
 export function Intersection({ cls, count }) {
@@ -104,8 +118,8 @@ export function Intersection({ cls, count }) {
         {APPROACHES.filter((a) => j.lanes[a].kind !== "none").map((a) => (
           <g key={a} transform={`rotate(${TURN[a]} ${C} ${C})`}>
             <rect data-track={a} className={styles.track} {...TRACK} />
-            <path data-ribbon={a} data-kind={j.lanes[a].kind} strokeLinejoin="round"
-                  className={`${styles[j.lanes[a].cls]} ${j.lanes[a].kind === "stale" ? styles.hollow : ""}`}
+            <path data-ribbon={a} data-kind={j.lanes[a].kind} data-level={j.lanes[a].cls ?? "none"} strokeLinejoin="round"
+                  className={`${j.lanes[a].cls ? styles[j.lanes[a].cls] : styles.noLevel} ${j.lanes[a].kind === "stale" ? styles.hollow : ""}`}
                   d={ribbonPath(ribbonLength(j.lanes[a].count))} />
             {j.lanes[a].count > SCALE_MAX && overflowBars().map((bar, i) => (
               <rect key={i} data-overflow={a} className={styles.overflow} {...bar} />
@@ -130,7 +144,7 @@ export function Intersection({ cls, count }) {
       <figcaption className={styles.caption}>
         A longer ribbon means more vehicles expected; its outlined track is the scale, 0 to {SCALE_MAX}. Two cuts
         near its outer end mean more than {SCALE_MAX}. Each ribbon points into the junction. Colour and word:
-        congestion level. Dashed ribbons are out of date. No track and no ribbon means no forecast. Squares with
+        congestion level. A grey ribbon has a vehicle number but no level yet. Dashed ribbons are out of date. No track and no ribbon means no vehicle number is forecast there. Squares with
         a ? mark signals, which are not connected, so their colour is not known here.
       </figcaption>
     </figure>

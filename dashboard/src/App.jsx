@@ -153,7 +153,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
           <div data-tour="status"><StatusBanner health={health} cls={cls} count={count} heartbeat={heartbeat} /></div>
           <ReplayNote state={heartbeat} />
           <div className={styles.tiles} data-tour="tiles">
-            <Overview state={cls} edgeSilentFor={edgeSilentFor} />
+            <Overview state={cls} count={count} edgeSilentFor={edgeSilentFor} />
             <SummaryTiles cls={cls} count={count} />
           </div>
           <div className={styles.main}>

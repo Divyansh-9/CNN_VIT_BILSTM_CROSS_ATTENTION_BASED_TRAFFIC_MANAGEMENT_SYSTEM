@@ -474,6 +474,12 @@ class PageHandler(SimpleHTTPRequestHandler):
             return self.forward()
         self.send_error(404)
 
+    def end_headers(self):
+        # D37: a rebuilt dashboard must reach the browser. Without this a browser kept index.html
+        # from an earlier build and showed the old page, with nothing on screen to say it was old.
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def do_HEAD(self):
         self.send_error(405)
 
@@ -496,7 +502,6 @@ class PageHandler(SimpleHTTPRequestHandler):
         self.send_response(reply.status)
         self.send_header("Content-Type", reply.getheader("Content-Type", "application/json"))
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 

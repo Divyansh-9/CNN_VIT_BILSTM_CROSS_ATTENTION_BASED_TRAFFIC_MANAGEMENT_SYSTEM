@@ -80,8 +80,24 @@ const NOT_EMPTY = "This does not mean the roads are empty.";
 // stale, refused, missing or unreachable forecast never produces a class word
 // in the headline: nothing old reads as current, and nothing unknown reads as
 // "no congestion".
-export function overview(state) {
+export function overview(state, count = null) {
   if (state.status === "loading") return { kind: "loading", headline: "Waiting for the first forecast", detail: "" };
+  // D37 (F7): no level yet, but the vehicle numbers have arrived. Say what is there; this tile
+  // used to say nothing had been published for the intersection.
+  const k = state.status === "unavailable" && count?.status === "ok" ? validateCount(count.data) : null;
+  if (k?.ok && k.data.stale)
+    return { kind: "stale", headline: "No current forecast",
+             detail: `The last vehicle-count forecast is ${k.data.age_s.toFixed(0)} s old and describes a minute that has passed. Congestion levels have not been published yet.` };
+  if (k?.ok)
+    return { kind: "count", headline: "Vehicle-count forecast available",
+             detail: "Expected vehicles are available for the next 60 seconds. Congestion levels have not been published yet." };
+  // No level, and the count could not be read or is still on its way: that is not "nothing was
+  // published", because whether a count exists is unknown.
+  if (state.status === "unavailable" && (count?.status === "error" || k?.ok === false))
+    return { kind: "bad", headline: "Forecasts unavailable",
+             detail: `No level has been published, and the vehicle-count forecast could not be read. ${NOT_EMPTY}` };
+  if (state.status === "unavailable" && count?.status === "loading")
+    return { kind: "loading", headline: "Waiting for the first forecast", detail: "" };
   if (state.status === "unavailable")
     return { kind: "none", headline: "No forecast published yet", detail: `Nothing has been published for this intersection. ${NOT_EMPTY}` };
   if (state.status === "error") return { kind: "bad", headline: "Forecasts unavailable", detail: `No forecast is available. ${NOT_EMPTY}` };
@@ -96,13 +112,13 @@ export function overview(state) {
   return { kind: "fresh", lead: s.lead, worst: s.worst, headline: `${s.lead} ${s.worst}`, detail: s.absent };
 }
 
-const OVERVIEW_MARK = { stale: styles.k_stale, bad: styles.k_bad, none: styles.k_none, loading: styles.k_loading };
+const OVERVIEW_MARK = { stale: styles.k_stale, bad: styles.k_bad, none: styles.k_none, loading: styles.k_loading, count: styles.k_fresh };
 
 // D23: `edgeSilentFor` is the age of a valid, stale heartbeat, else null. A
 // forecast inside its horizon stays valid when the edge stops, so it is still
 // shown; the label says it is the last one, and the status banner says why.
-export function Overview({ state, edgeSilentFor = null }) {
-  const o = overview(state);
+export function Overview({ state, count = null, edgeSilentFor = null }) {
+  const o = overview(state, count);
   const last = o.kind === "fresh" && edgeSilentFor !== null;
   return (
     <section className={styles.overview} aria-label="Next 60 seconds" data-overview={o.kind}>
@@ -387,6 +403,20 @@ export function SummaryTiles({ cls, count }) {
   const lacking = APPROACHES.filter((a) => !both.includes(a));
   const stale = c?.ok && k?.ok && (c.data.stale || k.data.stale);
   const current = c?.ok && k?.ok && !stale;
+  // D37 (F1): one forecast has arrived and the other has not been published yet. That is partial
+  // reporting, never "None yet", and the sub-line says which half is there.
+  const partial = c?.ok && count.status === "unavailable"
+    ? { n: Object.keys(c.data.predictions).length, what: "a level", missing: "No vehicle number yet", stale: c.data.stale,
+        name: "Level", lacks: "No vehicle number forecast yet" }
+    : k?.ok && cls.status === "unavailable"
+      ? { n: Object.keys(k.data.counts).length, what: "a vehicle number", missing: "No level yet", stale: k.data.stale,
+          name: "Vehicle number", lacks: "No level forecast yet" } : null;
+  // D37 (F6): when the two forecasts are not both current, say which is current and which is out
+  // of date, from the server's own stale flags. A countdown needs both forecasts; the level
+  // response has no horizon, and none is assumed for it.
+  const split = c?.ok && k?.ok && c.data.stale !== k.data.stale
+    ? (c.data.stale ? { head: "Level: out of date", sub: "Vehicle number: current" } : { head: "Vehicle number: out of date", sub: "Level: current" })
+    : partial ? { head: `${partial.name}: ${partial.stale ? "out of date" : "current"}`, sub: partial.lacks } : null;
   const horizon = k?.ok ? k.data.horizon_sec ?? 60 : 60;
   const left = current ? Math.max(horizon - Math.max(c.data.age_s, k.data.age_s), 0) : null;
   return (
@@ -397,11 +427,13 @@ export function SummaryTiles({ cls, count }) {
           : <span className={styles.tileNone}>{k?.ok ? "Not current" : nothing}</span>}
       </Tile>
       <Tile label="Approaches reporting" data-tile="reporting"
-            sub={c?.ok && k?.ok ? (lacking.length ? `${lacking.join(", ")} ${lacking.length > 1 ? "have" : "has"} no forecast` : stale ? "In the last forecast, now out of date" : "All have both forecasts") : undefined}>
-        {c?.ok && k?.ok ? <span className={styles.mono}>{both.length} of 4</span> : <span className={styles.tileNone}>{waiting ? "Waiting" : down ? "Unknown" : "None yet"}</span>}
+            sub={c?.ok && k?.ok ? (lacking.length ? `${lacking.join(", ")} ${lacking.length > 1 ? "have" : "has"} no forecast` : stale ? "In the last forecast, now out of date" : "All have both forecasts")
+              : partial ? `${partial.n} of 4 ${partial.stale ? `had ${partial.what}, now out of date` : `have ${partial.what}`}. ${partial.missing}.` : undefined}>
+        {c?.ok && k?.ok ? <span className={styles.mono}>{both.length} of 4</span> : <span className={styles.tileNone}>{partial ? "Partial" : waiting ? "Waiting" : down ? "Unknown" : "None yet"}</span>}
       </Tile>
-      <Tile label="Forecast valid for" data-tile="valid">
-        {left !== null ? <span className={styles.mono}>{left.toFixed(0)} s</span> : <span className={styles.tileNone}>{stale ? "Expired" : nothing}</span>}
+      <Tile label="Forecast valid for" data-tile="valid" sub={left === null ? split?.sub : undefined}>
+        {left !== null ? <span className={styles.mono}>{left.toFixed(0)} s</span>
+          : <span className={styles.tileNone}>{split ? split.head : stale ? "Expired" : waiting ? "Waiting" : down ? "Unknown" : "No forecast"}</span>}
         {left !== null && <div className={styles.validBar} aria-hidden="true"><i style={{ width: `${(left / horizon) * 100}%` }} /></div>}
       </Tile>
     </>

@@ -322,6 +322,43 @@ describe("the intersection (UX step 3)", () => {
       cleanup();
     }
   });
+  // D37 (F2): with only the level published, the drawing named every approach "no data" while the
+  // table beside it showed four levels.
+  it("names each level when only the level forecast has arrived, and says the number has not", () => {
+    const j = junction(ok({ ...CLASS4, predictions: { N: "HIGH", S: "MEDIUM", E: "LOW" }, missing_approaches: ["W"] }), { status: "unavailable" });
+    expect(j.lanes.N).toEqual({ kind: "none", note: "No count yet", cls: "HIGH" });
+    expect(j.lanes.W).toEqual({ kind: "none", note: "No forecast" });
+    expect([j.age, horizon(j).kind]).toEqual([null, "unknown"]);     // no forecast age is claimed from half a forecast
+    render(<Intersection cls={ok(CLASS4)} count={{ status: "unavailable" }} />);
+    for (const a of ["N", "S", "E", "W"]) expect(label(a)).toBe(`${a} ${CLASS4.predictions[a]} no count yet`);
+    expect(document.querySelectorAll("[data-ribbon], [data-track]")).toHaveLength(0);   // no length without a number
+    expect(document.querySelector("figcaption").textContent).toMatch(/no ribbon means no vehicle number is forecast there/);
+  });
+  // D37, the reverse partial state: the number arrived, the level did not. The drawing used to say
+  // "no data" and hide the numbers.
+  it("draws each vehicle number when only the number has arrived, and invents no level", () => {
+    const j = junction({ status: "unavailable" }, ok({ ...COUNT4, counts: { N: 0.8, S: 0, E: 7.3 }, missing_approaches: ["W"] }));
+    expect(j.lanes.N).toEqual({ kind: "fresh", count: 0.8, cls: null });
+    expect(j.lanes.W).toEqual({ kind: "none", note: "No forecast" });
+    expect([j.age, horizon(j).kind]).toEqual([null, "unknown"]);
+    render(<Intersection cls={{ status: "unavailable" }} count={ok(COUNT4)} />);
+    for (const a of ["N", "S", "E", "W"]) {
+      expect(ribbon(a).dataset.kind).toBe("fresh");
+      expect(ribbon(a).dataset.level).toBe("none");                         // no class, so no class colour
+      expect(document.querySelector(`[data-track="${a}"]`)).toBeTruthy();  // the same 0 to 10 scale
+    }
+    expect(label("N")).toBe("N no level yet 0.8 veh");
+    expect(label("S")).toBe("S no level yet 0.0 veh");                       // a zero is a forecast, drawn as a stub
+    expect(label("W")).toBe("W no level yet 12.0 veh >10");                  // the scale break still shows
+    expect(document.querySelector('[data-overflow="W"]')).toBeTruthy();
+    expect(document.querySelector("figure").textContent).not.toMatch(/LOW|MEDIUM|HIGH/);
+    for (const head of document.querySelectorAll("[data-signal]")) expect(head.textContent).toBe("?");
+    expect(document.querySelector("figcaption").textContent).toMatch(/A grey ribbon has a vehicle number but no level yet/);
+    cleanup();
+    render(<Intersection cls={{ status: "unavailable" }} count={ok({ ...COUNT4, stale: true, age_s: 75 })} />);
+    expect(ribbon("N").dataset.kind).toBe("stale");                         // out of date stays dashed
+    expect(document.querySelector("[data-junction]").dataset.junction).toBe("stale");
+  });
   it("shows the signal heads as not connected, and says what is and is not drawn", () => {
     render(<Intersection cls={ok(CLASS4)} count={ok(COUNT4)} />);
     expect([...document.querySelectorAll("[data-signal]")].map((s) => s.dataset.signal)).toEqual(Array(4).fill("not connected"));
@@ -398,6 +435,40 @@ describe("the overview", () => {
     render(<Overview state={ok(CLASS4)} />);
     expect(document.querySelector("[data-overview='fresh'] [aria-live]").textContent)
       .toBe("Highest congestion expected: Approach N and Approach S HIGH");
+  });
+  // D37 (F7): with only the vehicle numbers published, this tile said nothing had been published.
+  // Each state below says what is there, and the tour's live line agrees with the tile every time.
+  it("says which forecast is available, and the tour says the same", () => {
+    const COUNT4 = { ...COUNT, counts: { N: 3.2, S: 1.1, E: 6.4, W: 0.8 }, missing_approaches: [] };
+    const tiles = LIVE_STEPS.find((s) => s.target === "tiles");
+    const cases = [
+      ["both current", ok(CLASS4), ok(COUNT4), "fresh", "Highest congestion expected: Approach N and Approach S HIGH"],
+      ["level only", ok(CLASS4), { status: "unavailable" }, "fresh", "Highest congestion expected: Approach N and Approach S HIGH"],
+      ["count only", { status: "unavailable" }, ok(COUNT4), "count", "Vehicle-count forecast available"],
+      ["count only, old", { status: "unavailable" }, ok({ ...COUNT4, stale: true, age_s: 75 }), "stale", "No current forecast"],
+      ["neither", { status: "unavailable" }, { status: "unavailable" }, "none", "No forecast published yet"],
+      // No level, and the count's own state unknown: never "not published".
+      ["no level, count unreachable", { status: "unavailable" }, { status: "error", reason: "down" }, "bad", "Forecasts unavailable"],
+      ["no level, count refused", { status: "unavailable" }, ok({ ...COUNT4, counts: { N: -1 } }), "bad", "Forecasts unavailable"],
+      ["no level, count loading", { status: "unavailable" }, { status: "loading" }, "loading", "Waiting for the first forecast"],
+      ["server down", { status: "error", reason: "down" }, { status: "error", reason: "down" }, "bad", "Forecasts unavailable"],
+    ];
+    for (const [name, cls, count, kind, headline] of cases) {
+      render(<Overview state={cls} count={count} />);
+      const tile = document.querySelector("[data-overview]");
+      expect(tile.dataset.overview, name).toBe(kind);
+      expect(tile.querySelector("[aria-live]").textContent, name).toBe(headline);
+      expect(tiles.now({ cls, count }), name).toBe(headline);           // the tour reads the same answer
+      cleanup();
+    }
+    render(<Overview state={{ status: "unavailable" }} count={ok(COUNT4)} />);
+    const text = document.querySelector("[data-overview]").textContent;
+    expect(text).toContain("Expected vehicles are available for the next 60 seconds. Congestion levels have not been published yet.");
+    expect(text).not.toMatch(/Nothing has been published/);
+    expect(text).not.toMatch(CLASS_WORDS);                                // no level is invented from numbers
+    cleanup();
+    render(<Overview state={{ status: "unavailable" }} count={ok({ ...COUNT4, stale: true, age_s: 75 })} />);
+    expect(document.querySelector("[data-overview]").textContent).toContain("The last vehicle-count forecast is 75 s old");
   });
 });
 
@@ -1051,6 +1122,46 @@ describe("summary tiles, counted history and share (D33)", () => {
   it("counts only approaches with both forecasts, and names the rest", () => {
     render(<SummaryTiles cls={ok(CLASS4)} count={ok({ ...COUNT4, counts: { N: 1, S: 1 }, missing_approaches: ["E", "W"] })} />);
     expect(tile("reporting")).toMatch(/2 of 4.*E, W have no forecast/);
+  });
+  // D37 (F1): with only the level published, this tile said "None yet" beside a table of four levels.
+  it("says partial, never none, when one forecast has arrived and the other is not published yet", () => {
+    render(<SummaryTiles cls={ok(CLASS4)} count={{ status: "unavailable" }} />);
+    expect(tile("reporting")).toBe("Approaches reportingPartial4 of 4 have a level. No vehicle number yet.");
+    cleanup();
+    render(<SummaryTiles cls={{ status: "unavailable" }} count={ok({ ...COUNT4, counts: { N: 1, S: 1 }, missing_approaches: ["E", "W"] })} />);
+    expect(tile("reporting")).toBe("Approaches reportingPartial2 of 4 have a vehicle number. No level yet.");
+    cleanup();
+    render(<SummaryTiles cls={ok({ ...CLASS4, stale: true, age_s: 75 })} count={{ status: "unavailable" }} />);
+    expect(tile("reporting")).toContain("4 of 4 had a level, now out of date. No vehicle number yet.");
+    cleanup();
+    // A fault is not partial reporting: an unreachable or refused forecast still reads Unknown.
+    render(<SummaryTiles cls={ok(CLASS4)} count={{ status: "error", reason: "down" }} />);
+    expect(tile("reporting")).toContain("Unknown");
+    expect(tile("reporting")).not.toContain("Partial");
+  });
+  // D37 (F6): with only the level published, "Forecast valid for" said "No forecast" beside a current
+  // level. Every state below is decided by the server's stale flags; no clock or horizon is assumed.
+  it("says which forecast is current or out of date when they are not both current", () => {
+    const cases = [
+      [ok(CLASS4), { status: "unavailable" }, "Forecast valid forLevel: currentNo vehicle number forecast yet"],
+      [{ status: "unavailable" }, ok(COUNT4), "Forecast valid forVehicle number: currentNo level forecast yet"],
+      [ok({ ...CLASS4, stale: true, age_s: 75 }), { status: "unavailable" }, "Forecast valid forLevel: out of dateNo vehicle number forecast yet"],
+      [ok({ ...CLASS4, stale: true, age_s: 75 }), ok(COUNT4), "Forecast valid forLevel: out of dateVehicle number: current"],
+      [ok(CLASS4), ok({ ...COUNT4, stale: true, age_s: 75 }), "Forecast valid forVehicle number: out of dateLevel: current"],
+      [ok({ ...CLASS4, stale: true }), ok({ ...COUNT4, stale: true }), "Forecast valid forExpired"],
+      [{ status: "unavailable" }, { status: "unavailable" }, "Forecast valid forNo forecast"],
+      [ok(CLASS4), { status: "error", reason: "down" }, "Forecast valid forUnknown"],
+      [ok(CLASS4), ok({ ...COUNT4, counts: { N: -1 } }), "Forecast valid forUnknown"],   // refused, not partial
+      [ok(CLASS4), { status: "loading" }, "Forecast valid forWaiting"],
+    ];
+    for (const [c, k, text] of cases) {
+      render(<SummaryTiles cls={c} count={k} />);
+      expect(tile("valid")).toBe(text);
+      cleanup();
+    }
+    // Both current: the countdown, unchanged, and only then.
+    render(<SummaryTiles cls={ok(CLASS4)} count={ok(COUNT4)} />);
+    expect(tile("valid")).toBe("Forecast valid for48 s");
   });
   it("never gives a current answer from an old forecast, and never a zero for an unknown", () => {
     render(<SummaryTiles cls={ok({ ...CLASS4, stale: true, age_s: 72 })} count={ok({ ...COUNT4, stale: true, age_s: 72 })} />);
