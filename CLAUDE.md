@@ -158,7 +158,8 @@ toward nothing.
 file, and neither is defined where it is used.
 
 **`P<n>` is a changelog entry in [PRD-CHANGELOG.md](docs/00-planning/PRD-CHANGELOG.md)**,
-currently running to P107. It is the defect and amendment journal: what was
+currently running to P143, with `D<n>` entries (D1–D38) for the
+deployment and dashboard work. It is the defect and amendment journal: what was
 believed, what was measured, what changed, and what was rejected along with the
 reason. Entries record rejected options on purpose — P42 rejects disabling cuDNN
 for the RNN with the measurement that made it unacceptable (66.1 against 5.9
@@ -167,8 +168,8 @@ PRD amendment, not a workaround. Read the P entry before re-deciding something
 it already decided against.
 
 **`S<n>` is an implementation step in [BUILD-LOG.md](BUILD-LOG.md)**, S01
-through S66. It carries a status (✅ done, 🔵 in progress, ⛔ blocked, ⬜ not
-started), an owner, and for anything blocked, **who** it is blocked on and
+through S69. It carries a status (✅ done, 🟨 partly done, 🔵 in progress,
+⛔ blocked, ⬜ not started), an owner, and for anything blocked, **who** it is blocked on and
 **what** would unblock it. `scripts/check_build_log.py` checks the board against
 what is actually on disk, so the board cannot quietly drift from the repo.
 
@@ -181,7 +182,7 @@ identifiers, cited the same way requirement IDs are.
   - **The decision:** engineering, integration and system validation proceed on the foreign corpus (Bellevue, Dhaka, M6). Indian-data acquisition, the six-viewpoint campus set (S19) and the BMD-45 outreach, is paused rather than waited on.
   - **What this does not change:** the `domain` and `class_coverage` claims stay red, `CLAIMS.yaml` and the thresholds are unchanged, and no result on foreign footage is Indian-domain evidence.
   - **History:** S19 was blocked on the guide from 2026-08-22 ([MEMO-2026-08-22-part-b.md](docs/00-planning/MEMO-2026-08-22-part-b.md)). Reopening it needs the guide's decision on that memo.
-- **The `surrogate` PPO arm is not implemented (P52).** `--arm surrogate` and `--arm no-forecast` build the same environment today. Any result that distinguishes them is wrong, and ADR-021 is the plan for fixing it.
+- **The `surrogate` PPO arm exists since P120 (2026-10-17), which closed P52 in code.** `--arm surrogate --quality q` uses `simulation/forecast_producer.py` and fails closed. Before P120 the two arms built the same environment, so any pre-P120 result that distinguishes them is wrong. Trained checkpoints and the P130 result are under S37 and S38.
 - **`scripts/make_paper_tables.py` is withheld while `check_claims.py` is red.** That is by design and not a bug to route around: two asserted claims fail, so the tables do not generate.
 - **`check_claims.py` does not run in CI.** `.github/workflows/tests.yml` has a `fast` job and a `model` job, and neither invokes it. The claims gate is real but currently depends on someone running it, so run it before writing anything that assumes a claim holds.
 
@@ -505,6 +506,13 @@ is a config value, so `spec.yaml` should own it and `run_loco.py` should read
 it; changing the published list is a PRD amendment with a changelog entry, not
 a code edit.
 
+**Which list the committed results used.** `experiments/results/loco_summary.csv`
+records its own seeds in its `seeds` column: 1, 13, 21, 42 and 7, the same set
+as `--seeds 42 1 7 13 21`. Quote that list in the report, and give the
+reproduction command with `--seeds 42 1 7 13 21` written out. Running
+`run_loco.py` without `--seeds` trains seed 42 only and does not reproduce the
+table.
+
 `--out` defaults to `experiments/results/ablation.csv`, a graded deliverable
 (NFR-09/10). A short run will refuse to overwrite results recorded from a
 longer one — send verification runs elsewhere with `--out`, or pass `--force`
@@ -694,7 +702,7 @@ It does **not** show that they are safe to use for adaptive signal control.
 - **The 17-dim PPO state vector is a contract** (PRD §13.1 as amended by A16 and ADR-020, FR-M14). A16 removed `mfst_gate_mean`: SUMO has no camera, so a feature that is always zero in training and non-zero in deployment is worse than absent.
   - **Where the layout lives:** once, in `mfstnet/configs/spec.yaml`.
   - **When a forecast is unavailable:** apply the spec's `forecast_unavailable` operation (class slots read absent, age reads 1.0), only through `simulation.forecast_state.forecast_slots`. **Never encode a missing approach or a missing count as a value** (P97a, P109, P110), and never shorten the vector.
-  - **When a policy may use forecasts:** only through `ForecastGate`. `simulation/contract.py` hashes the layout into every checkpoint sidecar, because a permuted index keeps the shape and changes the meaning (P53). **Note P52: the `surrogate` arm is not implemented** — it and `no-forecast` are currently the same environment.
+  - **When a policy may use forecasts:** only through `ForecastGate`. `simulation/contract.py` hashes the layout into every checkpoint sidecar, because a permuted index keeps the shape and changes the meaning (P53). The `surrogate` arm is implemented since P120; before it, `surrogate` and `no-forecast` were the same environment (P52).
 - **MQTT QoS differs per topic and is part of the contract** (PRD §17.1): emergency is QoS 2, counts and commands QoS 1, predictions and heartbeat QoS 0.
 - **`contracts/mqtt.py` is the only place a topic or payload is defined.** QoS is attached to the topic there, not accepted as an argument at the call site — a caller that can pass its own QoS can silently downgrade emergency traffic, and the type system should not allow it. Import the topic; never format one from a string.
 - **`use_utf8()` from `scripts/console.py` goes at the top of any script that prints a path.** Forty-seven of fifty-seven scripts call it. It exists because a cache build died on `UnicodeEncodeError: 'charmap' codec can't encode character '।'` — the Devanagari danda in a Dhaka filename — and lost twenty minutes of GPU work to a progress line. Console encoding is not cosmetic on this machine.

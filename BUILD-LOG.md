@@ -48,7 +48,7 @@ guesses.
 
 ## Status board
 
-**Legend:** ✅ done · 🔵 in progress · ⛔ blocked · ⬜ not started
+**Legend:** ✅ done · 🟨 partly done · 🔵 in progress · ⛔ blocked · ⬜ not started
 
 ### Phase 0 — Setup · Weeks 0–2
 
@@ -132,7 +132,7 @@ as the project's only blocker for two weeks.
 | S34 | Fixed / Random / Webster baselines | ✅ | — | 270 rows in `benchmark_runs.csv` — 30 seeds x 3 controllers x 3 regimes |
 | S35 | Webster saturation-flow sweep (ADR-012) → **M3** | ✅ | — | 21 runs. **Broke ADR-012's selection rule** |
 | S36 | Gym environment, `check_env` clean | ✅ | — | check_env clean. 16-dim contract read from spec |
-| S37 | PPO training, three arms → **M6** | 🟨 | R3 | `no-forecast` 500k **training now** on CPU. 12 pre-P47 checkpoints archived — unknown length (P74). `surrogate` unimplemented (P52); `mfstnet` is Phase 3 |
+| S37 | PPO training, three arms → **M6** | 🟨 | R3 | **Training finished for two arms:** ten 500,000-step CPU checkpoints in `models/ppo/`, each with a provenance sidecar. `no-forecast` has pulsed seeds 1, 7, 42 and saturated seed 42; `surrogate` has q=0 and q=1 at pulsed seeds 1, 7, 42. The surrogate arm exists since [P120](docs/00-planning/PRD-CHANGELOG.md#p120), which closed P52 in code. 12 pre-P47 checkpoints archived — unknown length (P74). `mfstnet` is Phase 3 and not built. M6's plateau criterion is not assessed on this board |
 | S38 | 30-seed benchmark + statistics → **M7** | 🟨 | R3 | P82: 19.4% lower mean wait than best-tuned Webster in the historical 30-seed experiment, d=-1.34. Not a matched training/evaluation setup (P119); arrival times were fixed across the seeds, which varied the vehicle mix (P116b). One policy, one training seed, one traffic regime. Cite only with these qualifications (P138). Under the distinct, matched `pulsed` protocol, every PPO arm had more delay than both Webster arms (P130) |
 
 ### Phase 6 — System · Weeks 4–19 → **M8, M9, M10**
@@ -142,9 +142,9 @@ as the project's only blocker for two weeks.
 | S39 | MQTT contract + cross-topic test | ✅ | — | 31 assertions. P7 and TRIAGE-001 closed |
 | S40 | Edge node: capture → count → publish | ✅ | — | `edge/node.py`. FR-A06 fallback decided **on the edge**, tested without a broker. 14 tests |
 | S41 | FastAPI + store | ✅ | — | `server/safety.py` (FR-A03..A06, no HTTP in it) + `server/app.py` (SQLite per ADR-008). **35 tests**, most without starting a server |
-| S42 | Dashboard (2 pages if ADR-008 approved) | 🔵 | R4 | S41 · Reviewed 2026-10-25 against ADR-008 and FR-UI01–08 (P143). **Built** (`1102932`): a read-only Live region (class and count forecasts) and a Results region (committed evidence), separated per ADR-014. **Not built:** signal state (FR-UI01; the controller is not connected, P97a); the emergency banner (FR-UI02); historical counts (FR-UI03); the gate tracker (FR-UI05; MFSTNet does not serve, ADR-027); the event log (FR-UI08). **[D13](docs/00-planning/PRD-CHANGELOG.md#d13)** adds system status and forecast history in the live region; the items not built above are unchanged |
+| S42 | Dashboard (2 pages if ADR-008 approved) | 🟨 | R4 | S41 · Reviewed 2026-10-25 against ADR-008 and FR-UI01–08 (P143), updated 2026-11-04 (D38). **Built** (`1102932`, then D13–D37): a read-only dashboard with four sections, Live, Analyze a video, Analytics and Results, with live and benchmark numbers separated per ADR-014. Historical counts (FR-UI03) were added in D21. **Not built:** signal state (FR-UI01; the controller is not connected, P97a); the emergency banner (FR-UI02); the gate tracker (FR-UI05; MFSTNet does not serve, ADR-027); the event log (FR-UI08); WebSocket updates (refresh is HTTP polling every 2 s) |
 | S43 | Both fallbacks + fault injection — **pull to W17** | 🟨 | R4 | Both fallbacks **implemented and tested**: server-side FR-A06 in `server/safety.py`, edge-side in `edge/node.py`. Fault injection across a real broker still owed |
-| S44 | Integration → **M8, M9, M10** | ⬜ | All | S42, S43 |
+| S44 | Integration → **M8, M9, M10** | 🟨 | All | S42, S43 · Checked 2026-11-04 (D38) against PRD §18 as amended by ADR-008. Edge, broker, server and dashboard run together on recorded footage (`demo_live.py`; Docker stack smoke-tested in CI). **M8 not met:** the edge is a laptop (ADR-003), the frame rate was not measured on a live camera (S65), and emergency preemption is tested in software only. **M9 partly met:** more than ADR-008's two pages are built, but there is no WebSocket and four FR-UI items are not built (S42). **M10 not met:** no forecast feeds the policy (P97a) and MFSTNet does not serve (ADR-027), so the PPO + MFSTNet + edge + dashboard run for 1 hour at ≥95% uptime has not taken place |
 
 ### Phase 7 — Research output · Weeks 15–20 → **M11**
 

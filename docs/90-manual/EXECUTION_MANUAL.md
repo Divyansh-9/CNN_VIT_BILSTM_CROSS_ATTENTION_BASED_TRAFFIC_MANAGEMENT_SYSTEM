@@ -926,16 +926,75 @@ has failed is not a fallback.
 
 ## 5.4 Dashboard
 
-React 18 + Vite + Zustand + Recharts, native WebSocket, CSS Modules, dark mode only
-(`#0D1117` background, `#6366F1` accent, Inter + JetBrains Mono).
+**As built (D13–D37; see `dashboard/README.md`):**
+- **Stack:** React 18 + Vite, with React and React DOM as its only runtime dependencies, and CSS Modules.
+- **Data:** HTTP polling every 2 s. There is no WebSocket, no Zustand and no Recharts.
+- **Look:** dark mode only, in the D18 palette held in `dashboard/src/theme.css`.
+- **Behaviour:** read-only (GET only).
+- **Run, build and test:** see `dashboard/README.md` (`npm test`; D36's fixtures for testing a state
+  without a camera).
 
-Start it in **Week 6 against mocked data**, not Week 14. M9 carries 13 requirements into a single
-week (RTM §5.2); mocking the WebSocket payloads lets the UI mature while the backend is still being
-built, and the payload schemas are already fixed by PRD §17.1.
+**Results come from the committed result files** through `GET /evidence`. Never hardcode a number into
+the frontend: that is what makes the Results section evidence rather than illustration (ADR-014).
 
-**The Benchmark page reads the committed result CSVs.** Never hardcode numbers into the frontend.
-This is what makes the dashboard evidence rather than illustration — regenerate a result and the
-dashboard updates itself.
+### Original implementation plan — superseded by ADR-008
+
+Kept as history only; do not follow it. It assumed a WebSocket and four pages, and ADR-008 reduced both.
+
+> Start it in **Week 6 against mocked data**, not Week 14. M9 carries 13 requirements into a single
+> week (RTM §5.2); mocking the WebSocket payloads lets the UI mature while the backend is still being
+> built, and the payload schemas are already fixed by PRD §17.1.
+
+## 5.5 Analyzing a recorded video (D34)
+
+The dashboard's **Analyze a video** section plays a recording next to a results file. The page does not
+make that file; `scripts/analyze_video.py` does, on the machine that holds the video and the detector.
+The recording is processed locally. The browser displays the selected video locally, while the analysis
+results contain numerical data and detection metadata rather than image frames. Video frames are not
+uploaded to the central server or external services (NFR-13).
+
+**Before you start:**
+- **Environment:** the project venv, set up as in Part 0.
+- **Detector weights:** the file named by `counting.detector_weights` in
+  `indiatrafficnet/class_mapping.yaml` (today `models/external/best_xl_ITD_v1.2.pt`, third-party, not in git).
+- **A camera profile for the camera that recorded the video.** Lanes and congestion limits come from the
+  profile (ADR-028); they are never guessed from a video.
+  - **With a profile today:** only `cameras/150th_Eastgate.json`, `cameras/150th_Newport.json` and
+    `cameras/150th_SE38th.json`.
+  - **Any other camera:** NE8th, for example, cannot be analysed until it has a profile, made and recorded
+    with `scripts/camera_profile.py`.
+- **A video at least 5 minutes long:** the forecasts need history first, and a shorter video is refused.
+
+**Run it** (from the repository root; write the result outside the repository):
+
+```bash
+python scripts/analyze_video.py --video "<clip>.mp4" --profile cameras/150th_Eastgate.json \
+    --out "<results folder>/<clip>.analysis.json"
+```
+
+- **`--profile` declares the camera.** The tool never infers it from the file name, so the wrong profile gives
+  wrong lanes without an error.
+- **Existing results file:** the tool refuses to overwrite it; pass `--force` to replace it.
+- **Progress:** printed once per minute of footage.
+- **Measured once:** a 60-minute Eastgate clip took 222 s on the RTX 4050 laptop (2026-11-04) and wrote
+  1,798 samples. Other machines will differ; state the host when quoting it (ADR-003).
+
+**What the file holds:** `kind: stms-video-analysis`, schema 2. Every 2 s it records:
+- each lane's count;
+- each box as normalised coordinates, with its class, confidence and lane;
+- the level and count forecasts;
+- what the next 60 s then showed.
+
+It holds no image data. The page still opens schema 1 files.
+
+**Open it:** on the dashboard, go to **Analyze a video**. Choose the video under *1. Open the video*, then
+the matching results file under *2. Open its results*. The page warns when the two lengths disagree.
+**Engineering** adds class labels and the per-class breakdown.
+
+**What it does not establish:**
+- **Not accuracy.** "Then" comes from the same detector's counts.
+- **Not S65.** A recording is not a live camera.
+- **No signal control.** Nothing here drives a signal (P97a).
 
 ---
 

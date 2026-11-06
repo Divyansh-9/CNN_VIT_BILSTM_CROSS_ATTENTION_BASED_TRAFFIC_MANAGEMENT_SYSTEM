@@ -12116,6 +12116,55 @@ represent.
   one camera shows only that the level can saturate. The limits stay frozen; changing them is a
   pre-registered decision, not a display fix.
 
+## D38 — documentation brought in line with the repository; future scope recorded (2026-11-04)
+
+Documentation only. No code, test, configuration, result, threshold or claim changed. Found by the
+closure audit of 2026-11-04 (`check_build_log.py`, `check_docs.py` and `check_claims.py` run against
+`54064b5`) and reviewed with the owner, who approved this scope.
+
+**Status lines that had fallen behind the repository:**
+- **S37:** the board said `no-forecast` was "training now" and the `surrogate` arm unimplemented. Ten
+  500,000-step CPU checkpoints with provenance sidecars exist. P120 closed P52 in code on 2026-10-17.
+  The status stays 🟨: `mfstnet` is Phase 3, and M6's plateau criterion is not assessed.
+- **S42:** 🔵 became 🟨. The text now lists the four sections built, records that D21 built historical
+  counts (FR-UI03), and lists the items still not built. WebSocket is among them.
+- **S44:** ⬜ became 🟨. Checked against PRD §18 as amended by ADR-008:
+  - **M8, not met:** laptop edge, no live-camera frame rate, preemption tested in software only.
+  - **M9, partly met:** no WebSocket, and four FR-UI items not built.
+  - **M10, not met:** no forecast feeds the policy (P97a), and MFSTNet does not serve (ADR-027).
+- **The board's legend** now includes 🟨, which four rows and `check_build_log.py` already used.
+
+**CLAUDE.md:**
+- The "surrogate arm is not implemented" blocker is replaced with the P120 fact.
+- The P and S ranges are brought up to date.
+- The seed section now says which list the committed `loco_summary.csv` used (1, 13, 21, 42, 7), and that
+  reproducing it needs `--seeds 42 1 7 13 21` written out. The three-way seed defect itself is unchanged
+  and still awaits a PRD amendment.
+
+**Execution Manual:**
+- **New §5.5:** the existing `analyze_video.py` procedure. Only three cameras have a profile; the timing
+  was measured once (a 60-minute clip in 222 s on the RTX 4050 laptop), and what the file does and does
+  not establish is stated.
+- **§5.4:** now describes the dashboard as built (polling, React and React DOM only, the D18 palette).
+  The planned WebSocket instructions move under a heading, "Original implementation plan — superseded
+  by ADR-008", kept as history only.
+- **§5.5 wording on frames:** the browser plays the selected video locally. What NFR-13 guarantees is
+  that frames are not uploaded to the central server or external services, not that no component
+  displays them.
+
+**`dashboard/README.md`:** the Scope section matches the build (the D26 ribbon, the D18 palette), points
+to §5.5, and records the future scope.
+
+**Future scope, recorded and not started.** The owner kept production scope frozen for submission:
+- **Analysis component.** A camera-profile-driven, local video-analysis component that runs the existing
+  pipeline and opens video and results together. Frames stay on the machine, and the dashboard and server
+  keep their roles. It needs its own architecture and requirements review after submission.
+- **Tours.** Section-aware Operator and Engineering tours.
+- **Glossy style.** A visual prototype, judged against D18 before any adoption.
+
+Pre-generating results for a fixed set of clips was declined: the clips are test data, not the
+boundary of the product.
+
 ## D37 — fix only: the first usability state contradicted itself (2026-11-03)
 
 Reviewed by ChatGPT, an AI-assisted technical review, before the five-person usability test;

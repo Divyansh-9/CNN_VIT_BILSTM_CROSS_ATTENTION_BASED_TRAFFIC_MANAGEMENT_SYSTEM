@@ -88,9 +88,25 @@ This is a deliberately small, ADR-008-descoped shape:
 
 - it polls every 2 s, the PRD's refresh budget, rather than using WebSockets;
 - there are no charts;
-- there is no deferred-agreement ribbon or detection overlay (ADR-014 §2–3);
+- the agreement ribbon (D26) is on Live, but there is no detection overlay on
+  Live; boxes appear only on Analyze a video, from a results file;
 - there is no login, because the page only reads. The server's write
   endpoints need a bearer token (D9), which the dashboard never holds.
 
-It is dark mode only (`#0D1117`, accent `#6366F1`), with no external font or
+It is dark mode only, in the D18 brand palette (`#080808` background, `#EC7C22`
+for chrome only), with every colour in `src/theme.css` and no external font or
 script requests.
+
+**Making a results file for Analyze a video:** see Execution Manual §5.5. It
+needs a camera profile, and today only the three `150th_*` cameras have one.
+
+**Future scope, not before submission (D38):**
+- **A local analysis component.** The user picks a compatible recording and a
+  camera profile; a separate local component runs the existing pipeline,
+  validates the results file, and opens the video and results together.
+  Frames stay on that machine, and this page and the server keep their roles.
+  It needs its own architecture and requirements review.
+- **Section-aware tours.** Separate Operator and Engineering tours for Live
+  and for Analyze a video.
+- **A visual prototype of a glossier style,** judged against D18's measured
+  contrast before any adoption.
