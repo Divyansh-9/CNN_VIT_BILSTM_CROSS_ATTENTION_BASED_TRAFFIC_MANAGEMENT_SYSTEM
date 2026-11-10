@@ -12116,6 +12116,45 @@ represent.
   one camera shows only that the level can saturate. The limits stay frozen; changing them is a
   pre-registered decision, not a display fix.
 
+## D39 — two unsupported citation figures withdrawn (S45 audit, 2026-11-06)
+
+Documentation only. No code, test, configuration, result, threshold or claim changed, and the submitted
+synopsis and progress-report builders are untouched: neither quotes either figure.
+
+**How the five load-bearing citations were checked (S45).** These are the five in BIBLIOGRAPHY's
+verification queue. Public records and full text were retrieved with AI assistance: OpenAlex, arXiv and
+ar5iv, the NeurIPS proceedings page, and search engines. This is a records and content check, not a
+person reading each paper. BIBLIOGRAPHY's rule still applies: a work quoted in the viva is read by the
+owner first.
+
+**Withdrawn:**
+- **B31, "fixed-time 552–924 s against RL 100–120 s".** Not in the paper: Cabrejas-Egea, Zhang and
+  Walton, Transportation Research Procedia 58 (2021) 638–645. Its Table 1 gives one-hour cumulative
+  delay in one scenario: Cyclic 143,660.50 s, MOVA 27,187.53 s, SurTrac 29,008.36 s, DDDQN 21,286.86 s.
+  An extended search found no other source for the withdrawn figures.
+  - **ADR-012 Finding 3** now argues from Table 1: the cyclic plan's delay is about 6.7 times the RL
+    agent's and 5.3 times MOVA's, in one scenario.
+  - **Still verified:** B31 reports its baselines without variability.
+- **B10, "YOLO 92–99% on bus/car/motorcycle; below usable on zone-specific modes".** The record is
+  found: Rashmi and Shantala, ICECA 2020, doi 10.1109/ICECA49313.2020.9297561. Its abstract gives no
+  accuracy figure and does not mention India, and the full text is not open access. The figures are
+  withdrawn from BIBLIOGRAPHY, DATASETS §2.05, RELATED-WORK §2.6 and SOW R25.
+  - **Where the dataset argument rests now:** viewpoint and class coverage (B32–B34), as the Phase-I
+    Progress Report already argues it.
+  - **R25 stays a live risk:** detector failure on the zone-specific classes is measured under FR-D09,
+    not cited.
+
+**Bibliography corrections:**
+- **B8:** open access, not paywalled.
+- **B30:** identity confirmed against the NeurIPS proceedings. It is still not in
+  `data/references.json`, which only `verify_references.py` writes.
+- **B5 and B6:** confirmed by secondary sources only. B6's title and co-author vary between sources and
+  need settling.
+
+**Still owed by a person:**
+- Obtain IRC:SP:41-1994 and Webster (1958) before quoting a number from either.
+- Read B10 if any of its numbers are wanted.
+
 ## D38 — documentation brought in line with the repository; future scope recorded (2026-11-04)
 
 Documentation only. No code, test, configuration, result, threshold or claim changed. Found by the

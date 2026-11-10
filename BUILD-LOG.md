@@ -150,7 +150,7 @@ as the project's only blocker for two weeks.
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S45 | Verify the five load-bearing citations | ⬜ | R2 | — |
+| S45 | Verify the five load-bearing citations | 🟨 | R2 | Records and content checked 2026-11-06, corrected in D39: B31's "552–924 s vs 100–120 s" is not in the paper and is withdrawn; B10's "92–99%" is unverifiable and withdrawn; B8 is open access; B30's identity is confirmed. **Still owed by a person:** reading B10 before any of its numbers is quoted, and obtaining IRC:SP:41-1994 and Webster (1958), whose title and co-author vary between sources |
 | S46 | Paper draft | ⬜ | All | S29, S38 |
 | S47 | Documentation waves 2, 3, 4 | ⬜ | All | W05, W11, W16 |
 | S48 | Final report + submission → **M11** | ⬜ | All | S46 |
