@@ -47,7 +47,7 @@ from contracts.broker import PASSWORD_ENV, USERNAME_ENV, Credentials  # noqa: E4
 from contracts.mqtt import Heartbeat, Mode, Topic  # noqa: E402
 from edge.profile import PROFILES, load_profiles  # noqa: E402
 from scripts.console import use_utf8  # noqa: E402
-from scripts.demo_e2e import Stack  # noqa: E402
+from scripts.demo_e2e import CAMERA_SOURCE, Stack  # noqa: E402
 
 use_utf8()
 
@@ -181,6 +181,12 @@ def readiness(stack, connect=connect_broker, *, timeout_s: float = READY_TIMEOUT
         transport.stop()
 
 
+def source_kind(args) -> str:
+    """What the edge's heartbeat must say for the first milestone: a clip is a
+    replay, and the source `camera` is a camera (D42). Never one for the other."""
+    return "camera" if str(getattr(args, "clip", "")) == CAMERA_SOURCE else "replay"
+
+
 def run_sheet(clip: Clip, minutes: float, url: str) -> str:
     return "\n".join([
         "",
@@ -216,7 +222,7 @@ def reached(stack) -> set[str]:
     """Which milestones the API shows now. Read-only, like the page."""
     done = set()
     status, beat = stack.get(f"/heartbeat/{LIVE_ID}/latest")
-    if status == 200 and (beat.get("source") or {}).get("kind") == "replay":
+    if status == 200 and (beat.get("source") or {}).get("kind") == source_kind(stack.args):
         done.add(MILESTONES[0])
     if stack.get(f"/prediction/{LIVE_ID}/latest")[0] == 200:
         done.add(MILESTONES[1])
@@ -272,17 +278,21 @@ def run_demo(args, stack, connect=connect_broker, sleep=time.sleep) -> int:
         return 1
     stack.mark("ready: broker, server and ingest each carried a real message")
     url = f"{stack.base}/dashboard/?id={LIVE_ID}"
-    print(run_sheet(args.chosen, args.minutes, url), flush=True)
-    stack.start_edge(LIVE_ID, int(args.minutes * 30))
+    live = source_kind(args) == "camera"
+    if not live:
+        print(run_sheet(args.chosen, args.minutes, url), flush=True)
+    stack.start_edge(LIVE_ID, None if live else int(args.minutes * 30))
     code, seen = watch(stack, stack.procs["edge"], sleep=sleep)
     if code != 0:
         stack.mark(f"FAILED: the edge ended with status {code}\n{tail(stack, 'edge')}")
         return 1
     missing = [m for m in MILESTONES if m not in seen]
     if missing:
-        stack.mark(f"FAILED: the replay ended without: {', '.join(missing)}\n{tail(stack, 'edge')}")
+        what = "camera run" if live else "replay"
+        stack.mark(f"FAILED: the {what} ended without: {', '.join(missing)}\n{tail(stack, 'edge')}")
         return 1
-    stack.mark("replay finished; the page now shows the streams going stale")
+    stack.mark("camera stream ended; the page now shows the streams going stale" if live else
+               "replay finished; the page now shows the streams going stale")
     hold(stack, args.hold, sleep=sleep)
     stack.mark("DONE")
     return 0

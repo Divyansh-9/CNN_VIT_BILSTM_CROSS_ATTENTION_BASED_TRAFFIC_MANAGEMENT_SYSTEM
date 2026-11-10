@@ -158,7 +158,7 @@ toward nothing.
 file, and neither is defined where it is used.
 
 **`P<n>` is a changelog entry in [PRD-CHANGELOG.md](docs/00-planning/PRD-CHANGELOG.md)**,
-currently running to P143, with `D<n>` entries (D1–D38) for the
+currently running to P143, with `D<n>` entries (D1–D44) for the
 deployment and dashboard work. It is the defect and amendment journal: what was
 believed, what was measured, what changed, and what was rejected along with the
 reason. Entries record rejected options on purpose — P42 rejects disabling cuDNN
@@ -553,6 +553,28 @@ would be empty. It is a replay, not S65, and it forecasts traffic, not the signa
 separate process on 127.0.0.1, deliberately not a dashboard section or a server
 route, because the dashboard is read-only and the server holds no detector or
 footage. Every run gets a new stack and database.
+Since D41 that launcher is the **local workbench**: it serves the dashboard as its only page, and the
+dashboard gains the workbench's actions when `/workbench/capabilities` answers (`scripts/workbench.py`,
+`dashboard/src/workbench.js`, `Workbench.jsx`).
+- **Analyze:** the viewer opens any video. The workbench finds the same file on disk by name, size and
+  fingerprint, or through this computer's own folder window. The viewer declares the camera, and the result
+  appears beside the video.
+- **New cameras:** a camera with no profile can be placed in the page as a **provisional** camera, kept in
+  `data/_workbench/cameras/`, never in `cameras/`. Its levels are set from its first recording by ADR-017's
+  rule, and every result says so.
+- **Live:** the Live section runs a recorded clip, or, since D42, the camera named by `STMS_CAMERA_URL` in the
+  workbench's environment. The page never sees that address. The live panels read the run's server through
+  the workbench.
+- **Replay on Live (D42):** an analysed video replays, for 7 min, 30 min or the whole video, through the
+  deployed path.
+- **Forecast check (D43):** Analyze compares a whole video's forecasts with what the next minute then showed,
+  and ridge against repeating the last minute, as "k of n" and vehicles. It is agreement, never accuracy, and
+  gives no percentage. It can be printed without the picture.
+- **Lane preview (D42):** choosing a camera lays its lanes over the video before anything runs, so a wrong
+  camera is visible.
+- **The boundary:** `api.js` stays GET-only. `workbench.js` alone may POST, only to `/workbench/*` and only
+  plain data. The server has no `/workbench` route, so a server-served dashboard is unchanged. No frame
+  crosses HTTP.
 
 ONNX export, the FastAPI control server and the edge node all exist —
 `server/app.py`, `server/safety.py`, `edge/node.py`, `contracts/mqtt.py`. The

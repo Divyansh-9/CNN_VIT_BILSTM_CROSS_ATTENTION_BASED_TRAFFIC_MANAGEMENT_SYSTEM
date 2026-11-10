@@ -66,6 +66,9 @@ APPROACHES = ("lane_0=N", "lane_1=S", "lane_2=E", "lane_3=W")
 CHECKS = ("E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9")
 
 
+CAMERA_SOURCE = "camera"   # as edge.run.CAMERA_SOURCE; that module is not imported here
+
+
 class Stack:
     """The native services, their logs, and the secrets they share."""
 
@@ -129,15 +132,21 @@ class Stack:
         self.start("ingest", [sys.executable, "-m", "server.mqtt_ingest", "--host", "localhost",
                               "--port", str(self.args.mqtt_port)], {**self.env("ingest.env"), "STMS_MQTT_CA_FILE": ca})
 
-    def start_edge(self, intersection: str, samples: int) -> None:
+    def start_edge(self, intersection: str, samples: int | None) -> None:
+        """A clip is paced in real time and stops after `samples`. The source
+        `camera` (D42) is the live stream named by STMS_CAMERA_URL, which the edge
+        reads from the environment it inherits; it runs until it is stopped."""
         ca = str(self.work / "secrets" / "ca.crt")
         profile = getattr(self.args, "profile", None)
         config = (["--profile", str(profile)] if profile else
                   ["--lanes", f"data/corpus_p103/{self.args.camera}/manifest.json",
                    "--approaches", *APPROACHES, "--camera", self.args.camera])
+        live = str(self.args.clip) == CAMERA_SOURCE
         self.start("edge", [sys.executable, "-m", "edge.run", "--source", str(self.args.clip), *config,
                             "--intersection-id", intersection, "--broker-host", "localhost",
-                            "--broker-port", str(self.args.mqtt_port), "--samples", str(samples), "--realtime"],
+                            "--broker-port", str(self.args.mqtt_port),
+                            *([] if samples is None else ["--samples", str(samples)]),
+                            *([] if live else ["--realtime"])],
                    {**self.env("edge.env"), "STMS_MQTT_CA_FILE": ca})
 
     def get(self, path: str):

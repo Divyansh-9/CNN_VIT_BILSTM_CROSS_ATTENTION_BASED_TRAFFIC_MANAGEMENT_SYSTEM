@@ -5,8 +5,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import App, { SECTIONS, intersectionFromUrl, sectionFromHash } from "./App.jsx";
+import App, { SECTIONS, analysisFromUrl, intersectionFromUrl, sectionFromHash } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
+import { fingerprint, plainBody, wbGet, wbPost } from "./workbench.js";
+import { forecastCheck, lastMinute, laneSeries, perMinute } from "./check.js";
+import { VideoCheck } from "./VideoCheck.jsx";
 import { ICONS } from "./icons.jsx";
 import { ObservedCounts, scaleTop } from "./Analytics.jsx";
 import { Horizon, Intersection, SCALE_MAX, TURN, horizon, junction, ribbonLength, ribbonPath } from "./Intersection.jsx";
@@ -65,13 +68,16 @@ describe("read-only by construction", () => {
     await get("/evidence", async (_, init) => { method = init.method; return { ok: true, status: 200, json: async () => ({}) }; });
     expect(method).toBe("GET");
   });
-  it("contains no write call anywhere in the source", () => {
+  it("contains no write call anywhere in the source but the workbench client", () => {
+    // D41: workbench.js is the one module that may POST, and only to the local
+    // workbench's own actions; the server has no such route. Every other file stays read-only.
     const dir = dirname(fileURLToPath(import.meta.url));
     for (const f of readdirSync(dir).filter((n) => /\.(js|jsx)$/.test(n) && !n.includes(".test."))) {
       // Code only: a comment saying /observation is unreachable is not a call to it.
       const text = readFileSync(join(dir, f), "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-      expect(text).not.toMatch(/method:\s*["'](POST|PUT|PATCH|DELETE)/i);
+      if (f !== "workbench.js") expect(text, f).not.toMatch(/method:\s*["'](POST|PUT|PATCH|DELETE)/i);
+      else expect(text.match(/method:\s*["'](POST|PUT|PATCH|DELETE)/gi)).toHaveLength(1);
       expect(text).not.toMatch(/\/observation|signal\/command/);
     }
   });
@@ -1682,5 +1688,366 @@ describe("Engineering view (D35)", () => {
     const wrong = analysis();
     wrong.samples[0].detections = [["car", 0.9, null]];
     expect(validateAnalysis(wrong).reason).toContain("disagree");
+  });
+});
+
+describe("Workbench hand-off (D40)", () => {
+  const KEY = "a".repeat(64);
+  const sample = (t) => ({ t, counts: { lane_0: 2, lane_1: 0 }, boxes: [], level: null, number: null, then: null });
+  const ANALYSIS = { kind: "stms-video-analysis", schema: 1, camera: "150th_Eastgate", clip: "clip", step_s: 2, duration_s: 6,
+    lanes: [{ name: "lane_0", centre: [0.2, 0.7], approach: "N" }, { name: "lane_1", centre: [0.3, 0.2], approach: "S" }],
+    limits: { low: 0.13, med: 0.97 }, known_limits: [], directions_verified: false,
+    models: { level: "persistence@x", number: "ridge@x" }, samples: [sample(0), sample(2), sample(4)] };
+  const server = (handOver) => {
+    const asked = [];
+    const fetcher = async (path, init) => {
+      asked.push([path, init?.method]);
+      if (path === `/workbench/analysis/${KEY}` && handOver) return { status: 200, ok: true, json: async () => structuredClone(handOver) };
+      return { status: 404, ok: false, json: async () => ({ detail: "not here" }) };
+    };
+    return { asked, fetcher };
+  };
+
+  it("allows exactly one more GET, a stored result by its key", () => {
+    expect(isAllowed(`/workbench/analysis/${KEY}`)).toBe(true);
+    for (const p of [`/workbench/analysis/${"a".repeat(63)}`, `/workbench/analysis/${"A".repeat(64)}`,
+                     `/workbench/analysis/${KEY}?x=1`, `/workbench/analysis/${KEY}/video`, "/workbench/video/x",
+                     "/workbench/analysis/../state", "/analysis/start", "/recordings"]) {
+      expect(isAllowed(p)).toBe(false);
+    }
+  });
+  it("reads a key from the address only in its exact shape", () => {
+    expect(analysisFromUrl(`?analysis=${KEY}`)).toBe(KEY);
+    for (const s of ["", "?analysis=", `?analysis=${KEY}x`, "?analysis=../x", `?analysis=${"A".repeat(64)}`]) expect(analysisFromUrl(s)).toBeNull();
+  });
+  it("opens the handed results, checked as a file is, and asks for the video by name", async () => {
+    const { asked, fetcher } = server(ANALYSIS);
+    render(<App fetcher={fetcher} search={`?analysis=${KEY}`} hash="#analyze" />);
+    await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
+    expect(document.querySelector("[data-handed]").textContent).toMatch(/choose the video file clip/);
+    const handOver = asked.filter(([p]) => p.startsWith("/workbench/analysis/"));
+    expect(handOver).toEqual([[`/workbench/analysis/${KEY}`, "GET"]]);
+    expect(asked.every(([, method]) => method === "GET")).toBe(true);
+  });
+  it("refuses handed results that fail the page's checks", async () => {
+    const { fetcher } = server({ ...ANALYSIS, step_s: 5 });
+    render(<App fetcher={fetcher} search={`?analysis=${KEY}`} hash="#analyze" />);
+    await waitFor(() => expect(screen.getByText(/workbench's results were refused: invalid timing/)).toBeTruthy());
+    expect(document.querySelector("[data-analysis-row]")).toBeNull();
+  });
+  it("says a link works only on its own computer when the key is not found", async () => {
+    const { fetcher } = server(null);
+    render(<App fetcher={fetcher} search={`?analysis=${KEY}`} hash="#analyze" />);
+    await waitFor(() => expect(screen.getByText(/works only on the computer whose workbench made it/)).toBeTruthy());
+    expect(document.querySelector("[data-analysis-row]")).toBeNull();
+  });
+  it("asks the workbench nothing when the address carries no key", async () => {
+    const { asked, fetcher } = server(ANALYSIS);
+    render(<App fetcher={fetcher} search="?id=j1" hash="#analyze" />);
+    await waitFor(() => expect(asked.length).toBeGreaterThan(0));
+    expect(asked.some(([p]) => p.startsWith("/workbench/analysis/"))).toBe(false);
+  });
+});
+
+describe("Local workbench inside the dashboard (D41)", () => {
+  const KEY = "b".repeat(64);
+  const bytes = (n) => { const out = new Uint8Array(n); for (let i = 0; i < n; i++) out[i] = i % 256; return out; };
+  const sample = (t) => ({ t, counts: { lane_0: 1, lane_1: 0 }, boxes: [], level: null, number: null, then: null });
+  const ANALYSIS = { kind: "stms-video-analysis", schema: 1, camera: "150th_Eastgate", clip: "clip", step_s: 2, duration_s: 6,
+    lanes: [{ name: "lane_0", centre: [0.2, 0.7], approach: "N" }, { name: "lane_1", centre: [0.3, 0.2], approach: "S" }],
+    limits: { low: 0.13, med: 0.97 }, known_limits: [], directions_verified: false,
+    models: { level: "persistence@x", number: "ridge@x" }, samples: [sample(0), sample(2), sample(4)] };
+  const JOB_DONE = { running: false, stopping: false, recording: "clip.mp4", camera: "150th_Eastgate", problem: null, cached: false,
+    stages: [{ id: "check", name: "Check", state: "done", detail: "" }, { id: "open", name: "Results ready", state: "done", detail: "" }],
+    checks: [], progress: { done: 3, total: 3, eta_s: null }, key: KEY, status: "Analysis finished and checked" };
+
+  // A workbench that answers like scripts/demo_launcher.py, and records every call.
+  const workbench = (over = {}) => {
+    const calls = [];
+    const answers = {
+      "GET /workbench/capabilities": [200, { workbench: true, replay: true, live_id: "live" }],
+      "GET /workbench/cameras": [200, [{ id: "150th_Eastgate", lanes: 4, directions_verified: false, provisional: false, levels_set: true }]],
+      "POST /workbench/locate": [200, { found: true, recording: 3 }],
+      "POST /workbench/jobs": [202, { started: true }],
+      "GET /workbench/jobs/current": [200, JOB_DONE],
+      [`GET /workbench/analysis/${KEY}`]: [200, ANALYSIS],
+      "POST /workbench/cameras": [201, { id: "Gate_2" }],
+      "GET /workbench/replay/clips": [200, [{ number: 1, id: "clipA", camera: "150th_Eastgate", rehearsed: true }]],
+      "GET /workbench/replay/state": [200, { running: false, code: null, milestones: [], status: "Ready to run", problem: null }],
+      ...over,
+    };
+    const fetcher = async (path, init = {}) => {
+      const method = init.method || "GET";
+      calls.push({ path, method, body: init.body });
+      const found = answers[`${method} ${path}`];
+      if (!found) return { status: 404, ok: false, json: async () => ({ detail: "not here" }) };
+      return { status: found[0], ok: found[0] < 300, json: async () => structuredClone(found[1]) };
+    };
+    return { calls, fetcher };
+  };
+  const openVideoFile = (file) => {
+    const input = document.querySelector("[data-open-video]");
+    Object.defineProperty(input, "files", { value: [file], configurable: true });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  // jsdom has neither object URLs nor Web Crypto's digest: both are lent for the test.
+  const inBrowser = async (body) => {
+    const { webcrypto } = await import("node:crypto");
+    const create = URL.createObjectURL, revoke = URL.revokeObjectURL, crypto = globalThis.crypto;
+    URL.createObjectURL = () => "blob:test"; URL.revokeObjectURL = () => {};
+    Object.defineProperty(globalThis, "crypto", { value: webcrypto, configurable: true });
+    try { await body(); cleanup(); } finally {
+      URL.createObjectURL = create; URL.revokeObjectURL = revoke;
+      Object.defineProperty(globalThis, "crypto", { value: crypto, configurable: true });
+    }
+  };
+
+  it("fingerprints a file exactly as the workbench does, reading it in the browser", async () => {
+    const { webcrypto } = await import("node:crypto");
+    const file = new Blob([bytes(256 * 3), new TextEncoder().encode("tail")]);
+    expect(await fingerprint(file, webcrypto.subtle, 16)).toBe("c79c81ce0e54fdd56549d9788f98fbf6dea85e315fa59c5d1fab303433b9724e");
+    expect(await fingerprint(file, webcrypto.subtle)).toBe("92c5de5adda0b4dff34a8c497dc0b6b1c7d7be706769384b5b54cdcba1f59561");
+    expect(await fingerprint(new Blob(["abc"]), webcrypto.subtle, 16)).toBe("469b07b74152e2d0a98f6e590f5d995801ec35e0b7bdeb4ca05e60c8c2d21968");
+  });
+  it("sends only to its own actions, and only plain data, never a file or its bytes", async () => {
+    const { fetcher, calls } = workbench();
+    await expect(wbPost("/observation", {}, fetcher)).rejects.toThrow(/not a workbench action/);
+    await expect(wbPost("/workbench/jobs/../../run", {}, fetcher)).rejects.toThrow(/not a workbench action/);
+    for (const bad of [{ v: new Blob(["x"]) }, { v: new ArrayBuffer(4) }, { v: new Uint8Array(4) }, { v: "x".repeat(301) }, { v: NaN }]) {
+      await expect(wbPost("/workbench/locate", bad, fetcher)).rejects.toThrow(/plain data only/);
+    }
+    await expect(wbGet("/prediction/j1/latest", fetcher)).rejects.toThrow(/not a workbench read/);
+    expect(calls).toEqual([]);
+    expect(plainBody({ id: "Gate_2", lanes: [{ centre: [0.1, 0.2], approach: "N" }], max_radius: 0.25, recording: 3 })).toBe(true);
+  });
+  it("on the server shows none of it and stays read-only", async () => {
+    const { fetcher } = workbench({ "GET /workbench/capabilities": [404, { detail: "Not Found" }] });
+    render(<App fetcher={fetcher} search="?id=j1" hash="#analyze" />);
+    await waitFor(() => expect(document.querySelector('[data-mode="read-only"]')).toBeTruthy());
+    expect(document.querySelector("[data-assistant]")).toBeNull();
+    expect(document.querySelector("[data-open-results]")).toBeTruthy();
+  });
+  it("served by the workbench, says so, and offers the replay on Live", async () => {
+    const { fetcher } = workbench();
+    render(<App fetcher={fetcher} search="?id=live" hash="#live" />);
+    await waitFor(() => expect(document.querySelector('[data-mode="workbench"]').textContent).toMatch(/no signal commands/));
+    await waitFor(() => expect(document.querySelector('[data-replay-panel] [data-choice="1"]')).toBeTruthy());
+    expect(document.querySelector("[data-replay-panel]").textContent).toMatch(/Recorded footage, not a camera.*S65.*not accuracy/s);
+    expect(document.querySelector("select")).toBeNull();
+  });
+  it("finds the opened video on this computer, analyses it, and shows the results beside it", async () => {
+    const { fetcher, calls } = workbench();
+    await inBrowser(async () => {
+      render(<App fetcher={fetcher} search="?id=live" hash="#analyze" />);
+      await waitFor(() => expect(document.querySelector('[data-assistant="idle"]')).toBeTruthy());
+      openVideoFile(new File([bytes(4096)], "clip.mp4", { type: "video/mp4" }));
+      await waitFor(() => expect(document.querySelector('[data-where="found"]')).toBeTruthy());
+      fireEvent.click(document.querySelector("[data-analyse]"));
+      await waitFor(() => expect(screen.getByText(/Choose the camera that recorded this video first/)).toBeTruthy());
+      fireEvent.click(document.querySelector('[data-choice="150th_Eastgate"]'));
+      fireEvent.click(document.querySelector("[data-analyse]"));
+      await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
+    });
+    const posted = calls.filter((c) => c.method === "POST");
+    expect(posted.map((c) => c.path)).toEqual(["/workbench/locate", "/workbench/jobs"]);
+    expect(JSON.parse(posted[0].body)).toEqual({ name: "clip.mp4", size: 4096, fingerprint: expect.stringMatching(/^[0-9a-f]{64}$/) });
+    expect(JSON.parse(posted[1].body)).toEqual({ recording: 3, camera: "150th_Eastgate" });
+    expect(calls.every((c) => c.body === undefined || typeof c.body === "string")).toBe(true);
+  });
+  it("asks this computer's folder window when the file cannot be found, then looks again", async () => {
+    let located = 0;
+    const { fetcher: base, calls } = workbench({ "POST /workbench/folder": [200, { added: "footage" }] });
+    const fetcher = async (path, init) => {
+      if (path === "/workbench/locate") {
+        located += 1;
+        calls.push({ path, method: "POST", body: init.body });
+        const data = located === 1 ? { found: false, searched_everything: true } : { found: true, recording: 1 };
+        return { status: 200, ok: true, json: async () => data };
+      }
+      return base(path, init);
+    };
+    await inBrowser(async () => {
+      render(<App fetcher={fetcher} search="?id=live" hash="#analyze" />);
+      await waitFor(() => expect(document.querySelector('[data-assistant="idle"]')).toBeTruthy());
+      openVideoFile(new File([bytes(100)], "elsewhere.mp4", { type: "video/mp4" }));
+      await waitFor(() => expect(document.querySelector("[data-show-folder]")).toBeTruthy());
+      fireEvent.click(document.querySelector("[data-show-folder]"));
+      await waitFor(() => expect(document.querySelector('[data-where="found"]')).toBeTruthy());
+    });
+    expect(calls.filter((c) => c.method === "POST").map((c) => c.path)).toEqual(["/workbench/locate", "/workbench/folder", "/workbench/locate"]);
+  });
+  it("places a new camera's lanes on the picture and saves them as numbers only", async () => {
+    const { fetcher, calls } = workbench();
+    await inBrowser(async () => {
+      render(<App fetcher={fetcher} search="?id=live" hash="#analyze" />);
+      await waitFor(() => expect(document.querySelector('[data-assistant="idle"]')).toBeTruthy());
+      openVideoFile(new File([bytes(100)], "new_cam.mp4", { type: "video/mp4" }));
+      await waitFor(() => expect(document.querySelector("[data-make-camera]")).toBeTruthy());
+      fireEvent.click(document.querySelector("[data-make-camera]"));
+      const stage = document.querySelector("[data-stage]");
+      await waitFor(() => expect(stage.dataset.placing).toBe("true"));
+      stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100 });
+      fireEvent.click(stage, { clientX: 50, clientY: 25 });
+      fireEvent.click(stage, { clientX: 150, clientY: 75 });
+      await waitFor(() => expect(document.querySelector('[data-placed="L1"]').textContent).toMatch(/L1 S/));
+      fireEvent.change(screen.getByPlaceholderText(/Gate_2_North/), { target: { value: "Gate_2" } });
+      fireEvent.click(screen.getByText("Save camera"));
+      await waitFor(() => expect(calls.some((c) => c.path === "/workbench/cameras" && c.method === "POST")).toBe(true));
+    });
+    const saved = JSON.parse(calls.find((c) => c.path === "/workbench/cameras" && c.method === "POST").body);
+    expect(saved).toEqual({ id: "Gate_2", recording: 3, max_radius: 0.25,
+      lanes: [{ centre: [0.25, 0.25], approach: "N" }, { centre: [0.75, 0.75], approach: "S" }] });
+  });
+
+  // ------------------------------------------------------------ D42 ---
+  const GEOMETRY = { max_radius: 0.2, lanes: [{ name: "lane_0", centre: [0.2, 0.7], approach: "N" }, { name: "lane_1", centre: [0.6, 0.3], approach: "S" }] };
+  const withGeometry = { "GET /workbench/cameras": [200, [{ id: "150th_Eastgate", lanes: 2, directions_verified: false, provisional: false, levels_set: true, geometry: GEOMETRY }]] };
+
+  it("lays the declared camera's lanes over the video before analysing, so a wrong camera shows", async () => {
+    const { fetcher } = workbench(withGeometry);
+    await inBrowser(async () => {
+      render(<App fetcher={fetcher} search="?id=live" hash="#analyze" />);
+      await waitFor(() => expect(document.querySelector('[data-assistant="idle"]')).toBeTruthy());
+      openVideoFile(new File([bytes(100)], "clip.mp4", { type: "video/mp4" }));
+      await waitFor(() => expect(document.querySelector('[data-choice="150th_Eastgate"]')).toBeTruthy());
+      expect(document.querySelector("[data-preview-lane]")).toBeNull();
+      fireEvent.click(document.querySelector('[data-choice="150th_Eastgate"]'));
+      await waitFor(() => expect(document.querySelectorAll("[data-preview-lane]")).toHaveLength(2));
+      expect(document.querySelector('[data-preview-lane="L0"]').style.left).toBe("20%");
+      expect(document.querySelector("[data-preview-note]").textContent).toMatch(/different camera/);
+      fireEvent.click(document.querySelector("[data-analyse]"));
+      await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
+      expect(document.querySelector("[data-preview-lane]")).toBeNull();
+    });
+  });
+  it("replays the analysed video on Live, for the length chosen", async () => {
+    const { fetcher, calls } = workbench({ ...withGeometry, "POST /workbench/replay/start": [202, { started: true }] });
+    await inBrowser(async () => {
+      render(<App fetcher={fetcher} search="?id=live" hash="#analyze" />);
+      await waitFor(() => expect(document.querySelector('[data-assistant="idle"]')).toBeTruthy());
+      openVideoFile(new File([bytes(100)], "clip.mp4", { type: "video/mp4" }));
+      await waitFor(() => expect(document.querySelector('[data-choice="150th_Eastgate"]')).toBeTruthy());
+      fireEvent.click(document.querySelector('[data-choice="150th_Eastgate"]'));
+      fireEvent.click(document.querySelector("[data-analyse]"));
+      await waitFor(() => expect(document.querySelector("[data-replay-this]")).toBeTruthy());
+      fireEvent.click(screen.getByText("Whole video"));
+      fireEvent.click(document.querySelector("[data-replay-start]"));
+      await waitFor(() => expect(window.location.hash).toBe("#live"));
+    });
+    const started = calls.find((c) => c.path === "/workbench/replay/start");
+    expect(JSON.parse(started.body)).toEqual({ recording: 3, camera: "150th_Eastgate", minutes: "whole" });
+    window.location.hash = "";
+  });
+  it("never asks for a camera's address in the page, and says how to configure one", async () => {
+    const { fetcher } = workbench();
+    render(<App fetcher={fetcher} search="?id=live" hash="#live" />);
+    await waitFor(() => expect(document.querySelector("[data-mode-camera]")).toBeTruthy());
+    fireEvent.click(document.querySelector("[data-mode-camera]"));
+    const steps = document.querySelector("[data-camera-steps]");
+    expect(steps.textContent).toMatch(/STMS_CAMERA_URL/);
+    expect(document.querySelector('[data-replay-panel] input:not([type="search"])')).toBeNull();
+    expect(document.querySelector("[data-connect-camera]")).toBeNull();
+  });
+  it("connects a configured camera by its profile id only", async () => {
+    const { fetcher, calls } = workbench({ ...withGeometry,
+      "GET /workbench/capabilities": [200, { workbench: true, replay: true, live_id: "live", camera_configured: true }],
+      "POST /workbench/camera/start": [202, { started: true }] });
+    render(<App fetcher={fetcher} search="?id=live" hash="#live" />);
+    await waitFor(() => expect(document.querySelector("[data-mode-camera]")).toBeTruthy());
+    fireEvent.click(document.querySelector("[data-mode-camera]"));
+    await waitFor(() => expect(document.querySelector('[data-replay-panel] [data-choice="150th_Eastgate"]')).toBeTruthy());
+    expect(document.querySelector("[data-camera-steps]")).toBeNull();
+    fireEvent.click(document.querySelector('[data-replay-panel] [data-choice="150th_Eastgate"]'));
+    fireEvent.click(document.querySelector("[data-connect-camera]"));
+    await waitFor(() => expect(calls.some((c) => c.path === "/workbench/camera/start")).toBe(true));
+    expect(JSON.parse(calls.find((c) => c.path === "/workbench/camera/start").body)).toEqual({ camera: "150th_Eastgate" });
+  });
+});
+
+describe("Forecast check for a whole video (D43)", () => {
+  // Hand-checkable: 120 samples. lane_0 always counts 2, lane_1 always 4. What then
+  // happened is 3 vehicles for samples 0 to 89 (the last 30 have no "then"). The ridge
+  // forecast exists from sample 59: 2.6 on lane_0, 3.5 on lane_1. The class forecast
+  // exists from sample 29 and is HIGH; "then" is HIGH on even samples, MEDIUM on odd.
+  const N = 120;
+  const analysis = {
+    kind: "stms-video-analysis", schema: 1, camera: "cam", clip: "clip", step_s: 2, duration_s: N * 2,
+    lanes: [{ name: "lane_0", centre: [0.2, 0.7], approach: "N" }, { name: "lane_1", centre: [0.6, 0.3], approach: "S" }],
+    limits: { low: 1.1, med: 2.4 }, known_limits: [], directions_verified: false, models: { level: "p@x", number: "r@x" },
+    samples: Array.from({ length: N }, (_, k) => ({
+      t: k * 2, counts: { lane_0: 2, lane_1: 4 }, boxes: [],
+      level: k >= 29 ? { N: "HIGH", S: "HIGH" } : null,
+      number: k >= 59 ? { N: 2.6, S: 3.5 } : null,
+      then: k <= 89 ? { N: { level: k % 2 ? "MEDIUM" : "HIGH", number: 3 }, S: { level: k % 2 ? "MEDIUM" : "HIGH", number: 3 } } : null,
+    })),
+  };
+
+  it("repeats the last minute only once a minute of counts exists", () => {
+    expect(lastMinute(analysis.samples, 28, "lane_0")).toBeNull();
+    expect(lastMinute(analysis.samples, 29, "lane_0")).toBe(2);
+    const varied = { ...analysis, samples: analysis.samples.map((s, k) => ({ ...s, counts: { lane_0: k, lane_1: 0 } })) };
+    expect(lastMinute(varied.samples, 29, "lane_0")).toBe(14.5);   // the mean of 0..29
+  });
+  it("pairs every comparison and counts agreement as k of n", () => {
+    const { rows, pooled } = forecastCheck(analysis);
+    // Paired count comparisons: samples 59 to 89, 31 per lane.
+    expect(rows[0].count.n).toBe(31);
+    expect(rows[0].count.ridge).toBeCloseTo(0.4, 10);
+    expect(rows[0].count.repeat).toBeCloseTo(1, 10);
+    expect(rows[0].count.ridgeCloser).toBe(31);
+    expect(rows[1].count.ridge).toBeCloseTo(0.5, 10);
+    // Class agreement: samples 29 to 89 (61), agreeing on the even ones (30).
+    expect(rows[0].level).toEqual({ agreed: 30, n: 61 });
+    expect(pooled.level).toEqual({ agreed: 60, n: 122 });
+    expect(pooled.count.n).toBe(62);
+    expect(pooled.count.ridge).toBeCloseTo(0.45, 10);
+    expect(pooled.count.repeat).toBeCloseTo(1, 10);
+  });
+  it("draws a missing value as a gap, never as zero", () => {
+    const series = laneSeries(analysis, "lane_0");
+    expect(series[0]).toEqual({ t: 0, then: 3, ridge: null, repeat: null });
+    expect(series[100].then).toBeNull();
+    expect(series[60]).toEqual({ t: 120, then: 3, ridge: 2.6, repeat: 2 });
+    const minutes = perMinute(series);
+    expect(minutes.map((m) => m.from)).toEqual([0, 60, 120, 180]);
+    expect(minutes[0]).toEqual({ t: 29, from: 0, then: 3, ridge: null, repeat: 2 });
+    expect(minutes[3].then).toBeNull();
+  });
+  it("states the comparison in vehicles and k of n, never as a percentage, and says it is not accuracy", () => {
+    render(<VideoCheck analysis={analysis} t={0} onSeek={() => {}} />);
+    const card = document.querySelector("[data-video-check]");
+    expect(card.querySelector("[data-check-verdict]").textContent)
+      .toMatch(/off by 0\.45 vehicles on average, against 1\.00 for repeating the last minute; it was closer in 62 of 62/);
+    expect(card.querySelector('[data-check-row="lane_0"]').textContent).toMatch(/30 of 61.*0\.40 veh.*1\.00 veh.*31 · 0 · 0 of 31/);
+    expect(card.querySelector('[data-check-row="all"]').textContent).toMatch(/60 of 122/);
+    expect(card.textContent).not.toMatch(/%/);
+    expect(card.textContent).toMatch(/agreement, not accuracy/);
+    expect(card.textContent).toMatch(/LOW up to 1\.10 and MEDIUM up to 2\.40/);
+  });
+  it("charts each lane with three styled lines, a gap where a value is missing, and a click that seeks", () => {
+    const seek = [];
+    render(<VideoCheck analysis={analysis} t={60} onSeek={(t) => seek.push(t)} />);
+    const chart = document.querySelector('[data-check-chart="lane_0"]');
+    expect([...chart.querySelectorAll("[data-series]")].map((p) => p.dataset.series).sort()).toEqual(["repeat", "ridge", "then"]);
+    expect(chart.querySelector('[data-series="ridge"]').getAttribute("d").startsWith("M")).toBe(true);
+    expect(chart.querySelector('[data-series="then"]').getAttribute("d").match(/M/g)).toHaveLength(1);
+    chart.getBoundingClientRect = () => ({ left: 0, top: 0, width: 760, height: 220, right: 760, bottom: 220 });
+    fireEvent.mouseMove(chart, { clientX: 40 + (760 - 40 - 132) / 2, clientY: 50 });
+    expect(document.querySelector("[data-check-tip]").textContent).toMatch(/02:00–03:00 · forecasts made in this minute/);
+    fireEvent.click(chart, { clientX: 40 + (760 - 40 - 132) / 2, clientY: 50 });
+    expect(seek).toEqual([120]);
+    fireEvent.click(screen.getByText("L1 S"));
+    expect(document.querySelector('[data-check-chart="lane_1"]')).toBeTruthy();
+  });
+  it("prints the check without the picture", () => {
+    const printed = [];
+    const original = window.print;
+    window.print = () => printed.push(true);
+    render(<VideoCheck analysis={analysis} t={0} onSeek={() => {}} />);
+    fireEvent.click(document.querySelector("[data-print]"));
+    window.print = original;
+    expect(printed).toEqual([true]);
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "VideoCheck.module.css"), "utf8");
+    expect(css).toMatch(/@media print[\s\S]*data-stage[\s\S]*display: none/);
   });
 });

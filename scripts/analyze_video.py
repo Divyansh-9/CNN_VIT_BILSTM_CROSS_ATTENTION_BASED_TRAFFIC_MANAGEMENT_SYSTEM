@@ -47,6 +47,12 @@ KIND = "stms-video-analysis"
 SCHEMA = 2
 MIN_S = 300.0                    # as demo_live: the forecasters need history first
 RIDGE_SPEC = PILOT / "p105_ridge_v1.json"
+PROGRESS_EVERY = 5               # samples between machine-readable progress lines (10 s of video)
+
+
+def progress_line(ts: float, duration: float) -> str:
+    """What the workbench reads (D40): how far through the video, of how long."""
+    return f"PROGRESS {ts:.1f} {duration:.1f}"
 
 
 def pcu_table(names: Iterable[str]) -> dict:
@@ -130,6 +136,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--profile", type=Path, required=True, help="the camera that recorded it, from cameras/")
     ap.add_argument("--out", type=Path, required=True, help="the results file the page opens")
     ap.add_argument("--force", action="store_true", help="replace an existing results file")
+    ap.add_argument("--progress", action="store_true",
+                    help="also print 'PROGRESS <t> <duration>' every 10 s of video, for the workbench (D40)")
     args = ap.parse_args(argv)
 
     if not args.video.is_file():
@@ -157,6 +165,8 @@ def main(argv: list[str] | None = None) -> int:
     shown = {"at": -60.0}
 
     def progress(ts: float) -> None:
+        if args.progress and round(ts / STEP_S) % PROGRESS_EVERY == 0:
+            print(progress_line(ts, duration), flush=True)
         if ts - shown["at"] >= 60:
             shown["at"] = ts
             print(f"  {ts / 60:5.1f} of {duration / 60:.1f} min", flush=True)

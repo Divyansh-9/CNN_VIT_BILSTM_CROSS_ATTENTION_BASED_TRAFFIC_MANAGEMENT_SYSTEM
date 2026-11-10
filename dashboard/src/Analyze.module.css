@@ -7,6 +7,7 @@
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
 .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .wide { grid-column: 2 / -1; }
+.withAssistant { grid-template-columns: 340px minmax(0, 1.1fr) minmax(320px, 1fr); }
 .drop { position: relative; display: grid; gap: 2px; border: 1px dashed var(--frame-class); border-radius: 7px; padding: 10px 12px; cursor: pointer; overflow-wrap: anywhere; transition: border-color .15s; }
 .drop:hover, .drop:focus-within { border-color: var(--brand); }
 .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -56,3 +57,9 @@
 }
 /* D35: small enough to leave the picture readable, and off by default. */
 .classLabel { position: absolute; transform: translateY(-100%); padding: 0 4px; background: var(--bg); border: 1px solid var(--line); font: 11px var(--mono); color: var(--ink); white-space: nowrap; pointer-events: none; }
+/* D41: placing a new camera's lanes on the picture. */
+.placing { cursor: crosshair; outline: 2px solid var(--brand); outline-offset: 2px; }
+.reach { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 3; }
+.placeHint { position: absolute; right: 8px; bottom: 8px; background: var(--bg); border: 1px solid var(--brand); border-radius: 4px; padding: 2px 8px; font-size: 12px; pointer-events: none; }
+/* D42: a declared camera's lanes, shown before analysing so a wrong camera is visible. */
+.previewPin { border-style: dashed; border-color: var(--brand); }

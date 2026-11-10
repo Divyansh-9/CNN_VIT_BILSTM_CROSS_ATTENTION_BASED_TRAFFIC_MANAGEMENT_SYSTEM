@@ -22,6 +22,9 @@ data/video/
 *.avi
 *.mkv
 
+# Workbench results (D40): derived from footage whose licence is unresolved
+data/_workbench/
+
 # Frames and derived arrays are regenerable — keep them out of git
 data/frames/
 data/sequences/

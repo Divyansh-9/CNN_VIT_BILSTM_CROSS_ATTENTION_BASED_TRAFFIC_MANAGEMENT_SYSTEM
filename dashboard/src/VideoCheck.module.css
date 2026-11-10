@@ -1,0 +1,51 @@
+/* D43: the whole-video forecast check. Every colour is a theme.css token (D18). The
+   three series are neutrals told apart by line style, label and legend: orange is
+   for the interface and the three class colours mean LOW, MEDIUM and HIGH, so no new
+   hue goes on data. */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; grid-column: 2 / -1; }
+.head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.print { font: 600 12px var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: 7px; padding: 5px 12px; cursor: pointer; }
+.lead { margin: 0; font-size: 14px; }
+.lead b { font-family: var(--mono); }
+.scroll { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table thead th { color: var(--muted); font-size: 12px; font-weight: 500; text-align: left; padding: 3px 10px 5px 0; vertical-align: bottom; }
+.table tbody th, .table td { text-align: left; padding: 6px 10px 6px 0; border-top: 1px solid var(--line); white-space: nowrap; font-weight: 400; }
+.table td { font-family: var(--mono); }
+.total th, .total td { font-weight: 700; border-top: 2px solid var(--frame-count); }
+.chartHead { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.segment { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.segment button { background: transparent; color: var(--ink); border: 0; border-left: 1px solid var(--line); padding: 3px 10px; font: 12px var(--mono); cursor: pointer; }
+.segment button:first-child { border-left: 0; }
+.segment button[aria-checked="true"] { background: var(--panel-raised); box-shadow: inset 0 -2px 0 var(--brand); font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chartWrap { position: relative; }
+.chart { display: block; width: 100%; height: auto; cursor: crosshair; }
+.grid { stroke: var(--line); stroke-width: 1; }
+.axis { fill: var(--muted); font: 11px var(--mono); }
+.then, .ridge, .repeat { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.then { stroke: var(--ink); }
+.ridge { stroke: var(--frame-class); stroke-dasharray: 7 4; }
+.repeat { stroke: var(--frame-count); stroke-dasharray: 1.5 4; }
+.now { stroke: var(--muted); stroke-width: 1; }
+.cross { stroke: var(--frame-class); stroke-width: 1; }
+.dot { fill: var(--panel); stroke: var(--ink); stroke-width: 2; }
+.endLabel { fill: var(--ink); font: 11px var(--sans); }
+.tip { position: absolute; top: 8px; transform: translateX(-50%); background: var(--panel-raised); border: 1px solid var(--frame-count); border-radius: 6px;
+  padding: 6px 9px; font-size: 12px; display: grid; gap: 2px; pointer-events: none; white-space: nowrap; z-index: 2; }
+.tip span { display: flex; align-items: center; gap: 6px; }
+.tip b { font-family: var(--mono); }
+.hint { color: var(--muted); }
+.note { margin: 0; font-size: 12px; color: var(--muted); }
+@media (max-width: 1100px) { .card { grid-column: auto; } }
+
+/* Printing keeps the page's own colours and leaves out the picture, the controls and
+   the navigation: a printed check holds numbers, never a frame. */
+@media print {
+  :global(html), :global(body) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  :global(nav), :global(header) :global(button), :global([data-stage]), :global([data-assistant]),
+  :global(section[aria-label="Choose the files"]), :global([data-tour-invite]) { display: none !important; }
+  .print, .segment { display: none; }
+}

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Agreement } from "./Agreement.jsx";
 import { AnalyzeVideo } from "./Analyze.jsx";
+import { get } from "./api.js";
+import { AnalyzeAssistant, ReplayPanel } from "./Workbench.jsx";
+import { wbGet } from "./workbench.js";
 import { BusyByHour } from "./Busy.jsx";
 import { ObservedCounts } from "./Analytics.jsx";
 import styles from "./App.module.css";
@@ -29,6 +32,36 @@ export function intersectionFromUrl(search) {
   const id = new URLSearchParams(search).get("id") || "j1";
   // The server's INTERSECTION_ID (contracts/mqtt.py, P142), length included.
   return /^[A-Za-z0-9_-]{1,32}$/.test(id) ? id : "j1";
+}
+
+// D40: the key of a finished analysis, handed over by the local workbench, or null.
+export function analysisFromUrl(search) {
+  const key = new URLSearchParams(search).get("analysis");
+  return key && /^[0-9a-f]{64}$/.test(key) ? key : null;
+}
+
+// Read once: a stored result does not change. Only when the address carries a key.
+function useHanded(key, fetcher) {
+  const [state, setState] = useState(() => (key ? { status: "loading" } : null));
+  useEffect(() => {
+    if (!key) return undefined;
+    let alive = true;
+    get(`/workbench/analysis/${key}`, fetcher).then((result) => { if (alive) setState(result); });
+    return () => { alive = false; };
+  }, [key, fetcher]);
+  return state;
+}
+
+// D41: whether the local workbench serves this page. The server has no such route,
+// so there this is false and nothing of the workbench renders.
+function useWorkbench(fetcher) {
+  const [caps, setCaps] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    wbGet("/workbench/capabilities", fetcher).then((r) => { if (alive) setCaps(r.status === "ok" && r.data?.workbench === true ? r.data : false); });
+    return () => { alive = false; };
+  }, [fetcher]);
+  return caps;
 }
 
 // Anything that is not a known section opens Live.
@@ -70,6 +103,8 @@ function rememberTour() {
 export default function App({ fetcher, search = window.location.search, hash = window.location.hash }) {
   const id = intersectionFromUrl(search);
   const section = useSection(hash);
+  const handed = useHanded(analysisFromUrl(search), fetcher);
+  const workbench = useWorkbench(fetcher);
   const [countWindow, setCountWindow] = useState("1h");
   // Every stream keeps polling whichever section is open, so the status and
   // the overview are current the moment Live is opened again.
@@ -133,7 +168,9 @@ export default function App({ fetcher, search = window.location.search, hash = w
           {/* The badge reports the edge. The Analyze page shows a recording, so it must not say Live camera. */}
           {section !== "analyze" && <SourceBadge state={heartbeat} />}
           <Clock />
-          <p className={styles.readonly}>Read-only: this page cannot send commands</p>
+          <p className={styles.readonly} data-mode={workbench ? "workbench" : "read-only"}>
+            {workbench ? "Local workbench · no signal commands" : "Read-only: this page cannot send commands"}
+          </p>
         </div>
       </header>
       {invite && section === "live" && (
@@ -149,6 +186,7 @@ export default function App({ fetcher, search = window.location.search, hash = w
 
       {section === "live" && (
         <section className={styles.live} aria-label="Live monitor">
+          {workbench && <ReplayPanel fetcher={fetcher} caps={workbench} />}
           <SiteStrip state={sites} current={id} />
           <div data-tour="status"><StatusBanner health={health} cls={cls} count={count} heartbeat={heartbeat} /></div>
           <ReplayNote state={heartbeat} />
@@ -213,7 +251,10 @@ export default function App({ fetcher, search = window.location.search, hash = w
         </section>
       )}
 
-      {section === "analyze" && <AnalyzeVideo view={view} />}
+      {section === "analyze" && (
+        <AnalyzeVideo view={view} handed={handed}
+                      assistant={workbench ? (props) => <AnalyzeAssistant {...props} fetcher={fetcher} /> : null} />
+      )}
 
       {section === "analytics" && (
         <section aria-label="Analytics" data-tour="analytics">

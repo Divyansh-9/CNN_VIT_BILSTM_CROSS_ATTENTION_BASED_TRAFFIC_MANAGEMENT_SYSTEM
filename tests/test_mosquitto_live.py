@@ -182,6 +182,56 @@ def test_the_edge_recovers_after_a_mosquitto_restart(plain_broker, users):
         client.stop()
 
 
+# ---- FR-A06 across a real broker (S43) --------------------------------------
+
+def test_fr_a06_fault_injection_on_a_real_broker(plain_broker, users):
+    """S43: the edge node, its real MQTT transport and a real Mosquitto. The broker is
+    stopped: the node must keep counting and switch to the locally embedded cycle once
+    no publish has been acknowledged for the 10 s timeout, not before. The broker is
+    started again: the node must reconnect and hand control back. Timings are printed
+    so a run with -s records them; the bounds are what FR-A06 needs, not a benchmark."""
+    from edge.node import DEFAULT_TIMEOUT_S, EdgeNode, Mode
+
+    client = edge(plain_broker.port, Credentials("edge-test", users["edge-test"]))
+    node = EdgeNode(intersection_id="live", transport=client)
+    counts = {"lane_0": {"car": 2}, "lane_1": {"car": 1}}
+    try:
+        assert client.start(wait_s=5)
+        first = node.tick(counts, fps=10.0)
+        assert first["mode"] is Mode.NORMAL and first["delivered"] == ["lane_0", "lane_1"]
+
+        plain_broker.stop()
+        stopped = time.monotonic()
+        modes = []
+        while time.monotonic() - stopped < DEFAULT_TIMEOUT_S + 10:
+            step = node.tick(counts, fps=10.0)
+            modes.append((time.monotonic() - stopped, step["mode"], step["phase"]))
+            if step["mode"] is Mode.LOCAL:
+                break
+            time.sleep(0.5)
+        fell_back = modes[-1][0]
+        assert modes[-1][1] is Mode.LOCAL, f"no fallback within {DEFAULT_TIMEOUT_S + 10:.0f} s"
+        assert all(m is Mode.NORMAL for t, m, _ in modes[:-1] if t < DEFAULT_TIMEOUT_S - 0.5), "fell back early"
+        assert DEFAULT_TIMEOUT_S <= fell_back <= DEFAULT_TIMEOUT_S + 3, f"fell back after {fell_back:.1f} s"
+        local = [node.tick(counts, fps=10.0) for _ in range(3)]
+        assert all(s["mode"] is Mode.LOCAL and s["phase"] in ("NS", "EW") and s["green_s"] for s in local)
+        assert len({s["phase"] for s in local}) == 2, "the local cycle should alternate phases"
+
+        plain_broker.start()
+        restarted = time.monotonic()
+        back = None
+        while time.monotonic() - restarted < 60:
+            if node.tick(counts, fps=10.0)["mode"] is Mode.NORMAL:
+                back = time.monotonic() - restarted
+                break
+            time.sleep(0.5)
+        assert back is not None, "control was not handed back within 60 s of the broker returning"
+        print(f"\nS43: fell back {fell_back:.1f} s after the broker stopped (timeout {DEFAULT_TIMEOUT_S:.0f} s); "
+              f"normal again {back:.1f} s after it restarted")
+    finally:
+        client.stop()
+
+
 # ---- TLS on a real Mosquitto (D10) ------------------------------------------
 
 def test_tls_with_the_trusted_ca_carries_a_prediction_end_to_end(tmp_path, users, pki,

@@ -188,6 +188,27 @@ select { background: var(--panel-2); color: var(--ink); border: 1px solid var(--
 .ramp i { width: 18px; height: 10px; border-radius: 2px; display: block; }
 .cols2 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 
+/* Telemetry panel: PCU, queue, fleet composition */
+.tele { display: grid; gap: 8px; }
+.teleHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; }
+.teleBtn { background: transparent; border: 1px solid var(--frame-count); border-radius: 5px; padding: 3px 10px; cursor: pointer; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; transition: border-color .15s; }
+.teleBtn:hover { border-color: var(--frame-class); }
+.teleBtn[aria-expanded="true"] { border-color: var(--brand); }
+.teleBtn svg { flex: none; }
+.telePanel { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 10px; }
+.telePanel table { font-size: 13px; }
+.telePanel th { font-size: 11px; }
+.telePanel td { padding: 5px 10px 5px 0; }
+.fleet { display: flex; height: 10px; border-radius: 3px; overflow: hidden; gap: 1px; min-width: 80px; }
+.fleet i { display: block; }
+.fleet .car  { background: var(--ink); }
+.fleet .truck{ background: var(--frame-class); }
+.fleet .bus  { background: var(--frame-count); }
+.fleetKey { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--muted); }
+.fleetKey span { display: flex; align-items: center; gap: 3px; }
+.fleetKey i { width: 8px; height: 8px; border-radius: 2px; display: block; flex: none; }
+.pcu { font: 600 13px var(--mono); }
+
 /* Results: a range plot of frozen numbers */
 .rp { display: grid; grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) 150px; gap: 4px 12px; align-items: center; font-size: 13px; }
 .rp .tr { position: relative; height: 22px; }
@@ -333,6 +354,14 @@ dialog dt { color: var(--ink); font-weight: 600; } dialog dd { color: var(--mute
           <summary>How to read these numbers</summary>
           <p>These are forecasts, not measurements. The vehicle number is an average across the next 60 seconds, so it can be a fraction, and it counts vehicles in view, not vehicles passing through. Levels are set separately for each camera, so HIGH here is not the same amount of traffic as HIGH elsewhere. Level and number are two separate forecasts and may not always match. Counted values exclude bicycles; forecasts include them.</p>
         </details>
+        <div class="teleHead">
+          <button type="button" class="teleBtn" id="liveTeleBtn" aria-expanded="false" aria-controls="liveTelePanel">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="8" width="2" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="2" height="7" rx="1" fill="currentColor"/><rect x="8" y="2" width="2" height="10" rx="1" fill="currentColor"/><circle cx="11" cy="2" r="1.5" fill="currentColor"/></svg>
+            Engineering telemetry
+          </button>
+          <span class="small muted" id="liveTeleNote" style="font-size:12px">Hidden by default</span>
+        </div>
+        <div id="liveTelePanel" class="telePanel" hidden></div>
       </section>
     </div>
     <section class="card" id="heatCard" aria-label="Level over the last 20 minutes">
@@ -405,6 +434,14 @@ dialog dt { color: var(--ink); font-weight: 600; } dialog dd { color: var(--mute
         <div id="resultBody"></div>
         <p class="small" id="directionsNote"></p>
         <p class="small muted" id="known"></p>
+        <div class="teleHead" id="vidTeleHead" hidden>
+          <button type="button" class="teleBtn" id="vidTeleBtn" aria-expanded="false" aria-controls="vidTelePanel">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="8" width="2" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="2" height="7" rx="1" fill="currentColor"/><rect x="8" y="2" width="2" height="10" rx="1" fill="currentColor"/><circle cx="11" cy="2" r="1.5" fill="currentColor"/></svg>
+            Engineering telemetry
+          </button>
+          <span class="small muted" style="font-size:12px">PCU · fleet composition; queue not measured</span>
+        </div>
+        <div id="vidTelePanel" class="telePanel" hidden></div>
       </section>
       <section class="card" id="studioTimeline">
         <div class="cardhead"><h2>The whole video</h2><span class="small muted">Click anywhere to jump there</span></div>
@@ -594,6 +631,7 @@ function show(key) {
   $("heat").innerHTML = heat(s);
   $("legend").hidden = !s.heat;
   $("tech").innerHTML = tech(s);
+  renderLiveTele(s);
 }
 for (const [key, s] of Object.entries(STATES)) {
   const b = document.createElement("button"); b.type = "button"; b.dataset.state = key; b.textContent = s.label;
@@ -672,6 +710,7 @@ function studio() {
   directions();
   $("known").textContent = SV.cam ? CAMS[SV.cam].limits : "";
   pins(); results(); timeline(); drawScene();
+  renderVidTele();
 }
 function directions() {
   const lanes = lanesOf(), box = $("dirBody"), c = checkOf();
@@ -738,6 +777,7 @@ function results() {
   }).join("");
   $("resultBody").innerHTML = `${seeNow}<div class="scrollX"><table><thead><tr><th scope="col">Lane</th><th scope="col">Counted now</th><th scope="col">Forecast level</th><th scope="col">Forecast number</th><th scope="col">What then happened</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="small muted" style="margin-top:8px">Forecasts cover the next 60 seconds. "What then happened" comes from the same detector's counts, so it is not accuracy.</p>`;
+  renderVidTele();
 }
 const TL_CELLS = 48;
 function timeline() {
@@ -894,7 +934,7 @@ $("analyse").addEventListener("click", () => {
     if (p >= 100) {
       clearInterval(timer);
       SV.working = false; SV.analysed = true; $("progressBar").hidden = true; SV.last = -1;
-      studio(); tick();
+      studio(); tick(); renderVidTele();
     }
   }, 90);
 });
@@ -904,6 +944,122 @@ $("timeline").addEventListener("click", (e) => {
   seek(((e.clientX - r.left) / r.width) * SV.dur);
 });
 window.addEventListener("resize", movePlayhead);
+// ---- Engineering Telemetry ----
+// PCU weights are the project's own: mfstnet/corpus/pcu.py, Indo-HCM 2017, intermediate/two-lane
+// urban (ADR-017, proposed, not signed off by the guide). The real dashboard reads them from the server.
+// The counts and fleet shares here are invented: they show the layout and labelling a real build uses.
+// There is no queue: the camera path has no speed or stop line, so a queue is "Not measured" (D35)
+// and is never derived from counts.
+const PCU_W = { car: 1.0, truck: 5.0, bus: 4.5 };
+const FLEET_BASE = {
+  Eastgate: [[0.72, 0.18, 0.10], [0.80, 0.14, 0.06], [0.65, 0.22, 0.13], [0.85, 0.10, 0.05]],
+  Newport:  [[0.68, 0.20, 0.12], [0.75, 0.17, 0.08], [0.70, 0.19, 0.11], [0.78, 0.15, 0.07]],
+  SE38th:   [[0.60, 0.25, 0.15], [0.82, 0.12, 0.06], [0.73, 0.18, 0.09], [0.69, 0.21, 0.10]],
+  new:      [[0.74, 0.16, 0.10], [0.74, 0.16, 0.10], [0.74, 0.16, 0.10], [0.74, 0.16, 0.10]],
+};
+// PCU for a lane at time t (uses same sinusoidal count base as countAt, then weights by fleet).
+function pcuAt(camKey, laneIdx, t) {
+  const cam = CAMS[camKey] || CAMS.new;
+  const raw = Math.max(0, cam.base[laneIdx] * (1 + 0.6 * Math.sin(t / 70 + laneIdx * 1.7) + 0.35 * Math.sin(t / 23 + laneIdx)));
+  const fb = (FLEET_BASE[camKey] || FLEET_BASE.new)[laneIdx];
+  const pcu = raw * (fb[0] * PCU_W.car + fb[1] * PCU_W.truck + fb[2] * PCU_W.bus);
+  return { raw, pcu, car: fb[0], truck: fb[1], bus: fb[2] };
+}
+function fleetBar(car, truck, bus) {
+  const pct = (f) => `${Math.round(f * 100)}%`;
+  return `<div class="fleet" title="Car ${pct(car)}, Truck ${pct(truck)}, Bus ${pct(bus)}" role="img" aria-label="Fleet: ${pct(car)} car, ${pct(truck)} truck, ${pct(bus)} bus">
+    <i class="car" style="flex:${car}"></i><i class="truck" style="flex:${truck}"></i><i class="bus" style="flex:${bus}"></i></div>
+    <span class="mono small">car ${pct(car)} · truck ${pct(truck)} · bus ${pct(bus)}</span>`;
+}
+function teleRows(camKey, lanes, t) {
+  if (!camKey || !lanes.length) return `<p class="absent">Choose a camera to see telemetry.</p>`;
+  const rows = lanes.map((_, i) => {
+    const { raw, pcu, car, truck, bus } = pcuAt(camKey, i, t);
+    return `<tr>
+      <th scope="row" class="small" style="white-space:nowrap"><b>L${i}</b></th>
+      <td class="pcu" title="PCU count: vehicles × their passenger car unit weight">${pcu.toFixed(1)}</td>
+      <td class="absent">Not measured</td>
+      <td>${fleetBar(car, truck, bus)}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="scrollX"><table>
+    <thead><tr>
+      <th scope="col">Lane</th>
+      <th scope="col" title="Passenger car unit weighted count">PCU count</th>
+      <th scope="col">Queue</th>
+      <th scope="col" style="min-width:140px">Fleet composition</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div class="fleetKey">
+    <span><i class="car"></i>Car (×1.0 PCU)</span>
+    <span><i class="truck"></i>Truck (×5.0 PCU)</span>
+    <span><i class="bus"></i>Bus (×4.5 PCU)</span>
+  </div>
+  <p class="small muted" style="margin-top:4px">PCU weights are Indo-HCM 2017 (intermediate/two-lane urban), the project's own table (mfstnet/corpus/pcu.py, ADR-017, proposed). Queue is not measured: the camera path has no speed or stop line, so it is never derived from counts (D35). Fleet proportions are fixed illustrative values. All values in this prototype are made up.</p>`;
+}
+// Live telemetry panel (uses fake Live data from STATES).
+let liveTeleOpen = false;
+function renderLiveTele(s) {
+  const btn = $("liveTeleBtn"), panel = $("liveTelePanel");
+  btn.setAttribute("aria-expanded", String(liveTeleOpen));
+  panel.hidden = !liveTeleOpen;
+  if (!liveTeleOpen) return;
+  // For Live, pick the first known approach's lane index mapping (N→0, S→1, E→2, W→3).
+  // We use Eastgate as the default camera for the Live example.
+  const known = AP.filter((a) => a in s.roads);
+  const camKey = "Eastgate";
+  const laneIdxMap = { N: 0, S: 1, E: 2, W: 3 };
+  const rows = known.map((a) => {
+    const i = laneIdxMap[a], t = 300 + i * 70; // fixed notional time for the live snapshot
+    const { pcu, car, truck, bus } = pcuAt(camKey, i, t);
+    return `<tr>
+      <th scope="row" class="small" style="white-space:nowrap"><b>${a}</b></th>
+      <td class="pcu">${pcu.toFixed(1)}</td>
+      <td class="absent">Not measured</td>
+      <td>${fleetBar(car, truck, bus)}</td>
+    </tr>`;
+  }).join("");
+  panel.innerHTML = !known.length
+    ? `<p class="absent">No forecast — no telemetry to show.</p>`
+    : `<div class="scrollX"><table>
+    <thead><tr>
+      <th scope="col">Approach</th>
+      <th scope="col" title="Passenger car unit weighted count">PCU count</th>
+      <th scope="col">Queue</th>
+      <th scope="col" style="min-width:140px">Fleet composition</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div class="fleetKey">
+    <span><i class="car"></i>Car (×1.0 PCU)</span>
+    <span><i class="truck"></i>Truck (×5.0 PCU)</span>
+    <span><i class="bus"></i>Bus (×4.5 PCU)</span>
+  </div>
+  <p class="small muted" style="margin-top:4px">PCU weights are Indo-HCM 2017, the project's own table. Queue is not measured (D35). Fleet proportions are illustrative. All counts in this prototype are made up.</p>`;
+}
+$("liveTeleBtn").addEventListener("click", () => {
+  liveTeleOpen = !liveTeleOpen;
+  renderLiveTele(STATES[current]);
+  $("liveTeleNote").textContent = liveTeleOpen ? "PCU · fleet composition; queue not measured" : "Hidden by default";
+});
+// Video telemetry panel.
+let vidTeleOpen = false;
+function renderVidTele() {
+  const btn = $("vidTeleBtn"), panel = $("vidTelePanel"), head = $("vidTeleHead");
+  head.hidden = !SV.analysed;
+  if (!SV.analysed) { vidTeleOpen = false; }
+  btn.setAttribute("aria-expanded", String(vidTeleOpen));
+  panel.hidden = !vidTeleOpen;
+  if (!vidTeleOpen) return;
+  const camKey = SV.cam || "new", lanes = lanesOf();
+  panel.innerHTML = teleRows(camKey, lanes, SV.t);
+}
+$("vidTeleBtn").addEventListener("click", () => {
+  vidTeleOpen = !vidTeleOpen;
+  renderVidTele();
+});
+
 // Analytics: invented hourly means, on one neutral ramp. A gap is dashed, never zero.
 function shade(t) { return `color-mix(in srgb, var(--ink) ${Math.round(6 + t * 86)}%, var(--panel))`; }
 const HOURS = (peak, base) => Array.from({ length: 24 }, (_, h) => Math.max(0.1, base * (0.25 + Math.exp(-((h - 8) ** 2) / 8) * 0.8 + Math.exp(-((h - peak) ** 2) / 10) * 1.1)));
@@ -940,6 +1096,9 @@ const GLOSSARY = [
   ["Persistence", "The forecast method behind the level: it expects the current level to continue."],
   ["Ridge", "The forecast method behind the vehicle number: a simple statistical model of recent counts."],
   ["Webster", "A long-established formula that sets signal timing from traffic demand."],
+  ["PCU (Passenger Car Unit)", "A weight that converts different vehicle types to a common unit of road space. The project uses Indo-HCM 2017 (intermediate/two-lane urban): car 1.0, motorcycle 0.3, auto-rickshaw 1.2, bus 4.5, truck 5.0. The PCU count is the vehicle count weighted by these factors."],
+  ["Queue", "Not measured. A queue needs vehicle speeds or a stop line, and the camera path has neither, so the system shows \"Not measured\" rather than deriving a queue from counts (D35)."],
+  ["Fleet composition", "The share of cars, trucks and buses in a lane, shown as a bar and written out. Values here are illustrative; the real dashboard reads them from the detector's class counts (D35)."],
   ["PPO", "A reinforcement learning method, tested on signal timing only in simulation here."],
   ["95% interval", "The range the measured value plausibly falls in. Wide means less certain."],
 ];

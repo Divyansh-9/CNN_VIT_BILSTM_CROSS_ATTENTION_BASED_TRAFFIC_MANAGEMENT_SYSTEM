@@ -16,6 +16,10 @@ export const ALLOWED = [
   /^\/forecast_check\/[A-Za-z0-9_-]{1,32}\/recent$/,
   // D34: the intersections the server has heard from.
   /^\/sites$/,
+  // D40: a finished analysis, by its key, from the local workbench that serves this
+  // page (scripts/demo_launcher.py). Counts, boxes and forecasts only, no picture;
+  // the server has no such route, so on the server it is simply not found.
+  /^\/workbench\/analysis\/[0-9a-f]{64}$/,
   /^\/evidence$/,
   /^\/health$/,
 ];

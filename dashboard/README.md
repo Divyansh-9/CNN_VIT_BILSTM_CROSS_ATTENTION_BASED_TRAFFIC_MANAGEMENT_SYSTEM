@@ -99,13 +99,26 @@ script requests.
 
 **Making a results file for Analyze a video:** see Execution Manual §5.5. It
 needs a camera profile, and today only the three `150th_*` cameras have one.
+**The local workbench (D40, D41, Manual §5.5.1).** `scripts/demo_launcher.py`
+serves this same build on 127.0.0.1 as its only page.
+- **Workbench mode:** the page asks `/workbench/capabilities`. When that is answered, Analyze gains the
+  whole analysis inline (find the opened file on disk, declare or place a camera, analyse, results beside
+  the video), and Live gains the replay.
+- **Since D42:** choosing a camera previews its lanes over the video, and an analysed video can be replayed
+  on Live. Live can also connect the camera named by `STMS_CAMERA_URL` in the workbench's environment, which
+  the page never sees (Manual §5.5.2).
+- **Server mode:** the server has no `/workbench` route, so served by the server this page is exactly the
+  read-only page it was.
+- **Two clients:** `api.js` stays GET-only. `workbench.js` is the only module that may POST, only to the
+  workbench's own actions, and only plain data, never a file's bytes. The video plays from the file the
+  viewer opened.
 
 **Future scope, not before submission (D38):**
-- **A local analysis component.** The user picks a compatible recording and a
-  camera profile; a separate local component runs the existing pipeline,
-  validates the results file, and opens the video and results together.
-  Frames stay on that machine, and this page and the server keep their roles.
-  It needs its own architecture and requirements review.
+- **A local analysis component:** built in D40 and D41 as the workbench, on
+  the owner's instructions of 2026-11-06. That includes provisional cameras,
+  placed in the page and kept on that computer. Still future: promoting a
+  provisional camera to a reviewed profile in `cameras/`, which stays a
+  reviewed change under ADR-028.
 - **Section-aware tours.** Separate Operator and Engineering tours for Live
   and for Analyze a video.
 - **A visual prototype of a glossier style,** judged against D18's measured

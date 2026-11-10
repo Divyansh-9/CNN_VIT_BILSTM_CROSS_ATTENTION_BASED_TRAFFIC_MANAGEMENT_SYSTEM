@@ -20,7 +20,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts import demo_launcher  # noqa: E402
-from scripts.demo_launcher import Launcher, make_handler, page, status_text  # noqa: E402
+from scripts.demo_launcher import Launcher, make_handler, status_text  # noqa: E402
 from scripts.demo_live import MILESTONES, REHEARSED, Clip  # noqa: E402
 
 CLIPS = [Clip(Path(f"D:/secret/folder/{REHEARSED}.mp4"), "150th_Eastgate"),
@@ -52,7 +52,7 @@ def site():
     run = Run()
     launcher = Launcher(CLIPS, run, minutes=7, dashboard_url="http://127.0.0.1:18000/dashboard/?id=live")
     holder = {}
-    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(launcher, lambda: holder["port"], page(7)))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(launcher, lambda: holder["port"]))
     holder["port"] = server.server_address[1]
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
@@ -99,24 +99,11 @@ def test_nothing_of_a_path_reaches_the_browser_during_a_run(site):
     run.go.set()
 
 
-def test_the_page_says_what_the_demo_is_and_shows_no_video(site):
+def test_the_only_page_is_the_dashboard_on_analyze(site):
+    """D41: one interface. The address opens the dashboard; there is no second page."""
     call, *_ = site
-    status, raw = call("GET", "/")
-    html = raw.decode("utf-8")
-    assert status == 200
-    for needed in ("Recorded footage, not a camera", "S65", "forecasts traffic, not the signal", "not connected",
-                   "not accuracy", "cannot be skipped"):
-        assert needed in html
-    for banned in ("<video", "<img", "<iframe", "type=\"file\"", "https://", "http://cdn"):
-        assert banned not in html
-    visible = html.split("<body>")[1].split("<script>")[0]
-    assert "predicts the signal" not in visible and "%" not in visible
-
-
-def test_the_page_takes_its_colours_from_the_measured_palette():
-    """D18: its own rules name tokens, and every hex comes from theme.css."""
-    own = demo_launcher.PAGE.replace("__THEME__", "")
-    assert re.findall(r"#[0-9a-fA-F]{3,8}\b(?=[;\s}])", own.split("<script>")[0]) == []
+    status, _ = call("GET", "/")
+    assert status == 302
 
 
 def test_unknown_addresses_are_not_found(site):
@@ -294,10 +281,14 @@ def test_status_text_never_claims_a_finished_run_while_one_is_failing():
 # ------------------------------------------------- the boundary stays where it is
 
 def test_the_product_gains_no_way_to_start_a_run():
-    """The dashboard stays GET-only and the server gains no route for this."""
+    """D41: only the dashboard's workbench client can ask for work, only from the local
+    workbench, and the server gains no route for it."""
     for path in (ROOT / "dashboard" / "src").glob("*.js*"):
         if ".test." in path.name:
             continue
         text = path.read_text(encoding="utf-8")
-        assert "/demo/" not in text and "/run" not in text, path.name
-    assert "/demo" not in (ROOT / "server" / "app.py").read_text(encoding="utf-8")
+        assert "/demo/" not in text and '"/run"' not in text, path.name
+        if path.name != "workbench.js":
+            assert 'method: "POST"' not in text, path.name
+    server = (ROOT / "server" / "app.py").read_text(encoding="utf-8")
+    assert "/demo" not in server and "/workbench" not in server

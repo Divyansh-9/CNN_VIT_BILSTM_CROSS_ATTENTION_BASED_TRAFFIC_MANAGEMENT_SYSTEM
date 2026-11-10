@@ -66,7 +66,8 @@ describe("UI fixtures from the real server (D36)", () => {
     await waitFor(() => expect(banner().querySelector("h2").textContent).toBe(fixture.banner));
     // Every request the page made is in the fixture, so nothing it shows came from a 404 the
     // fixture never recorded. /evidence is left out on purpose: it is not database-backed.
-    expect([...requested].filter((p) => p !== "/evidence" && !(p in fixture.responses))).toEqual([]);
+    // /workbench/capabilities is asked once and answered 404 by the real server: no workbench (D41).
+    expect([...requested].filter((p) => p !== "/evidence" && p !== "/workbench/capabilities" && !(p in fixture.responses))).toEqual([]);
     const badge = document.querySelector("[data-source]");
     expect(badge.dataset.source).not.toBe("camera");
     if (badge.dataset.source === "replay") expect(badge.textContent).toContain(`TEST_FIXTURE_${name}`);

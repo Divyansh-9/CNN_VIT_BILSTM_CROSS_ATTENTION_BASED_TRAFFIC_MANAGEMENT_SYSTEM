@@ -1,36 +1,49 @@
-"""A page for choosing a clip and starting the demonstration from a browser (D29).
+"""The local workbench: the dashboard, with the actions only this computer can take (D29, D40, D41).
 
     python scripts/demo_launcher.py --mosquitto <mosquitto.exe> --clips-root <footage folder>
 
-then open the address it prints. It runs `scripts/demo_live.py` on the chosen clip
-and shows how far that has got, with a link to the dashboard.
+then open the address it prints. It serves the built dashboard as its only page,
+so analysing a recording, replaying one through the system and watching the
+result all happen in one interface.
 
-**Why this is not a section of the dashboard.** The dashboard is read-only by
-construction, its tests fail on any POST, and it says so on screen. The server
-behind it holds no detector, no OpenCV and no footage, and the edge is not part of
-its stack (ADR-003). So what starts a run lives here, in a separate process that
-exists only for the demonstration, on the laptop that holds the footage. Nothing
-in `server/` or `dashboard/` changes, and no route is added to either.
+**Why the actions live in this process and not in the server.** The server holds
+no detector, no OpenCV and no footage, and the edge is not part of its stack
+(ADR-003). The dashboard it serves stays read-only and its read client, `api.js`,
+stays GET-only. What this process adds is reached only through the dashboard's
+`workbench.js`, which exists only when the page is served from here (it asks
+`/workbench/capabilities` first, and the server has no such route). Its POSTs can
+start or stop an analysis or a replay, find a file, open a folder window, or save
+a provisional camera. None of them reaches a signal.
 
-**What crosses the browser.** A clip's number from the list, and text about the
-run. Never a path, and never a frame (NFR-13). There is no upload: a camera needs
-lane geometry and calibrated thresholds, so an unknown video could not run anyway.
+**What crosses the browser.** A recording's number, a camera's id, a file's name,
+size and fingerprint, lane positions, and text about the work. Never a path, and
+never a frame (NFR-13): the video plays in the page from a file the viewer opened,
+and this process never serves it. A folder is shown to it through this computer's
+own folder window, and only the folder's name comes back.
 
 **It binds to 127.0.0.1 only**, and a request is refused unless its Host names this
-address, its Origin, if any, is this page, and a POST is JSON. So another site open
-in the same browser cannot start a run, directly or through DNS rebinding.
+address, its Origin, if any, is this address, and a POST is JSON. So another site
+open in the same browser cannot start anything, directly or through DNS rebinding.
 
-**Every run gets a new stack and a new database.** So the previous run's forecast
+**The live panels** read the server's read-only endpoints. While a replay runs they
+are passed through to that replay's server unchanged; otherwise nothing is
+published, `/evidence` comes from the server's own function over the same committed
+files, and `/health` says no replay is running.
+
+**Every replay gets a new stack and a new database.** So the previous run's forecast
 cannot appear under the new clip (the D27 gap needs a restart on one server).
 
-**What it does not establish:** the same as `demo_live.py`. It is a replay, not S65,
-and it forecasts traffic, not the signal.
+**What it does not establish:** a replay is not S65, an analysis is not accuracy,
+and nothing here forecasts or drives the signal (P97a). An analysis and a replay
+never run at once, because both need the GPU.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
 import threading
 import time
@@ -38,21 +51,30 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.error import HTTPError, URLError
+from urllib.parse import unquote, urlsplit
+from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.console import use_utf8  # noqa: E402
-from scripts.demo_e2e import Stack  # noqa: E402
-from scripts.demo_live import (DEFAULT_MINUTES, LIVE_ID, MILESTONES, MIN_MINUTES, REHEARSED,  # noqa: E402
+from scripts.demo_e2e import CAMERA_SOURCE, Stack  # noqa: E402
+from scripts.demo_live import (DEFAULT_MINUTES, LIVE_ID, MILESTONES, MIN_MINUTES, REHEARSED, Clip,  # noqa: E402
                                available_clips, port_free, run_with_cleanup)
+from scripts.workbench import Analyses, Cameras, Locator, Refused, catalogue, choose_folder  # noqa: E402
 
 use_utf8()
 
-__all__ = ["Launcher", "Refused", "make_handler", "main", "page", "status_text"]
+__all__ = ["Launcher", "Refused", "SERVER_GETS", "make_handler", "main", "static_file", "status_text"]
 
-THEME = ROOT / "dashboard" / "src" / "theme.css"
+DIST = ROOT / "dashboard" / "dist"
+RESULTS = ROOT / "data" / "_workbench"
+CAMERA_ENV = "STMS_CAMERA_URL"   # as edge.run.CAMERA_ENV: read there, never here
+STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+                ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".woff2": "font/woff2",
+                ".woff": "font/woff"}
 HOLD_S = 900.0      # how long the page stays up after the footage ends; Stop ends it sooner
 MAX_BODY = 1024
 DRAIN = 1024 * 1024  # the most read from a request that will be refused
@@ -62,23 +84,28 @@ EXPECTED = {MILESTONES[0]: "within 1 min", MILESTONES[1]: "1 to 2 min", MILESTON
             MILESTONES[3]: "2 to 3 min", MILESTONES[4]: "3 to 4 min"}
 
 
-class Refused(Exception):
-    def __init__(self, status: HTTPStatus, message: str) -> None:
-        super().__init__(message)
-        self.status, self.message = status, message
+CAMERA_MILESTONE = "the edge reports the live camera"
+MAX_MINUTES = 180.0          # the longest replay offered: a replay plays in real time
 
 
 class Launcher:
-    """One run at a time. `runner(clip, report, stop)` does the work and returns
-    its exit status; it is `run_clip` except in the tests."""
+    """One run at a time: a listed clip, any recording the workbench found (D42),
+    or the live camera (D42). `runner(clip, report, stop[, minutes=])` does the
+    work and returns its exit status; it is `run_clip` except in the tests.
 
-    def __init__(self, clips, runner, *, minutes: float, dashboard_url: str, ports=()) -> None:
+    **The camera address never passes through here.** It is `STMS_CAMERA_URL` in
+    the environment this process was started with, which the edge inherits; this
+    only knows whether it is set."""
+
+    def __init__(self, clips, runner, *, minutes: float, dashboard_url: str, ports=(),
+                 camera_configured: bool = False) -> None:
         self.clips, self.runner, self.minutes = clips, runner, minutes
-        self.dashboard_url, self.ports = dashboard_url, ports
+        self.dashboard_url, self.ports, self.camera_configured = dashboard_url, ports, camera_configured
         self.lock = threading.Lock()
         self.thread: threading.Thread | None = None
         self.stopping = threading.Event()
         self.clip, self.code, self.started = None, None, 0.0
+        self.kind, self.run_minutes = "replay", minutes
         self.notes: list[tuple[float, str]] = []
 
     def report(self, text: str) -> None:
@@ -88,21 +115,38 @@ class Launcher:
     def start(self, number) -> None:
         if isinstance(number, bool) or not isinstance(number, int) or not 1 <= number <= len(self.clips):
             raise Refused(HTTPStatus.BAD_REQUEST, "that is not a clip on the list")
+        self._begin(self.clips[number - 1], "replay", None)
+
+    def start_recording(self, clip: Clip, minutes) -> None:
+        """Any recording and declared camera, for `minutes` of footage in real time."""
+        if isinstance(minutes, bool) or not isinstance(minutes, (int, float)) or not MIN_MINUTES <= minutes <= MAX_MINUTES:
+            raise Refused(HTTPStatus.BAD_REQUEST, f"a replay plays {MIN_MINUTES:g} to {MAX_MINUTES:g} minutes of footage")
+        self._begin(clip, "replay", float(minutes))
+
+    def start_camera(self, camera_id: str, profile: Path) -> None:
+        if not self.camera_configured:
+            raise Refused(HTTPStatus.CONFLICT, "no camera is configured: set STMS_CAMERA_URL in the environment, "
+                                               "then start the workbench again")
+        self._begin(Clip(Path(CAMERA_SOURCE), camera_id, profile), "camera", None)
+
+    def _begin(self, clip, kind: str, minutes) -> None:
         with self.lock:
             if self.thread is not None and self.thread.is_alive():
                 raise Refused(HTTPStatus.CONFLICT, "a run is in progress; stop it first")
             for port in self.ports:
                 if not port_free(port):
                     raise Refused(HTTPStatus.CONFLICT, f"port {port} is already in use; stop what holds it")
-            self.clip, self.code, self.notes = self.clips[number - 1], None, []
+            self.clip, self.code, self.notes, self.kind = clip, None, [], kind
+            self.run_minutes = minutes if minutes is not None else self.minutes
             self.started = time.monotonic()
             self.stopping = threading.Event()
-            self.thread = threading.Thread(target=self._run, args=(self.clip, self.stopping), daemon=True)
+            self.thread = threading.Thread(target=self._run, args=(clip, self.stopping, minutes), daemon=True)
             self.thread.start()
 
-    def _run(self, clip, stopping) -> None:
+    def _run(self, clip, stopping, minutes=None) -> None:
         try:
-            code = self.runner(clip, self.report, stopping)
+            extra = {"minutes": minutes} if minutes is not None else {}
+            code = self.runner(clip, self.report, stopping, **extra)
         except Exception as error:      # noqa: BLE001 - shown on the page, not lost in a thread
             self.report(f"FAILED: {type(error).__name__}: {error}")
             code = 1
@@ -118,16 +162,21 @@ class Launcher:
         with self.lock:
             notes = list(self.notes)
             running = self.thread is not None and self.thread.is_alive()
-            code, clip = self.code, self.clip
+            code, clip, kind, minutes = self.code, self.clip, self.kind, self.run_minutes
         reached = {text: at for at, text in notes if text in MILESTONES}
         ready = any(text.startswith("ready:") for _, text in notes)
-        finished = any(text.startswith("replay finished") for _, text in notes)
+        finished = any(text.startswith(("replay finished", "camera stream ended")) for _, text in notes)
         problem = next((text for _, text in reversed(notes) if text.startswith(("NOT READY", "FAILED"))), None)
-        state = dict(running=running, code=code, ready=ready, finished=finished, problem=problem,
-                     clip=clip.id if clip else None,
+        live = kind == "camera"
+        state = dict(running=running, code=code, ready=ready, finished=finished, problem=problem, kind=kind,
+                     clip=("live camera" if live else clip.id) if clip else None,
+                     camera=clip.camera if clip else None, minutes=None if live else minutes,
+                     camera_configured=self.camera_configured,
                      stopping=self.stopping.is_set() and running,
                      dashboard=self.dashboard_url if running and ready else None,
-                     milestones=[{"name": m, "expected": EXPECTED[m], "at_s": round(reached[m]) if m in reached else None}
+                     milestones=[{"name": CAMERA_MILESTONE if live and m == MILESTONES[0] else m,
+                                  "expected": "within 1 min" if live and m == MILESTONES[0] else EXPECTED[m],
+                                  "at_s": round(reached[m]) if m in reached else None}
                                  for m in MILESTONES])
         state["status"] = status_text(state)
         return state
@@ -147,7 +196,11 @@ def status_text(s: dict) -> str:
         return "Stopping"
     if s["running"]:
         if s["finished"]:
+            if s.get("kind") == "camera":
+                return "The camera stream ended: the streams are going stale, as they should"
             return "Replay finished: the streams are going stale, as they should"
+        if s.get("kind") == "camera" and s["ready"] and s["milestones"][0]["at_s"] is None:
+            return "Connecting to the camera"
         if not s["ready"]:
             return "Starting the pipeline: proving the broker and ingest carry a real message"
         if len(done) < 2:
@@ -165,7 +218,7 @@ def status_text(s: dict) -> str:
 def run_clip(args):
     """The real runner: `demo_live`'s whole run, reporting here, stoppable from here."""
 
-    def runner(clip, report, stopping) -> int:
+    def runner(clip, report, stopping, minutes: float | None = None) -> int:
         class Reporting(Stack):
             def mark(self, text: str) -> None:
                 super().mark(text)
@@ -175,130 +228,77 @@ def run_clip(args):
             if stopping.wait(seconds):
                 raise KeyboardInterrupt      # demo_live's own way out: it stops what it started
 
+        source = CAMERA_SOURCE if str(clip.path) == CAMERA_SOURCE else clip.path
         run = SimpleNamespace(mosquitto=args.mosquitto, http_port=args.http_port, mqtt_port=args.mqtt_port,
-                              minutes=args.minutes, hold=HOLD_S, chosen=clip, clip=clip.path, camera=clip.camera,
-                              profile=clip.profile)
+                              minutes=minutes or args.minutes, hold=HOLD_S, chosen=clip, clip=source,
+                              camera=clip.camera, profile=clip.profile)
         return run_with_cleanup(run, stack_class=Reporting, sleep=sleep)
 
     return runner
 
 
-PAGE = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STMS demo launcher</title>
-<link rel="icon" href="data:,">
-<style>
-__THEME__
-main { max-width: 720px; margin: 0 auto; padding: 16px; }
-h1 { font-size: 22px; margin: 8px 0 4px; }
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-top: 14px; }
-p { margin: 6px 0; }
-.note { color: var(--muted); font-size: 13px; }
-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-select { width: 100%; font: 14px var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
-.row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
-button, a.open { font: 600 14px var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: 8px; padding: 8px 14px; cursor: pointer; text-decoration: none; }
-button.go, a.open { border-color: var(--brand); }
-button:disabled { color: var(--muted); border-color: var(--line); cursor: default; }
-#status { font-size: 17px; font-weight: 600; }
-ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
-li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 14px; }
-li span:last-child { font: 13px var(--mono); color: var(--muted); }
-li[data-reached="true"] span:last-child { color: var(--ink); }
-#problem { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--bad); font: 13px var(--mono); }
-[hidden] { display: none !important; }
-</style></head>
-<body><main>
-<h1>Try a clip</h1>
-<p class="note">Runs one recorded clip through the deployed system: detector, both forecasters, MQTT, server and dashboard.</p>
-<section aria-label="What this shows">
-<p><b>Recorded footage, not a camera.</b> A real camera stream has not been qualified yet (S65).</p>
-<p><b>It forecasts traffic, not the signal.</b> For each approach, the congestion class and the vehicle count of the next 60 s: the load a signal would have to handle. It sends no signal commands, and the signal heads read "not connected" (P97a).</p>
-<p class="note">The dashboard's forecast check is agreement with the detector's own later counts, not accuracy.</p>
-</section>
-<section aria-label="Choose a clip">
-<label for="clip">Clip (only cameras with lane geometry and calibrated thresholds can run)</label>
-<select id="clip"></select>
-<p class="note">Plays __MINUTES__ minutes of footage in real time. The first results take a few minutes because the forecasters need history; that cannot be skipped.</p>
-<div class="row">
-<button id="run" class="go" type="button">Run demonstration</button>
-<button id="stop" type="button" disabled>Stop</button>
-<a id="open" class="open" target="_blank" rel="noopener" hidden>Open the dashboard</a>
-</div>
-</section>
-<section aria-label="Progress" aria-live="polite">
-<p id="status">Ready to run</p>
-<p class="note" id="which"></p>
-<ul id="steps"></ul>
-<p id="problem" hidden></p>
-</section>
-</main>
-<script>
-const $ = (id) => document.getElementById(id);
-const send = async (path, body) => {
-  const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); $("problem").hidden = false; $("problem").textContent = e.error || "refused"; }
-};
-const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-function draw(s) {
-  $("status").textContent = s.status;
-  $("which").textContent = s.clip || "";
-  $("run").disabled = s.running;
-  $("clip").disabled = s.running;
-  $("stop").disabled = !s.running || s.stopping;
-  $("open").hidden = !s.dashboard;
-  if (s.dashboard) $("open").href = s.dashboard;
-  if (s.problem || s.running) { $("problem").hidden = !s.problem; $("problem").textContent = s.problem || ""; }
-  $("steps").replaceChildren(...s.milestones.map((m) => {
-    const li = document.createElement("li");
-    li.dataset.reached = m.at_s !== null;
-    const name = document.createElement("span"), when = document.createElement("span");
-    name.textContent = m.name;
-    when.textContent = m.at_s !== null ? `at ${clock(m.at_s)}` : m.expected;
-    li.append(name, when);
-    return li;
-  }));
-}
-async function tick() {
-  try { draw(await (await fetch("/state")).json()); }
-  catch { $("status").textContent = "The launcher is not answering"; }
-}
-async function load() {
-  const clips = await (await fetch("/clips")).json();
-  $("clip").replaceChildren(...clips.map((c) => {
-    const o = document.createElement("option");
-    o.value = c.number;
-    o.textContent = c.id + (c.rehearsed ? "  (rehearsed)" : "");
-    return o;
-  }));
-}
-$("run").onclick = async () => { $("problem").hidden = true; await send("/run", { clip: Number($("clip").value) }); tick(); };
-$("stop").onclick = async () => { await send("/stop", {}); tick(); };
-load(); tick(); setInterval(tick, 2000);
-</script>
-</body></html>
-"""
+def static_file(dist: Path, url_path: str) -> tuple[bytes, str] | None:
+    """A file of the built dashboard, or None. Only under `dist`, only known types."""
+    rel = unquote(url_path[len("/dashboard/"):]) or "index.html"
+    base = dist.resolve()
+    target = (base / rel).resolve()
+    if base not in target.parents or target.suffix not in STATIC_TYPES or not target.is_file():
+        return None
+    return target.read_bytes(), STATIC_TYPES[target.suffix]
 
 
-def page(minutes: float, theme: Path = THEME) -> str:
-    """One self-contained page, in the dashboard's measured palette (D18)."""
-    return PAGE.replace("__THEME__", theme.read_text(encoding="utf-8")).replace("__MINUTES__", f"{minutes:g}")
+#: The server's read-only endpoints, as the dashboard's api.js allows them. While a
+#: replay runs, they are passed through to its server unchanged; nothing else is.
+_ID = r"[A-Za-z0-9_-]{1,32}"
+SERVER_GETS = tuple(re.compile(p) for p in (
+    rf"^/count_forecast/{_ID}/(latest|history)$", rf"^/prediction/{_ID}/(latest|history)$",
+    rf"^/vehicle_count/{_ID}/history\?window=(1h|6h|24h)$", rf"^/vehicle_count/{_ID}/latest$",
+    rf"^/heartbeat/{_ID}/latest$", rf"^/forecast_check/{_ID}/recent$", r"^/sites$", r"^/evidence$",
+    r"^/health$"))
 
 
-def make_handler(launcher: Launcher, port_of, html: str):
+def local_evidence() -> tuple[int, bytes]:
+    """`/evidence` with no replay running: the server's own function over the same
+    committed files, so the Results section reads exactly what the server would."""
+    try:
+        from server.app import evidence
+
+        return HTTPStatus.OK, json.dumps(evidence()).encode("utf-8")
+    except Exception as error:          # noqa: BLE001 - the page shows evidence as unavailable
+        return HTTPStatus.SERVICE_UNAVAILABLE, json.dumps({"detail": f"evidence unavailable: {type(error).__name__}"}).encode()
+
+
+def pass_through(port: int, path: str) -> tuple[int, bytes]:
+    try:
+        with urlopen(f"http://127.0.0.1:{port}{path}", timeout=3) as reply:
+            return reply.status, reply.read()
+    except HTTPError as error:
+        return error.code, error.read()
+    except (URLError, OSError):
+        return HTTPStatus.BAD_GATEWAY, b'{"detail": "the replay\'s server is not answering"}'
+
+
+def make_handler(launcher: Launcher, port_of, analyses: Analyses | None = None, dist: Path = DIST,
+                 upstream=lambda: None, folder_dialog=choose_folder):
+    """`upstream()` is the replay server's port while one is ready, else None.
+    `folder_dialog()` opens this computer's folder dialog; a fake in the tests."""
+    dialog_open = threading.Lock()
+
     class Handler(BaseHTTPRequestHandler):
-        server_version = "stms-demo"
+        server_version = "stms-workbench"
         sys_version = ""
 
         def log_message(self, *_args) -> None:
             pass                         # a request line is sender-chosen text (P142)
 
-        def reply(self, status, body: bytes, kind: str = "application/json") -> None:
+        def reply(self, status, body: bytes, kind: str = "application/json", extra=()) -> None:
             self.send_response(status)
             self.send_header("Content-Type", kind)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Cache-Control", "no-store")
+            for name, value in extra:
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(body)
 
@@ -307,23 +307,72 @@ def make_handler(launcher: Launcher, port_of, html: str):
 
         def local(self) -> bool:
             """Host must name this address, so DNS rebinding gets nowhere; and an
-            Origin, when a browser sends one, must be this page."""
+            Origin, when a browser sends one, must be this address."""
             port = port_of()
             hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
             origin = self.headers.get("Origin")
             return self.headers.get("Host") in hosts and (origin is None or origin in {f"http://{h}" for h in hosts})
 
+        # ------------------------------------------------------------ reads ---
         def do_GET(self) -> None:
             if not self.local():
                 return self.answer(HTTPStatus.FORBIDDEN, {"error": "this page answers on its own address only"})
-            if self.path == "/":
-                return self.reply(HTTPStatus.OK, html.encode("utf-8"), "text/html; charset=utf-8")
-            if self.path == "/clips":
+            path = urlsplit(self.path).path
+            if path == "/":
+                return self.reply(HTTPStatus.FOUND, b"", "text/plain",
+                                  (("Location", f"/dashboard/?id={LIVE_ID}#analyze"),))
+            if path in ("/clips", "/workbench/replay/clips"):
                 return self.answer(HTTPStatus.OK, launcher.listing())
-            if self.path == "/state":
+            if path in ("/state", "/workbench/replay/state"):
                 return self.answer(HTTPStatus.OK, launcher.snapshot())
+            if path == "/dashboard":
+                return self.reply(HTTPStatus.MOVED_PERMANENTLY, b"", "text/plain", (("Location", "/dashboard/"),))
+            if path.startswith("/dashboard/"):
+                if not (dist / "index.html").is_file():
+                    return self.reply(HTTPStatus.SERVICE_UNAVAILABLE,
+                                      b"The dashboard is not built here. Run: cd dashboard && npm run build",
+                                      "text/plain; charset=utf-8")
+                found = static_file(dist, path)
+                if found is None:
+                    return self.answer(HTTPStatus.NOT_FOUND, {"error": "no such file"})
+                return self.reply(HTTPStatus.OK, *found)
+            if analyses is not None and path.startswith("/workbench/"):
+                return self.workbench_get(path)
+            if any(p.match(self.path) for p in SERVER_GETS):
+                return self.server_get()
             return self.answer(HTTPStatus.NOT_FOUND, {"error": "no such page"})
 
+        def workbench_get(self, path: str) -> None:
+            if path == "/workbench/capabilities":
+                return self.answer(HTTPStatus.OK, {"workbench": True, "replay": True, "live_id": LIVE_ID,
+                                                   "camera_configured": launcher.camera_configured})
+            if path == "/workbench/cameras":
+                return self.answer(HTTPStatus.OK, analyses.cameras.listing())
+            if path == "/workbench/recordings":
+                return self.answer(HTTPStatus.OK, analyses.listing())
+            if path == "/workbench/jobs/current":
+                return self.answer(HTTPStatus.OK, analyses.snapshot())
+            if path.startswith("/workbench/analysis/"):
+                found = analyses.result_path(path.rsplit("/", 1)[1])
+                if found is None:
+                    return self.answer(HTTPStatus.NOT_FOUND, {"error": "no stored results for that key"})
+                return self.reply(HTTPStatus.OK, found.read_bytes())
+            return self.answer(HTTPStatus.NOT_FOUND, {"error": "no such page"})
+
+        def server_get(self) -> None:
+            """The live panels: from the replay's server while one runs. Otherwise
+            nothing is published, which is what 404 means to the dashboard."""
+            port = upstream()
+            if port is not None:
+                status, body = pass_through(port, self.path)
+                return self.reply(status, body)
+            if self.path == "/evidence":
+                return self.reply(*local_evidence())
+            if self.path == "/health":
+                return self.answer(HTTPStatus.OK, {"status": "ok", "server": "local workbench, no replay running"})
+            return self.answer(HTTPStatus.NOT_FOUND, {"detail": "nothing is being replayed"})
+
+        # ----------------------------------------------------------- actions ---
         def do_POST(self) -> None:
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -343,16 +392,71 @@ def make_handler(launcher: Launcher, port_of, html: str):
                 body = json.loads(raw or b"{}")
             except ValueError:
                 return self.answer(HTTPStatus.BAD_REQUEST, {"error": "not JSON"})
-            if self.path == "/stop":
-                launcher.stop()
-                return self.answer(HTTPStatus.OK, {"stopping": True})
-            if self.path != "/run":
-                return self.answer(HTTPStatus.NOT_FOUND, {"error": "no such page"})
+            body = body if isinstance(body, dict) else {}
             try:
-                launcher.start(body.get("clip") if isinstance(body, dict) else None)
+                return self.action(urlsplit(self.path).path, body)
             except Refused as refused:
                 return self.answer(refused.status, {"error": refused.message})
-            return self.answer(HTTPStatus.ACCEPTED, {"started": True})
+
+        def action(self, path: str, body: dict) -> None:
+            if path in ("/stop", "/workbench/replay/stop"):
+                launcher.stop()
+                return self.answer(HTTPStatus.OK, {"stopping": True})
+            if path in ("/run", "/workbench/replay/start", "/workbench/camera/start"):
+                if analyses is not None and analyses.running():
+                    raise Refused(HTTPStatus.CONFLICT, "an analysis is running; both need the GPU, so stop it first")
+                if path == "/workbench/camera/start":
+                    if analyses is None:
+                        return self.answer(HTTPStatus.NOT_FOUND, {"error": "no such page"})
+                    profile = analyses.cameras.get(body.get("camera"))
+                    launcher.start_camera(profile.camera_id, profile.path)
+                elif analyses is not None and "recording" in body:
+                    recording = Analyses._pick(body.get("recording"), analyses.recordings, "recording")
+                    camera = body.get("camera")
+                    profile = analyses.cameras.get(camera if isinstance(camera, str) else None)
+                    if analyses.cameras.needs_levels(profile):
+                        raise Refused(HTTPStatus.CONFLICT, "this camera's levels are not set yet: analyse one of "
+                                                           "its recordings first")
+                    minutes = body.get("minutes")
+                    if minutes == "whole":
+                        from scripts.workbench import duration_of
+
+                        length = duration_of(recording.path)
+                        minutes = round(length / 60.0, 2) if length else None
+                    launcher.start_recording(Clip(recording.path, profile.camera_id, profile.path), minutes)
+                else:
+                    launcher.start(body.get("clip"))
+                return self.answer(HTTPStatus.ACCEPTED, {"started": True})
+            if analyses is None:
+                return self.answer(HTTPStatus.NOT_FOUND, {"error": "no such page"})
+            if path == "/workbench/jobs":
+                if launcher.thread is not None and launcher.thread.is_alive():
+                    raise Refused(HTTPStatus.CONFLICT, "a replay is running; both need the GPU, so stop it first")
+                analyses.start(body.get("recording"), body.get("camera"))
+                return self.answer(HTTPStatus.ACCEPTED, {"started": True})
+            if path == "/workbench/jobs/stop":
+                analyses.stop()
+                return self.answer(HTTPStatus.OK, {"stopping": True})
+            if path == "/workbench/locate":
+                return self.answer(HTTPStatus.OK, analyses.locate(body.get("name"), body.get("size"),
+                                                                  body.get("fingerprint")))
+            if path == "/workbench/folder":
+                if not dialog_open.acquire(blocking=False):
+                    raise Refused(HTTPStatus.CONFLICT, "the folder window is already open on this computer")
+                try:
+                    folder = folder_dialog()
+                finally:
+                    dialog_open.release()
+                if folder is None:
+                    return self.answer(HTTPStatus.OK, {"added": None})
+                analyses.locator.remember(folder)
+                return self.answer(HTTPStatus.OK, {"added": folder.name or str(folder.anchor)})
+            if path == "/workbench/cameras":
+                recording = Analyses._pick(body.get("recording"), analyses.recordings, "recording")
+                profile = analyses.cameras.create(body.get("id"), body.get("lanes"), body.get("max_radius"),
+                                                  recording.name)
+                return self.answer(HTTPStatus.CREATED, {"id": profile.camera_id})
+            return self.answer(HTTPStatus.NOT_FOUND, {"error": "no such page"})
 
     return Handler
 
@@ -361,6 +465,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--mosquitto", type=Path, required=True, help="mosquitto executable; mosquitto_passwd beside it")
     ap.add_argument("--clips-root", type=Path, required=True, help="folder holding the clips; nothing is copied from it")
+    ap.add_argument("--videos-root", type=Path, action="append", default=None,
+                    help="a folder to look in for recordings first; repeatable (default: --clips-root). "
+                         "Any other folder can be shown to the workbench from the page")
+    ap.add_argument("--results-dir", type=Path, default=RESULTS,
+                    help="where finished analyses and this computer's provisional cameras are kept "
+                         "(default: data/_workbench, not committed)")
     ap.add_argument("--minutes", type=float, default=DEFAULT_MINUTES, help=f"footage to play, at least {MIN_MINUTES:g}")
     ap.add_argument("--port", type=int, default=18080, help="this page's port, on 127.0.0.1 only")
     ap.add_argument("--http-port", type=int, default=18000)
@@ -370,25 +480,50 @@ def main(argv: list[str] | None = None) -> int:
         ap.error(f"--mosquitto is not a file: {args.mosquitto}")
     if not args.clips_root.is_dir():
         ap.error(f"--clips-root is not a folder: {args.clips_root}")
+    roots = args.videos_root or [args.clips_root]
+    for root in roots:
+        if not root.is_dir():
+            ap.error(f"--videos-root is not a folder: {root}")
     if args.minutes < MIN_MINUTES:
         ap.error(f"--minutes must be at least {MIN_MINUTES:g}: the first count comparison takes about 3 minutes")
     clips = available_clips(args.clips_root)
     if not clips:
         ap.error(f"no clip that can run under {args.clips_root}")
     launcher = Launcher(clips, run_clip(args), minutes=args.minutes, ports=(args.http_port, args.mqtt_port),
-                        dashboard_url=f"http://127.0.0.1:{args.http_port}/dashboard/?id={LIVE_ID}")
+                        dashboard_url=f"http://127.0.0.1:{args.port}/dashboard/?id={LIVE_ID}",
+                        camera_configured=bool(os.environ.get(CAMERA_ENV, "").strip()))
+    from edge.profile import load_profiles
+
+    profiles, unusable = load_profiles()
+    for path, reason in unusable:
+        print(f"note: camera profile {path.name} is not offered: {reason}", flush=True)
+    analyses = Analyses(catalogue(roots), Cameras(profiles, args.results_dir / "cameras"), args.results_dir,
+                        locator=Locator(roots, args.results_dir / "folders.json"))
+    analyses.replay = {clip.path.resolve(): number for number, clip in enumerate(clips, 1)}
+    if not (DIST / "index.html").is_file():
+        print("NOT READY: dashboard/dist is not built, and the dashboard is this tool's only page. "
+              "Run: cd dashboard && npm run build", file=sys.stderr, flush=True)
+        return 1
+
+    def upstream() -> int | None:
+        state = launcher.snapshot()
+        return args.http_port if state["running"] and state["ready"] else None
+
     try:
-        server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(launcher, lambda: args.port, page(args.minutes)))
+        server = ThreadingHTTPServer(("127.0.0.1", args.port),
+                                     make_handler(launcher, lambda: args.port, analyses, DIST, upstream))
     except OSError as error:
         print(f"NOT READY: cannot listen on 127.0.0.1:{args.port} ({error})", file=sys.stderr, flush=True)
         return 1
-    print(f"Open http://127.0.0.1:{args.port}/  (Ctrl+C here stops everything)", flush=True)
+    print(f"Open http://127.0.0.1:{args.port}/  ({len(analyses.recordings)} recordings known, "
+          f"{len(profiles)} committed cameras; Ctrl+C here stops everything)", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("stopping", flush=True)
     finally:
         launcher.stop(wait_s=30)
+        analyses.stop(wait_s=30)
         server.server_close()
     return 0
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import panel from "./Panels.module.css";
 import styles from "./Analyze.module.css";
 import { VideoEngineering } from "./Engineering.jsx";
+import { VideoCheck } from "./VideoCheck.jsx";
 import { CLASSES, validateAnalysis } from "./validate.js";
 
 // D34: a recording beside the results of scripts/analyze_video.py. Both files are
@@ -90,8 +91,15 @@ function Timeline({ analysis, t, onSeek }) {
   );
 }
 
-export function AnalyzeVideo({ view = "operator" }) {
-  const [video, setVideo] = useState(null);       // { url, name }
+// `handed` (D40) is a finished analysis the local workbench made, read by App from
+// its address: null, { status: "loading" }, or what api.get answered. It is checked
+// here exactly as an opened file is. The video is still opened by the viewer.
+// `assistant` (D41) is given only when the local workbench serves this page: a render
+// function for the panel that analyses the opened file where it lies on this computer.
+// This file holds the picture and lends it for lane placement; the assistant holds
+// everything that talks to the workbench, so nothing here sends anything anywhere.
+export function AnalyzeVideo({ view = "operator", handed = null, assistant = null }) {
+  const [video, setVideo] = useState(null);       // { url, name, file }
   const [length, setLength] = useState(null);
   const [aspect, setAspect] = useState("16 / 9");
   const [analysis, setAnalysis] = useState(null);
@@ -104,8 +112,45 @@ export function AnalyzeVideo({ view = "operator" }) {
   const [showBoxes, setShowBoxes] = useState(true);
   const [showClasses, setShowClasses] = useState(false);
   const player = useRef(null);
+  const stageRef = useRef(null);
+  // D41: lanes being placed for a new camera, as fractions of the picture.
+  const [placing, setPlacing] = useState(false);
+  const [points, setPoints] = useState([]);
+  const [reach, setReach] = useState(0.25);
+  const [preview, setPreview] = useState(null);   // D42: { camera, max_radius, lanes } of the chosen camera
+  const lanes = {
+    points,
+    preview: setPreview,
+    begin: () => { setPoints([]); setPlacing(true); if (player.current) player.current.pause(); },
+    end: () => { setPlacing(false); setPoints([]); },
+    setReach,
+    setApproach: (i, a) => setPoints((ps) => ps.map((p, j) => (j === i ? { ...p, approach: a } : p))),
+    remove: (i) => setPoints((ps) => ps.filter((_, j) => j !== i)),
+  };
+  const place = (event) => {
+    if (!placing || !stageRef.current || points.length >= 4) return;
+    const box = stageRef.current.getBoundingClientRect();
+    const x = (event.clientX - box.left) / box.width, y = (event.clientY - box.top) / box.height;
+    if (!(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return;
+    const free = ["N", "S", "E", "W"].find((a) => !points.some((p) => p.approach === a));
+    setPoints((ps) => [...ps, { x, y, approach: free }]);
+  };
+  // `null` clears the page's results: the workbench's assistant does that when another video is opened.
+  const accept = (data) => { setProblem(""); setAnalysis(data); setFromWorkbench(Boolean(data)); setT(0); setPlaying(false); if (player.current) player.current.currentTime = 0; };
 
   useEffect(() => () => { if (video) URL.revokeObjectURL(video.url); }, [video]);
+
+  const [fromWorkbench, setFromWorkbench] = useState(false);
+  useEffect(() => {
+    if (!handed || handed.status === "loading") return;
+    if (handed.status !== "ok") {
+      setProblem("These results are not available here. A workbench link works only on the computer whose workbench made it.");
+      return;
+    }
+    const checked = validateAnalysis(handed.data);
+    if (!checked.ok) { setProblem(`The workbench's results were refused: ${checked.reason}.`); return; }
+    setProblem(""); setAnalysis(checked.data); setFromWorkbench(true); setT(0); setPlaying(false);
+  }, [handed]);
 
   // With no picture there is no video clock, so the page keeps its own.
   useEffect(() => {
@@ -127,7 +172,7 @@ export function AnalyzeVideo({ view = "operator" }) {
       return;
     }
     setVideoProblem(""); setLength(null); setT(0); setPlaying(false); setAspect("16 / 9");
-    setVideo({ url: URL.createObjectURL(file), name: file.name });
+    setVideo({ url: URL.createObjectURL(file), name: file.name, file });
   };
   const openResults = async (file) => {
     if (!file) return;
@@ -135,7 +180,7 @@ export function AnalyzeVideo({ view = "operator" }) {
     try { json = JSON.parse(await file.text()); } catch { setProblem(`${file.name} is not a results file.`); setAnalysis(null); return; }
     const checked = validateAnalysis(json);
     if (!checked.ok) { setProblem(`${file.name} was refused: ${checked.reason}.`); setAnalysis(null); return; }
-    setProblem(""); setAnalysis(checked.data); setT(0); setPlaying(false);
+    setProblem(""); setAnalysis(checked.data); setFromWorkbench(false); setT(0); setPlaying(false);
   };
   const seek = (value) => {
     const end = length ?? analysis?.duration_s ?? 0;
@@ -154,16 +199,25 @@ export function AnalyzeVideo({ view = "operator" }) {
   };
 
   const mismatch = video && analysis && length !== null && Math.abs(length - analysis.duration_s) > LENGTH_TOLERANCE_S;
+  // A hint, not a refusal: a renamed copy is the same recording. The length check refuses.
+  const otherName = video && analysis && video.name.replace(/\.[^.]+$/, "") !== analysis.clip;
   const synced = analysis && !mismatch;
   const sample = synced ? sampleAt(analysis, t) : null;
   const end = length ?? analysis?.duration_s ?? 0;
+  const resultsPicker = (
+    <label className={styles.drop}>
+      <input type="file" accept=".json,application/json" data-open-results="true" onChange={(e) => openResults(e.target.files[0])} />
+      <b>{analysis ? `${analysis.clip} · ${analysis.camera}` : handed?.status === "loading" ? "Loading the workbench's results" : "Choose a results file"}</b>
+      <span className={styles.small}>{fromWorkbench ? "Made by the workbench on this computer, and checked here." : "Made once per video by the analysis tool, on the computer that holds it."}</span>
+    </label>
+  );
   return (
     <section aria-label="Analyze a video" data-tour="analyze">
       <div className={styles.intro}>
         <h2>Analyze a video</h2>
         <p>Watch a recording with its counts and forecasts beside the picture. It is always a recording, never live.</p>
       </div>
-      <div className={styles.layout}>
+      <div className={`${styles.layout} ${assistant ? styles.withAssistant : ""}`}>
         <section className={styles.card} aria-label="Choose the files" data-tour="analyze-files">
           <h3>1. Open the video</h3>
           <label className={styles.drop}>
@@ -172,14 +226,16 @@ export function AnalyzeVideo({ view = "operator" }) {
             <span className={styles.small}>It plays in this browser. Nothing is uploaded.</span>
           </label>
           {videoProblem && <p className={panel.problem} data-state="invalid">{videoProblem}</p>}
-          <h3>2. Open its results</h3>
-          <label className={styles.drop}>
-            <input type="file" accept=".json,application/json" data-open-results="true" onChange={(e) => openResults(e.target.files[0])} />
-            <b>{analysis ? `${analysis.clip} · ${analysis.camera}` : "Choose a results file"}</b>
-            <span className={styles.small}>Made once per video by the analysis tool, on the computer that holds it.</span>
-          </label>
+          {assistant && assistant({ file: video?.file ?? null, lanes, onResults: accept })}
+          {fromWorkbench && !video && (
+            <p className={styles.notice} data-handed="true">Results loaded from the workbench. Now choose the video file <b>{analysis.clip}</b>: it plays from this computer, beside them.</p>
+          )}
+          {otherName && <p className={styles.notice} data-state="name-differs">This video is named {video.name}; the results are for {analysis.clip}.</p>}
+          {assistant ? (
+            <details className={styles.how}><summary>Already have a results file?</summary>{resultsPicker}</details>
+          ) : <><h3>2. Open its results</h3>{resultsPicker}</>}
           {problem && <p className={panel.problem} data-state="invalid">{problem}</p>}
-          {!analysis && (
+          {!analysis && !assistant && (
             <details className={styles.how} data-analysis-how="true">
               <summary>How to make a results file</summary>
               <p>Run this on the computer with the detector, naming the camera that recorded the video:</p>
@@ -194,7 +250,8 @@ export function AnalyzeVideo({ view = "operator" }) {
 
         <section className={styles.card} aria-label="Watch" data-tour="analyze-watch">
           <h3>3. Watch</h3>
-          <div className={styles.stage} style={{ aspectRatio: aspect }} data-stage="true">
+          <div className={`${styles.stage} ${placing ? styles.placing : ""}`} style={{ aspectRatio: aspect }} data-stage="true"
+               ref={stageRef} onClick={place} data-placing={placing || undefined}>
             {video ? (
               <video ref={player} src={video.url} muted playsInline data-player="true"
                      onLoadedMetadata={(e) => { setLength(e.target.duration); if (e.target.videoWidth) setAspect(`${e.target.videoWidth} / ${e.target.videoHeight}`); e.target.playbackRate = rate; }}
@@ -202,6 +259,28 @@ export function AnalyzeVideo({ view = "operator" }) {
                      onError={() => setVideoProblem("This browser cannot play this video's format. MP4 with H.264 usually works.")} />
             ) : <p className={styles.noPicture}>{analysis ? "No picture: the numbers only" : "Open a video, its results, or both"}</p>}
             <span className={styles.tag}>Recording</span>
+            {preview && !placing && !analysis && (
+              <>
+                <svg className={styles.boxes} viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+                  {preview.lanes.map((l) => <ellipse key={l.name} className={styles.reach} cx={l.centre[0]} cy={l.centre[1]} rx={preview.max_radius} ry={preview.max_radius} vectorEffect="non-scaling-stroke" />)}
+                </svg>
+                {preview.lanes.map((l, i) => (
+                  <span key={l.name} className={`${styles.pin} ${styles.previewPin}`} data-preview-lane={`L${i}`} style={{ left: `${l.centre[0] * 100}%`, top: `${l.centre[1] * 100}%` }}><b>L{i}</b> {l.approach}</span>
+                ))}
+                <span className={styles.placeHint} data-preview-hint="true">{preview.camera}'s lanes: do they sit on this video's roads?</span>
+              </>
+            )}
+            {placing && (
+              <>
+                <svg className={styles.boxes} viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+                  {points.map((p, i) => <ellipse key={i} className={styles.reach} cx={p.x} cy={p.y} rx={reach} ry={reach} vectorEffect="non-scaling-stroke" />)}
+                </svg>
+                {points.map((p, i) => (
+                  <span key={i} className={styles.pin} data-placed={`L${i}`} style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}><b>L{i}</b> {p.approach}</span>
+                ))}
+                <span className={styles.placeHint}>{points.length < 4 ? `Click a lane's centre (${points.length} of up to 4)` : "Four lanes placed"}</span>
+              </>
+            )}
             {sample && showBoxes && (
               <svg className={styles.boxes} viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
                 {sample.boxes.map(([x1, y1, x2, y2], i) => <rect key={i} data-box="true" x={x1} y={y1} width={x2 - x1} height={y2 - y1} vectorEffect="non-scaling-stroke" />)}
@@ -252,6 +331,7 @@ export function AnalyzeVideo({ view = "operator" }) {
             <Timeline analysis={analysis} t={t} onSeek={seek} />
           </section>
         )}
+        {synced && <VideoCheck analysis={analysis} t={t} onSeek={seek} />}
       </div>
       <p className={styles.small}>The video stays on this computer. Results hold counts and forecasts, never frames. A recording is not a live camera test, and nothing here controls a signal.</p>
     </section>

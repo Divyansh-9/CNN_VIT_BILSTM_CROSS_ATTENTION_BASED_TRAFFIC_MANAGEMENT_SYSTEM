@@ -996,6 +996,144 @@ the matching results file under *2. Open its results*. The page warns when the t
 - **Not S65.** A recording is not a live camera.
 - **No signal control.** Nothing here drives a signal (P97a).
 
+### 5.5.1 Without a command: the workbench (D40, D41)
+
+The workbench is the dashboard served from this computer, with the actions only this computer can take.
+
+```bash
+python scripts/demo_launcher.py --mosquitto <mosquitto.exe> --clips-root <footage folder>     [--videos-root <folder> ...] [--results-dir <folder>]
+```
+
+Build the dashboard first (`cd dashboard && npm run build`): it is the tool's only page. Open
+`http://127.0.0.1:18080/`, which lands on **Analyze a video**. The header reads "Local workbench · no signal
+commands".
+
+**To analyse a video:**
+1. **Open any video on this computer.** It plays in the page and is never uploaded.
+2. **Let the workbench find it.** The page sends the file's name, size and fingerprint, and the workbench
+   finds the same file on disk. It searches:
+   - the folders it was started with;
+   - folders shown to it before;
+   - the usual user folders.
+
+   If it cannot find the file, press **Show the workbench where it is**. This computer's own folder window
+   opens, and only the folder's name comes back to the page.
+3. **Declare the camera that recorded it.** The page lists the reviewed profiles and this computer's
+   provisional cameras, and nothing guesses (ADR-028).
+4. **Press Analyze.** The stages and real progress show beside the picture. The pre-flight refuses with a
+   reason a video it cannot decode or one under 5 minutes. When the analysis finishes, the results appear on
+   the same page, already in step with the video.
+
+**A camera that has no profile.** Choose **A camera not listed: place its lanes**.
+- **Placing lanes:** click up to four lane centres on the paused picture, and give each one of N, S, E or W.
+  These are labels, not verified directions.
+- **Saving:** set each lane's reach and name the camera. The camera is saved as **provisional** in
+  `--results-dir`, never in `cameras/`.
+- **Its levels:** the first analysis with it sets LOW, MEDIUM and HIGH from that recording, by ADR-017's rule
+  as P103 ran it (q33/q67 of 60 s means). Its limits then say, on every result, that the lanes are
+  unreviewed and that the levels flatter that recording and are not evidence.
+- **A flat recording is refused:** if traffic barely varies, no levels are set, and the page asks for a
+  busier recording.
+
+**Replay through the system** is on the **Live** section of the same page. Choose a clip and run it.
+- **While it runs:** the live panels read that replay's server through the workbench, and the source badge
+  says REPLAY.
+- **Taking turns:** an analysis and a replay never run at once, because both need the GPU.
+
+**What is stored:** each result is kept in `--results-dir` (default `data/_workbench/`, gitignored) under a
+key made from:
+- the video's fingerprint and name;
+- the camera's profile hash;
+- the detector, counting settings, ridge spec and tool.
+
+The same video and camera reopen at once. A change to any of them analyses again.
+
+**Measured on the RTX 4050 laptop, 2026-11-06** (ADR-003: laptop figures, other machines differ):
+- **Committed camera:** a 60-minute SE38th clip took about 2½ minutes, and a 9.4-minute clip under 45 s.
+- **Provisional camera:** a 6.8-minute NE12th clip, analysed and given levels, took under 2 minutes.
+
+**What crosses the browser:** names, numbers, lane positions and the results file. The video is never sent:
+the page plays it from the file you opened, and the workbench reads the same file from disk (NFR-13).
+
+**What it cannot check:** profiles record lane positions as fractions of the picture, not a resolution. So
+the workbench cannot tell that a video came from a different camera than the one declared. Declaring the
+wrong camera gives counts in the wrong lanes.
+- **The check is yours (D42):** choosing a camera lays its lanes over your paused video as dashed rings,
+  before anything runs.
+- **What to do if they miss:** if the rings do not sit on this video's roads, it is a different camera.
+  Choose another, or place its lanes.
+
+**What the page shows, per lane, at the moment you are watching:**
+- **Counted now:** vehicles in that lane's area in this frame.
+- **Forecast level and forecast number:** the next 60 s. The number is the expected mean number of vehicles
+  in view; the level is that number against this camera's limits.
+- **What then happened:** the same detector's mean count over those 60 s, and its level. This is not
+  accuracy: both sides come from one detector.
+- **The first minute:** reads "waiting", because the forecasters need 60 s of history.
+
+**A level is relative to its camera.** LOW, MEDIUM and HIGH are this camera's q33 and q67 from its calibration
+hour (ADR-017), not an absolute measure of congestion. For example, 150th_Eastgate's limits are 0.13 and 0.97
+vehicles in view, set on a Sunday-evening hour. So one vehicle in view already reads HIGH there (D37's
+reported weakness). A busier camera has higher limits.
+
+**Forecast check for this video (D43).** Under the whole-video timeline, a table and a chart compare, per lane:
+- **The class forecast:** how often it agreed with what the next minute then showed.
+- **The ridge count forecast:** how far it was from what then happened, against simply repeating the last
+  minute (P105's comparison).
+
+It is agreement with the same detector, not accuracy, and it gives no percentages. **Print or save as PDF**
+keeps the numbers and leaves out the picture.
+
+**Replay on Live (D42).** After an analysis, choose 7 min, 30 min or the whole video and press **Replay on
+Live**.
+- **What it runs:** the same video goes through the edge, MQTT, the server and Live in real time, so a
+  whole hour takes an hour.
+- **Same as Analyze:** it uses the same detector, counting and forecasters as the analysis.
+- **Labelled as a recording:** Live says REPLAY.
+- **New cameras:** a provisional camera can replay only after its first analysis has set its levels.
+
+### 5.5.2 Connecting a live camera (D42)
+
+A camera is set up outside the page, because its address can hold a password. The page only ever learns
+whether a camera is configured, never its address.
+
+1. **Get the stream address.** The edge reads it with OpenCV, so any address OpenCV opens works:
+   - **An IP camera:** usually an RTSP address such as `rtsp://user:password@192.168.1.20:554/stream1`.
+   - **A phone, for a rehearsal:** an IP-camera app gives an HTTP stream address on the same Wi-Fi.
+2. **Give the camera its lanes, once:**
+   - Record a few minutes from that camera to a file.
+   - Open the file on **Analyze a video**, choose **A camera not listed: place its lanes**, and place them.
+   - Its first analysis sets its levels. An existing profile only fits a camera whose picture matches it.
+3. **Start the workbench with the address in its environment** (PowerShell; never on the command line, never
+   in a file you commit):
+
+   ```powershell
+   $env:STMS_CAMERA_URL = "rtsp://user:password@192.168.1.20:554/stream1"
+   ./.venv/Scripts/python.exe scripts/demo_launcher.py --mosquitto <mosquitto.exe> --clips-root <footage folder>
+   ```
+4. **Connect.** On **Live**, open **Run through the system**, choose **Live camera**, choose the camera's
+   profile, and press **Connect the camera**.
+   - **What starts:** the workbench starts the broker, server and ingest, then the edge with
+     `--source camera`.
+   - **When it reconnects:** the edge reconnects if the stream drops.
+   - **What the page shows:** Live says LIVE CAMERA. The first class forecast arrives after about 1 minute,
+     the first count forecast after about 2.
+   - **How long it runs:** until you press Stop.
+
+**What a camera run is, and is not:**
+- **It is a rehearsal of the deployed path.** It is not S65: S65's frozen criteria are measured with
+  `scripts/benchmark_live.py`.
+- **It controls nothing.** It forecasts the traffic of the next 60 s and sends no signal command (P97a).
+- **No frame leaves the edge.** Frames are counted in memory and dropped (NFR-13).
+
+**Verified on 2026-11-09 against a stand-in stream, not a camera.** A recorded SE38th clip was served as an
+MJPEG stream on 127.0.0.1 and named by `STMS_CAMERA_URL`. The run:
+- the badge read LIVE CAMERA;
+- the edge reported the camera at 0:29;
+- the first class forecast came at 1:19, and the first count forecast at 2:15.
+
+That shows the wiring only. A real camera has not been tried.
+
 ---
 
 # Part 6 — Experiments, statistics, and the paper
