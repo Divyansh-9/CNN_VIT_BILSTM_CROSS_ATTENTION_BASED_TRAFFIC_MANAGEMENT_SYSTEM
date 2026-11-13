@@ -159,7 +159,7 @@ FR-UI05 and BR-07 depend on it, so it must be exposed by the MFSTNet forward pas
 |---|---|
 | Transport | Native WebSocket for live state; REST for history and exports |
 | Refresh | ≤2s (NFR-05) |
-| Auth | JWT, 24h expiry (NFR-12) |
+| Auth | A shared-secret bearer token on HTTP writes; reads open (NFR-12 as amended, A37) |
 | Reconnect | Automatic with backoff; stale data visibly marked, never silently shown as live |
 
 ### 3.4 SUMO ⇄ RL agent
@@ -248,7 +248,7 @@ CSVs, never hand-entered — a summary that cannot be recomputed from raw data i
 | Model weights | `.pt`, `.onnx`, PPO `.zip` | Permanent | Git LFS |
 | Experiment results | Per-run CSVs | Permanent | Plain git, explicitly un-ignored (NFR-09, NFR-10) |
 
-**Split discipline.** Detection uses 70/15/15 stratified (FR-D05). MFSTNet uses 60/20/20 (PRD §8.4)
+**Split discipline.** Detection uses 70/15/15 stratified (FR-D05). MFSTNet's 60/20/20 (PRD §8.4) is superseded by leave-one-camera-out — [ADR-019](../00-planning/decisions/ADR-019-leave-one-camera-out-evaluation.md), Proposed
 **cut by source clip, not by sequence** — overlapping windows from one clip appearing in both train
 and test would leak, and PRD §2.5.1 lists exactly this as a Week 11–12 failure. Different numbers,
 different units, different purposes. Confusing them silently corrupts every reported result.

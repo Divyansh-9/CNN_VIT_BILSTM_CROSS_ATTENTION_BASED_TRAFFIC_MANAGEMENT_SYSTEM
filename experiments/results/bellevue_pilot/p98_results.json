@@ -1,0 +1,124 @@
+{
+  "protocol": "PREREGISTRATION_P98.md",
+  "primary": {
+    "point": -0.0628,
+    "ci95": [
+      -0.1067,
+      -0.0094
+    ],
+    "p": 0.0226,
+    "blocks": 48,
+    "windows": 897,
+    "model_f1": 0.42676104711066615,
+    "base_f1": 0.48954706973734297,
+    "support": {
+      "LOW": 129,
+      "MEDIUM": 1860,
+      "HIGH": 702
+    },
+    "replicates": false
+  },
+  "secondary": {
+    "lane west": {
+      "point": -0.0836,
+      "ci95": [
+        -0.1406,
+        -0.0004
+      ],
+      "p": 0.0486,
+      "blocks": 48,
+      "windows": 897,
+      "holm_threshold": 0.0125,
+      "holm_significant": false
+    },
+    "lane north": {
+      "point": -0.0898,
+      "ci95": [
+        -0.1612,
+        -0.0059
+      ],
+      "p": 0.0358,
+      "blocks": 48,
+      "windows": 897,
+      "holm_threshold": 0.01,
+      "holm_significant": false
+    },
+    "lane east": {
+      "point": -0.0184,
+      "ci95": [
+        -0.0519,
+        0.0103
+      ],
+      "p": 0.2856,
+      "blocks": 48,
+      "windows": 897,
+      "holm_threshold": 0.0167,
+      "holm_significant": false
+    },
+    "60 s dawn_dusk": {
+      "point": -0.2539,
+      "ci95": [
+        -0.3344,
+        -0.1304
+      ],
+      "p": 0.0,
+      "blocks": 12,
+      "windows": 230,
+      "holm_threshold": 0.0063,
+      "holm_significant": true
+    },
+    "60 s sunday_daylight": {
+      "point": -0.0154,
+      "ci95": [
+        -0.0791,
+        0.0624
+      ],
+      "p": 0.7816,
+      "blocks": 6,
+      "windows": 115,
+      "holm_threshold": 0.025,
+      "holm_significant": false
+    },
+    "120 s primary stratum (H)": {
+      "point": -0.2939,
+      "ci95": [
+        -0.342,
+        -0.2311
+      ],
+      "p": 0.0,
+      "blocks": 47,
+      "windows": 881,
+      "holm_threshold": 0.0071,
+      "holm_significant": true
+    },
+    "primary accuracy": {
+      "point": 0.0944,
+      "ci95": [
+        0.0611,
+        0.1276
+      ],
+      "p": 0.0,
+      "blocks": 48,
+      "windows": 897,
+      "holm_threshold": 0.0083,
+      "holm_significant": true
+    },
+    "primary QWK": {
+      "point": -0.0082,
+      "ci95": [
+        -0.1265,
+        0.1116
+      ],
+      "p": 0.9406,
+      "blocks": 48,
+      "windows": 897,
+      "holm_threshold": 0.05,
+      "holm_significant": false
+    }
+  },
+  "windows_by_stratum": {
+    "primary": 897,
+    "dawn_dusk": 230,
+    "sunday_daylight": 115
+  }
+}

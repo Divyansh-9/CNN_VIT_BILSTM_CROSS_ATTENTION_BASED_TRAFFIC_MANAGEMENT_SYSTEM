@@ -1,0 +1,321 @@
+{
+  "protocol": "PREREGISTRATION_P121_webster.md",
+  "regime": "pulsed",
+  "seeds": [
+    400,
+    401,
+    402,
+    403,
+    404,
+    405,
+    406,
+    407,
+    408,
+    409,
+    410,
+    411,
+    412,
+    413,
+    414,
+    415,
+    416,
+    417,
+    418,
+    419
+  ],
+  "duration_s": 1800,
+  "lateral_resolution": 0.8,
+  "rule": "lowest mean_total_delay_s among configurations with clamp rate <= 50% and arrived fraction >= 85%",
+  "selected": {
+    "saturation_flow": 660,
+    "lost_time_startup_s": 4.0,
+    "seeds": 20,
+    "mean_total_delay_s": 39.4233,
+    "mean_wait_s": 23.4793,
+    "clamp_rate": 0.2607,
+    "arrived_fraction": 0.95,
+    "starvation_events": 0.0,
+    "throughput": 1378.1
+  },
+  "rejected": [
+    {
+      "row": {
+        "saturation_flow": 525,
+        "lost_time_startup_s": 0.0,
+        "seeds": 20,
+        "mean_total_delay_s": 38.5082,
+        "mean_wait_s": 22.92,
+        "clamp_rate": 0.8656,
+        "arrived_fraction": 0.95,
+        "starvation_events": 0.0,
+        "throughput": 1377.8
+      },
+      "reason": "clamp rate 87% > 50% \u2014 the cycle formula never decided anything; this is a fixed cycle wearing Webster's name"
+    },
+    {
+      "row": {
+        "saturation_flow": 600,
+        "lost_time_startup_s": 0.0,
+        "seeds": 20,
+        "mean_total_delay_s": 38.4887,
+        "mean_wait_s": 22.6355,
+        "clamp_rate": 0.906,
+        "arrived_fraction": 0.9506,
+        "starvation_events": 0.0,
+        "throughput": 1377.9
+      },
+      "reason": "clamp rate 91% > 50% \u2014 the cycle formula never decided anything; this is a fixed cycle wearing Webster's name"
+    },
+    {
+      "row": {
+        "saturation_flow": 660,
+        "lost_time_startup_s": 0.0,
+        "seeds": 20,
+        "mean_total_delay_s": 39.3577,
+        "mean_wait_s": 22.9417,
+        "clamp_rate": 0.9362,
+        "arrived_fraction": 0.9471,
+        "starvation_events": 0.0,
+        "throughput": 1373.3
+      },
+      "reason": "clamp rate 94% > 50% \u2014 the cycle formula never decided anything; this is a fixed cycle wearing Webster's name"
+    },
+    {
+      "row": {
+        "saturation_flow": 750,
+        "lost_time_startup_s": 0.0,
+        "seeds": 20,
+        "mean_total_delay_s": 39.3845,
+        "mean_wait_s": 22.9107,
+        "clamp_rate": 0.9711,
+        "arrived_fraction": 0.9487,
+        "starvation_events": 0.0,
+        "throughput": 1375.35
+      },
+      "reason": "clamp rate 97% > 50% \u2014 the cycle formula never decided anything; this is a fixed cycle wearing Webster's name"
+    },
+    {
+      "row": {
+        "saturation_flow": 900,
+        "lost_time_startup_s": 0.0,
+        "seeds": 20,
+        "mean_total_delay_s": 38.6022,
+        "mean_wait_s": 22.2719,
+        "clamp_rate": 0.993,
+        "arrived_fraction": 0.9471,
+        "starvation_events": 0.0,
+        "throughput": 1372.9
+      },
+      "reason": "clamp rate 99% > 50% \u2014 the cycle formula never decided anything; this is a fixed cycle wearing Webster's name"
+    },
+    {
+      "row": {
+        "saturation_flow": 1050,
+        "lost_time_startup_s": 0.0,
+        "seeds": 20,
+        "mean_total_delay_s": 39.4184,
+        "mean_wait_s": 22.9442,
+        "clamp_rate": 1.0,
+        "arrived_fraction": 0.9496,
+        "starvation_events": 0.0,
+        "throughput": 1376.65
+      },
+      "reason": "clamp rate 100% > 50% \u2014 the cycle formula never decided anything; this is a fixed cycle wearing Webster's name"
+    },
+    {
+      "row": {
+        "saturation_flow": 1283,
+        "lost_time_startup_s": 0.0,
+        "seeds": 20,
+        "mean_total_delay_s": 46.2998,
+        "mean_wait_s": 23.161,
+        "clamp_rate": 0.9896,
+        "arrived_fraction": 0.9424,
+        "starvation_events": 0.0,
+        "throughput": 1354.95
+      },
+      "reason": "clamp rate 99% > 50% \u2014 the cycle formula never decided anything; this is a fixed cycle wearing Webster's name"
+    },
+    {
+      "row": {
+        "saturation_flow": 1283,
+        "lost_time_startup_s": 4.0,
+        "seeds": 20,
+        "mean_total_delay_s": 69.4052,
+        "mean_wait_s": 26.6625,
+        "clamp_rate": 0.5901,
+        "arrived_fraction": 0.9169,
+        "starvation_events": 0.0,
+        "throughput": 1300.1
+      },
+      "reason": "clamp rate 59% > 50% \u2014 the cycle formula never decided anything; this is a fixed cycle wearing Webster's name"
+    }
+  ],
+  "summary": [
+    {
+      "saturation_flow": 525,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 38.5082,
+      "mean_wait_s": 22.92,
+      "clamp_rate": 0.8656,
+      "arrived_fraction": 0.95,
+      "starvation_events": 0.0,
+      "throughput": 1377.8
+    },
+    {
+      "saturation_flow": 525,
+      "lost_time_startup_s": 4.0,
+      "seeds": 20,
+      "mean_total_delay_s": 66.5954,
+      "mean_wait_s": 23.9158,
+      "clamp_rate": 0.2167,
+      "arrived_fraction": 0.9238,
+      "starvation_events": 0.0,
+      "throughput": 1325.5
+    },
+    {
+      "saturation_flow": 600,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 38.4887,
+      "mean_wait_s": 22.6355,
+      "clamp_rate": 0.906,
+      "arrived_fraction": 0.9506,
+      "starvation_events": 0.0,
+      "throughput": 1377.9
+    },
+    {
+      "saturation_flow": 600,
+      "lost_time_startup_s": 4.0,
+      "seeds": 20,
+      "mean_total_delay_s": 52.4724,
+      "mean_wait_s": 23.4862,
+      "clamp_rate": 0.2219,
+      "arrived_fraction": 0.9346,
+      "starvation_events": 0.0,
+      "throughput": 1341.6
+    },
+    {
+      "saturation_flow": 660,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 39.3577,
+      "mean_wait_s": 22.9417,
+      "clamp_rate": 0.9362,
+      "arrived_fraction": 0.9471,
+      "starvation_events": 0.0,
+      "throughput": 1373.3
+    },
+    {
+      "saturation_flow": 660,
+      "lost_time_startup_s": 4.0,
+      "seeds": 20,
+      "mean_total_delay_s": 39.4233,
+      "mean_wait_s": 23.4793,
+      "clamp_rate": 0.2607,
+      "arrived_fraction": 0.95,
+      "starvation_events": 0.0,
+      "throughput": 1378.1
+    },
+    {
+      "saturation_flow": 750,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 39.3845,
+      "mean_wait_s": 22.9107,
+      "clamp_rate": 0.9711,
+      "arrived_fraction": 0.9487,
+      "starvation_events": 0.0,
+      "throughput": 1375.35
+    },
+    {
+      "saturation_flow": 750,
+      "lost_time_startup_s": 4.0,
+      "seeds": 20,
+      "mean_total_delay_s": 42.5288,
+      "mean_wait_s": 25.2891,
+      "clamp_rate": 0.301,
+      "arrived_fraction": 0.9479,
+      "starvation_events": 0.0,
+      "throughput": 1374.45
+    },
+    {
+      "saturation_flow": 900,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 38.6022,
+      "mean_wait_s": 22.2719,
+      "clamp_rate": 0.993,
+      "arrived_fraction": 0.9471,
+      "starvation_events": 0.0,
+      "throughput": 1372.9
+    },
+    {
+      "saturation_flow": 900,
+      "lost_time_startup_s": 4.0,
+      "seeds": 20,
+      "mean_total_delay_s": 43.235,
+      "mean_wait_s": 25.301,
+      "clamp_rate": 0.3951,
+      "arrived_fraction": 0.9478,
+      "starvation_events": 0.0,
+      "throughput": 1374.35
+    },
+    {
+      "saturation_flow": 1050,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 39.4184,
+      "mean_wait_s": 22.9442,
+      "clamp_rate": 1.0,
+      "arrived_fraction": 0.9496,
+      "starvation_events": 0.0,
+      "throughput": 1376.65
+    },
+    {
+      "saturation_flow": 1050,
+      "lost_time_startup_s": 4.0,
+      "seeds": 20,
+      "mean_total_delay_s": 44.1831,
+      "mean_wait_s": 25.6142,
+      "clamp_rate": 0.479,
+      "arrived_fraction": 0.9447,
+      "starvation_events": 0.0,
+      "throughput": 1370.05
+    },
+    {
+      "saturation_flow": 1283,
+      "lost_time_startup_s": 0.0,
+      "seeds": 20,
+      "mean_total_delay_s": 46.2998,
+      "mean_wait_s": 23.161,
+      "clamp_rate": 0.9896,
+      "arrived_fraction": 0.9424,
+      "starvation_events": 0.0,
+      "throughput": 1354.95
+    },
+    {
+      "saturation_flow": 1283,
+      "lost_time_startup_s": 4.0,
+      "seeds": 20,
+      "mean_total_delay_s": 69.4052,
+      "mean_wait_s": 26.6625,
+      "clamp_rate": 0.5901,
+      "arrived_fraction": 0.9169,
+      "starvation_events": 0.0,
+      "throughput": 1300.1
+    }
+  ],
+  "reported_mean_wait_rule_would_select": {
+    "saturation_flow": 660,
+    "lost_time_startup_s": 4.0,
+    "seeds": 20,
+    "mean_total_delay_s": 39.4233,
+    "mean_wait_s": 23.4793,
+    "clamp_rate": 0.2607,
+    "arrived_fraction": 0.95,
+    "starvation_events": 0.0,
+    "throughput": 1378.1
+  }
+}

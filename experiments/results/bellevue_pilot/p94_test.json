@@ -1,0 +1,110 @@
+{
+  "sus60": {
+    "test_windows": 29,
+    "decisions": 116,
+    "support": {
+      "LOW": 30,
+      "MEDIUM": 59,
+      "HIGH": 27
+    },
+    "selected_config": "G",
+    "G": {
+      "macro_f1": 0.7167,
+      "accuracy": 0.7069,
+      "qwk": 0.7221,
+      "per_lane_correct": {
+        "lane_0": 19,
+        "lane_1": 16,
+        "lane_2": 29,
+        "lane_3": 18
+      },
+      "minus_baseline_ci": [
+        -0.0171,
+        0.1564
+      ],
+      "verdict": "not distinguishable"
+    },
+    "H": {
+      "macro_f1": 0.6829,
+      "accuracy": 0.6552,
+      "qwk": 0.699,
+      "per_lane_correct": {
+        "lane_0": 14,
+        "lane_1": 15,
+        "lane_2": 29,
+        "lane_3": 18
+      },
+      "minus_baseline_ci": [
+        -0.0534,
+        0.1262
+      ],
+      "verdict": "not distinguishable"
+    },
+    "previous_window_mean": {
+      "macro_f1": 0.647,
+      "accuracy": 0.6638,
+      "qwk": 0.6311,
+      "per_lane_correct": {
+        "lane_0": 25,
+        "lane_1": 11,
+        "lane_2": 29,
+        "lane_3": 12
+      }
+    },
+    "majority_macro_f1": 0.2248
+  },
+  "sus120": {
+    "test_windows": 25,
+    "decisions": 100,
+    "support": {
+      "LOW": 25,
+      "MEDIUM": 61,
+      "HIGH": 14
+    },
+    "selected_config": "H",
+    "G": {
+      "macro_f1": 0.8036,
+      "accuracy": 0.83,
+      "qwk": 0.809,
+      "per_lane_correct": {
+        "lane_0": 25,
+        "lane_1": 11,
+        "lane_2": 25,
+        "lane_3": 22
+      },
+      "minus_baseline_ci": [
+        -0.0014,
+        0.1891
+      ],
+      "verdict": "not distinguishable"
+    },
+    "H": {
+      "macro_f1": 0.7718,
+      "accuracy": 0.79,
+      "qwk": 0.7763,
+      "per_lane_correct": {
+        "lane_0": 21,
+        "lane_1": 11,
+        "lane_2": 25,
+        "lane_3": 22
+      },
+      "minus_baseline_ci": [
+        -0.027,
+        0.1467
+      ],
+      "verdict": "not distinguishable"
+    },
+    "previous_window_mean": {
+      "macro_f1": 0.7139,
+      "accuracy": 0.81,
+      "qwk": 0.7445,
+      "per_lane_correct": {
+        "lane_0": 24,
+        "lane_1": 12,
+        "lane_2": 25,
+        "lane_3": 20
+      }
+    },
+    "majority_macro_f1": 0.2526
+  }
+}

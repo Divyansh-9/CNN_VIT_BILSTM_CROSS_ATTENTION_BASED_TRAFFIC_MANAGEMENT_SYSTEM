@@ -1,0 +1,5 @@
+model,seed,n,accuracy,macro_f1,weighted_f1,ordinal_mae,off_by_two_rate,qwk,labels,note,f1_low,support_low,f1_medium,support_medium,f1_high,support_high
+naive_last_value,42,252,0.8056,0.6924,0.8078,0.1944,0.0,0.7689,auto,PRD 14.3 lower bound,0.9128,150,0.6994,82,0.4651,20
+xgboost_counts,42,252,0.8016,0.5738,0.7836,0.1984,0.0,0.712,auto,"P13, after Saxena et al. TITS 2025",0.9041,150,0.734,82,0.0833,20
+lstm_counts,42,252,0.7143,0.5794,0.7148,0.2857,0.0,0.7259,auto,PRD 14.3,0.9013,150,0.4545,82,0.3824,20
+gru_counts,42,252,0.6984,0.5509,0.675,0.3016,0.0,0.7331,auto,PRD 14.3,0.901,150,0.3214,82,0.4304,20

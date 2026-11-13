@@ -1,0 +1,89 @@
+# The server stack (NFR.md §3; PRD §22.3): broker, API with the built
+# dashboard, ingest, and the SQLite store (D15).
+#
+#   python deploy/make_local_secrets.py     # throwaway secrets, local and CI only
+#   docker compose up -d --build
+#   python deploy/smoke_test.py             # waits for readiness, then the real path: MQTT over TLS to the dashboard
+#   docker compose down                     # keeps the data; add -v to delete it
+#
+# The edge is not here. It runs on its own device (ADR-003) with the detector
+# weights and the forecaster specs, which no image may carry.
+#
+# Secrets arrive at run time, from deploy/secrets/: gitignored, outside the
+# build context, never in a layer. An env_file is a local convenience and not
+# secret management; a deployment brings its own (TIM §7–§8).
+
+name: stms
+
+services:
+  # Copies the broker's certificate, key and plaintext passwords into a volume,
+  # hashes the passwords there and makes them the broker's own. Then it exits.
+  broker-init:
+    image: eclipse-mosquitto:2.1.2-alpine
+    user: "0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        cp /secrets/broker.crt /secrets/broker.key /secrets/passwd.plain /mosquitto/broker/ &&
+        mv /mosquitto/broker/passwd.plain /mosquitto/broker/passwd &&
+        mosquitto_passwd -U /mosquitto/broker/passwd &&
+        chown -R mosquitto:mosquitto /mosquitto/broker &&
+        chmod 0600 /mosquitto/broker/broker.key /mosquitto/broker/passwd
+    volumes:
+      - ./deploy/secrets:/secrets:ro
+      - broker-files:/mosquitto/broker
+
+  mosquitto:
+    image: eclipse-mosquitto:2.1.2-alpine
+    depends_on:
+      broker-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./deploy/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - broker-files:/mosquitto/broker:ro
+      - broker-data:/mosquitto/data
+    ports:
+      - "127.0.0.1:8883:8883"
+    # Listening on 8883, read from the kernel's socket table: needs no login,
+    # so no credential is ever written into a health check.
+    healthcheck:
+      test: ["CMD-SHELL", "awk '$$2 ~ /:22B3$$/ && $$4 == \"0A\" {f=1} END {exit !f}' /proc/net/tcp"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: deploy/server.Dockerfile
+    image: stms-server:local
+    env_file: deploy/secrets/server.env
+    volumes:
+      - server-data:/app/data/server
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+  # Stores what arrives over MQTT into the same SQLite file the server reads.
+  # It exits when the broker refuses or is not up yet, and is restarted.
+  ingest:
+    image: stms-server:local
+    command: ["python", "-m", "server.mqtt_ingest", "--host", "mosquitto", "--port", "8883"]
+    env_file: deploy/secrets/ingest.env
+    volumes:
+      - server-data:/app/data/server
+      - ./deploy/secrets/ca.crt:/secrets/ca.crt:ro
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+volumes:
+  server-data:
+  broker-data:
+  broker-files:

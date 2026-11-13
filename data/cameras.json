@@ -1,0 +1,117 @@
+{
+  "_note": [
+    "Declared properties of every camera in the MFSTNet corpus (P58).",
+    "",
+    "P45's density gate and P17's unassigned-rate gate are both correct and",
+    "neither asks what a camera IS. That is how the M6 Motorway — a British",
+    "divided carriageway with enforced lane discipline — became 41% of the",
+    "evaluation corpus and 53% of every HIGH label in a project about",
+    "unstructured Indian traffic.",
+    "",
+    "Nothing here can be inferred from a filename with confidence, so every",
+    "entry records HOW it was determined. 'frame' means the footage was looked",
+    "at; 'filename' means it was not, and those entries are provisional.",
+    "",
+    "`target_domain` is what the PRD claims the project is about.",
+    "scripts/audit_corpus.py checks the evaluation against it and FAILS when no",
+    "fold-eligible camera matches, because a paper cannot claim a domain its",
+    "test set does not contain.",
+    "",
+    "`licence` is recorded per camera because the releasable claim in docs/00-planning/CLAIMS.yaml depends on it. Every entry is currently unresolved: the corpus is built from third-party YouTube uploads, and nothing derived from them is releasable until that is settled."
+  ],
+  "target_domain": {
+    "country": [
+      "India"
+    ],
+    "traffic_type": [
+      "mixed"
+    ],
+    "viewpoint": [
+      "elevated"
+    ],
+    "note": "PRD §1: unstructured Indian traffic, camera-only, elevated view."
+  },
+  "cameras": {
+    "M6 Motorway Traffic": {
+      "country": "United Kingdom",
+      "city": "unknown",
+      "viewpoint": "elevated",
+      "traffic_type": "structured",
+      "determined_by": "frame",
+      "note": "Divided motorway, enforced lane discipline, no junction, no mixed traffic, no pedestrians. The premise's counterexample.",
+      "licence": "unresolved (third-party YouTube upload)"
+    },
+    "Incredible traffic Sound in Dhaka, Bangladesh। Rampura  [4K ASMR] #TheSoundofDhaka": {
+      "country": "Bangladesh",
+      "city": "Dhaka (Rampura)",
+      "viewpoint": "elevated",
+      "traffic_type": "mixed",
+      "determined_by": "frame",
+      "note": "Footbridge over a junction. Rickshaws, auto-rickshaws, motorcycles, pedestrians in the carriageway.",
+      "licence": "unresolved (third-party YouTube upload)"
+    },
+    "🎧 Incredible traffic Sound in Dhaka, Bangladesh। Rampura [4K ASMR] #TheSoundOfDhaka": {
+      "country": "Bangladesh",
+      "city": "Dhaka (Rampura)",
+      "viewpoint": "elevated",
+      "traffic_type": "mixed",
+      "determined_by": "frame",
+      "note": "Footbridge over a divided boulevard past South Point School. A DIFFERENT scene from the clip above despite the near-identical title; correlated by city, corridor and uploader.",
+      "licence": "unresolved (third-party YouTube upload)"
+    },
+    "Pov_Thursday Traffic From Footover bridge। Cloudy Seen।": {
+      "country": "Bangladesh",
+      "city": "Dhaka",
+      "viewpoint": "elevated",
+      "traffic_type": "mixed",
+      "determined_by": "frame",
+      "note": "'Pov' is misleading — this is a pedestrian footover bridge, not a dashcam. BSRM and Salam Steel signage.",
+      "licence": "unresolved (third-party YouTube upload)"
+    },
+    "Mumbai Traffic Chaos - Near Andheri Station": {
+      "country": "India",
+      "city": "Mumbai",
+      "viewpoint": "unknown",
+      "traffic_type": "mixed",
+      "determined_by": "filename",
+      "note": "PROVISIONAL — frames not inspected. Only 6 lane-windows, below ADR-019 eligibility.",
+      "licence": "unresolved (third-party YouTube upload)"
+    },
+    "South Extension traffic multi-coloured_ pink - green buses as Bangkok pink taxis, green-yellow autos": {
+      "country": "India",
+      "city": "Delhi",
+      "viewpoint": "unknown",
+      "traffic_type": "mixed",
+      "determined_by": "filename",
+      "note": "PROVISIONAL — frames not inspected. Only 3 lane-windows, below ADR-019 eligibility.",
+      "licence": "unresolved (third-party YouTube upload)"
+    },
+    "video1": {
+      "country": "unknown",
+      "city": "unknown",
+      "viewpoint": "unknown",
+      "traffic_type": "unknown",
+      "determined_by": "none",
+      "note": "Nothing is known about this clip. Recorded as unknown rather than guessed: an assumed country is worse than an absent one, because it would count toward the target domain.",
+      "licence": "unresolved (provenance unknown)"
+    },
+    "Bellevue_Bellevue_NE8th__2017-09-11_16-08-32": {
+      "country": "United States",
+      "city": "Bellevue, WA (NE 8th St)",
+      "viewpoint": "elevated",
+      "traffic_type": "structured",
+      "determined_by": "frame",
+      "note": "Pole-mounted junction camera, whole intersection in frame, all four approaches visible. Inspected 2026-10-15 at 1 s, 1800 s and 3590 s: burnt-in clock reads 16:08:33, 16:38:32, 17:08:22, exactly continuous. H.264 1280x720 29.99 fps, 60 min, weekday evening peak. Lane-disciplined US traffic: the M6 regime, not the target one.",
+      "licence": "unresolved (research use stated, no licence; request drafted in OUTREACH-2026-10-15)"
+    },
+    "Bellevue_NE8th_2017-09-11_15-08_to_17-08": {
+      "country": "United States",
+      "city": "Bellevue, WA (NE 8th St)",
+      "viewpoint": "elevated",
+      "traffic_type": "structured",
+      "determined_by": "frame",
+      "note": "The 15:08-17:08 join of NE 8th: two consecutive hourly files, stream-copied, continuous across the join (15:08:32-16:08:32, then 16:08:32 onward). Pole-mounted junction camera, whole intersection in frame, all four approaches visible. Inspected 2026-10-15 at 1 s, 1800 s and 3590 s: burnt-in clock reads 16:08:33, 16:38:32, 17:08:22, exactly continuous. H.264 1280x720 29.99 fps, 60 min, weekday evening peak. Lane-disciplined US traffic: the M6 regime, not the target one.",
+      "licence": "unresolved (research use stated, no licence; request drafted in OUTREACH-2026-10-15)"
+    }
+  }
+}

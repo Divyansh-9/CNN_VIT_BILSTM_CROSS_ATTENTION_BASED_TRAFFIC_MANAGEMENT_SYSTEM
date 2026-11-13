@@ -244,7 +244,7 @@ def test_state_dim_matches_the_spec():
     spec = yaml.safe_load(
         (pathlib.Path("mfstnet/configs/spec.yaml")).read_text(encoding="utf-8")
     )
-    assert module.STATE_DIM == spec["ppo_state"]["dim"] == 16
+    assert module.STATE_DIM == spec["ppo_state"]["dim"] == 17
 
 
 @needs_sumo
@@ -366,15 +366,16 @@ def test_green_durations_lie_within_the_signal_bounds():
 
 
 @needs_sumo
-def test_forecast_indices_are_zeroed_not_dropped():
-    """PRD §7.2 / FR-A06. Shortening the vector changes the observation space and
-    breaks the checkpoint; zeroing keeps the contract and states 'no forecast'."""
+def test_forecast_indices_read_absent_not_dropped():
+    """ADR-020 as amended. With no forecast, 11-14 read the reserved "absent"
+    (0.0, which no class can produce) and the age reads 1.0. Never dropped."""
     module = _env_module()
     env = module.TrafficSignalEnv(regime="light", episode_s=120)
     try:
         observation, _ = env.reset()
-        assert observation.shape == (16,)
+        assert observation.shape == (17,)
         assert all(observation[i] == 0.0 for i in (11, 12, 13, 14))
+        assert observation[16] == 1.0
     finally:
         env.close()
 

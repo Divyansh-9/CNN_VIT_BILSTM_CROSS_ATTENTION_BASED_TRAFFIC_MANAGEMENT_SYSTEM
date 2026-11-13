@@ -1,0 +1,69 @@
+{
+  "name": "persistence v1",
+  "method": "forecast for the next 60 s = class of the mean of each lane's last 30 counts (2 s step); LOW if mean <= low, MEDIUM if <= med, else HIGH",
+  "decision": "project owner, after P103: the prototype's transferable forecaster",
+  "cameras": {
+    "150th_Eastgate": {
+      "low": 0.13333333333333333,
+      "med": 0.9666666666666667,
+      "source": "P103 calibration hour, Sun 2017-09-10 18:08 (q33/q67 of 60 s means, ADR-017)",
+      "lanes": 4
+    },
+    "150th_Newport": {
+      "low": 0.5333333333333333,
+      "med": 1.5333333333333334,
+      "source": "P103 calibration hour, Sun 2017-09-10 18:08 (q33/q67 of 60 s means, ADR-017)",
+      "lanes": 4
+    },
+    "150th_SE38th": {
+      "low": 1.1,
+      "med": 2.4,
+      "source": "P103 calibration hour, Sun 2017-09-10 18:08 (q33/q67 of 60 s means, ADR-017)",
+      "lanes": 4
+    },
+    "NE8th": {
+      "low": 2.0,
+      "med": 8.0,
+      "lanes": 3,
+      "source": "absolute 2/8 used by P94-P101; LOW validated by P99b"
+    }
+  },
+  "confidence_is_measured_precision": {
+    "LOW": 0.7619926199261993,
+    "MEDIUM": 0.5554382259767687,
+    "HIGH": 0.7997594708358389
+  },
+  "confidence_source": "P103 calibrated pooled confusion, persistence column precision",
+  "measured": {
+    "P103 new cameras, calibrated, pooled": {
+      "macro_f1": 0.7056,
+      "recall": {
+        "LOW": 0.7606,
+        "MEDIUM": 0.5578,
+        "HIGH": 0.7983
+      },
+      "vs C1-L": {
+        "point": -0.2222,
+        "ci95": [
+          -0.2604,
+          -0.1834
+        ],
+        "p": 0.0,
+        "blocks": 41,
+        "windows": 788,
+        "holm_threshold": 0.025,
+        "holm_significant": true,
+        "beats": false
+      }
+    },
+    "P100 NE 8th unseen hours": {
+      "macro_f1": 0.5397,
+      "recall": {
+        "LOW": 0.5091,
+        "MEDIUM": 0.7297,
+        "HIGH": 0.3892
+      }
+    }
+  },
+  "not_established": "that any signal-control policy using these forecasts is safe or beneficial; persistence is not fed to the PPO state (P97a)"
+}

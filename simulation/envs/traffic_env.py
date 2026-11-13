@@ -1,6 +1,6 @@
 """Gymnasium environment for the signal controller (S36, PRD §13.1).
 
-The **16-dim state vector is a contract** (FR-M14, amendment A16). Its layout is
+The **17-dim state vector is a contract** (FR-M14, A16, ADR-020 as amended). Its layout is
 defined once in `mfstnet/configs/spec.yaml` and read from there, never restated
 here — a second copy of an index map is a second chance to permute it, and a
 permuted state invalidates every trained checkpoint silently.
@@ -10,12 +10,14 @@ permuted state invalidates every trained checkpoint silently.
     8      phase == NS
     9      phase == EW
     10     phase remaining       / phase_remaining_divisor
-    11-14  MFSTNet class N S E W / mfst_pred_divisor
+    11-14  class forecast N S E W   LOW/MEDIUM/HIGH -> 1/3, 2/3, 1; 0.0 = none
     15     emergency flag
+    16     forecast_age            min(age, 10) / 10; 1.0 when there is no forecast
 
-Indices 11-14 are **zeroed, never dropped**, when MFSTNet is unavailable
-(PRD §7.2, FR-A06). Shortening the vector would change the observation space and
-break the checkpoint; zeroing keeps the contract and states "no forecast".
+**0.0 at 11-14 means "no forecast", and no class can produce it** (ADR-020 as
+amended, P97a). Under the old layout LOW was 0.0, so "no forecast" read as
+"clear". `simulation.forecast_state.forecast_slots` is the only route to these
+indices. Shortening the vector would still break the checkpoint.
 
 `mfst_gate_mean` was in the original 17-dim spec and A16 removed it: SUMO has no
 camera, so there is no gate to read, and a state feature that is always zero in
@@ -42,14 +44,89 @@ except ImportError as error:      # pragma: no cover
 
 from ..runner import APPROACHES, lane_ids
 from ..sumo_tools import ensure_sumo_home, sumo_binary
+from ..scenarios import demand_path, episode_seed
+
+from simulation.forecast_state import forecast_slots  # noqa: E402
 
 __all__ = ["TrafficSignalEnv", "GREEN_DURATIONS", "STATE_DIM"]
 
-STATE_DIM = 16
+STATE_DIM = 17                    # ADR-020 as amended: forecast_age at 16
 GREEN_DURATIONS = (10, 20, 30, 45, 60, 90)     # PRD §13.1
 ACTION_SPACES = ("phase_duration", "keep_or_switch")   # ADR-015
 NS, EW = 0, 1
 _SPEC = Path(__file__).resolve().parents[2] / "mfstnet" / "configs" / "spec.yaml"
+
+
+SUMO_START_ATTEMPTS = 5
+
+
+def _discard(traci, label: str, proc) -> None:
+    """Undo a failed start without blocking, and without touching any other process.
+
+    `traci.close()` must not be used here: it sends a close command over a
+    socket that may be dead, then waits forever on the SUMO it started (P126).
+    """
+    from traci import connection
+
+    con = connection._connections.get(label)                 # private, deliberately
+    if con is not None:
+        sock = getattr(con, "_socket", None)
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
+        connection._connections.pop(label, None)
+        if connection._connections.get("") is con:
+            connection._connections.pop("", None)
+    if proc.poll() is None:                                   # only the process we started
+        proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except Exception:                                         # noqa: BLE001
+        pass
+
+
+def start_sumo(traci, command: list[str], attempts: int = SUMO_START_ATTEMPTS,
+               label: str = "default") -> None:
+    """Start SUMO and connect to it, safe against parallel trainings (P126).
+
+    Parallel processes race for a free port. The race can end in two ways, and
+    both are handled:
+
+    - **our SUMO cannot bind the port.** It exits, and the handshake fails;
+    - **our client reaches another process's SUMO** on that port. A clean
+      handshake there would silently drive the wrong simulation, so once
+      connected, our own SUMO must still be running. If it is not, the
+      connection is someone else's, and it is discarded.
+
+    SUMO is started here rather than by `traci.start`, so this function always
+    holds its own process. A failed attempt kills that process and only that
+    one, never blocks, and retries with a new port and the same command and
+    seed. After the last attempt the error is raised: an episode is never
+    skipped, re-seeded or run with a different configuration.
+    """
+    import subprocess
+
+    from sumolib.miscutils import getFreeSocketPort
+
+    for attempt in range(1, attempts + 1):
+        port = getFreeSocketPort()
+        proc = subprocess.Popen(list(command) + ["--remote-port", str(port)])
+        try:
+            traci.init(port, label=label, proc=proc)
+            if proc.poll() is not None:
+                raise ConnectionError(f"our SUMO exited; port {port} belongs to "
+                                      f"another process")
+            return
+        except BaseException as error:
+            # Every path out of a failed attempt cleans up our own process,
+            # identified by the handle we hold, never by a port or a PID
+            # lookup. An interrupt is not retried: it is cleaned up, then
+            # re-raised at once.
+            _discard(traci, label, proc)
+            if not isinstance(error, Exception) or attempt == attempts:
+                raise
 
 
 def _load_spec() -> dict:
@@ -81,12 +158,15 @@ class TrafficSignalEnv(gym.Env):
         switch_penalty: float = 0.05,
         action_space: str = "phase_duration",
         decision_interval_s: int = 5,
+        lateral_resolution: float | None = 0.8,
+        forecast=None,
+        tripinfo: bool = True,
     ) -> None:
         super().__init__()
         spec = _load_spec()
         self._index_map = spec["ppo_state"]["index_map"]
         self._norm = spec["ppo_state"]["normalisers"]
-        self._zeroed = spec["ppo_state"]["zero_when_mfstnet_unavailable"]
+        self._state_spec = spec["ppo_state"]
         signal = spec["signal"]
 
         if spec["ppo_state"]["dim"] != STATE_DIM:
@@ -100,6 +180,17 @@ class TrafficSignalEnv(gym.Env):
         self.regime = regime
         self.base_seed = seed
         self.episode_s = episode_s
+        # P119: the sublane model (ADR-010), exactly as `run_episode` applies it.
+        # Before this the environment never passed it, so every policy trained on
+        # lane-disciplined traffic and was evaluated on sublane traffic.
+        self.lateral_resolution = lateral_resolution
+        # P52, ADR-021 A1.4: what fills indices 11-14 and 16. None is the
+        # no-forecast arm, exactly the behaviour before producers existed.
+        self.forecast = forecast
+        self.write_tripinfo = tripinfo
+        # P129: the SUMO seed of every episode actually run, so the demand a
+        # training run saw can be checked rather than inferred from the rule.
+        self.run_seeds: list[int] = []
         self.use_mfstnet = use_mfstnet
         self.starvation_penalty = starvation_penalty
         self.switch_penalty = switch_penalty
@@ -167,15 +258,26 @@ class TrafficSignalEnv(gym.Env):
         ensure_sumo_home()
         import traci
 
-        self._tripinfo = self._tripinfo_dir / f"ep{self._episode:06d}.tripinfo.xml"
-        self._traci = traci
-        run_seed = self.base_seed + self._episode if seed is None else seed
+        # Unique per instance: a replay environment (simulation.oracle) can run
+        # in the same process as the one training.
+        self._tripinfo = (self._tripinfo_dir / f"{id(self):x}_ep{self._episode:06d}.tripinfo.xml"
+                          if self.write_tripinfo else None)
+        # P115: on a scenario the seed is the demand, so training episodes are
+        # kept clear of the evaluation seeds; constant regimes are unchanged.
+        run_seed = (episode_seed(self.regime, self.base_seed, self._episode)
+                    if seed is None else seed)
+        self.run_seeds.append(int(run_seed))
         self._episode += 1
+        # Before this environment's SUMO starts: a replay oracle runs its own
+        # episode to answer, and must not share a live connection.
+        if self.forecast is not None:
+            self.forecast.reset(run_seed)
+        self._traci = traci
 
-        traci.start([
+        start_sumo(traci, [
             str(sumo_binary("sumo")),
             "-n", str(self.net_dir / "intersection.net.xml"),
-            "-r", str(self.net_dir / f"demand_{self.regime}.rou.xml"),
+            "-r", str(demand_path(self.net_dir, self.regime, run_seed)),
             "-a", str(self.net_dir / "vtypes.add.xml"),
             "--seed", str(run_seed),
             "--no-step-log", "true",
@@ -188,8 +290,9 @@ class TrafficSignalEnv(gym.Env):
             # shaping signal and then benchmarking on tripinfo would be a
             # comparison of two different quantities, and could pick the wrong
             # arm. `mean_wait_s()` reads this after an episode ends.
-            "--tripinfo-output", str(self._tripinfo),
-        ])
+        ] + (["--tripinfo-output", str(self._tripinfo)] if self._tripinfo else [])
+          + (["--lateral-resolution", str(self.lateral_resolution)]
+             if self.lateral_resolution else []))
 
         self._lanes = lane_ids()
         self._step_s = 0
@@ -278,10 +381,12 @@ class TrafficSignalEnv(gym.Env):
     def _observe(self) -> np.ndarray:
         state = np.zeros(STATE_DIM, dtype=np.float32)
         index = self._index_map
+        counts = {}
 
         for approach in APPROACHES:
             group = self._lanes[approach]
             count = sum(self._traci.lane.getLastStepVehicleNumber(l) for l in group)
+            counts[approach] = count
             queue = sum(self._traci.lane.getLastStepHaltingNumber(l) for l in group)
             state[index[f"count_{approach}"]] = count / self._norm["count_divisor"]
             state[index[f"queue_{approach}"]] = queue / self._norm["queue_divisor"]
@@ -306,14 +411,19 @@ class TrafficSignalEnv(gym.Env):
             max(0, self._remaining) / self._norm["phase_remaining_divisor"]
         )
 
-        # Indices 11-14 stay zero when there is no forecast. Zeroed, never
-        # dropped — shortening the vector breaks every trained checkpoint.
+        # ADR-020 as amended: no forecast in this world, so every class slot
+        # reads the reserved "absent" and the age reads 1.0. Never a class.
         if self.use_mfstnet:
             raise NotImplementedError(
                 "live MFSTNet in the loop is Phase 3 (PRD §2.4). Until then the "
-                "forecast indices stay zeroed, which is the declared fallback "
-                "behaviour (FR-A06), not a stub."
+                "forecast indices read 'no forecast', which is the declared "
+                "fallback behaviour (FR-A06), not a stub."
             )
+        # P52: the producer answers; `forecast_slots` is still the only encoder.
+        message, age = ((None, None) if self.forecast is None
+                        else self.forecast.message(self._step_s, counts))
+        for i, value in forecast_slots(self._state_spec, message, age).items():
+            state[i] = value
 
         return state
 

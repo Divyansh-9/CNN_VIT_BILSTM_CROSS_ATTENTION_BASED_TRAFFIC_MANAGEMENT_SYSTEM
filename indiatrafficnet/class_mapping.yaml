@@ -257,6 +257,14 @@ bmd45:
 # congestion label from counts produced at this number.
 counting:
   confidence_threshold: 0.45
+  # The deployed edge counts with this detector at this input size, at the
+  # threshold above. They are the settings every committed corpus manifest
+  # records (data/corpus/manifest.json: best_xl_ITD_v1.2.pt, conf 0.45,
+  # imgsz 992), and so the settings the persistence thresholds and the ridge
+  # coefficients were calibrated under (P97, P103, P105). Changing one changes
+  # every count. `edge/run.py` reads all three from here (D5).
+  detector_weights: models/external/best_xl_ITD_v1.2.pt
+  imgsz: 992
   fitted_on: BMD-45 elevated evaluation split, 498 frames, 5,273 vehicles
   status: PROVISIONAL — re-confirm on S06 deployment footage before site use
   bias_note: >
@@ -271,3 +279,23 @@ counting:
     Congestion labels are assigned per frame, so those errors do not cancel the
     way the aggregate ratio does. Density-stratified reporting (A10) exists to
     keep that visible rather than averaged away.
+
+# ITD (best_xl_ITD_v1.2.pt) -> our class, or null to DROP (Phase C finding D1).
+#
+# The deployed detector's own names. The edge needs them mapped before a count
+# reaches the contract's `VehicleCount`, which refused 'two wheeler' and ended
+# the edge loop. These are the decisions `scripts/pseudo_label.py` already
+# applies (`ITD_TO_OURS`, kept equal to this by a test), not new ones:
+# `LCV` merges into `truck` (a merge of like things, DATASETS §6; PRD §12.2's
+# truck includes tempos), and `bicycle` is dropped, as for IDD above. Every ITD
+# class is listed, so nothing is decided by omission. No PCU weighting is
+# implied: a kept vehicle counts one on the wire.
+itd_mapping:
+  two wheeler: motorcycle
+  autorickshaw: auto_rickshaw
+  car: car
+  bus: bus
+  LCV: truck
+  truck: truck
+  pedestrain: pedestrian     # ITD's spelling
+  bicycle: null              # not in the §12.2 taxonomy; dropped, never merged

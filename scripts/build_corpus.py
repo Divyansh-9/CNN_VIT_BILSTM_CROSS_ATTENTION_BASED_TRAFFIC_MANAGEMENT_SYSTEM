@@ -37,6 +37,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 from mfstnet.corpus.counting import Detection, count_frame  # noqa: E402
 from mfstnet.corpus.geometry import Polygon  # noqa: E402
 from mfstnet.corpus.labels import label_from_count, smooth_counts  # noqa: E402
@@ -93,6 +97,24 @@ def load_reviewed_lanes(directory: Path) -> dict[str, LaneCentres]:
         )
     if not out:
         raise SystemExit(f"no reviewed lane files under {directory}")
+
+    # The congestion head is a fixed width, so one corpus cannot mix cameras
+    # with different lane counts — the mismatch would otherwise surface deep in
+    # training as a shape error with no trace back to the camera that caused it
+    # (P26). The COUNT must agree; the positions are per-camera by design.
+    counts = {clip: len(lanes.names) for clip, lanes in out.items()}
+    if len(set(counts.values())) > 1:
+        spread = ", ".join(
+            f"{clip[:40]} ({n})"
+            for clip, n in sorted(counts.items(), key=lambda kv: -kv[1])
+        )
+        raise SystemExit(
+            f"cameras disagree on lane count: {spread}. "
+            f"The per-lane head has one output per lane and is built once, so "
+            f"every camera in a corpus needs the same number of lanes. Place "
+            f"the same count on each in docs/demo/place_lanes.html, or build "
+            f"separate corpora."
+        )
     return out
 
 # Lane layouts. A motorway is two carriageways, not four approaches — ADR-016
@@ -113,21 +135,30 @@ LANE_SETS = {
 
 
 def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
-                  conf: float, imgsz: int = 640) -> tuple[list[dict], int]:
-    """Per-lane occupancy every `step_s` seconds. Returns (rows, n_samples)."""
+                  conf: float, imgsz: int = 640) -> tuple[list[dict], int, list[dict]]:
+    """Per-lane occupancy every `step_s` seconds.
+
+    Returns `(rows, n_samples, detections)`. The third is every detection in
+    normalised coordinates, and it is the expensive thing this function
+    produces: **it does not depend on the lanes**. Writing it out is what makes
+    moving a lane centre a seconds-long re-derivation instead of another pass
+    of the detector over every clip (P28) — the same argument the manifest
+    already makes for thresholds.
+    """
     import cv2
+
+    from mfstnet.corpus.video import iter_sampled_frames
 
     capture = cv2.VideoCapture(str(clip))
     fps = capture.get(cv2.CAP_PROP_FPS) or 25.0
-    total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
     stride = max(1, int(round(fps * step_s)))
+    capture.release()
 
-    rows = []
-    for index in range(0, total, stride):
-        capture.set(cv2.CAP_PROP_POS_FRAMES, index)
-        ok, frame = capture.read()
-        if not ok:
-            break
+    rows, detected = [], []
+    # P51. Seeking to each sample cost ~105 ms at 1080p against 55 ms for the
+    # detector itself, so the build spent most of its time deciding which frame
+    # to look at. Decoding forward returns the same pixels for less.
+    for frame in iter_sampled_frames(clip, stride):
         result = model.predict(source=frame, conf=conf, imgsz=imgsz,
                                verbose=False)[0]
         height, width = result.orig_shape
@@ -144,14 +175,20 @@ def sample_counts(clip: Path, lanes, model, ids, names, *, step_s: float,
             if int(c) in ids
         ]
         counts = count_frame(detections, lanes, min_confidence=conf)
+        for d in detections:
+            detected.append({
+                "clip_id": clip.stem, "sample": len(rows),
+                "cls": d.cls, "confidence": round(d.confidence, 4),
+                "x1": round(d.x1, 5), "y1": round(d.y1, 5),
+                "x2": round(d.x2, 5), "y2": round(d.y2, 5),
+            })
         row = {"clip_id": clip.stem, "sample": len(rows),
                "t_s": round(len(rows) * step_s, 2)}
         for name in lane_names(lanes):
             row[f"count_{name}"] = counts.per_lane.get(name, 0)
         row["unassigned"] = counts.unassigned
         rows.append(row)
-    capture.release()
-    return rows, len(rows)
+    return rows, len(rows), detected
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -189,12 +226,16 @@ def main(argv: list[str] | None = None) -> int:
         help="directory of REVIEWED per-camera lane files from "
              "scripts/import_lane_centres.py — what a multi-camera corpus needs",
     )
-    parser.add_argument("--split-mode", choices=("clip", "temporal"), default="clip",
+    parser.add_argument("--split-mode", choices=("clip", "temporal", "none"),
+                        default="clip",
                         help="'clip' assigns whole clips (ADR-002) and needs "
                              "enough clips to fill three splits. 'temporal' "
                              "splits ONE camera's timeline by time, discarding "
                              "windows within a window-length of each boundary "
-                             "so no test window shares a frame with training")
+                             "so no test window shares a frame with training. "
+                             "'none' marks every window 'test', for a corpus "
+                             "that only evaluates a frozen model (P98) and "
+                             "trains nothing")
     parser.add_argument("--low-max", type=int, default=4,
                         help="highest count still LOW. PRD 14.1 says 4. "
                              "A parameter because the corpus stores COUNTS, "
@@ -277,6 +318,8 @@ def main(argv: list[str] | None = None) -> int:
 
     all_counts, all_sequences, skipped, rejected = [], [], [], []
     signatures: dict[str, list[float]] = {}
+    lanes_by_clip: dict[str, object] = {}
+    all_detections: list[dict] = []
     for clip in clips:
         # Duration first. Running the detector over a clip that cannot yield a
         # single window is pure waste, and most of a mixed footage directory is
@@ -296,14 +339,18 @@ def main(argv: list[str] | None = None) -> int:
                 f"label built on it is arbitrary (P17)."
             )
         clip_lanes = per_clip_lanes.get(clip.name, lanes)
-        rows, n = sample_counts(clip, clip_lanes, model, ids, names,
-                                imgsz=args.imgsz,
-                                step_s=args.step_s, conf=args.conf)
+        rows, n, detected = sample_counts(clip, clip_lanes, model, ids, names,
+                                          imgsz=args.imgsz,
+                                          step_s=args.step_s, conf=args.conf)
 
         # P17. Counts through a mismatched polygon are not low counts, they are
         # counts of the wrong region — and a balanced label distribution over
         # meaningless counts is worse than an obviously broken one.
-        assigned = sum(r[f"count_{name}"] for r in rows for name in lane_names(lanes))
+        # The clip's own lanes, never the seed camera's: a name that camera does
+        # not have is a KeyError, and a name it happens to share is a count of
+        # the wrong region (P26).
+        assigned = sum(r[f"count_{name}"]
+                       for r in rows for name in lane_names(clip_lanes))
         unassigned = sum(r["unassigned"] for r in rows)
         rate = unassigned / max(assigned + unassigned, 1)
         if rate > args.max_unassigned:
@@ -330,6 +377,8 @@ def main(argv: list[str] | None = None) -> int:
             signatures[clip.stem] = scene_signature(
                 cv2.cvtColor(mid, cv2.COLOR_BGR2GRAY))
 
+        lanes_by_clip[clip.stem] = clip_lanes
+        all_detections.extend(detected)
         all_counts.extend(rows)
         all_sequences.extend(sequences)
         print(f"  {clip.stem[:44]:<46} {n:>4} samples  {len(sequences):>4} sequences")
@@ -349,12 +398,17 @@ def main(argv: list[str] | None = None) -> int:
     smoothed = {
         clip_id: {
             name: smooth_counts([r[f"count_{name}"] for r in rows])
-            for name in lane_names(lanes)
+            for name in lane_names(lanes_by_clip.get(clip_id, lanes))
         }
         for clip_id, rows in by_clip.items()
     }
 
-    if args.split_mode == "temporal":
+    if args.split_mode == "none":
+        # Nothing trains on this corpus, so there is nothing to keep it apart
+        # from; the separation from training data is the evaluator's job.
+        splits = None
+        sequence_split = {id(s): "test" for s in all_sequences}
+    elif args.split_mode == "temporal":
         if len(by_clip) > 1:
             raise SystemExit(
                 f"--split-mode temporal splits ONE camera's timeline, but "
@@ -409,7 +463,7 @@ def main(argv: list[str] | None = None) -> int:
             "start_index": sequence.start_index,
             "label_index": sequence.label_index,
         }
-        for name in lane_names(lanes):
+        for name in lane_names(lanes_by_clip.get(sequence.clip_id, lanes)):
             count = series[name][sequence.label_index]
             entry[f"label_{name}"] = label_from_count(
                 int(round(count)), low_max=args.low_max, med_max=args.med_max).name
@@ -428,6 +482,17 @@ def main(argv: list[str] | None = None) -> int:
         writer = csv.DictWriter(handle, fieldnames=list(all_counts[0]))
         writer.writeheader()
         writer.writerows(all_counts)
+    # The lane-independent half of the expensive pass. counts.csv is derived
+    # from this under one particular set of lane centres; keeping the source
+    # means moving a centre costs a re-derivation rather than another run of
+    # the detector over every clip (P28). NFR-13 is unaffected: these are
+    # normalised boxes and classes, never pixels.
+    if all_detections:
+        with (args.out / "detections.csv").open("w", newline="",
+                                                encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(all_detections[0]))
+            writer.writeheader()
+            writer.writerows(all_detections)
     with (args.out / "sequences.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(labelled[0]))
         writer.writeheader()
@@ -437,9 +502,24 @@ def main(argv: list[str] | None = None) -> int:
         # A8's ROI pooling needs a region per lane at train time, so the
         # geometry travels with the corpus rather than being re-derived from a
         # directory that may have moved on.
+        #
+        # P26: ONE set of centres describes one camera. A corpus spanning
+        # cameras must carry one set PER camera, or training pools every
+        # camera through whichever one happened to be first — silently, since
+        # the shapes agree and the loss still falls. `lane_centres` stays for
+        # the single-camera case and for corpora built before this existed.
         "lane_centres": ([{"name": n, "centre": list(c)}
                           for n, c in zip(lanes.names, lanes.centres)]
                          if isinstance(lanes, LaneCentres) else None),
+        "lane_centres_by_clip": {
+            clip_id: {
+                "lanes": [{"name": n, "centre": list(c)}
+                          for n, c in zip(cl.names, cl.centres)],
+                "max_radius": cl.max_radius,
+            }
+            for clip_id, cl in sorted(lanes_by_clip.items())
+            if isinstance(cl, LaneCentres)
+        } or None,
         "max_radius": (lanes.max_radius
                        if isinstance(lanes, LaneCentres) else None),
         "T": args.timesteps, "step_s": args.step_s,
@@ -449,6 +529,19 @@ def main(argv: list[str] | None = None) -> int:
         "clips": sorted(by_clip), "splits": splits,
         "split_mode": args.split_mode,
         "auto_labelled": True,
+        # A frame where the detector saw nothing writes no rows to
+        # detections.csv, so the sample count cannot be recovered from it --
+        # and an empty frame is not missing data, it is zero traffic, which is
+        # a LOW label. Recording the true count lets relane_corpus rebuild the
+        # full series instead of silently compacting it (P28).
+        "samples_per_clip": {c: len(rows) for c, rows in sorted(by_clip.items())},
+        "relane_note": (
+            "detections.csv holds every detection in normalised coordinates "
+            "and is LANE-INDEPENDENT. scripts/relane_corpus.py re-derives "
+            "counts and labels under different lane centres from it, without "
+            "re-running the detector -- so a lane placement is revisable in "
+            "seconds and does not have to be right first time."
+        ),
         "low_max": args.low_max, "med_max": args.med_max,
         "threshold_note": (
             "The expensive pass produces counts.csv, which is "
@@ -468,9 +561,13 @@ def main(argv: list[str] | None = None) -> int:
 
     import collections
     print(f"\n  {len(labelled)} sequences over {len(by_clip)} clip(s)")
-    print(f"  splits: {collections.Counter(splits.values())}")
+    # `splits` maps clip -> split in clip mode and is None in temporal mode,
+    # where one clip is divided by time; the per-window split is the truth in
+    # both cases.
+    print(f"  splits: {collections.Counter(e['split'] for e in labelled)}")
     for name in lane_names(lanes):
-        dist = collections.Counter(e[f"label_{name}"] for e in labelled)
+        dist = collections.Counter(e[f"label_{name}"] for e in labelled
+                                   if f"label_{name}" in e)
         total = sum(dist.values())
         parts = "  ".join(f"{k} {dist.get(k,0)/total:5.1%}"
                           for k in ("LOW", "MEDIUM", "HIGH"))

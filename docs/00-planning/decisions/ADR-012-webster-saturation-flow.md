@@ -43,10 +43,17 @@ indefensible, and a reviewer can allege detuning in either direction.**
 
 ### Finding 3 — the field's baselines are visibly weak, and its reporting is thin
 
-Published RL-TSC work reports fixed-time travel times of 552–924 s against roughly 100–120 s for
-learned controllers. A five- to eight-fold gap is not what a competently tuned fixed-time plan
-produces; it is the signature of a baseline nobody tuned. Separately, established baselines are
-reported as **average values without variability**.
+Published RL-TSC work can show fixed-time baselines far behind learned controllers. In
+Cabrejas-Egea et al. (2021, [B31](../BIBLIOGRAPHY.md)), Table 1 gives one-hour cumulative delay in one
+scenario: the cyclic (fixed-time) plan 143,660.50 s, MOVA 27,187.53 s, and the best RL agent
+21,286.86 s. The cyclic plan's delay is about 6.7 times the RL agent's and about 5.3 times MOVA's,
+which suggests a fixed-time baseline nobody tuned. The same paper reports its baselines and agents
+**without variability**: no deviation, interval or run count.
+
+> **Corrected in D39 (S45 citation audit, 2026-11-06).** This finding used to quote "fixed-time
+> travel times of 552–924 s against roughly 100–120 s". Those figures are not in B31, and no other
+> source for them was found. The comparison above is B31's own Table 1: one scenario, cumulative
+> delays rather than per-vehicle travel times.
 
 Both observations favour this project rather than threatening it — see Consequences.
 

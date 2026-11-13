@@ -1,0 +1,69 @@
+/* Dark mode only. Brand palette (owner, 2026-10-26): #080808 black, #EC7C22
+   orange, #A4510E rust, #FFFDFB off-white; Inter, with JetBrains Mono for
+   numbers. System fallbacks otherwise, so the page makes no external font
+   request on a LAN.
+
+   Two rules, pinned by tokens.test.js:
+   1. Brand orange is for the interface only (logo, navigation, focus, actions),
+      never on traffic data. Its hue sits 14 deg from an amber and 24 deg from a
+      red, so near data it would read as a congestion level (Law of Similarity).
+   2. The congestion scale and the state colours keep at least 30 deg of hue
+      from the brand orange, at least 3:1 contrast on the panel (4.5:1 for the
+      state colours, which are read as text), and dark text on every class
+      colour. A class is always labelled in text as well (Von Restorff: never
+      colour alone).
+   3. A project criterion, not a WCAG requirement: LOW, MEDIUM and HIGH stay
+      at least 20 apart (CIELAB) under simulated protanopia, deuteranopia and
+      tritanopia, so they can be told apart where no label fits.
+   The six class and state colours are the D-7 revision of the step-1 set
+   (moved 0.3 to 6.1 in CIELAB), which failed rule 3 and the stale and
+   unreachable separation under deuteranopia. */
+:root {
+  /* surfaces and text */
+  --bg: #080808;
+  --panel: #141311;
+  --panel-raised: #1b1917;
+  --ink: #fffdfb;
+  --muted: #a8a29e;
+  --line: #2e2a26;
+
+  /* brand: interface only */
+  --brand: #ec7c22;
+  --brand-deep: #a4510e;
+  --on-brand: #080808;
+  --accent: var(--brand);
+
+  /* congestion scale: traffic data only */
+  --low: #36d982;
+  --medium: #eeee3f;
+  --high: #e43a73;
+  --on-class: #080808;
+
+  /* states, kept apart from the scale and from the brand; each also has a shape */
+  --ok: #3accd9;
+  --stale: #427fff;
+  --bad: #ce3bf7;
+  --warn: var(--stale);
+  --stale-bg: #191e29;
+  --notice-bg: #161412;
+  --scrim: rgba(8, 8, 8, 0.8);
+  --focus: var(--brand);
+
+  /* the intersection drawing (UX step 3): neutral, so only the class colours carry meaning */
+  --road: #1a1816;
+  --road-box: #211e1b;
+  --road-edge: #3a3531;
+
+  /* neutral frames: they tell panels apart without meaning anything */
+  --frame-count: #6e6a65;
+  --frame-class: #b9b3ad;
+  --frame-status: var(--line);
+
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+h1, h2, h3 { margin: 0; font-weight: 600; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

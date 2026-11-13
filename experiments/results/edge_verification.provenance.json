@@ -1,0 +1,30 @@
+{
+  "git_commit": "6ada65c",
+  "python": "3.14.4",
+  "platform": "Windows",
+  "torch": "2.13.0+cu126",
+  "torch_build": "cu126",
+  "cuda_available": true,
+  "cuda_device": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "cuda_capability": "sm_89",
+  "cudnn_tf32": true,
+  "matmul_tf32": false,
+  "numpy": "2.5.2",
+  "ultralytics": "8.4.118",
+  "stable_baselines3": "2.9.0",
+  "gymnasium": "1.3.0",
+  "eclipse_sumo": "1.27.1",
+  "scikit_learn": "1.9.0",
+  "scipy": "1.18.0",
+  "xgboost": "3.4.1",
+  "device": "cuda",
+  "graph_sha256": "fe093966bc7d212878eb82ae7d448f56d59d22edec35d5bf8a14fecd5a846756",
+  "lane_to_approach": {
+    "lane_0": "N",
+    "lane_1": "S",
+    "lane_2": "E",
+    "lane_3": "W"
+  },
+  "min_agreement": 0.99,
+  "headroom": 0.5
+}

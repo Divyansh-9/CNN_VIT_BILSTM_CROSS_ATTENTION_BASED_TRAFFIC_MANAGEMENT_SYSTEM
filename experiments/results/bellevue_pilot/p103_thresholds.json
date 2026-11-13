@@ -1,0 +1,76 @@
+{
+  "protocol": "PREREGISTRATION_P103.md",
+  "calibration_hour": "2017-09-10_18",
+  "rule": "q33/q67 of 60 s future means, calibration hour only, pooled over lanes",
+  "cameras": {
+    "150th_Eastgate": {
+      "q33": 0.1333,
+      "q67": 0.9667,
+      "calibration_windows": 114,
+      "test_windows": 342,
+      "test_blocks": 18,
+      "lanes": 4,
+      "test_support": {
+        "calibrated": {
+          "LOW": 26,
+          "MEDIUM": 371,
+          "HIGH": 971
+        },
+        "absolute": {
+          "LOW": 862,
+          "MEDIUM": 501,
+          "HIGH": 5
+        }
+      },
+      "flagged_classes_under_10": []
+    },
+    "150th_Newport": {
+      "q33": 0.5333,
+      "q67": 1.5333,
+      "calibration_windows": 115,
+      "test_windows": 230,
+      "test_blocks": 12,
+      "lanes": 4,
+      "test_support": {
+        "calibrated": {
+          "LOW": 235,
+          "MEDIUM": 416,
+          "HIGH": 269
+        },
+        "absolute": {
+          "LOW": 758,
+          "MEDIUM": 162,
+          "HIGH": 0
+        }
+      },
+      "flagged_classes_under_10": []
+    },
+    "150th_SE38th": {
+      "q33": 1.1,
+      "q67": 2.4,
+      "calibration_windows": 114,
+      "test_windows": 216,
+      "test_blocks": 11,
+      "lanes": 4,
+      "test_support": {
+        "calibrated": {
+          "LOW": 294,
+          "MEDIUM": 153,
+          "HIGH": 417
+        },
+        "absolute": {
+          "LOW": 405,
+          "MEDIUM": 450,
+          "HIGH": 9
+        }
+      },
+      "flagged_classes_under_10": []
+    }
+  },
+  "pooled_calibrated_support": {
+    "LOW": 555,
+    "MEDIUM": 940,
+    "HIGH": 1657
+  },
+  "stop": false
+}

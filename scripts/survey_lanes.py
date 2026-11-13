@@ -31,6 +31,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 
 def centroids(clip: Path, model, ids, *, frames: int, conf: float,
               imgsz: int = 640, max_box_area: float = 1.0) -> list:

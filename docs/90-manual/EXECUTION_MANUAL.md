@@ -84,32 +84,43 @@ It validates Python version, Git LFS, free disk, CUDA, and installed packages, a
 with an explanation if anything blocks you. It uses only the standard library, so it runs on a bare
 interpreter before anything is installed.
 
-> ### ⚠ Python 3.13+ will not work
+> ### Use Python 3.12
 >
-> **Use Python 3.11** (3.10–3.12 all work). PyTorch 2.3.1 publishes no wheels above 3.12, so a newer
-> interpreter fails with `No matching distribution found for torch==2.3.1` — which looks like a
-> network problem and is not.
->
-> This machine currently has **Python 3.14.4** as the system interpreter. Install 3.11 alongside it
-> (both can coexist) from python.org, then build the venv explicitly with it:
+> **Python 3.12 is the supported version.** CI runs it, and the clean-environment check of
+> 2026-10-21 passed on it (PRD-CHANGELOG D4). Python 3.14.4 also passed that check, but CI does not
+> run it. Install 3.12 from python.org alongside any other version (they coexist), then build the
+> venv with it:
 >
 > ```powershell
-> py -3.11 -m venv .venv
+> py -3.12 -m venv .venv
 > ```
+>
+> `py -3.12` works only once a 3.12 is installed; `py -0` lists what is.
 
 ### Create the environment
 
 ```powershell
-py -3.11 -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1          # macOS/Linux: source .venv/bin/activate
 python -m pip install --upgrade pip
 
 # PyTorch FIRST, from the CUDA index — otherwise pip installs the CPU-only wheel
-pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.13.0+cu126 torchvision==0.28.0+cu126 --index-url https://download.pytorch.org/whl/cu126
 pip install -r requirements.txt
 
 python scripts/check_env.py            # should now report no blockers
 ```
+
+> **Disk.** pip's download cache alone needs more than 3 GB for these two installs (3.1 GB
+> measured), on the drive that holds your user profile by default. If that drive is short, point
+> the cache and the temporary files at a drive with room before installing:
+>
+> ```powershell
+> $env:PIP_CACHE_DIR = "D:\pip-cache"; $env:TMP = "D:\tmp"; $env:TEMP = "D:\tmp"
+> ```
+>
+> **Shapely.** `check_env.py` warns that Shapely is not installed. Nothing in the repository
+> imports it (it was dropped from `requirements.txt` on 2026-08-20), so the warning can be ignored.
 
 [`requirements.txt`](../../requirements.txt) is committed with **pinned** versions — NFR-08 requires
 clean-machine reproduction, and unpinned ranges break that within weeks. Whenever anyone adds a
@@ -162,7 +173,7 @@ deliverable needs one owner and one backup. "We'll all do it" is how a deliverab
 
 - [ ] All accounts created; **IDD registration submitted**
 - [ ] Repo cloned by everyone; LFS working (`git lfs env` runs clean)
-- [ ] **Python 3.11 installed** — not 3.13/3.14 (§0.3)
+- [ ] **Python 3.12 installed** (§0.3)
 - [ ] `python scripts/check_env.py` reports **no blockers** on every member's machine
 - [ ] `python scripts/seed.py` gives identical output on two consecutive runs
 - [ ] `.env` created from `.env.example`
@@ -170,6 +181,97 @@ deliverable needs one owner and one backup. "We'll all do it" is how a deliverab
 - [ ] Faculty guide has seen SOW + BRD and agreed the milestone dates
 - [ ] **[Scope variation request](../00-planning/SCOPE-VARIATION-REQUEST.md) submitted** — ADR-006
       and ADR-008 block the plan until decided
+
+## 0.7 Starting the edge program (D3)
+
+The deployed edge path is one program, `python -m edge.run`: detector → per-lane counts →
+persistence class forecast and ridge count forecast → MQTT → server. A clean checkout runs it only
+once the four prerequisites below are in place, and **the repository does not provide them**
+(clean-environment check, 2026-10-21; PRD-CHANGELOG D4).
+
+### Prerequisites
+
+| Prerequisite | Where it comes from today | Status |
+|---|---|---|
+| Detector weights, `models/external/best_xl_ITD_v1.2.pt` | Not in git (`models/` is gitignored). The only copy is the project owner's private backup (S66). Check the file against `experiments/results/model_artifacts.sha256` before use | **Blocked for teammates** until the owner decides how the weights are shared. They are third-party and their licence is unresolved: do not publish or redistribute them |
+| A reviewed lane file for the camera | `docs/demo/place_lanes.html`, then `scripts/import_lane_centres.py` (§2.3), or a corpus manifest built from that camera | No committed lane file belongs to a camera in the persistence spec. The committed `data/corpus/manifest.json` (4 lanes) lets the program start, and shows nothing more |
+| Thresholds for the camera | `experiments/results/bellevue_pilot/persistence_v1.json`; its key is `--camera`, and its lane count must equal the lane file's | Calibrated per camera (ADR-017). A new camera needs its own calibration first |
+| An MQTT broker | Mosquitto (PRD §17), installed separately: `requirements.txt` installs no broker | See "The broker" below |
+
+### Start it
+
+```powershell
+python -m edge.run --source clip.mp4 --lanes lanes.json --approaches lane_0=W lane_1=N lane_2=E `
+    --camera NE8th --intersection-id ne8th --broker-host 127.0.0.1 --broker-port 1883
+```
+
+| Argument | Meaning |
+|---|---|
+| `--source` | A video file, or `camera` to read the stream URL from `STMS_CAMERA_URL`. Set the variable in the shell; never put the URL on the command line |
+| `--lanes` | The reviewed lane file, or a corpus manifest |
+| `--approaches` | Every lane mapped once to a distinct `N`, `S`, `E` or `W` |
+| `--camera` | The camera's key in the persistence spec |
+| `--intersection-id` | 1 to 32 characters from `A-Z a-z 0-9 _ -` (P142) |
+| `--broker-host`, `--broker-port` | Default `127.0.0.1:1883` |
+| `--samples N` | Stop after N samples of 2 s; otherwise it runs until the source ends or Ctrl+C |
+| `--realtime` | Pace a video file at one sample per 2 s, as a camera would |
+
+`--weights`, `--conf` and `--imgsz` default to the `counting` block of
+`indiatrafficnet/class_mapping.yaml`: the settings the thresholds were calibrated under. Changing
+them, there or on the command line, invalidates the thresholds. `python -m edge.run --help` lists
+every option.
+
+To see forecasts arrive, run the server and the ingest as well. The ingest reads the same two
+broker variables as the edge (see "The broker" below):
+
+```powershell
+python -m uvicorn server.app:app --port 8000
+python -m server.mqtt_ingest --host 127.0.0.1 --port 1883
+```
+
+### Starting is not delivering
+
+| What you see | What it shows |
+|---|---|
+| Exit code 2 and an `error:` line | A refused start-up: a bad argument, a missing file, a lane file that is not reviewed, or thresholds that do not match the lanes. Nothing ran |
+| `source: …` in the log and no error | The program **started**. It does not show that anything reached the server |
+| `broker … not reachable; continuing` | It started **without** a broker. Nothing is delivered |
+| `GET /prediction/{id}/latest` returns 200 | **Delivery**: a class forecast reached the server. The first comes after 30 samples (60 s), and the first count forecast (`GET /count_forecast/{id}/latest`) after 60 (2 min). A gap in the samples restarts both windows |
+| `FR-A06: no successful publish for …` | The local cycle has taken over (§5.3) |
+
+Frames stay in memory (NFR-13). The edge program writes no file; the server writes its own database
+under `data/server/`.
+
+### The broker
+
+- **`requirements.txt` installs no broker.** Install Mosquitto separately (on Windows, the installer
+  from mosquitto.org) and run it on the port you pass.
+- **NFR-11 requires an authenticated broker** (`allow_anonymous false`). Both MQTT clients, the
+  edge program and the ingest, send a username and password when both are set in the environment
+  (D6). Set them in the shell that starts each program, never on its command line:
+
+  ```powershell
+  $env:STMS_MQTT_USERNAME = "edge-ne8th"
+  $env:STMS_MQTT_PASSWORD = "..."   # from wherever the team keeps secrets; never in git
+  ```
+
+  Both or neither. Setting only one of them is refused at start-up, and neither program prints
+  either value. With neither set, each program warns that it is connecting anonymously, which
+  only a development broker on `127.0.0.1` should accept.
+- **A refused connection is reported by the broker's reason code.** An authenticating broker
+  answers a missing or wrong credential with `Not authorized`. The edge program logs
+  `broker … refused the connection (Not authorized)` and runs its local cycle (§5.3); the ingest
+  exits with the same reason.
+- **What has been verified.** Against an amqtt broker with anonymous access off and a password
+  file, both clients were refused without credentials, with a wrong password and as an unknown
+  user, and accepted with the right ones; a prediction then went from the edge to the server's
+  store (`tests/test_mqtt_live.py`). The same has been verified against **Mosquitto 2.1.2 in a
+  test configuration** (D10, `tests/test_mosquitto_live.py`, TIM §7.3). No deployment broker
+  configuration is committed.
+- **MQTT over TLS (D10).** Set `STMS_MQTT_CA_FILE` to the broker's CA certificate (PEM) for both
+  programs. Verification is mandatory: the broker's certificate must come from that CA and match
+  the host name. An unusable CA file stops the program; it never falls back to plain TCP. Unset,
+  the link is plain TCP and both programs say so. Details: TIM §7.4.
 
 ---
 
@@ -454,7 +556,7 @@ is the team laptop (i5-13500HX, RTX 4050 6 GB), not Colab. Colab is overflow.
 
 ```powershell
 # CUDA build of PyTorch — the default pip wheel is CPU-only
-pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.13.0+cu126 torchvision==0.28.0+cu126 --index-url https://download.pytorch.org/whl/cu126
 python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 
@@ -706,7 +808,9 @@ model.save("models/ppo_intersection")
 
 ## 4.3 The state vector is a contract
 
-PRD §13.1 — **16 dimensions** (A16 removed `mfst_gate_mean`; see [ADR-009](../00-planning/decisions/ADR-009-ppo-forecast-surrogate.md)), in this exact order:
+PRD §13.1 as amended by A16 and **ADR-020 (as amended 2026-10-16, P110)**: **17 dimensions**, in this
+exact order. The layout lives in `mfstnet/configs/spec.yaml`; this block illustrates it and is not a
+second source.
 
 ```python
 state = np.array([
@@ -714,14 +818,21 @@ state = np.array([
     queue_N/200, queue_S/200, queue_E/200, queue_W/200,      #  4-7
     phase_NS, phase_EW,                                       #  8-9
     phase_remaining/90,                                       # 10
-    mfst_pred_N/2, mfst_pred_S/2, mfst_pred_E/2, mfst_pred_W/2,  # 11-14
+    cls_N, cls_S, cls_E, cls_W,     # 11-14  LOW/MEDIUM/HIGH -> 1/3, 2/3, 1;  0.0 = NO forecast
     emergency_flag,                                           # 15
+    forecast_age,                   # 16     min(age_s, 10)/10;  1.0 when there is no forecast
 ])
 ```
 
 **Changing this shape or these normalisations invalidates every trained PPO checkpoint** (FR-M14).
-If MFSTNet is unavailable, **zero indices 11–14** — do not shorten the vector. The dimensionality
-must not move once the first checkpoint exists.
+
+**Never write 0.0 or any other value for a missing forecast or a missing count yourself.** Under
+the old 16-dim layout, LOW was 0.0, so "no forecast" read as "every approach is clear" (P97a).
+Build indices 11–14 and 16 only through `simulation.forecast_state.forecast_slots`, which applies
+the spec's `forecast_unavailable` operation. Let a policy use forecasts only through
+`ForecastGate`: a forecast-aware policy acts only when every required input is complete, fresh
+(at most 10 s) and valid. Otherwise the no-forecast policy acts, or Webster when counts are invalid.
+Do not shorten the vector.
 
 During SUMO training these four fields come from a **noise-calibrated surrogate**, not from MFSTNet —
 SUMO has no camera. Train three arms (P-none / P-real / P-oracle) and report all three; see ADR-009.
@@ -784,33 +895,244 @@ there is no time to diagnose it.
 ## 5.3 The two fallbacks are features (FR-A06)
 
 Test both by fault injection, and pull this forward to Week 17 rather than Week 19 (RTM §5.2 —
-fault-injection testing finds real defects, and finding them one week before submission is too late):
+fault-injection testing finds real defects, and finding them one week before submission is too late).
 
-```bash
-# (a) MFSTNet dies → PPO must continue on raw counts
-kill $(pgrep -f mfstnet_service)
-# Expect: signal commands continue; dashboard shows prediction unavailable, not stale
+**(a) No forecast: the policy decides without one.** There is no separate MFSTNet process to stop.
+Forecasting runs inside the edge program (ADR-026, ADR-027), and no forecast feeds the policy today
+(P97a). The fallback is `ForecastGate` in `simulation/forecast_state.py`: a missing, stale or invalid
+forecast hands the decision to the no-forecast policy, and invalid counts go to Webster.
 
-# (b) Broker dies → edge must switch to Webster within 10s
-sudo systemctl stop mosquitto
-# Expect: local Webster control within 10s; signals keep changing; heartbeat gap logged
+```powershell
+python -m pytest tests/test_forecast_state.py
 ```
+
+**(b) The broker stops: the edge runs its local cycle.** Start `python -m edge.run` with the server
+and the ingest (§0.7), then stop the broker however it was started: `Stop-Service mosquitto` if it
+runs as a Windows service, or end its process. Expect in the edge log:
+
+- `FR-A06: no successful publish for N s, over the 10s timeout` once **more than 10 s have passed
+  since the last acknowledged publish**. The timeout runs from that acknowledgement, not from the
+  moment the broker stopped, so a stopwatch started at the stop does not read 10 s. In D3's live
+  run the switch came 12.0 s after the last acknowledgement. If no publish was ever acknowledged,
+  the 10 s run from when the node was created.
+- `link restored: publishes are acknowledged again` once the broker is back and the next publish
+  is acknowledged. It reports the link only: the server drives no signal.
+
+The local cycle (`LocalWebster` in `edge/node.py`) is a fixed 30 s alternation, and it drives no
+signal hardware.
 
 Webster must be **resident on the edge node**. A fallback fetched over the network when the network
 has failed is not a fallback.
 
 ## 5.4 Dashboard
 
-React 18 + Vite + Zustand + Recharts, native WebSocket, CSS Modules, dark mode only
-(`#0D1117` background, `#6366F1` accent, Inter + JetBrains Mono).
+**As built (D13–D37; see `dashboard/README.md`):**
+- **Stack:** React 18 + Vite, with React and React DOM as its only runtime dependencies, and CSS Modules.
+- **Data:** HTTP polling every 2 s. There is no WebSocket, no Zustand and no Recharts.
+- **Look:** dark mode only, in the D18 palette held in `dashboard/src/theme.css`.
+- **Behaviour:** read-only (GET only).
+- **Run, build and test:** see `dashboard/README.md` (`npm test`; D36's fixtures for testing a state
+  without a camera).
 
-Start it in **Week 6 against mocked data**, not Week 14. M9 carries 13 requirements into a single
-week (RTM §5.2); mocking the WebSocket payloads lets the UI mature while the backend is still being
-built, and the payload schemas are already fixed by PRD §17.1.
+**Results come from the committed result files** through `GET /evidence`. Never hardcode a number into
+the frontend: that is what makes the Results section evidence rather than illustration (ADR-014).
 
-**The Benchmark page reads the committed result CSVs.** Never hardcode numbers into the frontend.
-This is what makes the dashboard evidence rather than illustration — regenerate a result and the
-dashboard updates itself.
+### Original implementation plan — superseded by ADR-008
+
+Kept as history only; do not follow it. It assumed a WebSocket and four pages, and ADR-008 reduced both.
+
+> Start it in **Week 6 against mocked data**, not Week 14. M9 carries 13 requirements into a single
+> week (RTM §5.2); mocking the WebSocket payloads lets the UI mature while the backend is still being
+> built, and the payload schemas are already fixed by PRD §17.1.
+
+## 5.5 Analyzing a recorded video (D34)
+
+The dashboard's **Analyze a video** section plays a recording next to a results file. The page does not
+make that file; `scripts/analyze_video.py` does, on the machine that holds the video and the detector.
+The recording is processed locally. The browser displays the selected video locally, while the analysis
+results contain numerical data and detection metadata rather than image frames. Video frames are not
+uploaded to the central server or external services (NFR-13).
+
+**Before you start:**
+- **Environment:** the project venv, set up as in Part 0.
+- **Detector weights:** the file named by `counting.detector_weights` in
+  `indiatrafficnet/class_mapping.yaml` (today `models/external/best_xl_ITD_v1.2.pt`, third-party, not in git).
+- **A camera profile for the camera that recorded the video.** Lanes and congestion limits come from the
+  profile (ADR-028); they are never guessed from a video.
+  - **With a profile today:** only `cameras/150th_Eastgate.json`, `cameras/150th_Newport.json` and
+    `cameras/150th_SE38th.json`.
+  - **Any other camera:** NE8th, for example, cannot be analysed until it has a profile, made and recorded
+    with `scripts/camera_profile.py`.
+- **A video at least 5 minutes long:** the forecasts need history first, and a shorter video is refused.
+
+**Run it** (from the repository root; write the result outside the repository):
+
+```bash
+python scripts/analyze_video.py --video "<clip>.mp4" --profile cameras/150th_Eastgate.json \
+    --out "<results folder>/<clip>.analysis.json"
+```
+
+- **`--profile` declares the camera.** The tool never infers it from the file name, so the wrong profile gives
+  wrong lanes without an error.
+- **Existing results file:** the tool refuses to overwrite it; pass `--force` to replace it.
+- **Progress:** printed once per minute of footage.
+- **Measured once:** a 60-minute Eastgate clip took 222 s on the RTX 4050 laptop (2026-11-04) and wrote
+  1,798 samples. Other machines will differ; state the host when quoting it (ADR-003).
+
+**What the file holds:** `kind: stms-video-analysis`, schema 2. Every 2 s it records:
+- each lane's count;
+- each box as normalised coordinates, with its class, confidence and lane;
+- the level and count forecasts;
+- what the next 60 s then showed.
+
+It holds no image data. The page still opens schema 1 files.
+
+**Open it:** on the dashboard, go to **Analyze a video**. Choose the video under *1. Open the video*, then
+the matching results file under *2. Open its results*. The page warns when the two lengths disagree.
+**Engineering** adds class labels and the per-class breakdown.
+
+**What it does not establish:**
+- **Not accuracy.** "Then" comes from the same detector's counts.
+- **Not S65.** A recording is not a live camera.
+- **No signal control.** Nothing here drives a signal (P97a).
+
+### 5.5.1 Without a command: the workbench (D40, D41)
+
+The workbench is the dashboard served from this computer, with the actions only this computer can take.
+
+```bash
+python scripts/demo_launcher.py --mosquitto <mosquitto.exe> --clips-root <footage folder>     [--videos-root <folder> ...] [--results-dir <folder>]
+```
+
+Build the dashboard first (`cd dashboard && npm run build`): it is the tool's only page. Open
+`http://127.0.0.1:18080/`, which lands on **Analyze a video**. The header reads "Local workbench · no signal
+commands".
+
+**To analyse a video:**
+1. **Open any video on this computer.** It plays in the page and is never uploaded.
+2. **Let the workbench find it.** The page sends the file's name, size and fingerprint, and the workbench
+   finds the same file on disk. It searches:
+   - the folders it was started with;
+   - folders shown to it before;
+   - the usual user folders.
+
+   If it cannot find the file, press **Show the workbench where it is**. This computer's own folder window
+   opens, and only the folder's name comes back to the page.
+3. **Declare the camera that recorded it.** The page lists the reviewed profiles and this computer's
+   provisional cameras, and nothing guesses (ADR-028).
+4. **Press Analyze.** The stages and real progress show beside the picture. The pre-flight refuses with a
+   reason a video it cannot decode or one under 5 minutes. When the analysis finishes, the results appear on
+   the same page, already in step with the video.
+
+**A camera that has no profile.** Choose **A camera not listed: place its lanes**.
+- **Placing lanes:** click up to four lane centres on the paused picture, and give each one of N, S, E or W.
+  These are labels, not verified directions.
+- **Saving:** set each lane's reach and name the camera. The camera is saved as **provisional** in
+  `--results-dir`, never in `cameras/`.
+- **Its levels:** the first analysis with it sets LOW, MEDIUM and HIGH from that recording, by ADR-017's rule
+  as P103 ran it (q33/q67 of 60 s means). Its limits then say, on every result, that the lanes are
+  unreviewed and that the levels flatter that recording and are not evidence.
+- **A flat recording is refused:** if traffic barely varies, no levels are set, and the page asks for a
+  busier recording.
+
+**Replay through the system** is on the **Live** section of the same page. Choose a clip and run it.
+- **While it runs:** the live panels read that replay's server through the workbench, and the source badge
+  says REPLAY.
+- **Taking turns:** an analysis and a replay never run at once, because both need the GPU.
+
+**What is stored:** each result is kept in `--results-dir` (default `data/_workbench/`, gitignored) under a
+key made from:
+- the video's fingerprint and name;
+- the camera's profile hash;
+- the detector, counting settings, ridge spec and tool.
+
+The same video and camera reopen at once. A change to any of them analyses again.
+
+**Measured on the RTX 4050 laptop, 2026-11-06** (ADR-003: laptop figures, other machines differ):
+- **Committed camera:** a 60-minute SE38th clip took about 2½ minutes, and a 9.4-minute clip under 45 s.
+- **Provisional camera:** a 6.8-minute NE12th clip, analysed and given levels, took under 2 minutes.
+
+**What crosses the browser:** names, numbers, lane positions and the results file. The video is never sent:
+the page plays it from the file you opened, and the workbench reads the same file from disk (NFR-13).
+
+**What it cannot check:** profiles record lane positions as fractions of the picture, not a resolution. So
+the workbench cannot tell that a video came from a different camera than the one declared. Declaring the
+wrong camera gives counts in the wrong lanes.
+- **The check is yours (D42):** choosing a camera lays its lanes over your paused video as dashed rings,
+  before anything runs.
+- **What to do if they miss:** if the rings do not sit on this video's roads, it is a different camera.
+  Choose another, or place its lanes.
+
+**What the page shows, per lane, at the moment you are watching:**
+- **Counted now:** vehicles in that lane's area in this frame.
+- **Forecast level and forecast number:** the next 60 s. The number is the expected mean number of vehicles
+  in view; the level is that number against this camera's limits.
+- **What then happened:** the same detector's mean count over those 60 s, and its level. This is not
+  accuracy: both sides come from one detector.
+- **The first minute:** reads "waiting", because the forecasters need 60 s of history.
+
+**A level is relative to its camera.** LOW, MEDIUM and HIGH are this camera's q33 and q67 from its calibration
+hour (ADR-017), not an absolute measure of congestion. For example, 150th_Eastgate's limits are 0.13 and 0.97
+vehicles in view, set on a Sunday-evening hour. So one vehicle in view already reads HIGH there (D37's
+reported weakness). A busier camera has higher limits.
+
+**Forecast check for this video (D43).** Under the whole-video timeline, a table and a chart compare, per lane:
+- **The class forecast:** how often it agreed with what the next minute then showed.
+- **The ridge count forecast:** how far it was from what then happened, against simply repeating the last
+  minute (P105's comparison).
+
+It is agreement with the same detector, not accuracy, and it gives no percentages. **Print or save as PDF**
+keeps the numbers and leaves out the picture.
+
+**Replay on Live (D42).** After an analysis, choose 7 min, 30 min or the whole video and press **Replay on
+Live**.
+- **What it runs:** the same video goes through the edge, MQTT, the server and Live in real time, so a
+  whole hour takes an hour.
+- **Same as Analyze:** it uses the same detector, counting and forecasters as the analysis.
+- **Labelled as a recording:** Live says REPLAY.
+- **New cameras:** a provisional camera can replay only after its first analysis has set its levels.
+
+### 5.5.2 Connecting a live camera (D42)
+
+A camera is set up outside the page, because its address can hold a password. The page only ever learns
+whether a camera is configured, never its address.
+
+1. **Get the stream address.** The edge reads it with OpenCV, so any address OpenCV opens works:
+   - **An IP camera:** usually an RTSP address such as `rtsp://user:password@192.168.1.20:554/stream1`.
+   - **A phone, for a rehearsal:** an IP-camera app gives an HTTP stream address on the same Wi-Fi.
+2. **Give the camera its lanes, once:**
+   - Record a few minutes from that camera to a file.
+   - Open the file on **Analyze a video**, choose **A camera not listed: place its lanes**, and place them.
+   - Its first analysis sets its levels. An existing profile only fits a camera whose picture matches it.
+3. **Start the workbench with the address in its environment** (PowerShell; never on the command line, never
+   in a file you commit):
+
+   ```powershell
+   $env:STMS_CAMERA_URL = "rtsp://user:password@192.168.1.20:554/stream1"
+   ./.venv/Scripts/python.exe scripts/demo_launcher.py --mosquitto <mosquitto.exe> --clips-root <footage folder>
+   ```
+4. **Connect.** On **Live**, open **Run through the system**, choose **Live camera**, choose the camera's
+   profile, and press **Connect the camera**.
+   - **What starts:** the workbench starts the broker, server and ingest, then the edge with
+     `--source camera`.
+   - **When it reconnects:** the edge reconnects if the stream drops.
+   - **What the page shows:** Live says LIVE CAMERA. The first class forecast arrives after about 1 minute,
+     the first count forecast after about 2.
+   - **How long it runs:** until you press Stop.
+
+**What a camera run is, and is not:**
+- **It is a rehearsal of the deployed path.** It is not S65: S65's frozen criteria are measured with
+  `scripts/benchmark_live.py`.
+- **It controls nothing.** It forecasts the traffic of the next 60 s and sends no signal command (P97a).
+- **No frame leaves the edge.** Frames are counted in memory and dropped (NFR-13).
+
+**Verified on 2026-11-09 against a stand-in stream, not a camera.** A recorded SE38th clip was served as an
+MJPEG stream on 127.0.0.1 and named by `STMS_CAMERA_URL`. The run:
+- the badge read LIVE CAMERA;
+- the edge reported the camera at 0:29;
+- the first class forecast came at 1:19, and the first count forecast at 2:15.
+
+That shows the wiring only. A real camera has not been tried.
 
 ---
 

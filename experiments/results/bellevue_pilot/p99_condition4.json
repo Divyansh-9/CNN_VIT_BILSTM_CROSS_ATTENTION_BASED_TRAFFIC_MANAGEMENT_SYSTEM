@@ -1,0 +1,15 @@
+{
+  "condition": "4 ONNX parity and test suite",
+  "passed": true,
+  "export": {
+    "checkpoint": "models/mfstnet/p99/none/mfstnet_G_seed7.pt",
+    "graph": "models/onnx/p99/mfstnet_mixed_G_seed7_fold.onnx",
+    "proven_on": "its own committed validation predictions (--no-test run), 195 windows x 3 lanes",
+    "onnx_vs_pytorch_max_logit_diff": 2.62e-06,
+    "argmax_agreement": 1.0,
+    "trained_vs_committed": 1.0,
+    "fresh_control_vs_committed": 0.2256
+  },
+  "test_suite": "python -m pytest: exit 0, 3 skipped, 0 failed",
+  "note": "run after the test read, as PREREGISTRATION_P99 Amendment 1 specifies"
+}

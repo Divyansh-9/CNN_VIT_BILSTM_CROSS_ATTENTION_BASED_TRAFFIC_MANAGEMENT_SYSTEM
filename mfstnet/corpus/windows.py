@@ -40,6 +40,20 @@ class WindowGeometry:
     stride_s: int = 30
 
     def __post_init__(self) -> None:
+        # Types before values. Every derived quantity here is a frame COUNT
+        # obtained with `//`, and `30.0 // 2.0` is `15.0` — which passes the
+        # divisibility checks below and then fails inside `range()`, several
+        # calls away from the value that caused it. `bool` is excluded because
+        # `True` is an int and a nonsense step size.
+        for field in ("T", "step_s", "horizon_s", "stride_s"):
+            value = getattr(self, field)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(
+                    f"{field} must be a whole number of "
+                    f"{'timesteps' if field == 'T' else 'seconds'}, got "
+                    f"{value!r}. Frame counts are derived by integer division, "
+                    f"so a float here silently makes every count a float."
+                )
         if self.T < 2:
             raise ValueError(f"T must be at least 2, got {self.T}")
         if self.step_s < 1:

@@ -1,0 +1,16 @@
+/* D34: one neutral ramp, so a shade never reads as a congestion level. */
+.panel { margin-bottom: 16px; }
+.panel h3 { margin: 0 0 8px; font-size: 15px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.tiles p { margin: 0; display: grid; gap: 1px; font-size: 13px; color: var(--muted); }
+.tiles b { color: var(--ink); font-size: 20px; font-weight: 600; }
+.grid { display: grid; grid-template-columns: 56px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; font-size: 11px; overflow: hidden; }
+.grid i { display: block; height: 26px; border-radius: 2px; }
+.grid b { font: 700 13px var(--mono); overflow: hidden; text-overflow: ellipsis; }
+.hour { color: var(--muted); text-align: center; overflow: hidden; }
+.gap { border: 1px dashed var(--line); }
+@media (max-width: 560px) {
+  .tiles { grid-template-columns: minmax(0, 1fr); }
+  .grid { grid-template-columns: 36px repeat(24, minmax(0, 1fr)); }
+  .hour { font-size: 0; }
+}

@@ -1,0 +1,19 @@
+# third-party frames already public on origin/main (V3-5; removal is the owner's call)
+data/lanes/D__traffic_dataset_4K_Road_traffic_video_152b1b73.preview.jpg
+data/lanes/D__traffic_dataset_4K_Road_traffic_video_da369d62.preview.jpg
+data/lanes/D__traffic_dataset_Highway_sounds_cars_t_68a3e4c4.preview.jpg
+data/lanes/D__traffic_dataset_Incredible_traffic_So_d3e34949.preview.jpg
+data/lanes/D__traffic_dataset_M6_Motorway_Traffic_m_776c6509.preview.jpg
+data/lanes/D__traffic_dataset_Mumbai_Traffic_Chaos__c0976fce.preview.jpg
+data/lanes/D__traffic_dataset_Pov_Thursday_Traffic__182ecf5e.preview.jpg
+data/lanes/D__traffic_dataset_Relaxing_highway_traf_ba724265.preview.jpg
+data/lanes/D__traffic_dataset_Road_traffic_video_fo_972c7197.preview.jpg
+data/lanes/D__traffic_dataset_South_Extension_traff_b5275a32.preview.jpg
+data/lanes/D__traffic_dataset___Incredible_traffic__50708eee.preview.jpg
+data/lanes/D__traffic_dataset_video1_mp4_78d40123.preview.jpg
+data/lanes_dhaka.preview.jpg
+data/lanes_itd/D__traffic_dataset_4K_Road_traffic_video_da369d62.preview.jpg
+data/lanes_itd/D__traffic_dataset_Highway_sounds_cars_t_68a3e4c4.preview.jpg
+data/lanes_itd/D__traffic_dataset_Incredible_traffic_So_d3e34949.preview.jpg
+data/lanes_itd/D__traffic_dataset_M6_Motorway_Traffic_m_776c6509.preview.jpg
+data/lanes_itd/D__traffic_dataset_Road_traffic_video_fo_972c7197.preview.jpg

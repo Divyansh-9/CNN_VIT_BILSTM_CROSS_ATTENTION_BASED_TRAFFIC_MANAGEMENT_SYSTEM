@@ -1,0 +1,282 @@
+{
+  "protocol": "PREREGISTRATION_P99.md",
+  "selected_pair": "G/none",
+  "selected": {
+    "seed": 7,
+    "val_macro_f1": 0.6196,
+    "checkpoint": "models\\mfstnet\\p99\\none\\mfstnet_G_seed7.pt",
+    "sha256": "80f4ea0da3e1fc9dd49b1ba6c411b59ffe9b36db8506f9e7264f838d16df8514"
+  },
+  "support": {
+    "LOW": 83,
+    "MEDIUM": 824,
+    "HIGH": 263
+  },
+  "primary": {
+    "point": 0.1023,
+    "ci95": [
+      0.041,
+      0.1766
+    ],
+    "p": 0.0006,
+    "blocks": 26,
+    "windows": 390,
+    "beats": true,
+    "model_f1": 0.5875,
+    "base_f1": 0.4852,
+    "recall": {
+      "model": {
+        "LOW": 0.3494,
+        "MEDIUM": 0.7998,
+        "HIGH": 0.6008
+      },
+      "baseline": {
+        "LOW": 0.3614,
+        "MEDIUM": 0.7294,
+        "HIGH": 0.3688
+      }
+    },
+    "confusion": {
+      "model": [
+        [
+          29,
+          53,
+          1
+        ],
+        [
+          40,
+          659,
+          125
+        ],
+        [
+          0,
+          105,
+          158
+        ]
+      ],
+      "baseline": [
+        [
+          30,
+          53,
+          0
+        ],
+        [
+          54,
+          601,
+          169
+        ],
+        [
+          1,
+          165,
+          97
+        ]
+      ]
+    }
+  },
+  "secondary": {
+    "lane west": {
+      "point": 0.0745,
+      "ci95": [
+        -0.0357,
+        0.19
+      ],
+      "p": 0.2396,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.0167,
+      "holm_significant": false
+    },
+    "lane north": {
+      "point": 0.0941,
+      "ci95": [
+        0.007,
+        0.1989
+      ],
+      "p": 0.034,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.0125,
+      "holm_significant": false
+    },
+    "lane east": {
+      "point": 0.096,
+      "ci95": [
+        0.0282,
+        0.1515
+      ],
+      "p": 0.0004,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.0071,
+      "holm_significant": true
+    },
+    "accuracy": {
+      "point": 0.1009,
+      "ci95": [
+        0.0581,
+        0.1402
+      ],
+      "p": 0.0,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.005,
+      "holm_significant": true
+    },
+    "QWK": {
+      "point": 0.1772,
+      "ci95": [
+        0.0878,
+        0.2733
+      ],
+      "p": 0.0,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.0056,
+      "holm_significant": true
+    },
+    "recall LOW": {
+      "point": -0.012,
+      "ci95": [
+        -0.1711,
+        0.2174
+      ],
+      "p": 0.938,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.05,
+      "holm_significant": false
+    },
+    "recall MEDIUM": {
+      "point": 0.0704,
+      "ci95": [
+        0.0185,
+        0.1211
+      ],
+      "p": 0.0076,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.0083,
+      "holm_significant": true
+    },
+    "recall HIGH": {
+      "point": 0.2319,
+      "ci95": [
+        0.108,
+        0.3446
+      ],
+      "p": 0.0002,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.0063,
+      "holm_significant": true
+    },
+    "objective: G inverse - none": {
+      "point": -0.0338,
+      "ci95": [
+        -0.058,
+        -0.0068
+      ],
+      "p": 0.0154,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.01,
+      "holm_significant": false
+    },
+    "shortcut: model - hour prior": {
+      "point": -0.0152,
+      "ci95": [
+        -0.077,
+        0.119
+      ],
+      "p": 0.9022,
+      "blocks": 26,
+      "windows": 390,
+      "holm_threshold": 0.025,
+      "holm_significant": false
+    }
+  },
+  "all_selected_models": {
+    "G/inverse": {
+      "macro_f1": 0.5537,
+      "minus_baseline": 0.0686,
+      "minus_hour_prior": -0.0489,
+      "recall": {
+        "LOW": 0.3614,
+        "MEDIUM": 0.7342,
+        "HIGH": 0.6312
+      }
+    },
+    "G/none": {
+      "macro_f1": 0.5875,
+      "minus_baseline": 0.1023,
+      "minus_hour_prior": -0.0152,
+      "recall": {
+        "LOW": 0.3494,
+        "MEDIUM": 0.7998,
+        "HIGH": 0.6008
+      }
+    },
+    "H/inverse": {
+      "macro_f1": 0.5962,
+      "minus_baseline": 0.1111,
+      "minus_hour_prior": -0.0064,
+      "recall": {
+        "LOW": 0.6265,
+        "MEDIUM": 0.693,
+        "HIGH": 0.654
+      }
+    },
+    "H/none": {
+      "macro_f1": 0.5493,
+      "minus_baseline": 0.0642,
+      "minus_hour_prior": -0.0533,
+      "recall": {
+        "LOW": 0.2048,
+        "MEDIUM": 0.8507,
+        "HIGH": 0.5247
+      }
+    }
+  },
+  "hour_prior": {
+    "macro_f1": 0.6026,
+    "minus_baseline": 0.1175
+  },
+  "control_p97": {
+    "checkpoint": "models/mfstnet/bellevue_3lane_sus60/mfstnet_G_seed13.pt",
+    "windows": 330,
+    "note": "test blocks of the 11 P98 hours only; 15:08 and 16:08 were its own data",
+    "macro_f1": 0.4138,
+    "minus_baseline": {
+      "point": -0.0813,
+      "ci95": [
+        -0.1691,
+        0.0256
+      ],
+      "p": 0.1516,
+      "blocks": 22,
+      "windows": 330
+    },
+    "recall": {
+      "LOW": 0.0,
+      "MEDIUM": 0.896,
+      "HIGH": 0.3786
+    },
+    "selected_model_same_windows": 0.5857
+  },
+  "ablations": {
+    "without lane west": 0.0951,
+    "without lane north": 0.08,
+    "without lane east": 0.1042,
+    "without sunday evening (18:08, 19:08)": 0.0889,
+    "without morning (06:08-09:08)": 0.0817,
+    "without midday (10:08-13:08)": 0.1105,
+    "without afternoon (14:08-16:08)": 0.0922
+  },
+  "phase2_conditions": {
+    "1 LOW recall >= 0.50 (support >= 30)": false,
+    "2 primary interval above zero": true,
+    "3 positive without any one lane or period": true,
+    "4 ONNX parity and test suite": "pending (export_checkpoint.py, pytest)"
+  },
+  "phase2_conditions_1_to_3_pass": false
+}

@@ -1,0 +1,43 @@
+{
+  "what": "V1-1 target-fidelity check, detector series only (P133 plan)",
+  "data": "data/corpus_p105, test hours of 3 cameras; calibration hours excluded",
+  "criteria": {
+    "mae_max_vehicles": 0.15,
+    "class_agreement_min": 0.95
+  },
+  "options": {
+    "6": {
+      "mae_vehicles": 0.25900486012328117,
+      "class_agreement": 0.9049608819345661,
+      "passes": false
+    },
+    "10": {
+      "mae_vehicles": 0.15769796111901374,
+      "class_agreement": 0.9347795163584637,
+      "passes": false
+    },
+    "15": {
+      "mae_vehicles": 0.10155286865813182,
+      "class_agreement": 0.9563122332859175,
+      "passes": true
+    },
+    "single_t60": {
+      "mae_vehicles": 1.223430535798957,
+      "class_agreement": 0.667300853485064,
+      "passes": null
+    }
+  },
+  "chosen_K": 15,
+  "decision": "label 15 frames per lane per minute",
+  "per_camera": {
+    "150th_Eastgate": {
+      "lane_moments": 21216
+    },
+    "150th_Newport": {
+      "lane_moments": 21228
+    },
+    "150th_SE38th": {
+      "lane_moments": 13796
+    }
+  }
+}

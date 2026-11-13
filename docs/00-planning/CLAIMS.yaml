@@ -1,0 +1,90 @@
+# Every scope claim the paper makes, as a machine-checkable assertion (P64).
+#
+# P58 found a British motorway supplying 41% of the evaluation corpus for a
+# project about unstructured Indian traffic. It was found by looking at the
+# footage, after that check had been skipped four times. P61 turned that one
+# question into a gate.
+#
+# The question it asks is not specific to geography:
+#
+#     the paper claims X — does the corpus contain X?
+#
+# Viewpoint, traffic type, class coverage, camera count, licence
+# releasability: every one is a sentence a reviewer can check, and every one is
+# a place the project can be caught. So each is written here **as the sentence
+# it would appear as in the paper**, with the assertion that decides whether it
+# is true.
+#
+# `scripts/check_claims.py` runs them all and exits 1 on any failure. The value
+# of the pattern is that the fifth skip costs nothing.
+#
+# NOT wired into CI, deliberately and temporarily. Two asserted claims fail
+# today and both are blocked on a guide decision (see MEMO-2026-08-22-part-b).
+# A CI job that is red for a known, documented, decision-pending reason trains
+# people to ignore CI, which costs more than the check gains. It is wired in as
+# soon as the decision lands, whichever way it lands: if the claim is narrowed,
+# the assertions change and pass; if the corpus is changed, they pass on the new
+# corpus. Recorded here so a later reader can tell a deferral from an oversight.
+#
+# status:
+#   asserted  - the paper will say this, and the check must pass
+#   aspirational - intended, not yet true. Reported, never blocking, and it
+#                  cannot be quietly promoted: promoting it is a diff.
+
+claims:
+
+  - id: domain
+    sentence: >
+      We evaluate on unstructured Indian traffic.
+    status: asserted
+    check: evaluation_contains_target_domain
+    note: >
+      P58. Fails today on all four folds: the fold-eligible cameras are three
+      Bangladeshi and one British, and India's three clips are all below
+      ADR-019's ten-window eligibility bar.
+
+  - id: viewpoint
+    sentence: >
+      All footage is from a fixed elevated viewpoint, matching the deployment
+      camera.
+    status: asserted
+    check: every_camera_is_elevated
+    note: >
+      The project measured 0.8941 to 0.3500 moving from trained cameras to
+      unseen ones, and A31 established the dashcam-to-pole gap. A dashcam clip
+      in the corpus would be the wrong surface entirely.
+
+  - id: class_coverage
+    sentence: >
+      We report three-class congestion (LOW, MEDIUM, HIGH) per lane.
+    status: asserted
+    check: every_class_has_test_support
+    minimum_support: 10
+    note: >
+      P57. HIGH is 0, 20, 9 and 1 across the four folds — thirty in 572. Two
+      folds are effectively binary. A signal controller acts on HIGH, so a
+      three-class claim that cannot separate it does not bear on control.
+
+  - id: camera_count
+    sentence: >
+      The evaluation covers at least four independent cameras.
+    status: asserted
+    check: enough_eligible_cameras
+    minimum_cameras: 4
+    note: >
+      ADR-019 makes a camera fold-eligible at ten windows. Dropping the M6 for
+      P58 leaves three, which is the protocol's bare minimum, so this claim and
+      the domain claim cannot both be satisfied by the corpus we have.
+
+  - id: releasable
+    sentence: >
+      The corpus and everything derived from it can be released.
+    status: aspirational
+    check: every_camera_licence_permits_release
+    allowed_licences: ["CC BY 4.0", "CC0", "public body release"]
+    note: >
+      Aspirational, and the honest status. The MFSTNet corpus is built from
+      third-party YouTube uploads whose licences are unresolved, and ITD v1.2 —
+      which supplies the detector used to count them — is CC BY-NC 4.0.
+      Nothing derived is releasable until that is settled, so no paper artifact
+      may promise it.

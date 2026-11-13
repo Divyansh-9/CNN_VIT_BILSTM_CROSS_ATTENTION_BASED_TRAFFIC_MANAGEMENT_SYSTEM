@@ -1,0 +1,39 @@
+{
+  "clip": "Mumbai Traffic Chaos - Near Andheri Station.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Mumbai Traffic Chaos - Near Andheri Station.mp4",
+  "detections": 1781,
+  "unassigned_rate": 0.0225,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.1640506961669027,
+        0.6879535443969225
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.4659446610013644,
+        0.5111340966342408
+      ]
+    },
+    {
+      "name": "lane_2",
+      "centre": [
+        0.5165850742363636,
+        0.8346721857733618
+      ]
+    },
+    {
+      "name": "lane_3",
+      "centre": [
+        0.531641280942284,
+        0.3039305806453654
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

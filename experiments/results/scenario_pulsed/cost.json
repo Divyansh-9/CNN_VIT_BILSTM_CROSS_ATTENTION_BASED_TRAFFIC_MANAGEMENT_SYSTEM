@@ -1,0 +1,24 @@
+{
+  "host": "team laptop (ADR-003), CPU",
+  "seeds": [
+    300,
+    301,
+    302
+  ],
+  "ordinary_episode_s": [
+    2.28,
+    1.83,
+    1.85
+  ],
+  "oracle_pass_s": [
+    3.93,
+    3.9,
+    3.91
+  ],
+  "steps_per_episode": 236,
+  "multiplier_with_oracle": 2.97,
+  "episodes_per_500k_run": 2119,
+  "added_hours_per_500k_run_uncached": 2.3,
+  "note": "env stepping with policy inference only; PPO's own update time is excluded. The oracle depends only on (scenario, seed, frozen policy), so arms sharing a training seed share one cached oracle",
+  "rejected_alternative": "SUMO saveState/loadState lookahead: about 1.4 s per lookahead, 522 s against 6.3 s per 1800 s episode (P115 spike)"
+}

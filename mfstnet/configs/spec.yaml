@@ -26,8 +26,8 @@ congestion:                # PRD §14.1 — per-lane vehicle-count thresholds
 
 lanes: [N, S, E, W]
 
-ppo_state:                 # PRD §13.1 as amended by A16 (ADR-009)
-  dim: 16
+ppo_state:                 # PRD §13.1 as amended by A16 (ADR-009) and ADR-020 (as amended 2026-10-16)
+  dim: 17
   index_map:
     count_N: 0
     count_S: 1
@@ -40,17 +40,33 @@ ppo_state:                 # PRD §13.1 as amended by A16 (ADR-009)
     phase_NS: 8
     phase_EW: 9
     phase_remaining: 10
+    # ADR-020 A1: the class forecast for each approach, from whichever
+    # forecaster holds that role (ADR-027). The names are kept for continuity.
     mfst_pred_N: 11
     mfst_pred_S: 12
     mfst_pred_E: 13
     mfst_pred_W: 14
     emergency_flag: 15
+    forecast_age: 16         # ADR-020: one per forecast message
   normalisers:             # PRD §13.1 — revisit at W10, pending item P2
     count_divisor: 50
     queue_divisor: 200
     phase_remaining_divisor: 90
-    mfst_pred_divisor: 2
-  zero_when_mfstnet_unavailable: [11, 12, 13, 14]
+    # ADR-020: 0.0 is RESERVED for "no forecast for this approach", so no
+    # class may map to it. LOW was 0.0 under the old divisor of 2 (P97a).
+    forecast_class_value:
+      LOW: 0.3333333333333333
+      MEDIUM: 0.6666666666666666
+      HIGH: 1.0
+    forecast_age_cap_s: 10   # PRD §7.2's bound; age is min(age, cap) / cap
+  # ADR-020 (as amended): the fallback is one named operation, not a list of
+  # indices plus a convention. With no forecast message, every class slot reads
+  # absent and the age reads 1.0.
+  forecast_unavailable:
+    absent_value: 0.0
+    class_slots: [11, 12, 13, 14]
+    age_slot: 16
+    age_value: 1.0
 
 signal:                    # PRD §9.6 — enforced by actuation, not learned
   min_green_s: 10

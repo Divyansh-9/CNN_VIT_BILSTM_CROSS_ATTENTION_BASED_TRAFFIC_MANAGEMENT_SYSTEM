@@ -1,0 +1,38 @@
+/* The intersection drawing (UX step 3). The road is neutral; only a ribbon's
+   class colour means anything, and the class is also written beside it. */
+.figure { margin: 0; display: grid; justify-items: center; gap: 8px; }
+.svg { max-width: 100%; height: auto; }
+.road { fill: var(--road); }
+.box { fill: var(--road-box); }
+.zebra { fill: var(--road-edge); }
+.centre { fill: none; stroke: var(--frame-count); stroke-width: 1.5; stroke-dasharray: 8 8; }
+.stop { fill: var(--ink); }
+.track { fill: none; stroke: var(--frame-count); }
+.head { fill: none; stroke: var(--muted); stroke-dasharray: 2 2; }
+.headMark { fill: var(--muted); font: 700 9px var(--mono); }
+.LOW { fill: var(--low); stroke: var(--low); }
+.MEDIUM { fill: var(--medium); stroke: var(--medium); }
+.HIGH { fill: var(--high); stroke: var(--high); }
+/* D37: a vehicle number with no level yet. Grey, which is no level's colour and not the brand's. */
+.noLevel { fill: var(--muted); stroke: var(--muted); }
+/* Past its horizon: the shape stays, the fill goes. */
+.hollow { fill: none; stroke-width: 2; stroke-dasharray: 4 3; }
+/* Step 3b: a count above the scale, cut into the ribbon in the road's own
+   colour. Neutral, so it never reads as a class. */
+.overflow { fill: var(--road); }
+.label { fill: var(--ink); font: 12px var(--mono); }
+.labelMuted { fill: var(--muted); font: 12px var(--mono); }
+.labelHead { font-weight: 700; }
+.caption { color: var(--muted); font-size: 12px; max-width: 46ch; text-align: center; }
+
+/* The forecast's age against its horizon. */
+.horizon { display: grid; gap: 4px; }
+.age { margin: 0; color: var(--muted); font-size: 13px; }
+.age b { color: var(--ink); font-size: 16px; }
+.mono { font-family: var(--mono); }
+.ticks { width: 100%; max-width: 584px; height: auto; }
+.tickLit { fill: var(--ink); }
+.tickStale { fill: var(--stale); }
+.tickDim { fill: var(--road-edge); }
+.horizonText { margin: 0; font-size: 13px; }
+[data-horizon="stale"] .horizonText { color: var(--stale); font-weight: 600; }

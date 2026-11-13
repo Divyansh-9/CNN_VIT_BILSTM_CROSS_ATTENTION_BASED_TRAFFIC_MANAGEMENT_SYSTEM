@@ -1,0 +1,25 @@
+{
+  "clip": "Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Pov_Thursday Traffic From Footover bridge\u0964 Cloudy Seen\u0964.mp4",
+  "detections": 1789,
+  "unassigned_rate": 0.0984,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.3803863764402126,
+        0.36378114530851013
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.5563836456964203,
+        0.5989164800697305
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

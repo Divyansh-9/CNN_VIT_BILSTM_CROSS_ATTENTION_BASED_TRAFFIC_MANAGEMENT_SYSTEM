@@ -124,11 +124,45 @@ class LanePool(nn.Module):
     def n_lanes(self) -> int:
         return int(self.masks.shape[0])
 
-    def forward(self, maps: torch.Tensor) -> torch.Tensor:
-        """`[B, T, D, G, G]` -> `[B, T, L, D]`."""
+    def forward(self, maps: torch.Tensor,
+                masks: torch.Tensor | None = None) -> torch.Tensor:
+        """`[B, T, D, G, G]` -> `[B, T, L, D]`.
+
+        `masks` is optional per-sample geometry, `[B, L, G, G]`. A lane lives in
+        one camera's image plane (P17), so a corpus spanning cameras must pool
+        each item through its OWN lanes — the registered buffer is right only
+        when every item comes from the same camera. Passing them per sample is
+        what lets one model span cameras at all: the geometry becomes an input
+        describing where this camera's lanes are, rather than a constant baked
+        in at construction (P26).
+        """
         if maps.dim() != 5:
             raise ValueError(f"expected [B, T, D, G, G], got {tuple(maps.shape)}")
-        return torch.einsum("btdhw,lhw->btld", maps, self.masks)
+        if masks is None:
+            return torch.einsum("btdhw,lhw->btld", maps, self.masks)
+
+        if masks.dim() != 4:
+            raise ValueError(
+                f"per-sample lane masks must be [B, L, G, G], got {tuple(masks.shape)}"
+            )
+        if masks.shape[0] != maps.shape[0]:
+            raise ValueError(
+                f"lane masks carry a batch of {masks.shape[0]} but the features "
+                f"carry {maps.shape[0]}. Each item must be pooled through its "
+                f"own camera's lanes, so the two batches cannot differ."
+            )
+        if masks.shape[1] != self.n_lanes:
+            raise ValueError(
+                f"lane masks declare {masks.shape[1]} lanes but this pool was "
+                f"built for {self.n_lanes}. The head is a fixed width, so every "
+                f"camera in one corpus needs the same lane count."
+            )
+        if tuple(masks.shape[2:]) != tuple(self.masks.shape[1:]):
+            raise ValueError(
+                f"lane masks are {tuple(masks.shape[2:])} but the encoder grid "
+                f"is {tuple(self.masks.shape[1:])}"
+            )
+        return torch.einsum("btdhw,blhw->btld", maps, masks.to(maps.dtype))
 
 
 class _SinusoidalPE(nn.Module):
@@ -163,11 +197,33 @@ class TemporalEncoder(nn.Module):
                 raise ValueError(
                     f"bidirectional hidden 2x{self.cfg.hidden} must equal d_model {d}"
                 )
-            self.rnn = nn.LSTM(
-                d, self.cfg.hidden, self.cfg.layers,
-                batch_first=True, bidirectional=True,
-                dropout=self.cfg.dropout if self.cfg.layers > 1 else 0.0,
-            )
+            # One single-layer LSTM per layer, with dropout applied between them
+            # explicitly, rather than one multi-layer nn.LSTM with its built-in
+            # `dropout=`. The semantics are identical — PyTorch applies built-in
+            # dropout to the output of every layer except the last, which is
+            # what the loop in `forward` does — and the reason for the change is
+            # a platform defect, not a modelling one (P42).
+            #
+            # `nn.LSTM(..., dropout>0)` on CUDA in TRAINING mode aborts the
+            # process at teardown on this stack (torch 2.13.0+cu126, Python
+            # 3.14, Windows, sm_89) with STATUS_STACK_BUFFER_OVERRUN. cuDNN
+            # allocates a dropout-state descriptor that is not torn down
+            # cleanly. `dropout=0.0` is clean, `.eval()` is clean, and even a
+            # single layer aborts although torch ignores dropout there — so it
+            # is the descriptor, not the dropout.
+            #
+            # The alternatives were worse: disabling cuDNN for the RNN costs 11x
+            # (66.1 ms/step against 5.9), and setting dropout to zero only on
+            # CUDA would make the model's regularisation depend on the device,
+            # which is the exact defect class P39 exists to prevent. This costs
+            # about 12% of the LSTM step and nothing else.
+            self.rnn_layers = nn.ModuleList([
+                nn.LSTM(d, self.cfg.hidden, 1, batch_first=True,
+                        bidirectional=True)
+                for _ in range(self.cfg.layers)
+            ])
+            self.rnn_dropout = nn.Dropout(
+                self.cfg.dropout if self.cfg.layers > 1 else 0.0)
 
         if self.cfg.use_temporal_attn:
             self.pe = _SinusoidalPE(d)
@@ -184,7 +240,17 @@ class TemporalEncoder(nn.Module):
         cfg = self.cfg
         h_n: torch.Tensor | None = None
         if cfg.use_bilstm:
-            x, (h_n, _) = self.rnn(x)
+            # Dropout between layers, never after the last — PyTorch's own rule
+            # for a multi-layer nn.LSTM, reproduced explicitly (P42). `h_n` is
+            # concatenated so it keeps the [layers * 2, N, hidden] shape that
+            # `_last` reads.
+            states = []
+            for index, layer in enumerate(self.rnn_layers):
+                x, (h, _) = layer(x)
+                states.append(h)
+                if index < len(self.rnn_layers) - 1:
+                    x = self.rnn_dropout(x)
+            h_n = torch.cat(states, dim=0)
         if cfg.use_temporal_attn:
             x = self.attn(self.pe(x))
             h_n = None            # the sequence has been rewritten; h_n is stale

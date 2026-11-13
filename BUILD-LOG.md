@@ -5,8 +5,15 @@
 | | |
 |---|---|
 | **Started** | 2026-08-07 |
-| **Last entry** | 2026-08-13 |
-| **Current step** | S37 full PPO runs (long), or S18 dataset curation |
+| **Last entry** | 2026-08-21 |
+| **Current step** | S28/S29 — the corpus is built and the ablation is the next artifact |
+
+> **The board below went eight days stale (2026-08-13 → 2026-08-21) while ~40
+> commits landed.** Anyone reading it in that window would have concluded the
+> project was stalled in Phase 3. It was not. The status board is the part of
+> this file that ages fastest and the part most likely to be read alone — it is
+> now updated in the same commit as the work it describes, not at the end of a
+> session.
 
 ---
 
@@ -41,7 +48,7 @@ guesses.
 
 ## Status board
 
-**Legend:** ✅ done · 🔵 in progress · ⛔ blocked · ⬜ not started
+**Legend:** ✅ done · 🟨 partly done · 🔵 in progress · ⛔ blocked · ⬜ not started
 
 ### Phase 0 — Setup · Weeks 0–2
 
@@ -80,13 +87,25 @@ guesses.
 
 ### Phase 3 — Dataset · Weeks 3–8 → **M1**
 
+> **Rewritten against ADR-006, which was accepted 2026-08-13.** The rows below
+> described the *pre-variation* plan for eight days after the variation was
+> signed off, so the board was showing work the project had already agreed not
+> to do. Novel Contribution 1 is now Part A (curate from permissively-licensed
+> public sources) + Part B (1,500–3,000 campus frames), not 12,000 self-collected
+> frames.
+
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S18 | Curate Part A benchmark (harmonise taxonomies) | ⬜ | R1 | **unblocked** · S09 |
-| S19 | Recording sessions (≥60 × ≥6 min) | ⬜ | R1 | **unblocked** |
-| S20 | Annotation | ⬜ | All | S19, S06 |
-| S21 | Face/plate blurring script | ⬜ | R1 | S19 |
+| S18 | Curate Part A benchmark (harmonise taxonomies) | ⬜ | R2, R3 | **unblocked** · S09 · moved off R1, who is on placements and owns capture, blurring and curation simultaneously |
+| S19 | ~~Recording sessions (≥60 × ≥6 min)~~ ~~→ Part B campus capture, 1.5–3k frames~~ → six-viewpoint evaluation set | ⬜ | Guide | **ON HOLD by the owner, 2026-10-25 ([P143](docs/00-planning/PRD-CHANGELOG.md#p143)):** engineering proceeds on the foreign corpus, and Indian-domain validation stays unestablished. Not done, not cancelled; reopening it needs the guide's decision on the memo. History: **blocked on decision since 2026-08-22** — [memo](docs/00-planning/MEMO-2026-08-22-part-b.md), reply due 08-29, none received. One campus location is ONE camera, so ADR-019 cannot score it. Permission filed regardless |
+| S20 | Annotation (Part B only; Part A inherits source labels) | ⬜ | All | S19, S06 |
+| S21 | Face/plate blurring script | ⬜ | R2 | S19 · **moot if the memo is accepted** — public-space capture of a ~300-frame test set still needs blurring, but not a pipeline |
 | S22 | Publish → **M1** | ⬜ | R1 | S18, S20, S21 |
+
+**S19 is not what blocks the model track.** It is the *detection* dataset. The
+MFSTNet corpus is a separate artifact (ADR-002) built from existing footage, and
+that is what S28/S29 wait on. Conflating the two is why "recording sessions" read
+as the project's only blocker for two weeks.
 
 ### Phase 4 — Model · Weeks 4–14 → **M4, M5**
 
@@ -97,42 +116,104 @@ guesses.
 | S25 | BiLSTM + per-lane ROI head | ✅ | — | A8 verified: 4 different lane predictions |
 | S26 | **Overfit 10 sequences to ~zero loss** | ✅ | — | All 8 configs reach <0.03. Found 2 real defects |
 | S27 | Feature cache + manifest assertion | ✅ | — | Hash raises, never warns. 23 tests |
-| S28 | Phase 1 full training → **M4** | ⬜ | R2 | S27 |
-| S29 | Ablation A–H × 5 seeds → **M5** | ⬜ | R2 | S28 |
+| S27b | **Reviewed lane geometry, 12 cameras** | ✅ | — | `data/lanes_reviewed/`. **P44**: one automatic centre was in the sky. Review is provisional — see S18b |
+| S27c | Corpus built + **leave-one-camera-out split (ADR-019)** | ✅ | — | 153 sequences, 7 cameras. Hash split put a UK motorway alone in `test`; 4 folds now, all audited |
+| S28 | Phase 1 full training → **M4** | ✅ | — | 160 runs, all with per-window predictions. Trains clean after **P55** |
+| S29 | Ablation A–H × 5 seeds → **M5** | ✅ | — | Complete: 4 folds × 8 configs × 5 seeds. **Q1 CANNOT DISTINGUISH** at MDD 0.212 (ADR-022, pre-registered). Table cannot be reported — P58/P57 fail the claims gate (P67) |
 | S30 | Backbone arms BB-1/2/3 | ⬜ | R2 | S29 |
-| S31 | ONNX export + latency (GPU and CPU-only) | ⬜ | R2 | S29 |
+| S31 | ONNX export + latency (GPU and CPU-only) | 🟨 | R2 | Graph exports for all 8 configs, parity 1e-7, 11 tests. **A-H latency run pending a quiet machine**; INT8 pending a trained checkpoint |
 
 ### Phase 5 — Simulation and RL · Weeks 3–14 → **M3, M6, M7**
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S32 | SUMO 4-way network | ⬜ | R3 | S05 |
-| S33 | Sublane model + heterogeneous vTypes (ADR-010) | ⬜ | R3 | S32 |
-| S34 | Fixed / Random / Webster baselines | ⬜ | R3 | S33 |
+| S32 | SUMO 4-way network | ✅ | — | `simulation/networks/intersection.net.xml`, regenerated and verified 2026-08-21 |
+| S33 | Sublane model + heterogeneous vTypes (ADR-010) | ✅ | — | `vtypes.add.xml`; demand builds at all three regimes |
+| S34 | Fixed / Random / Webster baselines | ✅ | — | 270 rows in `benchmark_runs.csv` — 30 seeds x 3 controllers x 3 regimes |
 | S35 | Webster saturation-flow sweep (ADR-012) → **M3** | ✅ | — | 21 runs. **Broke ADR-012's selection rule** |
 | S36 | Gym environment, `check_env` clean | ✅ | — | check_env clean. 16-dim contract read from spec |
-| S37 | PPO training, three arms → **M6** | 🟨 | R3 | Harness + config done, smoke run trains. Full 500k pending |
-| S38 | 30-seed benchmark + statistics → **M7** | 🟨 | R3 | Stats + harness done, baselines benchmarked. PPO arms pending |
+| S37 | PPO training, three arms → **M6** | 🟨 | R3 | **Training finished for two arms:** ten 500,000-step CPU checkpoints in `models/ppo/`, each with a provenance sidecar. `no-forecast` has pulsed seeds 1, 7, 42 and saturated seed 42; `surrogate` has q=0 and q=1 at pulsed seeds 1, 7, 42. The surrogate arm exists since [P120](docs/00-planning/PRD-CHANGELOG.md#p120), which closed P52 in code. 12 pre-P47 checkpoints archived — unknown length (P74). `mfstnet` is Phase 3 and not built. M6's plateau criterion is not assessed on this board |
+| S38 | 30-seed benchmark + statistics → **M7** | 🟨 | R3 | P82: 19.4% lower mean wait than best-tuned Webster in the historical 30-seed experiment, d=-1.34. Not a matched training/evaluation setup (P119); arrival times were fixed across the seeds, which varied the vehicle mix (P116b). One policy, one training seed, one traffic regime. Cite only with these qualifications (P138). Under the distinct, matched `pulsed` protocol, every PPO arm had more delay than both Webster arms (P130) |
 
 ### Phase 6 — System · Weeks 4–19 → **M8, M9, M10**
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
 | S39 | MQTT contract + cross-topic test | ✅ | — | 31 assertions. P7 and TRIAGE-001 closed |
-| S40 | Edge node: capture → count → publish | ⬜ | R4 | S11, S39 |
-| S41 | FastAPI + store | ⬜ | R4 | S39 |
-| S42 | Dashboard (2 pages if ADR-008 approved) | ⬜ | R4 | S41 |
-| S43 | Both fallbacks + fault injection — **pull to W17** | ⬜ | R4 | S40, S41 |
-| S44 | Integration → **M8, M9, M10** | ⬜ | All | S42, S43 |
+| S40 | Edge node: capture → count → publish | ✅ | — | `edge/node.py`. FR-A06 fallback decided **on the edge**, tested without a broker. 14 tests |
+| S41 | FastAPI + store | ✅ | — | `server/safety.py` (FR-A03..A06, no HTTP in it) + `server/app.py` (SQLite per ADR-008). **35 tests**, most without starting a server |
+| S42 | Dashboard (2 pages if ADR-008 approved) | 🟨 | R4 | S41 · Reviewed 2026-10-25 against ADR-008 and FR-UI01–08 (P143), updated 2026-11-04 (D38). **Built** (`1102932`, then D13–D37): a read-only dashboard with four sections, Live, Analyze a video, Analytics and Results, with live and benchmark numbers separated per ADR-014. Historical counts (FR-UI03) were added in D21. **The local workbench (D40–D43):** served from 127.0.0.1, the same dashboard also analyses any video for a declared or provisional camera, replays it or connects a camera on Live, and checks a whole video's forecasts against what then happened; served by the server it stays read-only. **Not built:** signal state (FR-UI01; the controller is not connected, P97a); the emergency banner (FR-UI02); the gate tracker (FR-UI05; MFSTNet does not serve, ADR-027); the event log (FR-UI08); WebSocket updates (refresh is HTTP polling every 2 s) |
+| S43 | Both fallbacks + fault injection — **pull to W17** | ✅ | R4 | Both fallbacks **implemented and tested**: server-side FR-A06 in `server/safety.py`, edge-side in `edge/node.py`. **Fault injection across a real broker done (D43, 2026-11-09):** `test_fr_a06_fault_injection_on_a_real_broker` stops a real Mosquitto under the real edge node; the node fell back to the local cycle 10.0 s after the stop (the FR-A06 timeout) and was normal again 0.5 s after the restart, identical in three runs. The MFSTNet-inference fallback is tested in software only |
+| S44 | Integration → **M8, M9, M10** | 🟨 | All | S42, S43 · Checked 2026-11-04 (D38) against PRD §18 as amended by ADR-008. Edge, broker, server and dashboard run together on recorded footage (`demo_live.py`; Docker stack smoke-tested in CI). **M8 not met:** the edge is a laptop (ADR-003), the frame rate was not measured on a live camera (S65), and emergency preemption is tested in software only. **M9 partly met:** more than ADR-008's two pages are built, but there is no WebSocket and four FR-UI items are not built (S42). **M10 not met:** no forecast feeds the policy (P97a) and MFSTNet does not serve (ADR-027), so the PPO + MFSTNet + edge + dashboard run for 1 hour at ≥95% uptime has not taken place |
 
 ### Phase 7 — Research output · Weeks 15–20 → **M11**
 
 | # | Step | Status | Owner | Needs |
 |---|---|---|---|---|
-| S45 | Verify the five load-bearing citations | ⬜ | R2 | — |
+| S45 | Verify the five load-bearing citations | 🟨 | R2 | Records and content checked 2026-11-06, corrected in D39: B31's "552–924 s vs 100–120 s" is not in the paper and is withdrawn; B10's "92–99%" is unverifiable and withdrawn; B8 is open access; B30's identity is confirmed. **Still owed by a person:** reading B10 before any of its numbers is quoted, and obtaining IRC:SP:41-1994 and Webster (1958), whose title and co-author vary between sources |
 | S46 | Paper draft | ⬜ | All | S29, S38 |
 | S47 | Documentation waves 2, 3, 4 | ⬜ | All | W05, W11, W16 |
 | S48 | Final report + submission → **M11** | ⬜ | All | S46 |
+| S49 | Lane-discipline manipulation pilot (ADR-024) | ✅ | R1 | `scripts/discipline_pilot.py`, `experiments/results/discipline_pilot.csv` plus its sidecar. Established that the discipline parameter is **binary, not continuous**: the vType attributes move mean lateral offset 0.504→0.482 m (4%), a `--lateral-resolution` sweep is non-monotone, and disabling the sublane model gives exactly 0.0000 m. Withdrew the graded sweep |
+| S50 | Two-arm capacity contrast at 30 seeds | ⬜ | R1 | **Deferred by the owner in favour of corpus work.** Needs per-PCU and per-mode delay first (`_read_tripinfo` must return per-type means), then a stated uncertainty target. Not to be run because 30 is a round number |
+| S51 | Corpus gap measurement | ✅ | R1 | `scripts/corpus_gap.py`. 153 windows over 7 clips ≈ 1.27 h of camera-time; 2,000 windows would need 17.2 camera-hours. **The binding constraint is the 4 fold-eligible cameras, not the window count** |
+| S52 | Fold-eligible camera audit | ✅ | R1 | `scripts/camera_audit.py`. M6 is 41.2% of windows and 52.6% of all HIGH labels, and is the only `traffic_type: structured` camera against a target of `mixed`. All four fold-eligible cameras are outside the declared country, which is the `domain` claim being red |
+| S53 | Source-level ablation on M6 (P85) | ✅ | R1 | Recomputed from committed per-fold scores, no training run. **ADR-022's sign flips**: all folds G−H = −0.0204, three in-regime folds G−H = +0.0449. No macro-F1 mean may now be quoted without its fold composition |
+| S54 | Licence-first, viewpoint-first collection | ⬜ | R1, R3 | **ON HOLD by the owner, 2026-10-25 ([P143](docs/00-planning/PRD-CHANGELOG.md#p143)).** The BMD-45 outreach (OUTREACH-2026-08-22, OUTREACH-2026-10-15) is on hold with it; neither email is recorded as sent. **Gate defined in `scripts/camera_audit.py`**; collection not started. Every existing camera is `licence: unresolved`, and 25 GB free against ~60 GB needed stages this. Target is independent fold-eligible cameras, not window count |
+| S55 | Fold-level score table and aggregation definitions | ✅ | R1 | `scripts/fold_table.py`. Camera identity, traffic regime, window count and per-class support for every fold, with both aggregations defined rather than implied. The ADR-022 sign flip **survives scoring only present classes** (−0.0175 against +0.0488), so it is fold composition and not class support |
+| S56 | Claim audit and limitation statement in the synopsis | ✅ | R1 | The committed `gate_vs_probe.csv` already held `1:-0.2163` against `+0.0237 +0.0796 +0.0313` — G leads on 3 of 4 folds. The synopsis quoted only the mean; it now carries the per-fold decomposition and an explicit limitation that no fold-eligible camera is Indian and that fold 0 cannot score HIGH |
+| S57 | Gate-vs-probe slide carries its fold composition | ✅ | R1 | `build_synopsis_pptx.py` rendered the verdict as a bare headline. The panel now shows the per-fold differences, names M6 as the fold that reverses the mean, and gives the in-regime figure. Rendered and inspected; fits its box |
+| S58 | Source register and collection gate | ✅ | R1 | `data/sources.json`, `scripts/check_sources.py`, `tests/test_check_sources.py`. Three partitions (real_india, real_external, synthetic_sumo), gated per role, thresholds read from the manifest and CLAIMS.yaml. Chennai Zenodo 21545806 assessed and rejected for the forecaster: ego-vehicle view, longest sequence about 110 s against 390 s needed |
+| S59 | Headline protocol in the claims gate (P86, ADR-025) | ✅ | R1 | `check_claims.py --protocol headline` previews the protocol without editing CLAIMS.yaml. Empty-scope guard, scoping of all three evaluation claims, five tests in `tests/test_claims.py`. ADR-025 drafted, unaccepted |
+| S60 | Domain selection and checkpoints (ADR-025, P87) | ✅ | R1 | `resplit_corpus.py --domain`, `train_mfstnet.py --save-checkpoint / --init-from`. Smoke-tested end to end on the foreign fold 0: save, fine-tune, refusals for wrong config and overwrite. `mixed` is byte-identical to the committed folds. Tests in `test_domains.py`, `test_checkpoints.py`, `test_folds.py` |
+| S61 | Foreign baseline: train, keep and export a real checkpoint | ✅ | R1 | 40/40 runs, no failures. Selected on validation only: G, fold 3, seed 13 (`selection.json`). Export verified 136/136 against committed predictions, fresh control 0. Real held-out video through the edge and live MQTT to the server: 136/136, p95 170.8 ms per 2 s step on the RTX 4050. Foreign-domain only, never Indian evidence. Decode at 4K is unmeasured (P89) |
+| S62 | Live MQTT link and contract schema v2 (ADR-026) | ✅ | R1 | `edge/mqtt_transport.py`, `server/mqtt_ingest.py`, `tests/test_mqtt_live.py` against a real broker. Schema v2: pattern-checked model id, approach keys, closed emergency types, `gate_value` None when absent. paho-mqtt and psutil pinned |
+| S63 | Bellevue pilot, one camera | ✅ | R1 | Two contiguous hours of NE 8th, `data/corpus_bellevue` (A30 overridden for this corpus only, P91). All seven checks in `experiments/results/bellevue_pilot/REPORT.md`. The pipeline works end to end. **The model does not beat persistence**: test macro-F1 G 0.5644 against persistence 0.5875. G and H are not separated on validation. lane_2 is degenerate, and HIGH is relative (per-camera thirds). Single-camera temporal evaluation only |
+| S63b | Horizon diagnostic, 180 s and 300 s (P92) | ✅ | R1 | `scripts/rehorizon_corpus.py` (reproduces 60 s exactly), `scripts/horizon_eval.py` (paired bootstrap). 180 s: +0.032 [−0.061, +0.128] against persistence, not distinguishable. 300 s infeasible on two hours. Stop rule applied: the horizon stays put; next is the label definition |
+| S63c | Sustained-level targets, 60 s and 120 s (P93, P94) | ✅ | R1 | Validation diagnostic (P93) found a ~2 min signal cycle. P94: every model ahead of the previous-window mean (+0.036 to +0.090), none distinguishably; about 4x the test windows needed to resolve. Selections committed before the test was read |
+| S63d | Blind label-quality audit, 20 frames (P95) | ✅ | Owner, R1 | Detector undercounts 15/39/45% on W/N/E, worse when busy; ranks frames well there (r 0.77–0.84); south lane close to noise (r 0.41). Pilot: expand before changing labels |
+| S63e | 60-frame audit and south-lane assessment (P96) | ✅ | Owner, R1 | Undercount W 14% / N 27% / E 41%, growing with traffic; ranking holds on W/N/E (r 0.71–0.82); south r 0.16 [−0.02, 0.50], no signal. The south approach is out of view, so a corrected fourth region is not possible here. Lane decision with the owner |
+| S63f | Three-lane retrain, 60 s and 120 s (P97) | ✅ | R1 | First pre-registered win: at 60 s G beats the previous-window mean, [+0.027, +0.225]; post-hoc accuracy, QWK and MEDIUM/HIGH-F1 intervals also exclude zero. 120 s not distinguishable. Gains on north and east, not west. One camera, 29 test windows, undercount-limited labels |
+| S63g | Out-of-time test of the frozen P97 model (P98) | ✅ | R1 | Eleven continuous NE 8th hours, none excluded; Mon 13:08 is 53.5 min at the source and kept. **Does not replicate**: Mon 07:08–15:08, 60 s, G − previous-window mean −0.063 [−0.107, −0.009], 48 ten-minute blocks. The model never predicts LOW (0 of 2,691; P97 trained on 1 LOW in 381); better on MEDIUM, level on HIGH, accuracy +0.094. Dawn/dusk and 120 s significantly worse. Next step is the owner's decision |
+| S63h | Pretrained-detector counting benchmark (P99a) | ✅ | R1 | `scripts/detector_benchmark.py`; harness reproduces ITD-xl's corpus counts exactly. COCO YOLOv8m at 1280 improves 3-lane MAE −0.589 [−0.883, −0.306] on the 60 afternoon hand counts (north undercount 27→15%, east 41→15%); selected, not adopted. Costs: lower correlation on W/N, 15% north overcount when quiet |
+| S63i | Blind dawn/glare/dusk count, 60 frames (P99b) | ✅ | Owner, R1 | `scripts/p99b_compare.py`, `p99b_manual.json`. ITD-xl accurate when quiet (MAE 0.91, bias ≈ 0); LOW precision 0.845 [0.747, 0.931] ≥ 0.80, so the morning LOW labels are usable (08:08 glare hour 4 of 9). M1280 overcounts quiet north by 47%, +0.356 [+0.161, +0.550]: not adopted, ITD-xl stays |
+| S63j | Training-coverage retrain, 13 hours, block split (P99) | ✅ | R1 | Selected on validation only: G unweighted seed 7. Beats persistence +0.102 [+0.041, +0.177]; LOW recall 0.349 < 0.50, so **Phase 2 not passed** (conditions 2–4 pass). Does not beat an hour-of-day prior (−0.015 [−0.077, +0.119]). P97 control still predicts no LOW. Next: a held-out-hour test, owner's decision |
+| S63k | Unseen-hour test, two hour-interleaved folds (P100) | ✅ | R1 | Seed-averaged G (unweighted) on hours never seen: vs clock prior +0.029 [−0.005, +0.065] n.s.; vs persistence −0.059 [−0.129, +0.031] n.s. Content control real − swapped **+0.054 [+0.024, +0.087]**: it uses the traffic. LOW recall 0.058 (fold B trained on 57 LOW). Quiet-hour coverage is the blocker; next step is the owner's decision |
+| S63l | Count-only forecaster on P100's folds (P101, exploratory) | ✅ | R1 | `scripts/p101_counts.py`. Logistic regression on 24 count features of the same 60-sample window, no clock: macro-F1 0.669 vs vision 0.481, persistence 0.540, clock 0.452; vision − counts −0.188 [−0.254, −0.099], all Holm-significant. LOW recall 0.407 (balanced variant 0.760). A32 caveat: count-derived labels favour counts. Re-used P100 windows; confirmation needs fresh footage |
+| S63m | Freeze the C1 count forecaster v1 (P102) | ✅ | R1 | `scripts/c1_freeze.py` → `c1_count_forecaster_v1.json` (sha256 809d06ea…), P101 spec on all 13 hours; JSON reload reproduces sklearn; ~30 µs/window CPU. Fresh confirmation needs other cameras (no other NE 8th day exists); v1 is NE 8th-layout-specific, so transfer needs a lane-agnostic spec. Owner's decision |
+| S63n | Camera-transfer test of the lane-agnostic count forecaster (P103) | ✅ | Owner, R1 | Owner-placed lanes on Eastgate, Newport, SE38th; thresholds from the Sunday calibration hour. C1-L − persistence **−0.222 [−0.260, −0.183]**: does not transfer (forecasts +0.7 vehicles high: NE 8th's level). Persistence 0.706 is the best method on new cameras. Limitation lanes do not change it. Next step is the owner's decision |
+| S63o | Persistence as the prototype's transferable forecaster (P104) | ✅ | R1 | `edge/persistence.py`, `persistence_v1.json` (sha 2431c664…, id persistence@2431c6641b9c), full-precision per-camera thresholds, measured-precision confidence. Contract MODEL_ID extended additively; heartbeat `mfstnet_active` set only by MFSTNet. Not fed to PPO (P97a). Change-based forecasting next, on untouched footage only |
+| S63p | Change-based (level-free) forecaster on untouched footage (P105) | ✅ | Owner, R1 | 16 files by rule; 116th NE12th excluded (no clock, truncated); 3 cameras, 48 blocks. Count MAE persistence − ridge **+0.224 [+0.181, +0.271]** (significant, every camera); macro-F1 +0.016 [−0.002, +0.036] n.s. Reading: better counts, classes unchanged. Bias −0.017 vs P103's +0.7. No automatic promotion; persistence stays |
+| S63q | Two forecasting roles: persistence class + ridge count (P106, ADR-027) | ✅ | R1 | `CountForecast` on `stms/{id}/count/forecast` (ridge@ ids only), `edge/count_forecast.py`, shared `edge/samples.py` (gap reset, no zero-filling, plausibility), server `/count_forecast/{id}` with role, age and stale flags on both forecasts, ingest of both topics; 22 tests, suite green. No dashboard (ADR-008); not fed to PPO (P97a) |
+| S63r | Minimal read-only dashboard (P107; ADR-008, ADR-014, ADR-027) | ✅ | R1 | `dashboard/` (React 18 + Vite): ridge count and persistence class in separate live panels with role, model id, age and stale; missing shown as missing, invalid responses refused; P97a warning visible; Results from committed P103/P105 files via `GET /evidence` with file, commit, date and difference direction. GET-only to three endpoints, tested. 12 vitest + 4 pytest; browser-checked at desktop and 375 px. No WebSocket, charts or CI Node job |
+| S63s | P97a investigation (P108) | ✅ | R1 | `INVESTIGATION-P97a-missing-forecasts.md`: missing forecast = 0.0 = LOW traced through spec, contract, env, controller and API; latent (no forecast reaches a controller), exposed in `state_11_14`; options A–D; owner chose A now and D as the plan |
+| S63t | P97a Option A (P109) | ✅ | R1 | `to_state_values` refuses a missing approach; `to_state_values_or_none` and the server's `state_11_14` carry null; pinning tests now assert refusal |
+| S63u | ADR-020 accepted as amended; 17-dim state and fail-safe gate (P110) | ✅ | R1 | `spec.yaml` dim 17, LOW/MEDIUM/HIGH → 1/3, 2/3, 1 with 0.0 reserved, `forecast_age` at 16; `simulation/forecast_state.py` (`forecast_slots`, `ForecastGate`: every required input complete, fresh and valid, else no-forecast policy or Webster); `PPOController` refuses missing counts; 22 tests. Old checkpoint archived to `_pre_adr020/` |
+| S63v | Retrain the no-forecast PPO policy on the 17-dim layout | ✅ | R1 | Verified (`verify_ppo_checkpoint.py`): num_timesteps 501,760 ≥ 500,000, not smoke, obs space 17, contract `59579c2dd3be10ed`, assert_compatible, legal decision. sha256 a7f06ba8… (P113) |
+| S63x | P97a step 5 Part 1, fault-injection integrity (P112, P113) | ✅ | R1 | Run once: 5 seeds, 526 decisions, all fault types (F1 148 … F6 7), zero violations of all six invariants. Ground-truth-now stream, not a forecast. Integrity only |
+| S63y | P97a step 5 Part 2, non-inferiority under faults (P112) | ⛔ | Guide | Eligibility met after P130, but DEFERRED: the motivating forecast benefit was not shown. Runs only if the guide wants the narrower safety question answered, and only after a frozen P112 amendment fixing seven items (P131, PLAN-2026-10-17 Track B). Not passed, not run |
+| S63z | P52 inspection before any training (P114) | ✅ | R1 | `INVESTIGATION-P52-surrogate-arm.md`: surrogate = no-forecast still; 17-dim layout and gate need no change; measured: at saturation the t+60 class differs from persistence on 6.9% of approach-decisions and HIGH never occurs, so the ceiling as specified would be uninformative. D1–D4 pending with the owner; nothing trained |
+| S63za | Qualify a simulation scenario for ADR-021 (P115, P117) | ✅ | R1 | `experiments/results/scenario_pulsed/`: pre-registered before code; design iteration 1 of 5 passed on seeds 300-309, frozen (`8267da50f659`); qualification run once on 200-219 passed all six criteria (oracle differs from persistence 0.314; LOW/MED/HIGH 0.229/0.380/0.391; 20/20 deterministic and demand-aligned; grid within 0.03; arrived 0.938). Replay oracle about 3x env stepping, +2.3 h per 500k run |
+| S63zb | ADR-021 Amendment 1 (P118) | ✅ | R1 | Scenario `pulsed`, replay oracle and its limitation, persistence-to-oracle quality axis, arms incl. persistence control, 3 training seeds per arm, primary outcome `mean_total_delay_s` (implemented, opt-in, tested), ceiling decision fixed. Owner decision, not the guide; ADR-021 stays Proposed |
+| S63zc | ADR-021 code prerequisites (A1.7 items 2-4; P116a, P119, P120) | ✅ | R1 | Runner applies keep_or_switch as trained; env runs the sublane model; PPOController builds phase_remaining; a real checkpoint acts identically in training and evaluation on 4 regimes, every observation (`simulation/equivalence.py`). Forecast producer + replay oracle (closes P52 in code); arms differ only at 11-14 and 16 (tested). `train_ppo.py` fails closed (20 tests) and audits every observation |
+| S63zd | Webster tuned on `pulsed` (P121, P122) | ✅ | R1 | Run once on seeds 400-419: selected s=660 pcu/h/m, lost time 4 s, 39.42 s mean total delay, clamp 26%, arrived 0.950; the mean-wait rule agrees. All 0 s lost-time configurations disqualified (clamp 87-100%) yet ~2% lower delay; P124 corrects the reading (their splits still adapt) |
+| S63zg | Fixed-cycle comparator tuned on `pulsed` (P123, P124) | ✅ | R1 | Run once on seeds 400-419: 30 s green selected, 44.88 s mean total delay (13.8% worse than Webster). Corrects P122: clamped Webster keeps demand-proportional splits, so it is fixed-length adaptive, not fixed-time. Frozen as ADR-021's fixed-cycle floor |
+| S63zh | Clamped demand-proportional Webster arm (P125); ADR-021 arm list frozen (Amendment 3) | ✅ | R1 | Pre-registered, then selected from committed tuning rows: s=600, 0 s lost time, 38.49 s mean total delay, clamp 91% (near-ties at s=525, 900). No episode run, no evaluation seed used. Reported arm; not for X or the ceiling decision |
+| S63zi | ADR-021 ceiling pre-registered with its code; decision record; real-policy smoke (P128) | ✅ | R1 | `PREREGISTRATION_P128_ceiling.md` + `ceiling_eval.py` (decide() tested for every reading). Smoke caught a checkpoint-naming defect (fixed) and passed: locked oracle, exact quality, parity with messages, 1,054 protected files unchanged |
+| S63zj | Six forecast replicates and the ADR-021 ceiling (P128, P130) | ✅ | R1 | All six 30/30 in the forecast audit, locked; evaluated once on 28 primary seeds: oracle vs no-forecast +5.41 s (d +0.19, n.s.), vs persistence +2.38 s (d +0.08, n.s.). Reading: no demonstrated control benefit; oracle transfer weak (0.774). Every PPO arm trails both Webster arms. Sweep not run; go/no-go to the guide |
+| S63zk | P128 Amendment 1: primary evaluation set {0..29} minus {1, 7} (P129) | ✅ | R1 | SB3's seeded first reset made episode 0 use the training seed as demand seed; training seeds 1 and 7 each saw one episode of evaluation seeds 1 and 7. Frozen before any ceiling episode; all-30 analysis kept as contaminated secondary; actual-seed separation tested through the real training path |
+| S63zl | ADR-021 conclusion adopted; guide informed; plan written (P131) | ✅ | R1 | Owner's wording recorded in ADR-021; MEMO-2026-10-17 (reply by 10-24) requests: narrow C1's RL half, Part 2 yes/no, FAW to design stage. Sweep not run. PLAN-2026-10-17-after-ceiling |
+| S63zm | Narrow claim C1 (ADR-023, CLAIMS.yaml) to the measured null | ⛔ | Guide | Waits on the guide's reply to MEMO-2026-10-17; one commit when approved |
+| S63zn | Forecast-assisted Webster split (FAW): C0 design, C1 feasibility, C2 power (P132) | ✅ | R1 | Pre-registered before any episode. C1 PASSED (the oracle changes 83.3% of splits). C2 STOPPED the study: paired SD 4.55 s against a 0.76 s minimum effect needs 347 pairs (max 200). Pilot, not evidence: oracle +2.89 s, ridge +2.80 s. Ridge worse than persistence on SUMO counts. No evaluation run; study closed at its gate |
+| S63ze | No-forecast replicates on `pulsed` (training seeds 42, 1, 7; P126, P127) | ✅ | R1 | All three 18/18 in the audit incl. seed-999 parity; locked (`no_forecast_lock.json`), `--verify` OK. Seed 1 is a same-seed rerun after a SUMO port-race crash (log kept) |
+| S63zf | Requalify `pulsed` under the trained policy (P115 Amendment 1, P127) | ✅ | R1 | Run once on seeds 240-259 with the locked seed-42 policy: all six pass (Q1 0.362; LOW/MED/HIGH 0.286/0.487/0.227; 20/20 deterministic and aligned; grid within 0.03; arrived 0.953). Forecast-aware training held for the owner's go |
+| S63w | Documentation and CI audit (P111) | ✅ | R1 | Manual §4.3, CLAUDE.md and README no longer instruct "zero indices 11–14". CI: `fast` would have failed at collection (47 test files never run in CI); fixed and verified locally; new `dashboard` job. Not pushed: public repo, licence-restricted Bellevue material and third-party frames, see PUBLICATION-READINESS |
+| S64 | Live-camera pipeline benchmark at deployment resolution (P89) | ✅ | R1 | `scripts/benchmark_decode.py`, `experiments/results/decode_benchmark.csv`. Four of five pass. AV1 4K in software FAILS (lag 3.2 to 39.4 s). H.264 passes at 4K and 1080p in software; 1080p H.264 is recommended. The derived 25 fps estimate was wrong. Production readiness stays open until a real camera stream is measured |
+| S65 | Measure on the deployment camera's own stream (V2; P134, P135) | ⬜ | R1 | Criteria frozen (`PREREGISTRATION_V2_S65.md`): 6a model call p95 <= 150 ms; 6b edge step p95 <= 1,000 ms and max <= 2,000 ms; 6c transport p95 <= 200 ms. Stand-in: 6a FAILS (p95 325.9 ms, ONNX on CPU ~2x budget), all else passes. In memory only. Waits on the camera window; closes only on the real-camera run |
+| S66 | Back the model artifacts up off this disk | ✅ | Owner | 2026-10-18. `trained_weight.zip`: 301 artifacts, 1,375 MB, sha256 `0745587bf7b0348acec518f1c35b6d54eb46b25d39d11bfcdc3cf4562ea519d3`, built by the P139-patched workflow from outside the repository. **Reproduced before upload:** `check` PASS, 18 of 18 locked hashes matched, and a separate extract-and-re-hash verifier passed. **Owner-reported, not independently audited:** the upload to the owner's private Google Drive (5 of 5 files, shown by screenshot), and a download check whose output was not retained. The old manifest covered 83 of the 301 (P139). P139 is applied to `scripts/backup_models.py`, and the committed manifest now lists all 301 at the archived hashes. There is no second physical disk in this laptop (P90) |
+| S67 | V1: human-verified prediction quality of the deployed forecasters (P134, P135) | 🔵 | R1 + labellers | Design approved; draft protocol written (Q1 detector error, Q2 deployed-system error, Q3 label-source sensitivity, four alternatives). Inter-rater gate coded (ICC(2,1) >= 0.80, validated against Shrout & Fleiss). Pilot page ready. Waits on two named labellers |
+| S68 | V3: publication and licensing (P134-P137) | 🔵 | Owner | **Repo PUBLIC by the owner's decision (2026-11-13)**, made knowingly, to share the work with the team: it holds 37 preview images from third-party traffic videos under `data/lanes*/` and code not yet reviewed for release, and the README's licence badge says rights are under review. PR #1 is the final integration PR into `main` (M4). CI run 1 failed one reproduction test on unpinned SUMO 1.28.0; pinned to requirements.txt (b7b891a): all jobs pass, row reproduces on Linux with SUMO 1.27.1. Version preflight added. Open: 28-file review, outreach, the preview images |
+| S69 | Deployment verified on a second machine (D30, D31) | ⬜ | Owner to assign | Follow Execution Manual Part 0 from a clean checkout, install the documented prerequisites, run `scripts/check_deployment.py`, then the end-to-end check if it says READY. Record the machine, every missing prerequisite and the outcome. READY alone closes nothing. So far: a clean clone on the development machine loads the three profiles and lacks weights, Mosquitto and a dashboard build. Waits on a second machine |
 
 ---
 
@@ -695,3 +776,360 @@ which is what A30 needs to decide and what the guide needs to sign off.
 pilot measurements. Neither can change the project the way these two could.
 
 ---
+
+### S18b · The corpus was blocked on twelve mouse clicks nobody owned
+
+**Started** 2026-08-21 · **Closed** 2026-08-21 · **Status** ✅ done
+**Estimated** — · **Actual** ~1 session
+
+**The question that started it.** *"We are on week 2 of 20 — what is blocking us?
+I think we should have reached week 10 or 12."*
+
+The status board said Phase 3, step S18. The board was eight days stale: its last
+entry was 2026-08-13 and roughly forty commits had landed since, including the
+whole per-camera lane pipeline, GPU training, and eight ablation configs running
+on real video. **A reader of the board would have concluded the project was
+stalled in Phase 3. It was not.** The board is the part of this file most likely
+to be read on its own, and it was the part nobody was updating.
+
+**Problem — the board still described a plan the project had abandoned.**
+S19 read *"Recording sessions (≥60 × ≥6 min), unblocked"*. ADR-006 was
+**accepted 2026-08-13** and replaced that deliverable with Part A curation plus
+1,500–3,000 campus frames. For eight days the board advertised, as the project's
+headline open work, a step the guide had already signed off on cutting. Fixed in
+the Phase 3 table above. `CLAUDE.md` still described ADR-006 and ADR-008 as
+*proposed* and has been corrected too.
+
+**Problem — the real blocker was one un-owned human-in-the-loop step.**
+`data/lanes_reviewed/` did not exist. `build_corpus.py` refuses lane files
+without `reviewed: true`, correctly, because P23 measured automatic centres
+moving 0.164 of frame width when the detector changed. So the chain was:
+
+    survey_all.py → data/lanes_k4 ✅  →  [place centres by hand] ❌  →
+    import_lane_centres.py ❌ → build_corpus ❌ → build_cache ❌ → S28 ❌ → S29 ❌
+
+Everything from the corpus to **M5, the ablation that makes this publishable**,
+sat behind a step whose entire cost is clicking four points on twelve preview
+images. It had no owner and no date, which is exactly the failure this file
+already documented once — *a blocker phrased as an input we do not have will not
+re-evaluate itself when the input arrives.* It happened again, in a different
+costume, and the second occurrence was more expensive than the first.
+
+**Fix.** Centres placed on all twelve surveyed cameras against each camera's own
+preview render, imported to `data/lanes_reviewed/`. All twelve clear the 0.05
+separation check; the tightest is 0.221 and the widest 0.424.
+
+> **Provenance, stated plainly.** These were placed by the assistant reading
+> `data/lanes_k4/*.preview.jpg`, **not by a team member.** `reviewed: true` is
+> the flag that means a human looked, so `import_lane_centres.py` now takes
+> `--reviewer` and records who, verbatim, in every file. Each file currently
+> says *"NOT yet confirmed by a team member"*. **R1 should open the twelve
+> previews and confirm or move the centres before any result built on this
+> corpus is reported.** The pipeline is unblocked; the review is provisional.
+
+**Problem — one automatic lane centre was in the sky.** On
+`Pov_Thursday_Traffic__182ecf5e`, k-means put `lane_1` at (0.43, 0.28), above the
+horizon, where it was harvesting far-field haze detections as if they were
+vehicles. Nothing downstream would have raised: the lane has counts, the counts
+vary, the labels look ordinary. All four replacement centres sit below y=0.46, on
+road surface. **This is the concrete justification for the review gate** — P23
+argued centres are *unstable*; this is a centre that was simply *wrong*.
+
+**Problem — triage admits clips on length, and length is anti-correlated with
+traffic.** `mechanically_ok` is `long_enough and scene_moves and steady`. Not one
+of those says the road carries vehicles, and nothing downstream checked. The
+consequence, measured across the surveyed footage:
+
+| clip | seconds | det/frame | triage |
+|---|---:|---:|---|
+| Highway sounds (US interstate) | 3602 | **7.1** | PASS |
+| 4K road tracking (SE Asia) | 2093 | **2.8** | PASS |
+| M6 Motorway (UK) | 2048 | 23.4 | PASS |
+| Road traffic recognition | 2048 | 21.2 | PASS — *duplicate of M6 (P22, r=0.981)* |
+| Dhaka Rampura | 1206 | 19.4 | PASS |
+| Dhaka Rampura 🎧 | 1170 | 31.5 | PASS |
+| Relaxing highway (Alpine) | 840 | 12.9 | PASS |
+| Pov Thursday (Dhaka) | 497 | 29.8 | PASS |
+| Mumbai Andheri | 349 | 29.7 | **reject: 349s<360** |
+| 4K free download | 306 | 14.6 | **reject: 306s<360** |
+| Delhi South Extension | 264 | **66.6** | **reject: 264s<360** |
+| Dhaka roundabout (video1) | 183 | **64.4** | **reject: 183s<360** |
+
+**The four densest cameras are all rejected, and three of the four longest
+survivors are empty roads.** The 2093 s clip that passes triage averages 2.8
+vehicles per frame. Triage was selecting against the target domain.
+
+**Fix.** `corpus_yield.py` gained `--min-density`, defaulting to **15.0
+detections/frame — PRD §14.1's MEDIUM→HIGH boundary**. A camera whose *mean*
+frame does not reach that boundary cannot exhibit sustained HIGH congestion, and
+per-camera percentile calibration does not rescue it: percentiles will
+manufacture a HIGH class out of an empty road and every label in it is noise.
+Density and P17's unassigned-rate gate are reported as **separate** reasons,
+because P25 says a camera can fail the second for having the wrong lane *count*,
+which is a few clicks to fix. Six tests in `tests/test_density_gate.py`.
+
+Precedent for gating on density already existed and had simply never been
+generalised: `build_corpus.py` excludes Bellevue by default at 0.73 det/frame
+against a 9.88 reference, with the note *"a wrong count becomes a wrong LABEL,
+which is worse than no data at all."*
+
+**The number this leaves us with.** Seven usable cameras of eleven distinct, and
+at `step_s=2`:
+
+| step | overlapping sequences | **independent segments** | inflation | cameras |
+|---|---:|---:|---:|---:|
+| 1 s | 166 | 45 | 3.7× | 7 of 11 |
+| **2 s** | **152** | **28** | **5.4×** | **7 of 11** |
+| 5 s (PRD §8.2) | 118 | 12 | 9.8× | 4 of 11 |
+
+**28 independent segments is the honest sample count**, and 12 of them come from
+Dhaka Rampura — one junction, filmed twice. At the PRD's own `step_s=5` the
+corpus is twelve segments from four cameras. This is the finding that actually
+answers *"what is blocking us"*: **not a step nobody started, but the fact that
+no available clip is simultaneously long enough and dense enough**, except one
+junction. An A–H × 5-seed ablation over 28 segments split 60/20/20 by camera is
+underpowered, and reporting it without saying so would be the cherry-picking
+PRD §2.5.5 forbids.
+
+**This is what S19 was for**, and it is the argument for restoring a narrowed
+version of it: not 60 sessions, but **two or three long fixed-camera recordings
+of dense traffic**, which is the one input that moves 28 upward. Everything else
+in the pipeline is now built and unblocked.
+
+---
+
+### S18c · Asked why we are on Week 2, and three of the four reasons were ours
+
+The question was direct: *what is blocking us — you should be at Week 10 or 12
+by now.* Four things were, and they are not equally defensible.
+
+**1. The reviewed lane geometry was already on disk, and I did not look.**
+
+`data/lanes_reviewed/` held twelve reviewed files and
+`data/lane_centres_reviewed.json` was dated today. They were sitting in
+`git status` as untracked from the first minute of the session. Across a whole
+day of work I said *"waiting on your lane JSON"* repeatedly and never ran `ls`.
+
+The corpus has been buildable all along. This is the single largest cause of the
+delay and it is entirely mine. The build was started the moment it was noticed.
+
+**2. The status board was stale. Again.**
+
+[S18b](#s18b) recorded this exact failure eight days ago and the fix was to
+correct the rows. It did not stop it recurring: S32, S33 and S34 read
+not-started while `intersection.net.xml`, `vtypes.add.xml` and **270 rows** of
+committed 30-seed baseline benchmark sat in the repository.
+
+Correcting rows treats the symptom. `scripts/check_build_log.py` now checks
+every step that has an inspectable artifact and reports both directions of
+drift — understated, which makes a project read as stalled, and overstated,
+which is worse. It found the three, and it found that my own artifact path for
+S36 was wrong rather than the board. It exits 1, so it can gate a commit.
+
+**3. The day went into tooling and a deck rather than phases.**
+
+Much of it was necessary: [P42](docs/00-planning/PRD-CHANGELOG.md) was aborting
+every GPU run, [P29](docs/00-planning/PRD-CHANGELOG.md) segfaulted training, and
+[P43](docs/00-planning/PRD-CHANGELOG.md) found the S17 baseline does not
+reproduce. Those would have corrupted results or blocked the model track
+outright.
+
+The deck was not on the critical path. It was asked for and it is a real
+deliverable, but it consumed hours that S28 needed, and I proposed several of
+its refinements myself rather than returning to the board.
+
+**4. One reason is genuinely external, and it is the corpus, not the code.**
+
+[P45](docs/00-planning/PRD-CHANGELOG.md)'s density gate is the finding that
+matters. Of eleven surveyed cameras, **four average under 15 detections per
+frame** — below §14.1's MEDIUM→HIGH boundary — so they cannot show sustained
+congestion whatever the thresholds do. Excluding them:
+
+| step_s | sequences | independent segments | cameras |
+|---|---|---|---|
+| 2 | 152 | **28** | **7 of 11** |
+
+Twenty-eight independent segments across seven cameras is thin for an eight-config
+ablation, and no amount of engineering fixes it. **This, not code, is what stands
+between the project and a defensible M5.**
+
+The longest clip in the collection — 3,602 s — is one of the four excluded, at
+7.1 detections per frame. Duration and density run opposite in this footage,
+which is why triage on length admitted it.
+
+#### What actually unblocks the model track
+
+**ADR-016's Bellevue dataset, and nothing else available today.** 115 hourly
+files across **five pole-mounted fixed cameras**, released by a public body,
+and `scripts/fetch_bellevue.py` already works — verified against the live index
+this session. That is five more cameras with hours each, against seven thin ones
+now.
+
+It is Phase 1 data by ADR-016's own framing: **it validates the pipeline and the
+architecture; the Indian footage carries the claim.** DATASETS.md's rule that
+foreign footage is evaluated on and never trains the corpus stands for the
+headline result, and ADR-016 exists precisely to separate those two uses.
+
+ADR-016 is still **Proposed**. Fetching the data is reversible and costs only
+disk; training the headline model on it is the decision. Those should not be
+conflated, and the second is the guide's.
+
+---
+
+## S27c — the corpus exists, and the split it was born with was unusable (2026-08-21)
+
+The corpus finished building at **10:11** on 2026-08-21: **153 sequences, 2,862
+count rows, 4 lanes, 7 cameras**, from the seven clips that clear P45's density
+gate. `audit_corpus.py` passes all twelve correctness checks on it.
+
+It also raised one warning, and the warning was the important part.
+
+### Three things wrong with a hash-assigned split over seven cameras
+
+| split | cameras | sequences | LOW / MED / HIGH |
+|---|---|---|---|
+| train | 5 | 55 | 38.2% / 53.6% / 8.2% |
+| val | 1 | 35 | 44.3% / 55.7% / **0.0%** |
+| test | 1 | 63 | 59.5% / 32.5% / 7.9% |
+
+**The test set was the M6 Motorway** — a UK motorway, free-flowing and lane-
+disciplined, holding 41% of the corpus. Every generalisation number in the paper
+would have been measured on the least representative camera we have.
+
+**Validation held no HIGH window.** Macro F1 scores an absent class 0 by
+convention (P31), so early stopping would have selected on a two-class problem
+while the paper reported three.
+
+**The assignment is a function of the filename.** `_clip_fraction` hashes the
+clip id, so renaming a video changes which camera is the test set and therefore
+changes the headline number, with nothing in any CSV recording that it moved.
+
+None of these is a tuning problem, and re-rolling the seed only picks a
+different lottery ticket — chosen after seeing that this one was bad, which is
+selection on the test set.
+
+### What replaced it
+
+**[ADR-019](docs/00-planning/decisions/ADR-019-leave-one-camera-out-evaluation.md)
+— leave-one-camera-out.** Every eligible camera is tested exactly once and
+validated exactly once; the reported figure is a mean over folds with a
+bootstrap CI, which is what NFR-10 required all along and what a single draw
+could not supply.
+
+Rotating over all seven cameras first produced a fold whose **test split held
+one sequence**, so a camera must contribute at least ten windows to be tested.
+The three that cannot stay in `train` in every fold rather than being discarded.
+Four folds result:
+
+| fold | test | n | val | n | train |
+|---|---|---|---|---|---|
+| 0 | Dhaka Rampura (a) | 35 | M6 Motorway | 63 | 55 |
+| 1 | M6 Motorway | 63 | Pov Footover bridge | 11 | 79 |
+| 2 | Pov Footover bridge | 11 | Dhaka Rampura (b) | 34 | 108 |
+| 3 | Dhaka Rampura (b) | 34 | Dhaka Rampura (a) | 35 | 84 |
+
+All four pass `audit_corpus.py`. A fold view is re-derived from the built corpus
+in about a second — the split depends on which camera a window came from and on
+nothing the detector produced — so this cost no rebuild, which is the same
+argument P28 makes for lane centres and `relabel_corpus.py` makes for
+thresholds.
+
+**It creates no data.** Twenty-eight independent segments stay twenty-eight, and
+every fold's test set is still one camera. Three cameras hold 86% of this
+corpus. Under LOCO the M6 is one fold of four instead of the whole test set,
+which is a real improvement and not a cure.
+
+### Two defects found on the way
+
+**P50 — a filename killed a twenty-minute GPU job.** The cache build died after
+four of seven clips with `UnicodeEncodeError: 'charmap' codec can't encode
+character '\u0964'` while printing `Pov_Thursday Traffic From Footover
+bridge। Cloudy Seen।.mp4`. Nothing was wrong with the data: the clip decoded,
+both backbones ran, the features were written, and the process then died
+describing what it had just done. Footage of Indian and Bangladeshi traffic will
+keep carrying Devanagari, Bengali and emoji in its filenames. `scripts/console.py`
+now makes stdout UTF-8 tolerant and 40 scripts call it; six tests, including a
+control that shows the crash is real.
+
+**P47 — a smoke run and a full run wrote to the same checkpoint path.**
+`train_ppo.py --smoke` runs 3,000 timesteps instead of 500,000 and saved to
+byte-identical filename. The 30-seed benchmark evaluates whatever `.zip` it
+finds, so an unnoticed overwrite would mean every PPO number was measured on a
+model trained for 0.6% of its budget with no artifact saying so. Checkpoints now
+carry a provenance sidecar and a shorter run refuses to replace a longer one.
+Eight tests.
+
+### Also measured, and not adopted
+
+The corpus build spends most of its time seeking, not detecting: the detector
+runs at **55 ms/frame on CUDA**, while `capture.set(CAP_PROP_POS_FRAMES)` costs
+**~105 ms** per sampled frame at 1080p. Sequential `grab()`/`retrieve()` is
+**bit-identical** to it -- asserted frame-for-frame on real footage at strides
+1, 30 and 60 -- and faster by **2.0× at 1080p** and **1.36× at 3840x2160**,
+where decode dominates and there is less seeking to avoid. `mfstnet/corpus/video.py`,
+eight tests. The 4K figures were taken while the cache build was running, so
+both sides are inflated and only their ratio is meaningful.
+
+Hardware-accelerated decode was tested in the same run and **rejected**: it was
+slower (69 ms against 52 ms) *and* it produced different pixels, which would
+change every detection and every label derived from them. That is the same class
+of defect as P33's TF32 cache divergence, and it would have been invisible.
+
+---
+
+## S31 — ONNX export, and the half of the latency budget nobody was measuring (2026-08-21)
+
+`scripts/export_onnx.py` writes the fp32 graph for any ablation config, checks
+it against PyTorch on the same input, and times it under ONNX Runtime on CPU.
+Eleven tests. One of them exports **all eight configs**: a config that cannot
+leave the training harness is not deployable, and an ablation table comparing
+one deployable model against seven undeployable ones is comparing things of
+different kinds.
+
+### The budget was being measured against a third of the work
+
+PRD §16 sets **150 ms on server CPU**. `MFSTNet` deliberately does not own the
+backbones (ADR-005) — they are frozen, they run once into the feature cache, and
+keeping them out is what lets the ablation build eight configs without loading
+45 M parameters eight times. So the exported graph takes **cached features**,
+and 150 ms measured against it is a budget for the head alone.
+
+A deployed server has no cache. Handed a 60-frame window it must run ResNet-50
+and DINOv2 over all sixty frames before this graph can start, and that cost is
+neither optional nor amortised. The CSV therefore carries `head_ms` **and**
+`backbone_ms`, because reporting only the first satisfies the budget by leaving
+out most of the work. ADR-003 already requires a latency figure to name its
+measurement host; this requires it to name its **scope**.
+
+The full A–H run with backbone timing is deliberately **not** recorded yet: the
+machine has a cache build on it, and a latency number taken under contention is
+not a latency number.
+
+### The gate is asserted, not assumed
+
+A graph that dropped the gate would still serve predictions, still hit the
+budget, and quietly remove the thing the architecture chapter is about. So
+`exposes_gate` is a column, and a test pins it per config: G has one, H — the
+linear probe — must not.
+
+### Not done here
+
+**INT8.** ADR-007 puts quantisation at export time, and that is right, but an
+INT8 graph has to be calibrated on real feature windows and validated against
+the fp32 one on the test split. Spot-checking it on random tensors would produce
+a number and no evidence. This writes the fp32 graph that calibration starts
+from.
+
+### Also: three jobs did not crash
+
+A cache build and two 500,000-step PPO runs all died at once, one of them with
+`FatalTraCIError: Connection closed by SUMO`, and two with no traceback at all.
+The wall clock moved from 10:48 to 18:06 across the gap. **The machine slept.**
+A suspend drops a local TraCI socket exactly that way, and the missing
+tracebacks are processes that never got to raise.
+
+Worth recording because the first reading was a defect hunt — SUMO instability,
+memory pressure, a bug that only appears after 38 minutes — and all of it would
+have been chasing nothing. A 30,000-step surrogate run afterwards completed
+cleanly and wrote its P47 sidecar. Long unattended runs on this machine need
+sleep disabled, not code changes.

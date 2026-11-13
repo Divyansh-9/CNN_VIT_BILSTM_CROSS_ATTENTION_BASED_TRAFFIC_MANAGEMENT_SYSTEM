@@ -169,3 +169,50 @@ def test_cohens_d_paired_matches_manual_definition(seed):
     differences = numpy.array(a) - numpy.array(b)
     expected = differences.mean() / differences.std(ddof=1)
     assert cohens_d_paired(a, b) == pytest.approx(float(expected), rel=1e-9)
+
+
+def test_a_zero_support_class_is_warned_about_and_travels_into_the_csv():
+    """P31. A class with no test samples scores 0 by convention and drags macro
+    F1 down by a third. On the five-camera pilot the test split held no LOW at
+    all, and configs C through G all reported macro-F1 0.2222 — which reads as
+    a comparison and is an artifact of the split.
+
+    `evaluate` already warned. The training script discarded it and the graded
+    CSV had no column for it, so the number travelled without its caveat.
+    """
+    from mfstnet.metrics import evaluate
+
+    report = evaluate([1, 2, 1, 2], [1, 1, 1, 1], ["LOW", "MEDIUM", "HIGH"])
+
+    assert report.warnings, "a class with no support must be flagged"
+    assert "LOW" in report.warnings[0]
+    assert "warnings" in report.as_row()
+    assert "LOW" in report.as_row()["warnings"]
+
+
+def test_a_fully_supported_split_carries_an_empty_warning_column():
+    """The column must exist either way — a CSV whose columns change between
+    runs cannot be concatenated across the ablation."""
+    from mfstnet.metrics import evaluate
+
+    report = evaluate([0, 1, 2, 0, 1, 2], [0, 1, 2, 0, 1, 2],
+                      ["LOW", "MEDIUM", "HIGH"])
+
+    assert report.warnings == []
+    assert report.as_row()["warnings"] == ""
+
+
+def test_macro_f1_averages_over_every_declared_class():
+    """Averaging over only the classes present would report 0.3333 here instead
+    of 0.2222 — flattering, and not what a three-class problem was graded on.
+    sklearn's default does the flattering thing; `labels=` does not.
+    """
+    from mfstnet.metrics import evaluate
+
+    report = evaluate([1, 2, 1, 2], [1, 1, 1, 1], ["LOW", "MEDIUM", "HIGH"])
+    assert report.macro_f1 == pytest.approx(2 / 9)
+
+    sklearn_metrics = pytest.importorskip("sklearn.metrics")
+    assert report.macro_f1 == pytest.approx(sklearn_metrics.f1_score(
+        [1, 2, 1, 2], [1, 1, 1, 1], average="macro", labels=[0, 1, 2],
+        zero_division=0))

@@ -40,6 +40,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 IDD = Path("D:/traffic dataset/downloads/idd-detection/IDD_Detection")
 MAPPING = Path("indiatrafficnet/class_mapping.yaml")
 SPLITS = {"train": 0.70, "val": 0.15, "test": 0.15}      # FR-D05

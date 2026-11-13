@@ -1,0 +1,133 @@
+{
+  "what": "P52 inspection: information a perfect t+60 class forecast could add",
+  "regime": "light",
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104
+  ],
+  "duration_s": 1800,
+  "thresholds": {
+    "low_max": 4,
+    "med_max": 15
+  },
+  "lead_window_s": [
+    60,
+    75
+  ],
+  "checkpoint": "models\\ppo\\ppo_no-forecast_saturated_keep_or_switch_seed42.zip",
+  "controllers": {
+    "ppo_no_forecast": {
+      "pairs": 2160,
+      "lead_s": {
+        "min": 64,
+        "median": 64,
+        "max": 64
+      },
+      "future_class_share": {
+        "LOW": 0.9167,
+        "MEDIUM": 0.0833,
+        "HIGH": 0.0
+      },
+      "oracle_differs_from_persistence": 0.1361,
+      "persistence": {
+        "accuracy": 0.8639,
+        "macro_f1_3class": 0.3697
+      },
+      "state_only_logreg_leave_one_episode_out": {
+        "accuracy": 0.9167,
+        "macro_f1_3class": 0.3188
+      },
+      "transitions_now_to_future": {
+        "LOW->LOW": 1833,
+        "LOW->MEDIUM": 147,
+        "MEDIUM->LOW": 147,
+        "MEDIUM->MEDIUM": 33
+      },
+      "episodes": {
+        "100": {
+          "decisions": 112,
+          "pairs": 432,
+          "mean_wait_s": 6.432
+        },
+        "101": {
+          "decisions": 112,
+          "pairs": 432,
+          "mean_wait_s": 6.316
+        },
+        "102": {
+          "decisions": 112,
+          "pairs": 432,
+          "mean_wait_s": 6.206
+        },
+        "103": {
+          "decisions": 112,
+          "pairs": 432,
+          "mean_wait_s": 6.403
+        },
+        "104": {
+          "decisions": 112,
+          "pairs": 432,
+          "mean_wait_s": 6.324
+        }
+      }
+    },
+    "webster": {
+      "pairs": 1984,
+      "lead_s": {
+        "min": 60,
+        "median": 70,
+        "max": 75
+      },
+      "future_class_share": {
+        "LOW": 0.8649,
+        "MEDIUM": 0.1351,
+        "HIGH": 0.0
+      },
+      "oracle_differs_from_persistence": 0.2107,
+      "persistence": {
+        "accuracy": 0.7893,
+        "macro_f1_3class": 0.3603
+      },
+      "state_only_logreg_leave_one_episode_out": {
+        "accuracy": 0.8649,
+        "macro_f1_3class": 0.3092
+      },
+      "transitions_now_to_future": {
+        "LOW->LOW": 1513,
+        "LOW->MEDIUM": 215,
+        "MEDIUM->LOW": 203,
+        "MEDIUM->MEDIUM": 53
+      },
+      "episodes": {
+        "100": {
+          "decisions": 103,
+          "pairs": 396,
+          "mean_wait_s": 6.593
+        },
+        "101": {
+          "decisions": 103,
+          "pairs": 396,
+          "mean_wait_s": 6.714
+        },
+        "102": {
+          "decisions": 103,
+          "pairs": 396,
+          "mean_wait_s": 6.574
+        },
+        "103": {
+          "decisions": 103,
+          "pairs": 396,
+          "mean_wait_s": 6.601
+        },
+        "104": {
+          "decisions": 104,
+          "pairs": 400,
+          "mean_wait_s": 6.864
+        }
+      }
+    }
+  }
+}

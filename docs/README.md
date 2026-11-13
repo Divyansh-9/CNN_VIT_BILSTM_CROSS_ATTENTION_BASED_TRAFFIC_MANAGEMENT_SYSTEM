@@ -36,7 +36,13 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 | [DATASETS](00-planning/DATASETS.md) | Where data comes from, the legal analysis, licensing, class mapping |
 | [RELATED-WORK](00-planning/RELATED-WORK.md) | State of the art, and what we can honestly claim as novel |
 | [FEASIBILITY-AUDIT](00-planning/FEASIBILITY-AUDIT.md) | **Read this.** Capacity arithmetic, three hazards, and the recommended descoping |
-| [decisions/](00-planning/decisions/) | ADR-001 dataset · 002 corpus · 003 edge hardware · 004 doc waves · 005 local training · 006 curate-then-collect · 007 backbones · 008 descoping |
+| [decisions/](00-planning/decisions/) | ADR-001 dataset · 002 corpus · 003 edge hardware · 004 doc waves · 005 local training · 006 curate-then-collect · 007 backbones · 008 descoping · … · 020 forecast state (accepted, amended) · 026 MFSTNet on the edge · 027 the two forecasting roles; full list in the [register](DOCUMENT-REGISTER.md) |
+| [INVESTIGATION-P97a](00-planning/INVESTIGATION-P97a-missing-forecasts.md) | How a missing forecast read as LOW in the controller's state, and the fix (P108–P110) |
+| [INVESTIGATION-P52](00-planning/INVESTIGATION-P52-surrogate-arm.md) | The surrogate arm inspected before training: what exists, how the forecast-aware policy would be compared, and why the ceiling needs a scenario with headroom first (P114) |
+| [MEMO-2026-10-17](00-planning/MEMO-2026-10-17-adr021-ceiling.md) | **For the guide**: the forecast-for-control ceiling returned a measured null; three decisions requested (P130, P131) |
+| [PLAN-2026-10-17](00-planning/PLAN-2026-10-17-after-ceiling.md) | What follows the ceiling: close-out, Part 2 deferred, the FAW study with its stop gates, and the parked tracks |
+| [PLAN-2026-10-17-validation](00-planning/PLAN-2026-10-17-validation-and-publication.md) | **The current plan**: V1 human-verified prediction quality, V2 live-camera validation, V3 publication and licensing; tasks, gates, owners |
+| [PUBLICATION-READINESS](00-planning/PUBLICATION-READINESS.md) | **Why this branch is not on GitHub yet**: a public repo, the unresolved Bellevue licence, third-party frames, and the CI audit |
 
 ### Requirements
 
@@ -52,7 +58,7 @@ Full SDLC suite for **MFSTNet** — CNN-ViT-BiLSTM Cross-Attention Adaptive Traf
 | Document | Status |
 |---|---|
 | [HLD — detection & corpus pipeline](02-design/HLD-detection-corpus-pipeline.md) | **Delivered early** — the pipeline design, including the evaluation-integrity analysis and the per-lane ROI pooling fix |
-| [Design](02-design/) — SAD, remaining HLD, LLD | Week 5 |
+| [SAD](02-design/SAD.md) and [HLD](02-design/HLD.md) | **Delivered** 2026-10-21 · LLD scheduled |
 | [Testing](03-testing/) — STP, STD, UAT | Week 11 · STR Week 16 |
 | [Deployment](04-deployment/) — TIM, SOP | Week 16 |
 | [99-archive/](99-archive/) | Superseded documents, retained for the decision trail |
@@ -74,9 +80,9 @@ Documents are written in four waves gated on the PRD §18 phases, not all upfron
 | Wave | Gate | Documents | Status |
 |---|---|---|---|
 | 1 | Week 0–1 | SOW, BRD, SRS, FRD, NFR, RTM, ADRs, Execution Manual | **Delivered** |
-| 2 | Week 5 | SAD, HLD, LLD | Scheduled |
+| 2 | Week 5 | SAD, HLD, LLD | SAD and HLD **delivered**; LLD scheduled |
 | 3 | Week 11 | STP, STD, UAT | Scheduled |
-| 4 | Week 16 | STR, TIM, SOP | Scheduled |
+| 4 | Week 16 | STR, TIM, SOP | STR scheduled; TIM and SOP drafted for review |
 
 STR is a *results* document, and UAT records acceptance actually granted. Written in Week 1 they
 would be fiction. Phasing keeps every document truthful at the moment it is reviewed.
@@ -101,6 +107,7 @@ PRD-CHANGELOG rather than working around it.
 | | |
 |---|---|
 | [PLAN-01 — detection & corpus pipeline](plans/PLAN-01-detection-corpus-pipeline.md) | WI-01..WI-19, Weeks 2–9. The first build sequence |
+| [PLAN-D3 — committed edge entry point](plans/PLAN-D3-edge-entry-point.md) | Implemented 2026-10-21: `python -m edge.run`, with a test for each done criterion. Clean-environment check done (D4); four deployment prerequisites remain open |
 | [SCOPE-VARIATION-REQUEST](00-planning/SCOPE-VARIATION-REQUEST.md) | One page for the faculty guide. **Submit Week 1–2** |
 
 Run `python scripts/check_env.py` before setup and `python scripts/check_docs.py` before any

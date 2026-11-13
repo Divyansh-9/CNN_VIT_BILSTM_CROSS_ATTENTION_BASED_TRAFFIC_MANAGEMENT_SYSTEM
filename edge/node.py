@@ -1,0 +1,280 @@
+"""The edge node: capture, count, publish, and fall back on its own (S40).
+
+The program that runs it is `python -m edge.run` (D3); this module has no
+entry point of its own.
+
+**No frame ever leaves this process** (NFR-13). Frames are read, counted, and
+dropped. The only things published are a per-lane count and a heartbeat, and
+`contracts/mqtt.py` is the only place a payload shape is defined — this module
+constructs those types rather than dictionaries, so a malformed publish is a
+`ContractError` here rather than a puzzle at the far end.
+
+**The transport is an interface, not a broker.** `Transport` has two methods,
+and `RecordingTransport` implements them into a list. The consequence is that
+FR-A06's fallback behaviour — the thing that actually matters about this file —
+is testable without Mosquitto, a network, or a sleep. A fallback that can only
+be exercised by unplugging something is a fallback nobody exercises.
+
+**FR-A06 is decided here, on the edge, and that is the point.** When the link to
+the server drops, the node stops waiting for commands and runs a locally
+embedded Webster cycle. It cannot ask the server whether the server is reachable.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Protocol
+
+from contracts.mqtt import (ContractError, CongestionPrediction, CountForecast, ForecastCheck,
+                            Heartbeat, Mode, Topic, VehicleCount, check_intersection_id)
+from edge.classes import normalise
+
+__all__ = ["Transport", "RecordingTransport", "EdgeNode", "LocalWebster"]
+
+DEFAULT_TIMEOUT_S = 10.0        # FR-A06
+
+log = logging.getLogger(__name__)
+
+
+class Transport(Protocol):
+    """What the node needs from a link. Two methods, so a fake is three lines."""
+
+    def publish(self, topic: str, payload: str, qos: int) -> None: ...
+
+    def connected(self) -> bool: ...
+
+
+@dataclass
+class RecordingTransport:
+    """A transport that records instead of sending.
+
+    Not a test double bolted on afterwards — it is how the fallback is tested at
+    all. `up` is flipped directly to simulate a dropped link, which is the one
+    condition FR-A06 exists for and the one hardest to produce with a real
+    broker.
+    """
+
+    up: bool = True
+    sent: list[tuple[str, str, int]] = field(default_factory=list)
+
+    def publish(self, topic: str, payload: str, qos: int) -> None:
+        if not self.up:
+            raise ConnectionError("link down")
+        self.sent.append((topic, payload, qos))
+
+    def connected(self) -> bool:
+        return self.up
+
+    def topics(self) -> list[str]:
+        return [topic for topic, _, _ in self.sent]
+
+
+@dataclass
+class LocalWebster:
+    """The cycle the node runs when it is on its own (FR-A06).
+
+    Deliberately fixed-time rather than a re-derived Webster: the node has lost
+    its link, so it has no measured saturation flow to solve with and no way to
+    know whether its own counts are still being consumed. A known, safe,
+    unsurprising cycle is the right behaviour for a degraded mode — and it is
+    what the PRD's Webster reduces to when nothing is being optimised.
+    """
+
+    green_s: int = 30
+    phase: str = "NS"
+
+    def step(self) -> tuple[str, int]:
+        self.phase = "EW" if self.phase == "NS" else "NS"
+        return self.phase, self.green_s
+
+
+@dataclass
+class EdgeNode:
+    """Counts in, publishes out, falls back when the link goes.
+
+    `last_ack` is the only piece of link state kept. It is updated when a
+    publish succeeds, and FR-A06's timeout is measured against it — so a node
+    that cannot publish notices, which is the case a heartbeat sent *by* the
+    node could never cover.
+    """
+
+    intersection_id: str
+    transport: Transport
+    timeout_s: float = DEFAULT_TIMEOUT_S
+    webster: LocalWebster = field(default_factory=LocalWebster)
+    last_ack: float = field(default_factory=time.time)
+    mode: Mode = Mode.NORMAL       # LOCAL once FR-A06 fires
+    # True once a prediction has been published (ADR-026). Reported in the
+    # heartbeat from what the node has DONE, not from configuration, so a
+    # forecaster that is loaded but never produced output does not read as
+    # active on the dashboard.
+    forecasting: bool = False
+    # D1: the detector's class names -> contract classes (edge.classes,
+    # class_mapping.yaml `itd_mapping`). None means the caller already speaks
+    # the contract's names. Classes dropped or unknown are tallied in
+    # `excluded`, a diagnostic that never goes on the wire.
+    detector_classes: dict[str, str | None] | None = None
+    excluded: dict[str, int] = field(default_factory=dict)
+    # D22: what is being counted, and which approach each lane feeds, sent on
+    # every heartbeat (contracts.mqtt.Heartbeat). Absent until the program
+    # sets them, and absent is read as unknown, never as a live camera.
+    source: dict | None = None
+    lanes: dict[str, str] | None = None
+    directions_verified: bool = False    # ADR-028, from the camera's profile
+
+    def __post_init__(self) -> None:
+        # P142: the server refuses every message whose topic carries an id
+        # outside the contract's pattern. Checked here so a misconfigured node
+        # fails at start-up instead of publishing into a refusal for ever.
+        check_intersection_id(self.intersection_id)
+
+    def publish_counts(self, lane: str, types: dict[str, int], fps: float,
+                       now: float | None = None) -> bool:
+        """One lane's counts. Returns whether the link took it.
+
+        The payload is a `VehicleCount`, built from the contract's class names
+        only (D1). Detector names are mapped first; a class dropped by decision
+        (`bicycle`) is left out and tallied in `excluded`. A class with no
+        decision at all withholds the lane's count, because publishing the rest
+        would report fewer vehicles than were seen (P97a).
+
+        It does not raise. Before D1 the first two-wheeler raised a
+        ContractError here, which ended the edge loop and with it FR-A06's
+        local cycle. A withheld or refused publish is not an acknowledgement,
+        so a node whose counts can never be delivered still falls back after
+        the timeout.
+        """
+        now = time.time() if now is None else now
+        types, dropped, unknown = normalise(types, self.detector_classes)
+        for name, n in {**dropped, **unknown}.items():
+            self.excluded[name] = self.excluded.get(name, 0) + n
+        if unknown:
+            log.warning("counts for %s withheld: %d class name(s) with no mapping, "
+                        "refused by the contract", lane, len(unknown))
+            return False
+        try:
+            payload = VehicleCount(count=sum(types.values()), types=types, fps=fps)
+        except ContractError as error:
+            log.warning("counts for %s refused by the contract: %s", lane, error)
+            return False
+        topic = Topic.VEHICLE_COUNT.render(self.intersection_id, lane)
+        try:
+            self.transport.publish(topic, payload.encode(),
+                                   Topic.VEHICLE_COUNT.qos)
+        except (ConnectionError, OSError):
+            return False
+        self.last_ack = now
+        return True
+
+    def publish_prediction(self, prediction: CongestionPrediction,
+                           now: float | None = None) -> bool:
+        """This junction's forecast: MFSTNet's (ADR-026) or persistence's
+        (P104). Returns whether the link took it. QoS comes from the topic,
+        never from the caller."""
+        now = time.time() if now is None else now
+        topic = Topic.PREDICTION.render(self.intersection_id)
+        try:
+            self.transport.publish(topic, prediction.encode(),
+                                   Topic.PREDICTION.qos)
+        except (ConnectionError, OSError):
+            return False
+        self.last_ack = now
+        # `mfstnet_active` must mean MFSTNet: a persistence forecast (P104)
+        # is published like any other, but it is not the model running.
+        if not prediction.model.startswith("persistence@"):
+            self.forecasting = True
+        return True
+
+    def publish_count_forecast(self, forecast: CountForecast,
+                               now: float | None = None) -> bool:
+        """The next-minute count (ADR-027), on its own topic. It never sets
+        `forecasting`: a count forecast is not MFSTNet, nor a class forecast."""
+        now = time.time() if now is None else now
+        topic = Topic.COUNT_FORECAST.render(self.intersection_id)
+        try:
+            self.transport.publish(topic, forecast.encode(), Topic.COUNT_FORECAST.qos)
+        except (ConnectionError, OSError):
+            return False
+        self.last_ack = now
+        return True
+
+    def publish_forecast_check(self, check: ForecastCheck, now: float | None = None) -> bool:
+        """D26: one forecast beside what it forecast, on its own topic, so the
+        forecast payloads are unchanged. Returns whether the link took it."""
+        now = time.time() if now is None else now
+        topic = Topic.FORECAST_CHECK.render(self.intersection_id)
+        try:
+            self.transport.publish(topic, check.encode(), Topic.FORECAST_CHECK.qos)
+        except (ConnectionError, OSError):
+            return False
+        self.last_ack = now
+        return True
+
+    def publish_heartbeat(self, now: float | None = None) -> bool:
+        now = time.time() if now is None else now
+        payload = Heartbeat(
+            edge_status="degraded" if self.degraded(now) else "online",
+            mode=self.mode,
+            # ADR-026 moved MFSTNet here from the server (NFR-13: its input
+            # is frames). The policy stays on the server, so PPO is never
+            # active on the edge.
+            mfstnet_active=self.forecasting,
+            ppo_active=False,
+            ts=now,
+            source=self.source,
+            lanes=self.lanes,
+            directions_verified=self.directions_verified)
+        topic = Topic.HEARTBEAT.render(self.intersection_id)
+        try:
+            self.transport.publish(topic, payload.encode(), Topic.HEARTBEAT.qos)
+        except (ConnectionError, OSError):
+            return False
+        return True
+
+    def at_position(self, seconds: float) -> None:
+        """D22: how far into its clip a replay has reached. Nothing for a
+        camera. A clip whose frame count proves wrong reports its duration as
+        unknown, rather than a position past its end."""
+        if self.source is None or self.source["kind"] != "replay":
+            return
+        duration = self.source["duration_s"]
+        if duration is not None and seconds > duration:
+            duration = None
+        self.source = {**self.source, "position_s": float(seconds), "duration_s": duration}
+
+    def seconds_since_ack(self, now: float | None = None) -> float:
+        return (time.time() if now is None else now) - self.last_ack
+
+    def degraded(self, now: float | None = None) -> bool:
+        """FR-A06: has the link been silent longer than the timeout?"""
+        return self.seconds_since_ack(now) > self.timeout_s
+
+    def tick(self, lane_counts: dict[str, dict[str, int]], fps: float,
+             now: float | None = None) -> dict:
+        """One cycle: publish what was counted, and decide who is driving.
+
+        Returns what the node did, including `mode`, so a caller — or a test —
+        can see the transition rather than infer it.
+        """
+        now = time.time() if now is None else now
+        delivered = [lane for lane, types in lane_counts.items()
+                     if self.publish_counts(lane, types, fps, now)]
+        self.publish_heartbeat(now)
+
+        if self.degraded(now):
+            self.mode = Mode.LOCAL
+            phase, green = self.webster.step()
+            return {"mode": self.mode, "delivered": delivered,
+                    "phase": phase, "green_s": green,
+                    "reason": (f"FR-A06: no successful publish for "
+                               f"{self.seconds_since_ack(now):.1f}s, over the "
+                               f"{self.timeout_s:.0f}s timeout; running the "
+                               f"locally embedded cycle")}
+
+        self.mode = Mode.NORMAL
+        return {"mode": self.mode, "delivered": delivered,
+                "phase": None, "green_s": None,
+                "reason": "link healthy: publishes are acknowledged"}

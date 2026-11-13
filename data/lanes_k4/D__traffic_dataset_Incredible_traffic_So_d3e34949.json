@@ -1,0 +1,39 @@
+{
+  "clip": "Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
+  "surveyed_from": "D:\\traffic dataset\\Incredible traffic Sound in Dhaka, Bangladesh\u0964 Rampura  [4K ASMR] #TheSoundofDhaka.mp4",
+  "detections": 1165,
+  "unassigned_rate": 0.0129,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.1838366535554598,
+        0.7486208097609692
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.5669267105180665,
+        0.5350925830049629
+      ]
+    },
+    {
+      "name": "lane_2",
+      "centre": [
+        0.8047218441963195,
+        0.8469709648384346
+      ]
+    },
+    {
+      "name": "lane_3",
+      "centre": [
+        0.8692103302863337,
+        0.5295117313745058
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

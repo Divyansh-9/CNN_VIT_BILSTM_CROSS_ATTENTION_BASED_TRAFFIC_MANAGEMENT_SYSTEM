@@ -103,6 +103,7 @@ def run_episode(
     collect_lateral: bool = False,
     emergency_at: int | None = None,
     emergency_approach: str = "N",
+    total_delay: bool = False,
 ) -> EpisodeResult:
     """Run one episode. Returns metrics; writes nothing.
 
@@ -127,6 +128,8 @@ def run_episode(
 
     import traci
 
+    from simulation.scenarios import demand_path
+
     # A MANAGED directory rather than %TEMP%. `unlink` below usually succeeds,
     # but on Windows SUMO can still hold the handle as it exits, and the misses
     # accumulate — 16,955 files and 1.5 GB across two sessions, ending in a full
@@ -144,7 +147,7 @@ def run_episode(
     command = [
         str(sumo_binary("sumo")),
         "-n", str(net_dir / "intersection.net.xml"),
-        "-r", str(net_dir / f"demand_{regime}.rou.xml"),
+        "-r", str(demand_path(net_dir, regime, seed)),
         "-a", str(net_dir / "vtypes.add.xml"),
         "--seed", str(seed),
         "--no-step-log", "true",
@@ -160,6 +163,13 @@ def run_episode(
     ]
     if lateral_resolution:
         command += ["--lateral-resolution", str(lateral_resolution)]
+    if total_delay:
+        # ADR-021 as amended: total delay counts EVERY vehicle loaded in the
+        # episode, including those still driving or still waiting to enter when
+        # it ends. `_read_tripinfo` drops those rows from every other metric, so
+        # turning this on cannot move `mean_wait_s` or `throughput`.
+        command += ["--tripinfo-output.write-unfinished", "true",
+                    "--tripinfo-output.write-undeparted", "true"]
 
     lanes = lane_ids()
 
@@ -186,7 +196,20 @@ def run_episode(
         # controller says otherwise (pending item P15).
         traci.trafficlight.setPhase("C", current_phase * 3)
         traci.trafficlight.setPhaseDuration("C", 100_000)
-        remaining = min_green_s
+        # P116: a `keep_or_switch` controller is run under the rules it trained
+        # under (`TrafficSignalEnv.step`). It decides from t = 0; a "keep" lasts
+        # its own hold, not a minimum green; a switch is refused until the
+        # minimum green has run; and the maximum green forces the change, also
+        # across a run of keeps. Every other controller is unchanged.
+        keep_or_switch = getattr(controller, "decision_mode", None) == "keep_or_switch"
+        # Opt-in: a controller that measures what actually happened (P128) is
+        # shown every second's counts. It cannot act on them; it only records.
+        observe_second = getattr(controller, "observe_second", None)
+
+        def read_counts() -> dict:
+            return {a: sum(traci.lane.getLastStepVehicleNumber(l) for l in g)
+                    for a, g in lanes.items()}
+        remaining = 0 if keep_or_switch else min_green_s
 
         # FR-A05. `green_elapsed` is tracked separately from `remaining` because
         # preemption may cut a green short, and the minimum-green guarantee is
@@ -222,6 +245,8 @@ def run_episode(
                 waits[approach] = sum(
                     traci.lane.getWaitingTime(l) for l in group
                 )
+            if observe_second is not None:
+                observe_second(step, dict(counts))
 
             if remaining <= 0:
                 if preempting:
@@ -232,16 +257,28 @@ def run_episode(
                     phase, green = controller.decide({
                         "counts": counts, "queues": queues, "waits": waits,
                         "phase": current_phase, "step": step,
+                        # P120: a keep_or_switch policy observes the time left
+                        # before max green, so it needs how long this green has run.
+                        "green_elapsed": green_elapsed,
                     })
                 # Clamping happens HERE, not in the controller. A policy that
                 # has learned to request a 300 s green is still a policy that
                 # gets 90 (PRD §9.6).
-                green = max(min_green_s, min(max_green_s, int(green)))
+                if keep_or_switch and not preempting:
+                    if phase != current_phase and green_elapsed < min_green_s:
+                        phase = current_phase              # refused: min green not yet run
+                    elif phase == current_phase and green_elapsed >= max_green_s:
+                        phase = EW if current_phase == NS else NS   # max green forces it
+                    green = max(1, min(max_green_s, int(green)))
+                else:
+                    green = max(min_green_s, min(max_green_s, int(green)))
 
                 if phase != current_phase:
                     phase_switches += 1
                     gone, done = _run_interphase(
-                        traci, current_phase, yellow_s, all_red_s
+                        traci, current_phase, yellow_s, all_red_s,
+                        on_step=(None if observe_second is None else
+                                 lambda k, s=step: observe_second(s + k, read_counts()))
                     )
                     departed += gone
                     arrived += done
@@ -258,6 +295,8 @@ def run_episode(
             step += 1
             remaining -= 1
             green_elapsed += 1
+            if keep_or_switch and green_elapsed >= max_green_s:
+                remaining = min(remaining, 0)              # decide now; the switch is forced
 
             departed += traci.simulation.getDepartedNumber()
             arrived += traci.simulation.getArrivedNumber()
@@ -299,6 +338,9 @@ def run_episode(
             green_at - raised_at if (green_at is not None and raised_at is not None)
             else None
         )
+    if total_delay:
+        extra["mean_total_delay_s"] = round(trips["mean_total_delay_s"], 3)
+        extra["delay_vehicles"] = trips["delay_vehicles"]
     if collect_lateral:
         for kind, values in sorted(lateral_spread.items()):
             extra[f"lat_mean_{kind}"] = round(sum(values) / len(values), 4)
@@ -331,7 +373,8 @@ def _read_tripinfo(path: Path, ET) -> dict:
     mean wait while completing 70% of trips has not done well.
     """
     if not path.exists() or path.stat().st_size == 0:
-        return {"mean_wait_s": 0.0, "max_wait_s": 0.0, "waits": [], "mean_duration_s": 0.0}
+        return {"mean_wait_s": 0.0, "max_wait_s": 0.0, "waits": [], "mean_duration_s": 0.0,
+                "mean_total_delay_s": 0.0, "delay_vehicles": 0}
 
     try:
         root = ET.parse(path).getroot()
@@ -341,9 +384,19 @@ def _read_tripinfo(path: Path, ET) -> dict:
         text = path.read_text(encoding="utf-8").rstrip()
         root = ET.fromstring(text + "</tripinfos>")
 
-    waits = [float(t.get("waitingTime", 0.0)) for t in root.findall("tripinfo")]
-    durations = [float(t.get("duration", 0.0)) for t in root.findall("tripinfo")]
+    every = root.findall("tripinfo")
+    # Completed trips only. Rows with a negative arrival exist only when the
+    # episode asked for total delay (unfinished or undeparted vehicles), and
+    # they must not leak into the completed-trip metrics.
+    completed = [t for t in every if float(t.get("arrival", 0.0)) >= 0]
+    waits = [float(t.get("waitingTime", 0.0)) for t in completed]
+    durations = [float(t.get("duration", 0.0)) for t in completed]
+    # SUMO's decomposition: timeLoss is delay against free flow on the route
+    # driven so far; departDelay is time spent waiting to be inserted.
+    delays = [float(t.get("timeLoss", 0.0)) + float(t.get("departDelay", 0.0)) for t in every]
     return {
+        "mean_total_delay_s": sum(delays) / len(delays) if delays else 0.0,
+        "delay_vehicles": len(delays),
         "mean_wait_s": sum(waits) / len(waits) if waits else 0.0,
         "max_wait_s": max(waits) if waits else 0.0,
         "mean_duration_s": sum(durations) / len(durations) if durations else 0.0,
@@ -352,7 +405,7 @@ def _read_tripinfo(path: Path, ET) -> dict:
 
 
 def _run_interphase(
-    traci, phase: int, yellow_s: int, all_red_s: int
+    traci, phase: int, yellow_s: int, all_red_s: int, on_step=None
 ) -> tuple[int, int]:
     """Yellow then all-red, always, between any two greens (FR-A04).
 
@@ -373,4 +426,6 @@ def _run_interphase(
         traci.simulationStep()
         departed += traci.simulation.getDepartedNumber()
         arrived += traci.simulation.getArrivedNumber()
+        if on_step is not None:          # P132: read-only, after each interphase second
+            on_step(_ + 1)
     return departed, arrived

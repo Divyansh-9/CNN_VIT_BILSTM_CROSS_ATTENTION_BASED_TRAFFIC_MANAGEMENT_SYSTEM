@@ -49,7 +49,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 RESULTS = Path("experiments/results/ablation.csv")
+from scripts.device import move, resolve_device  # noqa: E402
+
 CLASSES = ("LOW", "MEDIUM", "HIGH")
 
 
@@ -83,19 +89,40 @@ def class_weights(labels, n_classes: int):
 class Windows:
     """Sequences -> (cnn, vit, labels), reading windows from the feature cache."""
 
-    def __init__(self, rows, cache, lanes, source_id: str, T: int):
+    def __init__(self, rows, cache, lanes, source_id: str, T: int,
+                 masks_by_clip=None):
         self.rows, self.cache, self.lanes = rows, cache, lanes
         self.source_id, self.T = source_id, T
+        # P26: a lane lives in one camera's image plane, so each window must be
+        # pooled through its OWN camera's masks. None means a single-camera
+        # corpus, where the model's construction-time masks are already right.
+        self.masks_by_clip = masks_by_clip
 
     def __len__(self) -> int:
         return len(self.rows)
+
+    def labels(self) -> list[int]:
+        """Every lane label, without touching the feature cache (P55).
+
+        Class weights need the label distribution and nothing else. Reading it
+        through `__getitem__` pulled the whole training set's features through
+        the cache first -- for one fold, 108 windows of `[60, 2048, 7, 7]` --
+        materialised, counted, and thrown away before epoch 1 began. The labels
+        are columns in `sequences.csv`; the features are not needed to read
+        them.
+        """
+        return [CLASSES.index(row[f"label_{lane}"])
+                for row in self.rows for lane in self.lanes]
 
     def __getitem__(self, index):
         import torch
 
         row = self.rows[index]
+        # fp16 out of the cache and fp16 through the collate. The widening to
+        # fp32 happens on the device, after the transfer — see `move` (P35).
         cnn, vit = self.cache.read_window(
-            self.source_id, row["clip_id"], int(row["start_index"]), self.T
+            self.source_id, row["clip_id"], int(row["start_index"]), self.T,
+            dtype=torch.float16,
         )
         # read_window returns [1, T, C, h, w]; the model wants [T, C, h, w] per
         # item so the batch collate produces [B, T, C, h, w]. Squeezing here
@@ -108,7 +135,9 @@ class Windows:
             [CLASSES.index(row[f"label_{lane}"]) for lane in self.lanes],
             dtype=torch.long,
         )
-        return cnn, vit, labels
+        masks = (None if self.masks_by_clip is None
+                 else self.masks_by_clip[row["clip_id"]])
+        return cnn, vit, labels, masks
 
 
 def batches(dataset, size: int, *, shuffle: bool, generator=None):
@@ -120,9 +149,11 @@ def batches(dataset, size: int, *, shuffle: bool, generator=None):
     )
     for start in range(0, len(order), size):
         chunk = [dataset[i] for i in order[start:start + size]]
-        cnn = torch.stack([c for c, _, _ in chunk]) if chunk[0][0] is not None else None
-        vit = torch.stack([v for _, v, _ in chunk]) if chunk[0][1] is not None else None
-        yield cnn, vit, torch.stack([y for _, _, y in chunk])
+        cnn = torch.stack([c for c, _, _, _ in chunk]) if chunk[0][0] is not None else None
+        vit = torch.stack([v for _, v, _, _ in chunk]) if chunk[0][1] is not None else None
+        masks = (torch.stack([m for _, _, _, m in chunk])
+                 if chunk[0][3] is not None else None)
+        yield cnn, vit, torch.stack([y for _, _, y, _ in chunk]), masks
 
 
 def gate_stats(output) -> dict:
@@ -138,7 +169,80 @@ def gate_stats(output) -> dict:
     }
 
 
-def feed(model, cnn, vit):
+def write_predictions(out: Path, config: str, seed: int, manifest: dict,
+                      test_set, lane_names, true, pred) -> Path:
+    """One row per test lane-window: the decisions behind the metrics (P59).
+
+    `evaluate_split` iterates the test set with `shuffle=False`, so window `i`
+    contributes `len(lane_names)` consecutive entries to `true`/`pred`, in lane
+    order. That correspondence is asserted here rather than assumed — a silent
+    off-by-one would produce a file that looks right and describes the wrong
+    windows, which is worse than not having one.
+
+    Written beside the metrics CSV as `<stem>.predictions.csv`.
+    """
+    lanes = list(lane_names)
+    expected = len(test_set.rows) * len(lanes)
+    if len(true) != expected or len(pred) != expected:
+        raise SystemExit(
+            f"{config}: {len(true)} decisions for {len(test_set.rows)} windows "
+            f"x {len(lanes)} lanes = {expected}. The per-window file would not "
+            f"line up with the windows it names."
+        )
+
+    # Config is in the filename even when `--ablation` puts eight configs in one
+    # metrics CSV, so a predictions file is never ambiguous about which model
+    # produced it.
+    path = out.parent / f"{out.stem}_{config}.predictions.csv"
+    fold = manifest.get("fold", "")
+    records = []
+    for i, row in enumerate(test_set.rows):
+        for j, lane in enumerate(lanes):
+            k = i * len(lanes) + j
+            records.append({
+                "config": config, "seed": seed, "fold": fold,
+                "clip_id": row["clip_id"],
+                "start_index": row["start_index"],
+                "label_index": row.get("label_index", ""),
+                "lane": lane,
+                "true": CLASSES[true[k]],
+                "pred": CLASSES[pred[k]],
+                "correct": int(true[k] == pred[k]),
+            })
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(records[0]))
+        writer.writeheader()
+        writer.writerows(records)
+    return path
+
+
+def guard_results(out: Path, epochs: int, *, force: bool) -> None:
+    """Refuse to overwrite results from a longer run than the one about to start.
+
+    The check is `epochs_run`, not a timestamp, because the failure it prevents
+    is specifically a short verification run aimed at the default path. A
+    longer or equal run is a legitimate replacement and passes.
+    """
+    if force or not out.is_file():
+        return
+    try:
+        with out.open(newline="", encoding="utf-8") as handle:
+            recorded = [int(r["epochs_run"]) for r in csv.DictReader(handle)
+                        if r.get("epochs_run", "").strip().isdigit()]
+    except (OSError, ValueError, KeyError):
+        return                                  # unreadable is not this guard's job
+    if recorded and max(recorded) > epochs:
+        raise SystemExit(
+            f"{out} holds a run of {max(recorded)} epochs and this one is "
+            f"{epochs}. Raw result CSVs are graded deliverables (NFR-09/10), "
+            f"so a short check will not overwrite a longer run. Send it "
+            f"somewhere else with --out, or pass --force if replacing it is "
+            f"what you mean."
+        )
+
+
+def feed(model, cnn, vit, masks=None):
     """Pass only the branches this config enables.
 
     `MFSTNet._check_inputs` REFUSES features for a disabled branch rather than
@@ -148,10 +252,11 @@ def feed(model, cnn, vit):
     return model(
         cnn if model.cfg.fusion.use_cnn else None,
         vit if model.cfg.fusion.use_vit else None,
+        lane_masks=masks,
     )
 
 
-def evaluate_split(model, dataset, size: int, lanes):
+def evaluate_split(model, dataset, size: int, lanes, device: str = "cpu"):
     """Predictions flattened across lanes — every lane is a labelled example."""
     import torch
 
@@ -160,16 +265,19 @@ def evaluate_split(model, dataset, size: int, lanes):
     model.eval()
     true, pred, last = [], [], None
     with torch.no_grad():
-        for cnn, vit, y in batches(dataset, size, shuffle=False):
-            out = feed(model, cnn, vit)
+        for cnn, vit, y, masks in batches(dataset, size, shuffle=False):
+            cnn, vit, masks = move((cnn, vit, masks), device, cast=torch.float32)
+            out = feed(model, cnn, vit, masks)
             last = out
-            true.extend(y.reshape(-1).tolist())
+            true.extend(y.reshape(-1).tolist())      # labels stay on the CPU
             pred.extend(out.logits.reshape(-1, len(CLASSES)).argmax(-1).tolist())
-    return evaluate(true, pred, CLASSES), last
+    return evaluate(true, pred, CLASSES), last, true, pred
 
 
 def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
-              epochs: int, seed: int):
+              epochs: int, seed: int, device: str = "cpu",
+              micro_batch: int | None = None, init_state: dict | None = None,
+              weighting: str = "inverse"):
     """`config.n_lanes` comes from the CORPUS, not from the ablation default.
 
     A junction has four approaches and a motorway two; the lane count is a
@@ -186,6 +294,9 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     from scripts.seed import set_seed
 
     t = spec["training"]
+    # Never larger than the real batch: a "micro" batch bigger than the batch
+    # would silently raise the effective batch size, which IS a hyperparameter.
+    micro_batch = min(micro_batch or t["batch_size"], t["batch_size"])
     set_seed(seed)                      # NFR-07, before the model is built
 
     masks = (lane_masks_from_centres(lanes, spec.get("grid", 7))
@@ -196,35 +307,93 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     n_lanes = (len(lanes.names) if isinstance(lanes, LaneCentres)
                else len(lanes))
     config = dataclasses.replace(config, n_lanes=n_lanes)
-    model = MFSTNet(config, masks)
+    # The construction-time masks are a registered buffer, so `.to()` carries
+    # them. Per-sample masks arrive with the batch and are moved there.
+    model = MFSTNet(config, masks).to(device)
+    if init_state is not None:
+        # Mode 2, fine-tuning (ADR-025). Strict: a checkpoint whose shapes or
+        # keys differ from this config is a different model, and loading it
+        # partially would train a hybrid nobody specified. The construction
+        # masks are a registered buffer, so they are not taken from the
+        # checkpoint — this corpus's lane geometry wins, which is P23's rule.
+        own_masks = {k: v for k, v in model.state_dict().items()
+                     if k not in init_state or "mask" in k}
+        try:
+            model.load_state_dict({**init_state, **own_masks}, strict=True)
+        except RuntimeError as error:
+            raise SystemExit(
+                f"--init-from does not fit config {name}: "
+                f"{str(error).splitlines()[0]}. Fine-tune only from a "
+                f"checkpoint of the same config and lane count.") from error
     optimiser = torch.optim.AdamW(
         model.parameters(), lr=t["lr"], weight_decay=t["weight_decay"]
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, T_max=epochs)
 
-    labels = [y for _, _, ys in (train_set[i] for i in range(len(train_set)))
-              for y in ys.tolist()]
-    weights, counts = class_weights(labels, len(CLASSES))
-    criterion = torch.nn.CrossEntropyLoss(weight=weights)
+    weights, counts = class_weights(train_set.labels(), len(CLASSES))
+    if weighting == "none":
+        # The documented control for P99: plain cross-entropy. The counts are
+        # still recorded, because they are a property of the data, not of the
+        # objective.
+        weights = torch.ones(len(CLASSES), dtype=torch.float32)
+    criterion = torch.nn.CrossEntropyLoss(weight=weights.to(device))
 
     generator = torch.Generator().manual_seed(seed)
     best, best_state, stale = float("inf"), None, 0
     started = time.perf_counter()
 
+    # P55. `batch_size` is PRD §8.2 and is not negotiable; how many windows are
+    # resident at once is an implementation detail. One batch of 32 windows is
+    # 32 x 60 x 2048 x 7 x 7 — 0.77 GB fp16 on the host, twice that again once
+    # `torch.stack` has copied it, and 1.5 GB fp32 on a 6 GB card before the
+    # model, its gradients and AdamW's two moment buffers. That segfaulted on
+    # the second batch of the first epoch, on CPU and CUDA alike.
+    #
+    # Accumulating `micro` windows at a time and stepping once per
+    # `batch_size` keeps the optimiser step mathematically identical while
+    # holding a quarter of the memory. Gradients are summed and divided by the
+    # window count actually seen, not by the group count, so the last partial
+    # group of an epoch is weighted correctly rather than counted as if it were
+    # full.
+    step_every = max(1, t["batch_size"] // micro_batch)
+
     for epoch in range(epochs):
         model.train()
-        total = 0.0
-        for cnn, vit, y in batches(train_set, t["batch_size"], shuffle=True,
-                                   generator=generator):
-            out = feed(model, cnn, vit)
+        total, batches_seen = 0.0, 0
+        optimiser.zero_grad(set_to_none=True)
+        pending, in_group = 0, 0
+        for cnn, vit, y, masks in batches(train_set, micro_batch, shuffle=True,
+                                          generator=generator):
+            cnn, vit, masks, y = move((cnn, vit, masks, y), device,
+                                      cast=torch.float32)
+            out = feed(model, cnn, vit, masks)
             loss = criterion(out.logits.reshape(-1, len(CLASSES)), y.reshape(-1))
-            optimiser.zero_grad()
-            loss.backward()
+            windows = y.shape[0]
+            # Summed, not averaged: the division happens once per step, over
+            # the windows the step actually covers.
+            (loss * windows).backward()
+            in_group += windows
+            pending += 1
+            total += float(loss.detach()) * windows
+            batches_seen += windows
+            if pending == step_every:
+                for parameter in model.parameters():
+                    if parameter.grad is not None:
+                        parameter.grad /= in_group
+                optimiser.step()
+                optimiser.zero_grad(set_to_none=True)
+                pending, in_group = 0, 0
+        if pending:                      # the epoch's last, short group
+            for parameter in model.parameters():
+                if parameter.grad is not None:
+                    parameter.grad /= in_group
             optimiser.step()
-            total += float(loss)
+            optimiser.zero_grad(set_to_none=True)
+        total = total / max(batches_seen, 1)
         scheduler.step()
 
-        val_report, _ = evaluate_split(model, val_set, t["batch_size"], lanes)
+        val_report, _, _, _ = evaluate_split(model, val_set, t["batch_size"], lanes,
+                                       device)
         # Early stopping on val LOSS proxy: 1 - macro F1. Accuracy would let a
         # model that predicts the majority class look like it is improving on an
         # imbalanced corpus, which this one is.
@@ -241,7 +410,12 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    report, last = evaluate_split(model, test_set, t["batch_size"], lanes)
+    # `test_set` is None under --no-test: the scored split is then validation,
+    # and the sidecar says so. Test is read later, by a frozen evaluator, from
+    # checkpoints selected without it.
+    report, last, true, pred = evaluate_split(
+        model, test_set if test_set is not None else val_set, t["batch_size"],
+        lanes, device)
 
     row = {
         "config": name,
@@ -256,7 +430,25 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
         "off_by_two_rate": round(report.off_by_two_rate, 4),
         "qwk": round(report.qwk, 4),
         "n": report.n,
+        # The score the checkpoint was SELECTED on, recorded so that choosing
+        # between runs never needs the test camera (S61). Early stopping
+        # minimised 1 - validation macro-F1; this is that best value, on the
+        # fold's validation camera, which is a different camera from test.
+        "val_macro_f1": (round(1.0 - best, 4) if best_state is not None
+                         else ""),
         "seconds": round(time.perf_counter() - started, 1),
+        # ADR-003 requires every latency figure to state its measurement host.
+        # The same applies to a trained metric: seeded runs are reproducible on
+        # one device and NOT bitwise equal across devices — the same config and
+        # seed gave gate_mean 0.53895 on CPU and 0.54268 on CUDA. A results row
+        # that does not say which produced it cannot be compared with another.
+        "device": device,
+        # Beside the number it qualifies. A zero-support class costs a third of
+        # macro F1 and nothing else in the row says so, which is how a column
+        # of identical scores reads as a comparison instead of an artifact of
+        # the split (P31). This row duplicates `EvaluationReport.as_row` rather
+        # than calling it, so the field has to be added in both places.
+        "warnings": " | ".join(report.warnings),
     }
     for label, metrics in zip(CLASSES, report.per_class):
         row[f"precision_{label.lower()}"] = round(metrics.precision, 4)
@@ -266,7 +458,69 @@ def train_one(name, config, *, train_set, val_set, test_set, lanes, spec,
     for index, label in enumerate(CLASSES):
         row[f"train_count_{label.lower()}"] = counts[index]
     row.update(gate_stats(last))
-    return row, report
+    state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+    return row, report, true, pred, state
+
+
+def save_checkpoint(args, name, state, row, manifest, preprocessing_hash,
+                    lane_names, device) -> Path:
+    """One selected model, plus the record of exactly what produced it.
+
+    Before this, every run evaluated its best state and threw it away: 320
+    leave-one-camera-out runs left CSVs and no weights, so nothing could be
+    served, exported trained, or fine-tuned (ADR-025).
+
+    The record answers the questions a checkpoint is useless without: which
+    domain and cameras trained it, which camera selected it, which camera it
+    was tested on, and what it started from. Refuses to overwrite, because a
+    checkpoint a result was reported from is evidence (P47).
+    """
+    import hashlib
+
+    import torch
+
+    from experiments.provenance import write_sidecar
+
+    # Callers built before --no-test and --class-weights pass neither.
+    no_test = getattr(args, "no_test", False)
+    fold = manifest.get("fold", "")
+    stem = f"mfstnet_{name}_seed{args.seed}" + (f"_fold{fold}" if fold != "" else "")
+    path = args.save_checkpoint / f"{stem}.pt"
+    if path.exists() and not args.force:
+        raise SystemExit(f"{path} exists. A checkpoint a result came from is "
+                         f"evidence; pass --force to replace it on purpose.")
+
+    meta = {
+        "config": name,
+        "seed": args.seed,
+        "epochs_run": row["epochs_run"],
+        "domain": manifest.get("domain", "mixed"),
+        "fold": fold,
+        "test_camera": manifest.get("fold_test_camera", ""),
+        "val_camera": manifest.get("fold_val_camera", ""),
+        "excluded_cameras": manifest.get("domain_excluded", []),
+        "camera_partitions": manifest.get("camera_partitions", {}),
+        "corpus": str(args.corpus),
+        "preprocessing_hash": preprocessing_hash,
+        "lane_names": list(lane_names),
+        "test_macro_f1": "" if no_test else row["macro_f1"],
+        "evaluated_on": "val" if no_test else "test",
+        "class_weights": getattr(args, "class_weights", "inverse"),
+    }
+    if args.init_from is not None:
+        digest = hashlib.sha256(args.init_from.read_bytes()).hexdigest()
+        meta["init_from"] = str(args.init_from)
+        meta["init_from_sha256"] = digest
+        meta["mode"] = "fine_tune"
+    else:
+        meta["mode"] = "from_scratch"
+
+    args.save_checkpoint.mkdir(parents=True, exist_ok=True)
+    torch.save({"state_dict": state, "meta": meta}, path)
+    meta["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    write_sidecar(path, device=device, **meta)
+    print(f"    checkpoint {path} ({meta['mode']}, domain {meta['domain']})")
+    return path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -277,10 +531,50 @@ def main(argv: list[str] | None = None) -> int:
                         help="every config through one code path (§14.4)")
     parser.add_argument("--cache", type=Path, default=Path("data/cache"))
     parser.add_argument("--source-id", default="corpus")
+    parser.add_argument(
+        "--device", default="auto",
+        help="auto|cpu|cuda. 'auto' uses the GPU when torch can see one; a "
+             "CUDA build of torch is necessary but not sufficient, because "
+             "nothing moved the model or the batches before P32")
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--micro-batch", type=int, default=8,
+                        help="windows resident at once. Gradients accumulate to "
+                             "the config's batch_size, so the optimiser step is "
+                             "unchanged — this trades speed for peak memory "
+                             "(P55), it is not a hyperparameter")
     parser.add_argument("--out", type=Path, default=RESULTS)
+    parser.add_argument(
+        "--force", action="store_true",
+        help="overwrite results recorded from a longer run than this one")
+    parser.add_argument(
+        "--save-checkpoint", type=Path, default=None, metavar="DIR",
+        help="write the selected model (best validation macro-F1) to DIR, one "
+             ".pt per config, each with a provenance sidecar")
+    parser.add_argument(
+        "--init-from", type=Path, default=None, metavar="PT",
+        help="start from this checkpoint instead of from scratch (fine-tuning, "
+             "ADR-025 mode 2). Single config only")
+    parser.add_argument(
+        "--class-weights", choices=("inverse", "none"), default="inverse",
+        help="the loss's class weighting. 'inverse' is PRD §8.4's inverse "
+             "frequency; 'none' is unweighted cross-entropy, the control P99 "
+             "compares it against. Recorded in the sidecar")
+    parser.add_argument(
+        "--no-test", action="store_true",
+        help="train and select without a test split at all. The corpus must "
+             "hold NO test window, and every metric, prediction file and "
+             "checkpoint record is then about VALIDATION, as the sidecar "
+             "states. For protocols that read test only from frozen, already "
+             "selected checkpoints (P99)")
     args = parser.parse_args(argv)
+
+    if args.init_from is not None and args.ablation:
+        raise SystemExit(
+            "--init-from takes one checkpoint and --ablation trains eight "
+            "configs; a checkpoint fits exactly one of them. Pass --config.")
+    if args.init_from is not None and not args.init_from.is_file():
+        raise SystemExit(f"--init-from {args.init_from} does not exist")
 
     import yaml
 
@@ -293,6 +587,14 @@ def main(argv: list[str] | None = None) -> int:
     training = spec["training"]
     epochs = args.epochs or training["epochs"]
 
+    # NFR-09/10 make the raw result CSVs graded deliverables, and `--out`
+    # defaults to the real one — so a two-epoch plumbing check aimed at the
+    # default silently destroys a finished ablation. Refuse when the file on
+    # disk came from a longer run than this one.
+    guard_results(args.out, epochs, force=args.force)
+
+    device = resolve_device(args.device)
+
     rows_in, manifest = load_corpus(args.corpus)
     auto = manifest.get("auto_labelled", True)
     lane_names = manifest["lanes"]
@@ -300,6 +602,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"  corpus {args.corpus}: {len(rows_in)} sequences, "
           f"{len(lane_names)} lane(s), T={T}")
+    print(f"  device {device}" + ("" if device != "cpu" else
+          "  (torch sees no GPU; check scripts/check_env.py)"))
     print(f"  labels: {'AUTO-LABELLED' if auto else 'HUMAN-VERIFIED'}"
           + ("  (A32 — NOT the headline split)" if auto else ""))
     print(f"  §8.4: lr={training['lr']} wd={training['weight_decay']} "
@@ -342,13 +646,60 @@ def main(argv: list[str] | None = None) -> int:
             "scripts/import_lane_centres.py."
         )
 
+    # P26. One set of centres describes ONE camera, so a corpus spanning
+    # cameras needs a mask set per camera. Pooling every camera through the
+    # first one's lanes does not fail loudly — the shapes agree and the loss
+    # still falls — it just measures the wrong region for every camera but one.
+    per_clip = manifest.get("lane_centres_by_clip") or {}
+    masks_by_clip = None
+    if per_clip:
+        from mfstnet.corpus.lanes import LaneCentres
+        from mfstnet.temporal import lane_masks_from_centres
+
+        grid = spec.get("grid", 7)
+        masks_by_clip = {
+            clip_id: lane_masks_from_centres(
+                LaneCentres(
+                    names=tuple(e["name"] for e in entry["lanes"]),
+                    centres=tuple(tuple(e["centre"]) for e in entry["lanes"]),
+                    max_radius=float(entry.get("max_radius", 0.25)),
+                ),
+                grid,
+            )
+            for clip_id, entry in per_clip.items()
+        }
+        widths = {int(m.shape[0]) for m in masks_by_clip.values()}
+        if len(widths) > 1:
+            raise SystemExit(
+                f"the corpus mixes cameras with {sorted(widths)} lanes. The "
+                f"per-lane head is one fixed width, so a corpus cannot span "
+                f"lane counts — rebuild with the same count on every camera."
+            )
+        missing = {r["clip_id"] for r in rows_in} - set(masks_by_clip)
+        if missing:
+            raise SystemExit(
+                f"{len(missing)} clip(s) have sequences but no lane geometry, "
+                f"e.g. {sorted(missing)[0][:50]}. Every window must be pooled "
+                f"through its own camera's lanes (P26)."
+            )
+        print(f"  per-camera ROI geometry for {len(masks_by_clip)} camera(s)")
+
     split = {
         name: Windows([r for r in rows_in if r["split"] == name],
-                      cache, lane_names, args.source_id, T)
+                      cache, lane_names, args.source_id, T,
+                      masks_by_clip=masks_by_clip)
         for name in ("train", "val", "test")
     }
+    if args.no_test:
+        if len(split["test"]):
+            raise SystemExit(
+                f"--no-test, but the corpus holds {len(split['test'])} test "
+                f"window(s). Under --no-test the test windows must not be on "
+                f"the training side at all; build a train/val-only corpus.")
+        split["test"] = None
+        print("  --no-test: no test split; every score below is VALIDATION")
     for name, dataset in split.items():
-        if not len(dataset):
+        if dataset is not None and not len(dataset):
             raise SystemExit(f"the {name} split is empty — refusing to train")
 
     # iter_ablation_configs yields MFSTNetConfig, which carries its own name —
@@ -358,19 +709,71 @@ def main(argv: list[str] | None = None) -> int:
         else [(args.config, ablation_config(args.config))]
     )
 
+    init_state, init_meta = None, None
+    if args.init_from is not None:
+        import torch
+
+        bundle = torch.load(args.init_from, map_location="cpu",
+                            weights_only=True)
+        init_state, init_meta = bundle["state_dict"], bundle["meta"]
+        # ADR-005: features from a different backbone or preprocessing are a
+        # different input space. Raise, never warn.
+        if init_meta["preprocessing_hash"] != cache.spec.hash:
+            raise SystemExit(
+                f"--init-from was trained on features with preprocessing hash "
+                f"{init_meta['preprocessing_hash']}; this cache is "
+                f"{cache.spec.hash}. Fine-tuning across feature spaces is not "
+                f"fine-tuning.")
+        if init_meta["config"] != args.config:
+            raise SystemExit(
+                f"--init-from is config {init_meta['config']}, not "
+                f"{args.config}.")
+        print(f"  fine-tuning from {args.init_from} "
+              f"(domain {init_meta.get('domain')}, seed {init_meta.get('seed')})")
+
     rows = []
     for name, config in configs:
         print(f"\n  === config {name} ===")
-        row, report = train_one(
-            name, config, train_set=split["train"], val_set=split["val"],
+        row, report, true, pred, state = train_one(
+            name, config, device=device,
+            train_set=split["train"], val_set=split["val"],
             test_set=split["test"], lanes=lanes, spec=spec,
-            epochs=epochs, seed=args.seed,
+            epochs=epochs, seed=args.seed, micro_batch=args.micro_batch,
+            init_state=init_state, weighting=args.class_weights,
         )
+        if args.save_checkpoint is not None:
+            save_checkpoint(args, name, state, row, manifest, cache.spec.hash,
+                            lane_names, device)
         row["labels"] = "auto" if auto else "human_verified"
         row["corpus"] = str(args.corpus)
+        # ADR-019. A fold result and a single-draw result are not comparable,
+        # and the only thing that distinguishes them is this. Read from the
+        # corpus manifest rather than passed in, so it cannot disagree with the
+        # data the run actually used.
+        row["split_protocol"] = manifest.get("split_protocol", "hash")
+        row["fold"] = manifest.get("fold", "")
+        row["folds_total"] = manifest.get("folds_total", "")
+        row["test_camera"] = manifest.get("fold_test_camera", "")
         rows.append(row)
+
+        # P59. The finest-grain artifact, written unconditionally.
+        #
+        # A metrics row is a VIEW over the per-window decisions, and no
+        # aggregate can be un-aggregated: the moment a question needs the
+        # decisions themselves — a discordance count between two configs
+        # (ADR-022 Q2), a per-class error analysis, a confusion by camera —
+        # the only way back is to retrain. That cost is measured in GPU hours;
+        # this file is a few hundred integers.
+        #
+        # So it is not conditional on a flag. A flag is a decision made before
+        # the question is known, and the question is never known in advance.
+        write_predictions(args.out, name, args.seed, manifest,
+                          split["test"] if split["test"] is not None
+                          else split["val"], lane_names, true, pred)
         print(f"    macro-F1 {row['macro_f1']}  QWK {row['qwk']}  "
               f"gate std {row['gate_std'] or '—'}")
+        for warning in report.warnings:
+            print(f"    WARNING  {warning}")
         print(format_confusion_matrix(report.confusion, CLASSES))
 
         args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -379,6 +782,35 @@ def main(argv: list[str] | None = None) -> int:
             writer.writeheader()
             writer.writerows(rows)
 
+        # P55. Eight models are built back to back in this loop, each with its
+        # own optimiser state and activations, and nothing released the previous
+        # one — on a 6 GB card that ran the allocator into a driver-level access
+        # violation (0xC0000005) at a config that varied between runs. Dropping
+        # the reference is what actually frees; `empty_cache` only returns
+        # already-free blocks to the driver, and is here because fragmentation
+        # across differently-shaped models is the other half of the problem.
+        #
+        # This is mitigation, not isolation. `run_loco.py` runs one config per
+        # process, which is what removes the failure mode rather than making it
+        # less likely.
+        del report
+        if device.startswith("cuda"):
+            import gc
+
+            import torch
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+    # P39: the numbers above depend on the device, the torch build and the
+    # TF32 setting, and none of those is a column. The sidecar is what makes
+    # two result files comparable — or shows that they are not.
+    from experiments.provenance import write_sidecar
+
+    write_sidecar(args.out, device=device, corpus=str(args.corpus),
+                  cache=str(args.cache), auto_labelled=auto,
+                  class_weights=args.class_weights,
+                  evaluated_on="val" if args.no_test else "test")
     print(f"\n  wrote {args.out}")
     if auto:
         print("  AUTO-LABELLED (A32): count-sequence baselines observe the "

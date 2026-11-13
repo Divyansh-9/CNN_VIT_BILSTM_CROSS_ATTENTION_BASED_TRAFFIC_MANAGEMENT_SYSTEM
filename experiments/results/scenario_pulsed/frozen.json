@@ -1,0 +1,17 @@
+{
+  "scenario": "pulsed",
+  "iteration": 1,
+  "params": {
+    "levels": [
+      300,
+      700,
+      1100
+    ],
+    "d_min": 120,
+    "d_max": 300,
+    "schedule_rng_tag": 115,
+    "duration_s": 3600
+  },
+  "hash": "8267da50f659",
+  "design_log_sha256": "13f30c816e69f9cef65c22db4670441ba7f6a2397891e889b9411b753ab84e88"
+}

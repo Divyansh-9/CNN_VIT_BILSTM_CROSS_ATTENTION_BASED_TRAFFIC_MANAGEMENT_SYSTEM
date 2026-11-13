@@ -1,0 +1,347 @@
+# S63 Bellevue pilot — the seven checks
+
+One camera (Bellevue NE 8th), two contiguous hours (Monday 11 Sep 2017,
+15:08–17:08). Run under [PREREGISTRATION.md](PREREGISTRATION.md) and its
+Amendment 1, both written before any label existed. **This is a single-camera
+temporal evaluation and a pipeline check.** It is not unseen-camera
+performance, not Indian evidence, and not publishable while the licence is
+unresolved.
+
+## Verdict
+
+**The pipeline works end to end on Bellevue footage:** video, detection,
+reviewed lanes, corpus, labels, feature cache, training, validation-only
+selection, held-out test. **The model does not beat persistence.** On the
+held-out final period it is below "congestion in 60 s equals congestion now" on
+macro-F1 and accuracy, and above it only on ordinal agreement (QWK).
+
+## 1. Corpus integrity — pass
+
+- **Samples:** 3,600, against an expected 7,200 s / 2 s. Indices are contiguous
+  0–3599 and every interval is exactly 2.0 s, so no decode failures and no
+  missing samples.
+- **Camera clock:** 15:08:32, 16:08:32 and 17:08:30 at file positions 0, 3600
+  and 7198 s. The hour join is seamless.
+- **Windows:** 235 built, 175 kept after the split buffers — train 127,
+  validation 19, test 29.
+
+## 7. No window or target crosses a split boundary — pass
+
+Each window spans its 60 input samples and its target 30 samples later. The
+buffer is a full window plus the horizon (149 samples).
+
+| split | windows | samples covered, first input to last target |
+|---|---|---|
+| train | 127 | 0–1979 |
+| validation | 19 | 2355–2714 |
+| test | 29 | 3090–3599 |
+
+There are 375 samples between train and validation, and 375 between validation
+and test. No overlap.
+
+## 2. Label distribution — task supported only in a limited sense
+
+**Raw per-lane counts** per 2 s sample:
+
+| lane | median | p90 | max | zero share |
+|---|---|---|---|---|
+| lane_0 | 7 | 11 | 16 | 0% |
+| lane_1 | 8 | 14 | 19 | 1% |
+| lane_2 | 0 | 1 | 4 | 63% |
+| lane_3 | 6 | 10 | 19 | 1% |
+
+| rule | HIGH, train / val / test |
+|---|---|
+| original fixed thresholds, LOW ≤ 4, MEDIUM ≤ 15 | 4 / **0** / **0** (0.6% overall) |
+| **primary:** per-camera p33/p67, LOW ≤ 2, MEDIUM ≤ 8 | 28.1% / 23.7% / 20.7% |
+
+- **In absolute terms this is MEDIUM traffic at most.** HIGH under the original
+  rule never reaches validation or test.
+- **The primary rule produces HIGH by construction**, as the busiest third of
+  this camera's range. It does **not** rise toward the peak: HIGH share stays
+  flat, between 21% and 32%, across all six 20-minute bins. The evening peak is
+  not distinguishable in these labels.
+- **lane_2, the south approach, is degenerate:** a median of 0 vehicles, empty
+  in 63% of samples, and **zero HIGH under either rule**. It is a constant LOW.
+- **Thresholds were frozen.** One leak is recorded, not corrected: the p33/p67
+  cut points were computed over all windows, the test period included. That is
+  a label definition, not training, but strictly the cut points should come
+  from training alone.
+
+## 3. Detector biases — measured, carried as limitations
+
+| bias | measured | effect |
+|---|---|---|
+| US cars as `autorickshaw` | 3,041 detections, **3.6%** of vehicles | 1.2 PCU instead of 1.0 |
+| `two wheeler` | 5,812, **7%** of vehicles; implausibly many for this junction | 0.3 PCU each; biases the other way |
+| painted bicycle symbol | detected in **21%** of samples, 0.241 from the west centre, inside the 0.25 reach | intermittent addition to the west lane |
+| far end of the north queue | missed, seen on inspection | cannot be quantified without hand annotation |
+
+Pedestrians are absent from the corpus detections, so they are correctly
+excluded. Per-camera thresholds are **not** assumed to make any of these
+harmless.
+
+## 4. Feature cache — pass
+
+- **Frames:** all 3,600 cached (1.43 GB); the last window reads back at full
+  shape.
+- **Preprocessing hash:** `a4142d1ab333226b`, **identical to the S61 training
+  cache**. Frames go through the shared `mfstnet/preprocess.py`, which is
+  bit-identical to the original transform (P88).
+
+## 5. G against H — not separated on validation
+
+| config | validation macro-F1 by seed | mean |
+|---|---|---|
+| G | 0.7779 · 0.7733 · **0.8704** · 0.7919 · 0.7842 | 0.7995 |
+| H | 0.7842 · 0.7791 · 0.7895 · 0.7813 · 0.7895 | 0.7847 |
+
+The rule selected **G, seed 21** (`selection.json`), reading only the
+`config`, `seed`, `val_macro_f1` and `epochs_run` columns.
+
+- G's lead in the mean is **0.015**. G's seeds alone span **0.77–0.87**, and the
+  mean rests on one outlier seed.
+- Validation is 19 windows, 76 lane decisions, so one decision moves macro-F1
+  by about 1.3 points.
+- **G and H are not separated.** The selected seed is the most likely to have
+  been lucky on a small validation period — selection on a noisy maximum.
+
+## 6. Held-out test — read once
+
+| model, on the same 29 test windows | macro-F1 | accuracy | QWK |
+|---|---|---|---|
+| **G, seed 21 (selected)** | **0.5644** | 0.569 | **0.5402** |
+| persistence: the label of the last observed sample | **0.5875** | **0.638** | 0.4638 |
+| majority class | 0.2171 | 0.483 | — |
+
+**Per class (G):** LOW F1 0.845 on 36, MEDIUM 0.531 on 56, HIGH **0.318** on
+24.
+
+**Per lane (G):** lane_0 12 of 29, lane_1 13 of 29, lane_2 **29 of 29**, lane_3
+12 of 29. The degenerate lane is right every time, so on the three real lanes
+G is right on **37 of 87, about 43%**.
+
+- **Validation 0.8704 fell to test 0.5644.** That is what selecting the best of
+  five seeds on 19 windows does.
+- **Persistence beats G on macro-F1 and accuracy.** G is better only on QWK, so
+  its mistakes are less often two classes off.
+- **This is A32 in the data.** Labels are a deterministic function of the count,
+  and one minute ahead the count mostly is what it was. A model has to beat
+  that to have learned anything, and here it does not.
+
+## What this supports
+
+- **Supported:** the tooling processes Bellevue end to end and reproducibly.
+  The P91 override was safe for building a corpus.
+- **Not supported:** that MFSTNet forecasts congestion on this camera better
+  than persistence.
+- **Not tested:** unseen cameras. That needs at least three Bellevue cameras.
+
+## Context: S61 against the same baseline
+
+Persistence is also ahead of G on all four of S61's foreign folds — 0.4492
+against 0.4225, 0.6924 against 0.4671, 0.6726 against 0.4089, and 0.4141
+against 0.3297 (P92). The finding is not specific to Bellevue. It is a
+property of the forecasting target as currently defined.
+
+## S63b — horizon diagnostic, under PREREGISTRATION_horizon.md
+
+Labels were re-derived from the stored counts by `scripts/rehorizon_corpus.py`,
+which reproduces the 60 s corpus exactly. Thresholds stayed frozen (LOW ≤ 2,
+MEDIUM ≤ 8). The paired bootstrap ran 10,000 resamples, each test window's
+lanes kept together.
+
+| horizon | test windows | selected | model F1 | persistence F1 | difference [95% CI] | verdict |
+|---|---|---|---|---|---|---|
+| 60 s | 29 | G s21 | 0.5644 | 0.5875 | −0.023 [−0.114, +0.079] | not distinguishable |
+| **180 s** | 21 | G s21 | 0.6165 | 0.5848 | +0.032 [−0.061, +0.128] | **not distinguishable** |
+| 300 s | — | — | — | — | — | **infeasible on two hours** |
+
+- **300 s.** The buffer grows to 269 samples per boundary and empties the
+  validation split. `assign_splits_temporal` refused, which is correct.
+- **Validation at 180 s is 7 windows (28 decisions).** G and H **tie exactly**
+  on mean validation macro-F1 (0.8254). The tie went to G alphabetically: the
+  rule has no explicit config tie-break, and that is disclosed here, not
+  hidden. With 28 decisions, selection is close to chance.
+- **Persistence did not weaken with the horizon.** On validation it rose from
+  0.6132 at 60 s to 0.6889 at 180 s, so a longer horizon showed no sign of
+  opening room for a model.
+- **Class support** was present at 180 s in every split (HIGH 135 / 6 / 14).
+
+**Correction to the 60 s wording.** "The model does not beat persistence" is
+supported. "Persistence beats the model" is **not** — the interval contains
+zero.
+
+**Stop rule applied.** Neither horizon beats persistence, so the horizon is not
+changed again. Next is the label definition and the quality of the
+detector-derived target, as decided in advance.
+
+## Correction to check 3 (P93a)
+
+Labels count **vehicles**, not PCU: `pcu_total` is never called by the corpus
+pipeline. The PCU effects stated in check 3 are therefore wrong. A car read as
+an `autorickshaw` changes no label. What changes a count:
+
+- the painted bicycle symbol adds **one vehicle** to the west lane in 21% of
+  samples;
+- each `two wheeler` detection is one vehicle;
+- the far queue is under-counted.
+
+## P94 — sustained-level targets (see PRD-CHANGELOG P94)
+
+| target | selected | test F1 | baseline F1 | difference [95% CI] |
+|---|---|---|---|---|
+| 60 s sustained | G seed 13 | 0.7167 | 0.6470 | +0.070 [−0.017, +0.156] |
+| 120 s sustained | H seed 42 (validation tie) | 0.7718 | 0.7139 | +0.058 [−0.027, +0.147] |
+
+Not distinguishable on either target. All point estimates favour the models,
+and the test windows (25–29) are too few to resolve them.
+
+## Label-quality audit (P95)
+
+A blind hand count of 20 frames. The detector undercounts west by 15%, north by
+39% and east by 45%; it ranks frames well on those three lanes (correlation
+0.77–0.84) but compresses busy ones. The south lane is close to noise
+(correlation 0.41). The painted symbol was reported as a bicycle in 6 of 20
+frames.
+
+## 60-frame audit (P96)
+
+| lane | undercount | ranking (Pearson) |
+|---|---|---|
+| west | 14% [9, 19] | 0.82 |
+| north | 27% [20, 33] | 0.80 |
+| east | 41% [34, 47] | 0.71 |
+| south | 79% [66, 88] | 0.16 — no reliable signal |
+
+The undercount grows with traffic on every lane. The south approach is not
+observable from this camera.
+
+## P97 — three lanes (west, north, east)
+
+| target | selected | test F1 | baseline F1 | difference [95% CI] | verdict |
+|---|---|---|---|---|---|
+| 60 s | G s13 | 0.4508 | 0.3248 | [+0.027, +0.225] | **beats** |
+| 120 s | H s42 (tie) | 0.3148 | 0.3806 | [−0.152, +0.027] | not distinguishable |
+
+- **At 60 s the win is on MEDIUM and HIGH, not on the single LOW instance.**
+  The post-hoc accuracy, QWK and MEDIUM/HIGH-F1 intervals all exclude zero.
+- **The gains are on north (+9 windows right) and east (+6); none on west.**
+- **This is a three-lane, single-camera temporal evaluation.** Detector
+  undercount is a limitation of every label.
+
+The run was interrupted after 6 of 20 trainings and resumed unchanged (P97).
+
+## P98 — the frozen P97 model on eleven new hours of the same camera
+
+| comparison | model | baseline | difference [95% CI, block bootstrap] | verdict |
+|---|---|---|---|---|
+| **Mon 07:08–15:08, 60 s (primary)** | 0.4268 | 0.4895 | **−0.063 [−0.107, −0.009]**, 48 blocks | **does not replicate** |
+| dawn/dusk, 60 s | | | −0.254 [−0.334, −0.130], 12 blocks | worse (Holm) |
+| Sunday daylight, 60 s | | | −0.015 [−0.079, +0.062], 6 blocks | n.s. |
+| primary, 120 s (H) | | | −0.294 [−0.342, −0.231], 47 blocks | worse (Holm) |
+| primary accuracy | | | +0.094 [+0.061, +0.128] | better (Holm) |
+
+- **The model never predicts LOW**: 0 of 2,691 decisions, against 129 true
+  LOW. P97 trained on 1 LOW in 381.
+- **It is better on MEDIUM (F1 0.832 against 0.744) and level on HIGH (0.448
+  against 0.437).** That is what P97 measured too.
+- Every file is continuous, and none was excluded. Mon 13:08 is 53.5 min long
+  at the source and is kept. The camera is fixed: median shift ≤ 0.0063 of
+  frame width (`P98_PROVENANCE.md`).
+
+## P99a — pretrained-detector benchmark on the 60 afternoon hand counts
+
+ITD-xl 3-lane MAE 2.989. **COCO YOLOv8m at 1280: 2.400, a difference of −0.589
+[−0.883, −0.306].** Selected, not adopted. Undercount: north 27% → 15%, east
+41% → 15%, west unchanged at 14%. The painted symbol is a false bicycle in 1
+frame of 60, against 13. YOLOv8x at 1280 also improves; nothing at 640 does.
+
+The cost: correlation falls on west and north, and M1280 overcounts north by
+15% when traffic is quiet. Adoption needs P99b, blind counts from 06:08,
+07:08, 08:08 and Sun 19:08, the hours that hold 87% of the LOW labels.
+
+## P99b — blind counts at dawn, glare and dusk (60 frames)
+
+ITD-xl is accurate on these hours: 3-lane MAE 0.91, bias ≈ 0. Its LOW
+precision is 0.845 [0.747, 0.931], above the 0.80 floor, so **the morning LOW
+labels are usable**. The exception is 08:08 (glare): 4 of 9 LOW calls were
+right. YOLOv8m-1280 overcounts north by 47% here, and is worse by +0.356
+[+0.161, +0.550]. It **fails non-inferiority and is not adopted**. ITD-xl
+undercounts busy traffic, M1280 overcounts quiet traffic.
+
+## P99 — block-split retrain on 13 hours (Phase 2 NOT passed)
+
+| | |
+|---|---|
+| selected (validation only) | G, unweighted loss, seed 7 |
+| macro-F1, model vs persistence | 0.5875 vs 0.4852, **+0.102 [+0.041, +0.177]**, 26 blocks |
+| LOW / MEDIUM / HIGH recall | 0.349 / 0.800 / 0.601 (persistence 0.361 / 0.729 / 0.369) |
+| condition 1, LOW recall ≥ 0.50 | **fail** (0.349) |
+| conditions 2, 3, 4 | pass |
+| model − hour prior | −0.015 [−0.077, +0.119]; the hour prior alone scores 0.6026 |
+| frozen P97 control, same windows | macro-F1 0.414, LOW recall 0.000 |
+
+Coverage fixed the missing class and the model beats persistence, but not an
+hour-of-day prior, and LOW recall is below the bar.
+
+## P100 — unseen-hour test (two folds interleaved by hour)
+
+| question | result |
+|---|---|
+| model − clock prior | +0.029 [−0.005, +0.065], **not shown** |
+| model − persistence | −0.059 [−0.129, +0.031], **not shown** (persistence 0.540 vs model 0.481) |
+| content, real − swapped | **+0.054 [+0.024, +0.087], significant**: the model uses the window's traffic |
+| LOW recall | **0.058** (16 of 275); persistence 0.509 |
+
+The model reads the traffic but does not beat the clock or persistence on
+hours it never saw. LOW collapses because whole-hour holdout leaves fold B
+only 57 LOW training decisions: the footage has 3 quiet hours. Persistence
+wins in the morning (LOW), and the model wins at midday and in the afternoon
+(HIGH).
+
+## P101 — count-only forecaster, P100 folds (exploratory, paired)
+
+| | macro-F1 | LOW recall |
+|---|---|---|
+| **counts, logistic regression** | **0.669** | 0.407 |
+| vision (P100) | 0.481 | 0.058 |
+| persistence | 0.540 | 0.509 |
+| clock prior | 0.452 | 0.000 |
+
+Vision − counts −0.188 [−0.254, −0.099]; counts − clock +0.217; counts −
+persistence +0.129. All three are Holm-significant. The counts alone beat
+vision and both baselines on unseen hours. Caveat (A32): the labels are the
+detector's own future counts, which advantages a count model. The windows
+were already read in P100, so this is not confirmatory.
+
+## P103 — transfer to Eastgate, Newport and SE38th (calibrated per camera)
+
+| | macro-F1 | LOW / MEDIUM / HIGH recall |
+|---|---|---|
+| C1-L (frozen on NE 8th) | 0.483 | 0.287 / 0.168 / 0.981 |
+| **persistence** | **0.706** | 0.761 / 0.558 / 0.798 |
+| calibration prior | 0.561 | 0.726 / 0.393 / 0.680 |
+
+C1-L − persistence is **−0.222 [−0.260, −0.183]**. By camera it is −0.284
+(Eastgate), −0.344 (Newport) and −0.035 (SE38th, not significant). **It does
+not transfer.** The forecasts run +0.66 to +0.78 vehicles high on every camera,
+because the fit is centred on NE 8th's level of 6.1 against 1.2–2.6 here, and
+the calibrated classes span about one vehicle. Without the limitation lanes
+the difference is −0.143 to −0.221, so the conclusion stands.
+
+## P105 — level-free change forecaster on untouched footage (3 cameras, 48 blocks)
+
+| | macro-F1 | count MAE | bias |
+|---|---|---|---|
+| persistence | 0.716 | 0.972 | −0.008 |
+| **ridge** | **0.732** | **0.748** | −0.017 |
+| trend | 0.539 | 1.663 | +0.091 |
+
+- **Count MAE:** persistence − ridge is **+0.224 [+0.181, +0.271]**,
+  significant. Ridge is closer on every camera.
+- **macro-F1:** ridge − persistence is +0.016 [−0.002, +0.036], not
+  significant. Per camera: SE38th +0.049 (significant), Eastgate +0.033 and
+  Newport −0.008 (neither significant).
+- **Reading: better counts, classes unchanged.** The level-free design removed
+  P103's +0.7 bias. 116th NE12th was excluded (no clock, truncated files).

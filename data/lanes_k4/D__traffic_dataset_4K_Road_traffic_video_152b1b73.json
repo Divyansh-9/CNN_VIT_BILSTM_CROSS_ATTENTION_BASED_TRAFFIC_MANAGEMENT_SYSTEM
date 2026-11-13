@@ -1,0 +1,39 @@
+{
+  "clip": "4K Road traffic video for object detection and tracking - free download now!.mp4",
+  "surveyed_from": "D:\\traffic dataset\\4K Road traffic video for object detection and tracking - free download now!.mp4",
+  "detections": 878,
+  "unassigned_rate": 0.0251,
+  "max_radius": 0.25,
+  "reviewed": false,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.20908938047013684,
+        0.6734557165451992
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.32356438829077067,
+        0.09342663707529243
+      ]
+    },
+    {
+      "name": "lane_2",
+      "centre": [
+        0.3848549940559472,
+        0.3092857314533488
+      ]
+    },
+    {
+      "name": "lane_3",
+      "centre": [
+        0.555752081259703,
+        0.6833136923156912
+      ]
+    }
+  ],
+  "note": "AUTOMATIC AND UNREVIEWED. Nearest-centre assignment is disjoint by construction, so there is no overlap to fix -- but whether these centres sit on real approaches is still a question only the preview answers. P17: they belong to THIS camera only."
+}

@@ -1,0 +1,1334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STMS Console Prototype</title>
+<style>
+/* Colours copied from dashboard/src/theme.css (D18). Orange is interface only, never traffic data. */
+:root {
+  --bg: #080808; --panel: #141311; --panel-2: #1b1917; --ink: #fffdfb; --muted: #a8a29e; --line: #2e2a26;
+  --brand: #ec7c22; --on-brand: #080808;
+  --low: #36d982; --medium: #eeee3f; --high: #e43a73; --on-class: #080808;
+  --ok: #3accd9; --stale: #427fff; --bad: #ce3bf7; --stale-bg: #191e29; --notice-bg: #161412;
+  --road: #1a1816; --road-box: #211e1b; --road-edge: #3a3531; --frame-count: #6e6a65; --frame-class: #b9b3ad;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--sans); }
+h1, h2, h3, p { margin: 0; }
+h2 { font-size: 15px; font-weight: 600; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.page { max-width: 1280px; margin: 0 auto; padding: 12px 16px 28px; display: grid; gap: 12px; }
+
+/* The prototype's own controls. Deliberately unlike the design. */
+.proto { border: 2px dashed var(--brand); border-radius: 8px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 13px; }
+.proto strong { color: var(--brand); }
+.states { display: flex; flex-wrap: wrap; gap: 4px; }
+.states button { background: transparent; border: 1px solid var(--frame-count); border-radius: 5px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
+.states button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.brand { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.nav { display: flex; flex-wrap: wrap; gap: 2px; }
+.nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 5px 10px; color: var(--muted); cursor: pointer; font-weight: 500; transition: color .15s; }
+.nav button:hover { color: var(--ink); }
+.nav button[aria-current="page"] { color: var(--ink); border-bottom-color: var(--brand); }
+.right { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; }
+.clock { font: 600 15px var(--mono); }
+.pill { border: 1px solid var(--frame-count); border-radius: 5px; padding: 2px 8px; }
+.pill[data-kind="replay"] { border: 2px solid var(--ink); }
+
+/* Corridor strip: which intersection, and which others exist. */
+.sites { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+.site { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; display: grid; grid-template-columns: 12px auto; gap: 0 8px; align-items: center; min-width: 170px; }
+.site[aria-current="true"] { border-color: var(--frame-class); background: var(--panel-2); }
+.site b { font-weight: 600; font-size: 14px; }
+.site span:last-child { grid-column: 2; font-size: 12px; color: var(--muted); }
+.corridor { align-self: center; font-size: 12px; color: var(--muted); padding-right: 4px; }
+
+/* State marks: a shape as well as a colour. */
+.m { display: inline-block; width: 11px; height: 11px; flex: none; }
+.m.ok { background: var(--ok); border-radius: 50%; }
+.m.stale { background: var(--stale); transform: rotate(45deg) scale(.85); border-radius: 1px; }
+.m.bad { background: var(--bad); border-radius: 1px; }
+.m.none { border: 1.5px dashed var(--muted); border-radius: 2px; }
+
+.status { display: grid; grid-template-columns: auto 1fr; gap: 0 12px; align-items: center; padding: 10px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.status[data-kind="stale"] { background: var(--stale-bg); border-color: var(--stale); }
+.status[data-kind="bad"] { border-color: var(--bad); }
+.status h2 { font-size: 20px; line-height: 1.25; letter-spacing: -0.01em; }
+.status p { grid-column: 2; }
+.note { font-size: 13px; border-left: 3px solid var(--frame-count); padding-left: 10px; }
+
+.kpis { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 12px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: grid; gap: 2px; align-content: start; min-width: 0; }
+.kpi .k { color: var(--muted); font-size: 13px; }
+.kpi .v { font-size: 22px; font-weight: 650; line-height: 1.25; letter-spacing: -0.01em; }
+.kpi .s { color: var(--muted); font-size: 13px; }
+.bar { height: 6px; background: var(--road-edge); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ink); }
+.chip { display: inline-block; padding: 0 7px; border-radius: 4px; font: 700 13px var(--mono); color: var(--on-class); border: 1.5px solid transparent; vertical-align: 2px; }
+.v .chip { font-size: 16px; vertical-align: 2px; }
+.LOW { background: var(--low); border-color: var(--low); } .MEDIUM { background: var(--medium); border-color: var(--medium); } .HIGH { background: var(--high); border-color: var(--high); }
+.past .chip { background: transparent; color: var(--ink); border-style: dashed; }
+.past .num { color: var(--muted); }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+.cardhead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline; }
+.main { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 12px; }
+figure { margin: 0; display: grid; gap: 8px; justify-items: center; }
+svg.junction { width: 100%; max-width: 368px; height: auto; }
+.road { fill: var(--road); } .box { fill: var(--road-box); } .zebra { fill: var(--road-edge); }
+.centre { fill: none; stroke: var(--frame-count); stroke-width: 1.5; stroke-dasharray: 8 8; }
+.stop { fill: var(--ink); } .head { fill: none; stroke: var(--muted); stroke-dasharray: 2 2; }
+.track { fill: none; stroke: var(--frame-count); }
+path.LOW { fill: var(--low); stroke: var(--low); } path.MEDIUM { fill: var(--medium); stroke: var(--medium); } path.HIGH { fill: var(--high); stroke: var(--high); }
+path.hollow { fill: none; stroke-width: 2; stroke-dasharray: 4 3; }
+text.lab { fill: var(--ink); font: 12px var(--mono); } text.lab.dim { fill: var(--muted); } .labHead { font-weight: 700; }
+.limit { font-weight: 600; font-size: 13px; text-align: center; text-wrap: balance; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; color: var(--muted); font-size: 12px; font-weight: 500; padding: 3px 10px 5px 0; vertical-align: bottom; }
+td, tbody th { padding: 7px 10px 7px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+tbody th { color: var(--ink); font-size: 15px; font-weight: 700; white-space: nowrap; }
+.num { font: 600 18px var(--mono); }
+.absent { color: var(--muted); font-style: italic; font-size: 13px; }
+.spark { display: block; width: 100%; max-width: 150px; height: 26px; }
+.spark path { fill: none; stroke: var(--frame-class); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark circle { fill: var(--ink); }
+.sparkcell { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.share { display: flex; gap: 2px; height: 18px; }
+.share i { display: block; min-width: 3px; border-radius: 2px; }
+.shareKey { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 13px; }
+.shareKey b { font-family: var(--mono); }
+.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+details.how { font-size: 13px; color: var(--muted); }
+details.how summary { cursor: pointer; color: var(--ink); }
+details.how p { margin-top: 6px; }
+
+/* Level over the last 20 minutes: letter, colour, and a corner when the forecast differed. */
+.hrows { display: grid; gap: 4px; }
+.hrow { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(112px, auto); gap: 8px; align-items: center; }
+.hrow > b { font-family: var(--mono); }
+.cells { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 2px; }
+.cell { aspect-ratio: 1.45; min-height: 18px; max-height: 28px; border-radius: 3px; display: grid; place-items: center; font: 700 11px var(--mono); color: var(--on-class); position: relative; }
+.cell.miss::after { content: ""; position: absolute; top: 0; right: 0; border-style: solid; border-width: 0 9px 9px 0; border-color: transparent var(--bg) transparent transparent; }
+.cell.gap { border: 1px dashed var(--frame-count); }
+.cell.empty { background: var(--road); }
+.axis { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(112px, auto); gap: 8px; font-size: 12px; color: var(--muted); }
+.axis div { display: flex; align-items: center; gap: 8px; grid-column: 2; }
+.axis i { flex: 1; height: 1px; background: var(--frame-count); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); align-items: center; }
+.legend .cell { display: inline-grid; width: 22px; min-height: 16px; vertical-align: middle; margin-right: 5px; }
+
+details.tech { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; }
+details.tech summary { cursor: pointer; font-weight: 600; }
+dl { display: grid; grid-template-columns: minmax(150px, max-content) minmax(0, 1fr); gap: 3px 16px; margin: 10px 0; font-size: 13px; }
+dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
+.tech p { font-size: 13px; margin-top: 8px; color: var(--muted); max-width: 95ch; }
+
+/* Analyze a clip */
+.studio { display: grid; grid-template-columns: 270px minmax(0, 1.15fr) minmax(330px, 1fr); gap: 12px; align-items: start; }
+.studio { grid-template-rows: auto auto 1fr; }
+#studioSource { grid-row: span 3; }
+#studioTimeline, #studioDirections { grid-column: 2 / -1; }
+.dirGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 14px; }
+.dirGrid label { display: grid; gap: 3px; }
+.pick { display: grid; gap: 8px; }
+.pick button { text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 9px 12px; cursor: pointer; display: grid; gap: 2px; transition: border-color .15s; }
+.pick button:hover { border-color: var(--frame-count); }
+.pick button[aria-pressed="true"] { border-color: var(--brand); }
+.primary { background: var(--brand); color: var(--on-brand); border: 0; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; transition: transform .1s; justify-self: start; }
+.primary:active { transform: translateY(1px); }
+.exampleFlag { border: 2px dashed var(--brand); border-radius: 6px; padding: 6px 12px; font-size: 13px; }
+.drop { position: relative; display: grid; gap: 2px; border: 1px dashed var(--frame-class); border-radius: 7px; padding: 10px 12px; cursor: pointer; transition: border-color .15s; }
+.drop:hover, .drop.over, .drop:focus-within { border-color: var(--brand); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+select { background: var(--panel-2); color: var(--ink); border: 1px solid var(--frame-count); border-radius: 5px; padding: 5px 6px; font: inherit; width: 100%; }
+.primary:disabled { background: var(--road-edge); color: var(--muted); cursor: not-allowed; }
+.stage { position: relative; width: 100%; aspect-ratio: 16 / 9; background: var(--road); border-radius: 6px; overflow: hidden; }
+.stage.placing { cursor: crosshair; }
+.stage canvas, .stage video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; }
+.inset { position: absolute; right: 8px; top: 8px; width: 24%; pointer-events: none; }
+.insetLabel { display: block; font-size: 10px; line-height: 1.2; color: var(--ink); margin-bottom: 2px; }
+.insetFrame { position: relative; aspect-ratio: 16 / 9; background: var(--bg); border: 1px solid var(--frame-class); border-radius: 3px; }
+.insetFrame span { position: absolute; transform: translate(-50%, -50%); font: 700 9px var(--mono); color: var(--ink); }
+.stageTag { position: absolute; left: 8px; top: 8px; background: var(--bg); border: 1px solid var(--ink); border-radius: 4px; padding: 1px 7px; font-size: 12px; font-weight: 600; pointer-events: none; }
+.pin { position: absolute; transform: translate(-50%, -50%); min-width: 30px; height: 30px; padding: 0 6px; display: flex; align-items: center; justify-content: center; gap: 5px; background: var(--bg); border: 1.5px solid var(--ink); border-radius: 15px; font: 700 13px var(--mono); pointer-events: none; }
+.pin i { font-style: normal; font-weight: 400; }
+.transport { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.transport .ghost { padding: 4px 10px; }
+.transport input[type=range] { width: 100%; accent-color: var(--brand); }
+.toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.toggles label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+.scrollX { overflow-x: auto; }
+#studioResults th { padding-right: 8px; }
+.tl { position: relative; display: grid; gap: 2px; cursor: pointer; }
+.tlRow { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: center; }
+.tlRow b { font: 700 13px var(--mono); }
+.tlCells { display: grid; grid-template-columns: repeat(48, minmax(0, 1fr)); gap: 1px; }
+.tlCells i { display: block; height: 16px; border-radius: 1px; border: 0; }
+.tlCells i.tlGap { border: 1px dashed var(--line); }
+.playhead { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); pointer-events: none; }
+
+/* Analytics */
+.hm { display: grid; grid-template-columns: 22px repeat(24, minmax(0, 1fr)); gap: 2px; font-size: 11px; align-items: center; }
+.hm i { display: block; height: 28px; border-radius: 2px; }
+.hm i.none { border: 1px dashed var(--line); }
+.hm span { color: var(--muted); text-align: center; overflow: hidden; }
+.hm b { font: 700 13px var(--mono); }
+.ramp { display: inline-flex; gap: 2px; vertical-align: middle; margin: 0 6px; }
+.ramp i { width: 18px; height: 10px; border-radius: 2px; display: block; }
+.cols2 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+
+/* Telemetry panel: PCU, queue, fleet composition */
+.tele { display: grid; gap: 8px; }
+.teleHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; }
+.teleBtn { background: transparent; border: 1px solid var(--frame-count); border-radius: 5px; padding: 3px 10px; cursor: pointer; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; transition: border-color .15s; }
+.teleBtn:hover { border-color: var(--frame-class); }
+.teleBtn[aria-expanded="true"] { border-color: var(--brand); }
+.teleBtn svg { flex: none; }
+.telePanel { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 10px; }
+.telePanel table { font-size: 13px; }
+.telePanel th { font-size: 11px; }
+.telePanel td { padding: 5px 10px 5px 0; }
+.fleet { display: flex; height: 10px; border-radius: 3px; overflow: hidden; gap: 1px; min-width: 80px; }
+.fleet i { display: block; }
+.fleet .car  { background: var(--ink); }
+.fleet .truck{ background: var(--frame-class); }
+.fleet .bus  { background: var(--frame-count); }
+.fleetKey { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--muted); }
+.fleetKey span { display: flex; align-items: center; gap: 3px; }
+.fleetKey i { width: 8px; height: 8px; border-radius: 2px; display: block; flex: none; }
+.pcu { font: 600 13px var(--mono); }
+
+/* Results: a range plot of frozen numbers */
+.rp { display: grid; grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) 150px; gap: 4px 12px; align-items: center; font-size: 13px; }
+.rp .tr { position: relative; height: 22px; }
+.rp .tr::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line); }
+.rp .ci { position: absolute; top: 50%; height: 2px; margin-top: -1px; background: var(--frame-class); }
+.rp .pt { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: var(--ink); }
+.rp .pt.ppo { border-radius: 50%; }
+.rp .scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; grid-column: 2; }
+.todo { border: 1px dashed var(--frame-count); border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; }
+.todo ol { margin: 0; padding-left: 20px; display: grid; gap: 3px; font-size: 14px; }
+.src { font: 12px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.two { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; }
+[hidden] { display: none !important; }
+
+/* The tour and the glossary. Orange marks the interface, as everywhere else. */
+.tourBtn { background: transparent; border: 1px solid var(--brand); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-weight: 600; transition: background-color .15s, color .15s; }
+.tourBtn:hover { background: var(--brand); color: var(--on-brand); }
+.plainBtn { background: none; border: 0; padding: 4px 6px; cursor: pointer; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.plainBtn:hover { color: var(--ink); }
+.nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 14px; background: var(--notice-bg); border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 6px; font-size: 14px; }
+.scrollTarget { scroll-margin-top: 10px; }
+body.touring { padding-bottom: 80vh; }
+#tourShield { position: fixed; inset: 0; z-index: 10; }
+#tourShield.dim { background: rgba(8, 8, 8, .82); }
+#spot { position: fixed; z-index: 11; border: 2px solid var(--brand); border-radius: 10px; box-shadow: 0 0 0 200vmax rgba(8, 8, 8, .78); pointer-events: none; transition: top .2s, left .2s, width .2s, height .2s; }
+#tourCard { position: fixed; z-index: 12; width: min(410px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; background: var(--panel-2); border: 1px solid var(--frame-class); border-radius: 12px; padding: 16px 18px; display: grid; gap: 10px; font-size: 14px; }
+#tourCard.wide { width: min(860px, calc(100vw - 24px)); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
+#tourCard.wide > .eyebrow, #tourCard.wide > h2, #tourCard.wide > p, #tourCard.wide > .dots, #tourCard.wide > .tourNav, #tourCard.wide > .tb:first-of-type { grid-column: 1 / -1; }
+#tourCard.wide > .tb:first-of-type ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 22px; }
+#tourCard.center { width: min(600px, calc(100vw - 24px)); left: 50% !important; top: 50% !important; transform: translate(-50%, -50%); }
+#tourCard.sheet { left: 8px !important; right: 8px; width: auto; top: auto !important; bottom: 8px; max-height: 50vh; }
+#tourCard .tourNav { position: sticky; bottom: -16px; background: var(--panel-2); padding: 8px 0 4px; }
+#tourCard.center.sheet { max-height: calc(100vh - 16px); bottom: auto; top: 8px !important; transform: none; }
+#tourCard h2 { font-size: 19px; line-height: 1.25; letter-spacing: -0.01em; outline: none; }
+.eyebrow { color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.tourX { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 2px 4px; }
+.tourX:hover { color: var(--ink); }
+.tb h3 { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+.tb ul { margin: 0; padding-left: 17px; display: grid; gap: 3px; }
+.tb.now { border-left: 3px solid var(--ok); padding-left: 10px; }
+.tb.limit2 { border-left: 3px solid var(--frame-class); padding-left: 10px; }
+.tryRow { display: flex; flex-wrap: wrap; gap: 4px; }
+.tryRow button { background: transparent; border: 1px solid var(--frame-count); border-radius: 5px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
+.tryRow button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
+.dots { display: flex; flex-wrap: wrap; gap: 3px; }
+.dots button { width: 22px; height: 8px; padding: 0; border: 0; border-radius: 3px; background: var(--road-edge); cursor: pointer; }
+.dots button.done { background: var(--frame-class); }
+.dots button[aria-current="step"] { background: var(--brand); }
+.tourNav { display: flex; justify-content: space-between; gap: 8px; }
+.ghost { background: transparent; border: 1px solid var(--frame-count); border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+.ghost:disabled { visibility: hidden; }
+.flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; font-size: 12px; }
+.flow li { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; }
+.flow li b { display: block; font-size: 13px; }
+.flow li + li::before { content: "\2192"; position: absolute; left: -11px; top: 50%; transform: translateY(-50%); color: var(--frame-class); }
+.q { display: grid; gap: 4px; }
+.q p { font-weight: 600; }
+.q label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.feedback { font-size: 13px; padding-left: 10px; border-left: 3px solid var(--frame-class); }
+dialog { background: var(--panel-2); color: var(--ink); border: 1px solid var(--frame-class); border-radius: 12px; width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 32px); padding: 16px 20px; }
+dialog::backdrop { background: rgba(8, 8, 8, .8); }
+dialog dl { grid-template-columns: minmax(130px, max-content) minmax(0, 1fr); gap: 7px 16px; font-size: 14px; }
+dialog dt { color: var(--ink); font-weight: 600; } dialog dd { color: var(--muted); }
+@media (max-width: 640px) {
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .flow li + li::before { content: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+@media (max-width: 960px) {
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .main, .studio, .split, .two, .cols2 { grid-template-columns: minmax(0, 1fr); }
+  .studio { grid-template-rows: none; } #studioSource { grid-row: auto; } #studioTimeline, #studioDirections { grid-column: auto; }
+  .right { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .kpis { grid-template-columns: minmax(0, 1fr); }
+  .hrow, .axis { grid-template-columns: 18px minmax(0, 1fr); }
+  .hrow .sum { grid-column: 2; font-size: 12px; }
+  .cell { font-size: 0; min-height: 13px; aspect-ratio: 1; }
+  .rp { grid-template-columns: minmax(0, 1fr); }
+  .rp .scale { grid-column: 1; }
+  .site { flex: 1 1 100%; }
+  .hm { grid-template-columns: 18px repeat(24, minmax(0, 1fr)); }
+  .hm span { font-size: 0; }
+  th:nth-child(4), td:nth-child(4) { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <section class="proto" aria-label="About this prototype">
+    <strong>PROTOTYPE</strong>
+    <span>Live and Analytics numbers are made-up examples. Lane positions and Results come from committed files. Nothing is connected.</span>
+    <div class="states" role="group" aria-label="Show a state" id="states"></div>
+  </section>
+
+  <header class="top">
+    <h1 class="brand">STMS</h1>
+    <nav class="nav" aria-label="Sections" id="nav"></nav>
+    <div class="right">
+      <button type="button" class="tourBtn" id="tourStart">Take the tour</button>
+      <button type="button" class="plainBtn" id="glossaryOpen">Glossary</button>
+      <span class="pill" id="source"></span>
+      <span class="clock" title="This browser's clock">14:32:10</span>
+      <span class="muted">Read-only</span>
+    </div>
+  </header>
+
+  <section class="nudge" id="nudge" aria-label="New here">
+    <span>New here? The tour explains every part of this page, and shows what problems look like.</span>
+    <button type="button" class="tourBtn" id="nudgeStart">Take the tour</button>
+    <button type="button" class="plainBtn" id="nudgeNo">Not now</button>
+  </section>
+
+  <!-- LIVE -->
+  <main data-tab="live" style="display:grid;gap:12px">
+    <section class="sites" aria-label="Intersections" id="sites"></section>
+    <section class="status" id="status" aria-label="Are updates arriving"><span class="m" id="mark" aria-hidden="true"></span><h2 id="statusHead" aria-live="polite"></h2><p id="statusSub"></p></section>
+    <p class="note" id="replayNote" hidden style="border-left-color:var(--ink)">Recorded footage, replayed. It is not a live camera. Clock times on this page are when the server received each message.</p>
+    <section class="kpis" id="kpis" aria-label="Summary"></section>
+    <div class="main">
+      <section class="card" id="drawingCard">
+        <div class="cardhead"><h2>The intersection, next 60 seconds</h2><span class="small muted" id="diagramTag">Diagram, not a map</span></div>
+        <figure>
+          <div id="drawing" style="width:100%;display:grid;justify-items:center"></div>
+          <figcaption class="limit" data-limit="signal">This system forecasts traffic conditions. It does not control physical traffic signals.</figcaption>
+        </figure>
+      </section>
+      <section class="card" id="approaches">
+        <div class="cardhead"><h2>Approaches</h2><span class="small muted">Forecast beside what was counted</span></div>
+        <table>
+          <thead><tr><th scope="col">Approach</th><th scope="col">Congestion level</th><th scope="col">Expected vehicles in view (60 s avg)</th><th scope="col">Counted, last 15 min</th></tr></thead>
+          <tbody id="table"></tbody>
+        </table>
+        <div id="shareBox" style="display:grid;gap:6px">
+          <h3 class="small muted" style="font-weight:500">Share of expected vehicles</h3>
+          <div class="share" id="share" role="img"></div>
+          <div class="shareKey" id="shareKey"></div>
+        </div>
+        <p class="small" data-directions="unverified">N, S, E and W are labels. Their directions have not been verified for this camera.</p>
+        <details class="how">
+          <summary>How to read these numbers</summary>
+          <p>These are forecasts, not measurements. The vehicle number is an average across the next 60 seconds, so it can be a fraction, and it counts vehicles in view, not vehicles passing through. Levels are set separately for each camera, so HIGH here is not the same amount of traffic as HIGH elsewhere. Level and number are two separate forecasts and may not always match. Counted values exclude bicycles; forecasts include them.</p>
+        </details>
+        <div class="teleHead">
+          <button type="button" class="teleBtn" id="liveTeleBtn" aria-expanded="false" aria-controls="liveTelePanel">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="8" width="2" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="2" height="7" rx="1" fill="currentColor"/><rect x="8" y="2" width="2" height="10" rx="1" fill="currentColor"/><circle cx="11" cy="2" r="1.5" fill="currentColor"/></svg>
+            Engineering telemetry
+          </button>
+          <span class="small muted" id="liveTeleNote" style="font-size:12px">Hidden by default</span>
+        </div>
+        <div id="liveTelePanel" class="telePanel" hidden></div>
+      </section>
+    </div>
+    <section class="card" id="heatCard" aria-label="Level over the last 20 minutes">
+      <div class="cardhead"><h2>Level over the last 20 minutes</h2><span class="small muted">Not a benchmark</span></div>
+      <div id="heat"></div>
+      <div class="legend" id="legend">
+        <span><span class="cell LOW">L</span>Level the counts showed</span>
+        <span><span class="cell HIGH miss">H</span>Cut corner: the forecast said otherwise</span>
+        <span><span class="cell gap"></span>No valid check that minute</span>
+      </div>
+      <p class="small muted">Rolling agreement with auto-labels over the last 20 checked minutes. Not a benchmark: the observed values come from the same detector counts the forecasts are made from. Benchmark figures are in Results.</p>
+    </section>
+    <details class="tech">
+      <summary>Technical details and research information</summary>
+      <dl id="tech"></dl>
+      <p>Display only: neither forecast is connected to signal timing. In the controller's state, 0.0 means an approach has no forecast and LOW is encoded as 1/3 (ADR-020 as amended, P110). Still open: P97a Part 2, the controller's behaviour under forecast faults, which is deferred.</p>
+      <p>No accuracy is shown here: a live score against the detector's own counts would be circular (ADR-014). Forecasters are persistence and ridge, not MFSTNet (ADR-027). No vehicles or video are shown (NFR-13).</p>
+    </details>
+  </main>
+
+  <!-- ANALYZE A CLIP -->
+  <main data-tab="clip" hidden style="display:grid;gap:12px">
+    <section class="status" data-kind="none"><span class="m none" aria-hidden="true"></span><h2>Analyze a video</h2><p>Choose a recording, let the system analyse it, then watch it with the counts and forecasts beside the picture. It always reads as a recording, never as live.</p></section>
+    <p class="exampleFlag" id="exampleFlag"></p>
+    <div class="studio">
+      <section class="card" id="studioSource">
+        <h2>1. Choose a video</h2>
+        <div class="pick" id="pick"></div>
+        <label class="drop" id="drop">
+          <input type="file" id="videoFile" accept="video/*">
+          <b>Open a video from this computer</b>
+          <span class="small muted">Or drop it here. It plays in this browser and nothing is uploaded.</span>
+        </label>
+        <div id="fileBox" hidden style="display:grid;gap:6px">
+          <p class="small" id="fileName" style="overflow-wrap:anywhere"></p>
+          <label class="small" for="whichCam">Which camera recorded it?</label>
+          <select id="whichCam"><option value="">Choose one</option><option value="Eastgate">150th / Eastgate</option><option value="Newport">150th / Newport</option><option value="SE38th">150th / SE38th</option><option value="new">A different camera</option></select>
+        </div>
+        <h2>2. Prepare</h2>
+        <div id="prep" class="small"></div>
+        <h2>3. Analyse</h2>
+        <button class="primary" id="analyse" type="button"></button>
+        <div class="bar" id="progressBar" hidden style="margin:0"><i id="progress" style="width:0"></i></div>
+        <p class="small muted" id="analyseNote" aria-live="polite"></p>
+      </section>
+      <section class="card" id="studioPlayer">
+        <div class="cardhead"><h2>4. Watch</h2><span class="small muted" id="clipName"></span></div>
+        <div class="stage" id="stage">
+          <canvas id="scene" width="640" height="360" role="img" aria-label="A diagram of a four-way junction with moving marks. It is not footage."></canvas>
+          <video id="vid" playsinline muted hidden></video>
+          <span class="stageTag" id="stageTag"></span>
+          <div id="pins"></div>
+          <div class="inset" id="inset"><span class="insetLabel">In this camera's picture</span><div class="insetFrame" id="insetFrame"></div></div>
+        </div>
+        <p class="absent" id="videoError" hidden></p>
+        <div class="transport">
+          <button type="button" class="ghost small" id="play">Play</button>
+          <input type="range" id="scrub" min="0" max="480" step="1" value="0" aria-label="Position in the video">
+          <span class="mono small" id="clock">00:00 / 08:00</span>
+          <button type="button" class="ghost small" id="speed" aria-label="Playback speed">1×</button>
+        </div>
+        <div class="toggles small">
+          <label><input type="checkbox" id="showLanes" checked> Lane markers</label>
+          <label><input type="checkbox" id="showBoxes" checked> Vehicle boxes</label>
+          <span class="muted" id="boxNote"></span>
+        </div>
+      </section>
+      <section class="card" id="studioResults">
+        <div class="cardhead"><h2 id="resultsAt">At 00:00</h2><span class="small muted">Follows the video</span></div>
+        <div id="resultBody"></div>
+        <p class="small" id="directionsNote"></p>
+        <p class="small muted" id="known"></p>
+        <div class="teleHead" id="vidTeleHead" hidden>
+          <button type="button" class="teleBtn" id="vidTeleBtn" aria-expanded="false" aria-controls="vidTelePanel">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="8" width="2" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="2" height="7" rx="1" fill="currentColor"/><rect x="8" y="2" width="2" height="10" rx="1" fill="currentColor"/><circle cx="11" cy="2" r="1.5" fill="currentColor"/></svg>
+            Engineering telemetry
+          </button>
+          <span class="small muted" style="font-size:12px">PCU · fleet composition; queue not measured</span>
+        </div>
+        <div id="vidTelePanel" class="telePanel" hidden></div>
+      </section>
+      <section class="card" id="studioTimeline">
+        <div class="cardhead"><h2>The whole video</h2><span class="small muted">Click anywhere to jump there</span></div>
+        <div id="timeline"></div>
+      </section>
+      <section class="card" id="studioDirections">
+        <div class="cardhead"><h2>Check the directions</h2><span class="small muted" id="dirState"></span></div>
+        <p class="small muted" style="max-width:85ch">The picture cannot say which way is north: the top of a video can face any direction. A person has to compare the footage with a map, or visit the site.</p>
+        <div id="dirBody" style="display:grid;gap:10px"></div>
+      </section>
+    </div>
+    <p class="small muted">The video stays on this computer. Only counts and forecasts are kept, never frames. This reads a recording: it is not a live camera test, and it does not control signals.</p>
+  </main>
+
+  <!-- ANALYTICS -->
+  <main data-tab="analytics" hidden style="display:grid;gap:12px">
+    <section class="cols2">
+      <div class="kpi"><span class="k">Busiest time, last 24 h</span><span class="v">17:00 to 18:00</span><span class="s">Approach E, about 4.2 vehicles in view</span></div>
+      <div class="kpi"><span class="k">Quietest time, last 24 h</span><span class="v">03:00 to 04:00</span><span class="s">All approaches under 0.5</span></div>
+      <div class="kpi"><span class="k">Hours with a gap</span><span class="v">2 of 24</span><span class="s">Nothing was counted then. That is not zero traffic.</span></div>
+    </section>
+    <section class="card">
+      <div class="cardhead"><h2>When each approach is busy</h2><span class="small muted">Measured, not forecast. Hover for the value.</span></div>
+      <div class="hm" id="hm"></div>
+      <p class="small muted">Less<span class="ramp" id="ramp"></span>more vehicles in view. Dashed: no counts that hour. Counts exclude bicycles and are kept for 48 hours.</p>
+    </section>
+  </main>
+
+  <!-- RESULTS -->
+  <main data-tab="results" hidden style="display:grid;gap:12px">
+    <section class="status" data-kind="none"><span class="m none" aria-hidden="true"></span><h2>Frozen study results</h2><p>Past measurements from committed files. Nothing here is live and nothing here changes while the system runs.</p></section>
+    <div class="two">
+      <section class="card" id="signalStudy">
+        <div class="cardhead"><h2>Signal timing, in simulation</h2><span class="small muted">SUMO · 28 seeds · lower is better</span></div>
+        <p style="font-size:18px;font-weight:600;line-height:1.3;text-wrap:balance">Every PPO controller had more delay than both Webster controllers, and a perfect forecast did not help.</p>
+        <div class="rp" id="rp"></div>
+        <p class="small muted">Mean total delay in seconds, with 95% interval. Squares are rule-based controllers, circles are PPO. A measured result for the tested controller and conditions, not evidence that forecasts can never help.</p>
+        <p class="src">experiments/results/ceiling/ceiling_runs.csv · 84af468 · 2026-10-17 · P130</p>
+        <p class="small muted">An earlier test had PPO 19.4% below tuned Webster on mean wait, but its training and test traffic did not match (P119, P138).</p>
+      </section>
+      <div id="resultsSide" style="display:grid;gap:12px;align-content:start">
+        <section class="card">
+          <h2>Next-minute count forecast</h2>
+          <p><span class="num">0.748</span> <span class="muted small">ridge</span> &nbsp; <span class="num">0.972</span> <span class="muted small">persistence</span></p>
+          <p class="small muted">Mean count error in vehicles, lower is better. Difference 0.224 [0.181, 0.271], significant. 904 windows in 48 ten-minute blocks, three cameras on one road network. Labels are detector counts, so this is not human-verified.</p>
+          <p class="src">bellevue_pilot/p105_results.json · 0c97ccb · 2026-10-16 · P105</p>
+        </section>
+        <section class="todo" data-signal="not built">
+          <h2>Live signal advice: not built</h2>
+          <p class="small muted">To recommend a phase honestly, the system first needs:</p>
+          <ol>
+            <li>The signal's current phase, from a signal controller</li>
+            <li>Queue lengths, which it does not measure</li>
+            <li>A controller shown to beat Webster on matched traffic</li>
+            <li>The guide's decision on P97a Part 2</li>
+          </ol>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="tourShield" hidden></div>
+<div id="spot" hidden></div>
+<section id="tourCard" role="dialog" aria-modal="true" aria-labelledby="tourTitle" hidden></section>
+<dialog id="glossary" aria-labelledby="glossaryTitle">
+  <div class="cardhead"><h2 id="glossaryTitle" style="font-size:19px">Glossary</h2><form method="dialog"><button class="ghost" style="padding:4px 10px">Close</button></form></div>
+  <dl id="glossaryList"></dl>
+</dialog>
+
+<script>
+// Static prototype: no network calls and no storage. Live and Analytics values are invented examples.
+const AP = ["N", "S", "E", "W"];
+const FULL = { N: ["HIGH", 2.4], S: ["MEDIUM", 1.1], E: ["HIGH", 1.9], W: ["LOW", 0.3] };
+const NO_W = { N: ["HIGH", 2.4], S: ["MEDIUM", 1.1], E: ["HIGH", 1.9] };
+const SPARK = { N: [1,2,1,2,2,3,2,2,3,3,2,3,2,3,3], S: [1,1,0,1,2,1,1,1,0,1,1,2,1,1,1], E: [0,1,1,1,2,1,2,2,2,1,2,2,3,2,2], W: [1,0,0,1,0,0,1,0,0,0,1,0,0,0,0] };
+const LEVELS = {
+  N: "MMMMHMHHHH-HHMHHHHHH", S: "LLMLMMMMLM-MMMMMLMMM", E: "LLLMMMMMHH-MHHHHHHHH", W: "LLLLLLMLLL-LLLLLLLLL" };
+const MISS = { N: [4, 13], S: [3, 16], E: [8], W: [6] };
+
+const STATES = {
+  normal: { label: "Normal", status: ["ok", "Updates are arriving", "Last updated 12 s ago. This forecast is valid for 48 s more."], source: ["camera", "Live camera"], roads: FULL, age: 12, spark: true, heat: true, beat: "fresh, 2 s old", site: ["ok", "Reporting"] },
+  replay: { label: "Replay", status: ["ok", "Updates are arriving from a recording", "Last updated 12 s ago. This forecast is valid for 48 s more."], source: ["replay", "Replay · example-clip · 02:22 / 59:59"], roads: FULL, age: 12, spark: true, heat: true, replay: true, beat: "fresh, 2 s old", site: ["ok", "Replay running"] },
+  partial: { label: "One approach missing", status: ["ok", "Updates are arriving, with approach W missing", "Last updated 12 s ago. This forecast is valid for 48 s more."], source: ["camera", "Live camera"], roads: NO_W, age: 12, spark: true, heat: true, beat: "fresh, 2 s old", site: ["ok", "Reporting, W missing"] },
+  silent: { label: "Edge unit silent", status: ["stale", "The edge unit has stopped reporting", "Last heard from 30 s ago. This is its last forecast, valid for 18 s more. No new forecast is being made."], source: ["stale", "Source out of date"], roads: FULL, age: 42, spark: true, heat: true, beat: "stale, 30 s old", site: ["stale", "Silent for 30 s"] },
+  stale: { label: "Out of date", status: ["stale", "No recent updates", "Last updated 72 s ago. The forecast shown describes a minute that has passed."], source: ["stale", "Source out of date"], roads: FULL, age: 72, past: true, spark: true, heat: true, beat: "stale, 75 s old", site: ["stale", "No recent updates"] },
+  none: { label: "No forecast yet", status: ["none", "No forecast yet", "The server is reachable, but nothing has been published for this intersection."], source: ["unknown", "Source unknown"], roads: {}, beat: "nothing published yet", site: ["none", "No edge unit running"] },
+  down: { label: "Server unreachable", status: ["bad", "Cannot reach the server", "This page is not receiving anything, so it cannot say what the system or the roads are doing."], source: ["unknown", "Source unknown"], roads: {}, down: true, beat: "unavailable", site: ["none", "Unknown"] },
+};
+const $ = (id) => document.getElementById(id);
+const chip = (c) => `<span class="chip ${c}">${c}</span>`;
+const named = (l) => l.length < 2 ? l.map((a) => `Approach ${a}`).join("") : `${l.slice(0, -1).map((a) => `Approach ${a}`).join(", ")} and Approach ${l.at(-1)}`;
+
+function kpis(s) {
+  const known = AP.filter((a) => a in s.roads), nothing = s.down ? "No data" : "No forecast";
+  if (!known.length) {
+    const t = (k, sub) => `<div class="kpi"><span class="k">${k}</span><span class="v muted">${nothing}</span><span class="s">${sub}</span></div>`;
+    return t("Highest congestion expected", "This does not mean the roads are empty.") + t("Busiest approach, next minute", "") + `<div class="kpi"><span class="k">Approaches reporting</span><span class="v muted">${s.down ? "Unknown" : "0 of 4"}</span></div>` + t("Forecast valid for", "");
+  }
+  const worst = ["HIGH", "MEDIUM", "LOW"].find((c) => known.some((a) => s.roads[a][0] === c));
+  const top = known.filter((a) => s.roads[a][0] === worst);
+  const busiest = known.reduce((m, a) => (s.roads[a][1] > s.roads[m][1] ? a : m));
+  const left = Math.max(60 - s.age, 0);
+  const first = s.past
+    ? `<div class="kpi past"><span class="k">Highest congestion expected</span><span class="v">No current forecast</span><span class="s">The last one read ${known.map((a) => `${a} ${s.roads[a][0]}`).join(", ")}.</span></div>`
+    : `<div class="kpi"><span class="k">Highest congestion expected</span><span class="v">${named(top)} ${chip(worst)}</span>${s.age > 40 ? '<span class="s">Last forecast received</span>' : ""}</div>`;
+  return first
+    + `<div class="kpi${s.past ? " past" : ""}"><span class="k">Busiest approach, next minute</span><span class="v">${s.past ? `<span class="muted">Not current</span>` : `Approach ${busiest} <span class="mono">${s.roads[busiest][1].toFixed(1)}</span>`}</span><span class="s">${s.past ? "" : "vehicles in view on average"}</span></div>`
+    + `<div class="kpi"><span class="k">Approaches reporting</span><span class="v mono">${known.length} of 4</span><span class="s">${known.length < 4 ? `${AP.filter((a) => !(a in s.roads)).join(", ")} has no forecast` : s.past ? "In the last forecast, now expired" : "All have a forecast"}</span></div>`
+    + `<div class="kpi"><span class="k">Forecast valid for</span><span class="v mono">${s.past ? `<span class="muted">Expired</span>` : `${left} s`}</span><div class="bar"><i style="width:${(left / 60) * 100}%"></i></div></div>`;
+}
+function sparkline(v) {
+  const W = 100, H = 26, max = 4, x = (i) => 2 + (i / (v.length - 1)) * (W - 6), y = (n) => H - 3 - (n / max) * (H - 6);
+  const d = v.map((n, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(n).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="Counted vehicles over the last 15 minutes, latest ${v.at(-1)}"><path d="${d}"/><circle cx="${x(v.length - 1)}" cy="${y(v.at(-1))}" r="2.5"/></svg>`;
+}
+// Geometry from dashboard/src/Intersection.jsx.
+const SIZE = 320, C = SIZE / 2, HALF = 34, STOP = HALF + 14, REACH = C - STOP - 6, LANE = HALF / 2, THICK = 10;
+const TURN = { N: 0, E: 90, S: 180, W: 270 }, RX = C - LANE, HEAD = C - STOP, W2 = THICK / 2;
+const LABELS = { N: [C - HALF - 8, 20, "end"], E: [SIZE - 6, C - HALF - 30, "end"], S: [C + HALF + 8, SIZE - 30, "start"], W: [6, C + HALF + 20, "start"] };
+const STOPS = { N: [C - HALF, C - STOP, HALF, 2.5], S: [C, C + STOP - 2.5, HALF, 2.5], E: [C + STOP - 2.5, C - HALF, 2.5, HALF], W: [C - STOP, C, 2.5, HALF] };
+function ribbon(count) {
+  const len = 8 + (Math.min(count, 10) / 10) * (REACH - 8), out = HEAD - len, neck = HEAD - Math.min(6, len);
+  return `M${RX - W2},${out} H${RX + W2} V${neck} L${RX},${HEAD} L${RX - W2},${neck} Z`;
+}
+function drawing(s) {
+  const rect = (c, x, y, w, h) => `<rect class="${c}" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
+  let o = rect("road", 0, C - HALF, SIZE, HALF * 2) + rect("road", C - HALF, 0, HALF * 2, SIZE) + rect("box", C - HALF, C - HALF, HALF * 2, HALF * 2);
+  for (let i = 0; i < 8; i++) { const f = -HALF + 3 + i * 8.5; o += rect("zebra", C + f, C - HALF - 13, 4, 10) + rect("zebra", C + f, C + HALF + 3, 4, 10) + rect("zebra", C - HALF - 13, C + f, 10, 4) + rect("zebra", C + HALF + 3, C + f, 10, 4); }
+  o += `<path class="centre" d="M${C},0 V${C - STOP} M${C},${C + STOP} V${SIZE} M0,${C} H${C - STOP} M${C + STOP},${C} H${SIZE}"/>`;
+  for (const a of AP) o += rect("stop", ...STOPS[a]);
+  for (const a of AP) if (a in s.roads) o += `<g transform="rotate(${TURN[a]} ${C} ${C})"><rect class="track" x="${RX - W2 - 2}" y="${HEAD - REACH - 2}" width="${THICK + 4}" height="${REACH + 2}" rx="2"/><path data-ribbon="${a}" stroke-linejoin="round" class="${s.roads[a][0]}${s.past ? " hollow" : ""}" d="${ribbon(s.roads[a][1])}"/></g>`;
+  const g = HALF + 22;
+  for (const [x, y] of [[C - g, C - g], [C + g - 12, C - g], [C + g - 12, C + g - 12], [C - g, C + g - 12]]) o += `<rect class="head" x="${x}" y="${y}" width="12" height="12" rx="2"/>`;
+  for (const a of AP) {
+    const [x, y, anchor] = LABELS[a], has = a in s.roads;
+    const lines = has ? [`${a} ${s.roads[a][0]}`, `${s.roads[a][1].toFixed(1)} veh`] : [a, s.down ? "no data" : "no forecast"];
+    o += `<text class="lab${has && !s.past ? "" : " dim"}" x="${x}" y="${y}" text-anchor="${anchor}"><tspan class="labHead" x="${x}">${lines[0]}</tspan><tspan x="${x}" dy="15">${lines[1]}</tspan></text>`;
+  }
+  return `<svg class="junction" viewBox="0 0 ${SIZE} ${SIZE}" role="img" aria-label="Drawing of the junction. The table beside it holds the same forecast.">${o}</svg>`;
+}
+const CL = { L: "LOW", M: "MEDIUM", H: "HIGH" };
+function heat(s) {
+  if (!s.heat) return `<p class="absent">${s.down ? "Unavailable: the server cannot be reached." : "Nothing to show yet. A forecast is checked 60 s after it is made."}</p>`;
+  const rows = AP.filter((a) => a in s.roads).map((a) => {
+    const seq = [...LEVELS[a]], miss = MISS[a];
+    const cells = seq.map((c, i) => c === "-"
+      ? `<span class="cell gap" title="${19 - i} min earlier: no valid check"></span>`
+      : `<span class="cell ${CL[c]}${miss.includes(i) ? " miss" : ""}" title="${19 - i} min earlier: counts showed ${CL[c]}${miss.includes(i) ? ", the forecast said otherwise" : ""}">${c}</span>`).join("");
+    const n = seq.filter((c) => c !== "-").length;
+    return `<div class="hrow"><b>${a}</b><div class="cells" role="img" aria-label="Approach ${a}: example levels over 20 minutes">${cells}</div><span class="sum small muted"><span class="mono">${n - miss.length} of ${n}</span> forecasts matched</span></div>`;
+  }).join("");
+  return `<div class="hrows">${rows}</div><div class="axis" style="margin-top:4px"><div><span>19 min earlier</span><i></i><span>Latest check</span></div></div>`;
+}
+function tech(s) {
+  return [["Class forecaster", "persistence (model id from each forecast message)"], ["Count forecaster", "ridge, point estimate (model id from each forecast message)"], ["Horizon", "60 s"], ["Forecast age", s.age ? `${s.age} s` : "unknown"], ["Edge heartbeat", s.beat], ["Server round trip", s.down ? "not measured" : "measured by this browser on the last health check"], ["Directions verified", "false (ADR-028)"], ["Count unit", "mean of the next 30 samples at 2 s, per lane (P105)"]].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+}
+const SHADES = ["var(--ink)", "var(--frame-class)", "var(--frame-count)", "var(--road-edge)"];
+let current = "normal";
+function show(key) {
+  const name = STATES[key] ? key : "normal", s = STATES[name];
+  current = name;
+  document.querySelectorAll("#states button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === name)));
+  const [kind, head, sub] = s.status;
+  $("status").dataset.kind = kind; $("mark").className = `m ${kind}`; $("statusHead").textContent = head; $("statusSub").textContent = sub;
+  $("source").dataset.kind = s.source[0]; $("source").textContent = s.source[1];
+  $("replayNote").hidden = !s.replay;
+  $("sites").innerHTML = `<span class="corridor">150th corridor</span>
+    <div class="site" aria-current="true"><span class="m ${s.site[0]}" aria-hidden="true"></span><b>150th / Eastgate</b><span>${s.site[1]}</span></div>
+    <div class="site"><span class="m none" aria-hidden="true"></span><b>150th / Newport</b><span>No edge unit running</span></div>
+    <div class="site"><span class="m none" aria-hidden="true"></span><b>150th / SE38th</b><span>No edge unit running</span></div>`;
+  $("kpis").innerHTML = kpis(s);
+  $("approaches").classList.toggle("past", Boolean(s.past));
+  const none = s.down ? "No data" : "No forecast";
+  $("table").innerHTML = AP.map((a) => {
+    const v = s.roads[a];
+    return `<tr data-row="${a}"><th scope="row">${a}</th>`
+      + (v ? `<td>${chip(v[0])}</td><td class="num">${v[1].toFixed(1)}</td>` : `<td class="absent">${none}</td><td class="absent">${none}</td>`)
+      + `<td>${v && s.spark ? `<div class="sparkcell">${sparkline(SPARK[a])}<span class="mono small">${SPARK[a].at(-1)}</span></div>` : `<span class="absent">${s.down ? "No data" : "No counts"}</span>`}</td></tr>`;
+  }).join("");
+  const known = AP.filter((a) => a in s.roads), total = known.reduce((t, a) => t + s.roads[a][1], 0);
+  $("shareBox").hidden = !known.length || Boolean(s.past);
+  $("share").innerHTML = known.map((a, i) => `<i style="flex:${s.roads[a][1]};background:${SHADES[i]}"></i>`).join("");
+  $("share").setAttribute("aria-label", known.map((a) => `${a} ${Math.round((s.roads[a][1] / total) * 100)}%`).join(", "));
+  $("shareKey").innerHTML = known.map((a, i) => `<span><i class="swatch" style="background:${SHADES[i]}"></i><b>${a}</b> ${Math.round((s.roads[a][1] / total) * 100)}%</span>`).join("");
+  $("drawing").innerHTML = drawing(s);
+  $("heat").innerHTML = heat(s);
+  $("legend").hidden = !s.heat;
+  $("tech").innerHTML = tech(s);
+  renderLiveTele(s);
+}
+for (const [key, s] of Object.entries(STATES)) {
+  const b = document.createElement("button"); b.type = "button"; b.dataset.state = key; b.textContent = s.label;
+  b.addEventListener("click", () => { show(key); tab("live"); });
+  $("states").append(b);
+}
+// Tabs
+const TABS = [["live", "Live"], ["clip", "Analyze a video"], ["analytics", "Analytics"], ["results", "Results"]];
+function tab(key) {
+  document.querySelectorAll("main[data-tab]").forEach((m) => { m.hidden = m.dataset.tab !== key; });
+  document.querySelectorAll("#nav button").forEach((b) => b.toggleAttribute("aria-current", false));
+  document.querySelector(`#nav button[data-t="${key}"]`).setAttribute("aria-current", "page");
+  // The badge reports the edge unit. On this tab the picture is a recording, so it must not say Live camera.
+  $("source").hidden = key === "clip";
+  if (key !== "clip") pausePlayer();
+  else movePlayhead();
+}
+for (const [k, l] of TABS) {
+  const b = document.createElement("button"); b.type = "button"; b.dataset.t = k; b.textContent = l;
+  b.addEventListener("click", () => tab(k)); $("nav").append(b);
+}
+// Analyze a video. Lane centres and known limits are copied from cameras/*.json.
+// A chosen file really plays, through an object URL: nothing leaves the browser.
+// Every count and forecast is an invented example, because this page runs no detector.
+const CAMS = {
+  Eastgate: { lanes: [[0.207, 0.7197], [0.2708, 0.2382], [0.5599, 0.153], [0.6541, 0.6334]], base: [1.3, 2.6, 1.8, 0.6], limits: "Known limits of this camera: lane_1 covers a roof and a parking area beside its road, so parked vehicles count. The camera faces the low sun: heavy glare at the calibration hour and at dawn." },
+  Newport: { lanes: [[0.1878, 0.4763], [0.4768, 0.1242], [0.489, 0.6989], [0.6876, 0.2406]], base: [1.0, 1.9, 0.7, 2.2], limits: "Known limit of this camera: lane_2 lies largely under the foreground signal housing, so it is expected to undercount." },
+  SE38th: { lanes: [[0.1699, 0.3919], [0.2948, 0.8347], [0.5423, 0.2079], [0.7538, 0.5985]], base: [2.1, 1.2, 2.8, 0.9], limits: "No limits have been recorded for this camera." },
+  new: { lanes: [], base: [1.6, 1.0, 2.2, 0.7], limits: "A camera the system has not been set up for. Nobody has tested the forecasts on it." },
+};
+const LAB = ["N", "S", "E", "W"], MIN_S = 300, CLASS_FROM = 60, COUNT_FROM = 120, COMPARE_S = 60;
+const SV = { source: "demo", cam: "Eastgate", file: "", url: null, placed: [], analysed: false, working: false, t: 0, dur: 480, playing: false, rate: 1, last: 0, checks: {}, draft: {}, how: "", checkMsg: "" };
+const fmt = (t) => `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const lanesOf = () => (SV.cam === "new" ? SV.placed : CAMS[SV.cam]?.lanes ?? []);
+const calibrated = () => SV.cam && SV.cam !== "new";
+const FROM = { N: "North", S: "South", E: "East", W: "West" };
+const checkOf = () => SV.checks[SV.cam];
+// What a lane's name may add: a checked direction, or the profile's letter, shown as a label.
+function laneNote(i) {
+  const c = checkOf();
+  if (c?.dirs) return `from ${FROM[c.dirs[i]]}`;
+  return SV.cam === "new" ? "" : `label ${LAB[i]}`;
+}
+const countAt = (i, t) => Math.max(0, Math.round(CAMS[SV.cam || "new"].base[i] * (1 + 0.6 * Math.sin(t / 70 + i * 1.7) + 0.35 * Math.sin(t / 23 + i))));
+const meanOf = (i, from) => { let n = 0; for (let k = 0; k < 30; k++) n += countAt(i, from + k * 2); return n / 30; };
+const levelOf = (m) => (m < 1.2 ? "LOW" : m < 2.5 ? "MEDIUM" : "HIGH");
+function studioReady() {
+  if (SV.source === "file" && !SV.cam) return "Say which camera recorded this video.";
+  if (!Number.isFinite(SV.dur)) return "Reading the length of the video.";
+  if (SV.dur < MIN_S) return `This video is ${fmt(SV.dur)} long. It needs at least 05:00, because the forecasts need history first.`;
+  if (SV.cam === "new" && !SV.placed.length) return "Click the video to mark at least one lane.";
+  return "";
+}
+function studio() {
+  $("pick").innerHTML = ["Eastgate", "Newport", "SE38th"].map((c) => `<button type="button" data-c="${c}" aria-pressed="${SV.source === "demo" && c === SV.cam}"><b>150th / ${c}</b><span class="small muted">Drawn example</span></button>`).join("");
+  $("fileBox").hidden = SV.source !== "file";
+  $("fileName").textContent = SV.file;
+  $("whichCam").value = SV.source === "file" ? (SV.cam || "") : "";
+  const problem = studioReady();
+  $("prep").innerHTML = SV.cam === "new"
+    ? `<p>${SV.placed.length ? `${SV.placed.length} of 4 lanes marked.` : "Click the centre of each lane on the video, up to 4."}</p><p class="muted">Vehicles can be counted and a vehicle number forecast. No congestion level is possible until this camera is calibrated.</p>${SV.placed.length ? '<button type="button" class="plainBtn" id="clearLanes" style="padding-left:0">Clear the lanes</button>' : ""}`
+    : SV.cam ? `<p>Lanes and levels are on file for this camera.</p>` : `<p class="muted">Waiting for the camera.</p>`;
+  $("clearLanes")?.addEventListener("click", () => { SV.placed = []; SV.analysed = false; delete SV.checks.new; SV.draft.new = []; studio(); });
+  const btn = $("analyse");
+  btn.textContent = SV.working ? "Analysing" : SV.analysed ? "Analyse again" : "Analyse this video";
+  btn.disabled = Boolean(problem) || SV.working;
+  if (!SV.working) $("analyseNote").textContent = problem || (SV.analysed ? "Analysed. Play or jump anywhere, and the results follow." : "Reads the whole video once, so you can then jump around freely.");
+  $("clipName").textContent = SV.source === "file" ? "Your video · recording" : `150th / ${SV.cam} · recording`;
+  $("stageTag").textContent = SV.source === "file" ? "Recording" : "Drawn example, not footage";
+  $("exampleFlag").textContent = SV.source === "file"
+    ? "PROTOTYPE: your video is really playing, but every count and forecast is made up, because this page does not run the detector."
+    : "PROTOTYPE: the picture is a drawing and every count and forecast is made up. Open a video on the left to try the real player.";
+  $("showBoxes").disabled = SV.source === "file";
+  $("boxNote").textContent = SV.source === "file" ? "Boxes appear in the real build, from the detector. None are faked on your video." : "A standard diagram, the same for every camera. Open your own video to see the lanes on the real road.";
+  directions();
+  $("known").textContent = SV.cam ? CAMS[SV.cam].limits : "";
+  pins(); results(); timeline(); drawScene();
+  renderVidTele();
+}
+function directions() {
+  const lanes = lanesOf(), box = $("dirBody"), c = checkOf();
+  $("dirState").textContent = c?.dirs ? "Checked, in this prototype" : c?.na ? "Marked: not one per approach" : "Not checked";
+  $("directionsNote").textContent = c?.dirs ? "These directions were entered in this prototype and are not saved. Live and Analytics keep their notice until the camera's evidence is recorded."
+    : c?.na ? "Marked as not one lane per approach, so the letters carry no direction." : SV.cam === "new" ? "" : "N, S, E and W are labels. Their directions have not been verified for this camera.";
+  if (!lanes.length) { box.innerHTML = `<p class="absent">${SV.cam ? "Mark the lanes on the video first." : "Say which camera recorded the video first."}</p>`; return; }
+  const draft = SV.draft[SV.cam] ?? (SV.draft[SV.cam] = []);
+  box.innerHTML = `<div class="dirGrid">${lanes.map((_, i) => `<label class="small"><b>L${i}</b> traffic comes from
+      <select data-dir="${i}"><option value="">Choose</option>${Object.entries(FROM).map(([k, v]) => `<option value="${k}" ${draft[i] === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>`).join("")}</div>
+    <label class="small" style="display:grid;gap:3px;max-width:360px">How do you know?
+      <select id="dirHow"><option value="">Choose</option>${["Footage compared with a map", "Someone visited the site"].map((h) => `<option ${SV.how === h ? "selected" : ""}>${h}</option>`).join("")}</select></label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><button class="ghost small" type="button" id="dirSave" style="padding:5px 12px">Save this check (prototype only)</button>
+      <button class="plainBtn small" type="button" id="dirNa">These lanes are not one per approach</button>
+      ${c ? '<button class="plainBtn small" type="button" id="dirClear">Clear</button>' : ""}</div>
+    <p class="small" id="dirMsg" aria-live="polite">${SV.checkMsg}</p>`;
+}
+$("dirBody").addEventListener("change", (e) => {
+  if (e.target.dataset.dir !== undefined) SV.draft[SV.cam][Number(e.target.dataset.dir)] = e.target.value;
+  if (e.target.id === "dirHow") SV.how = e.target.value;
+});
+$("dirBody").addEventListener("click", (e) => {
+  if (e.target.id === "dirSave") {
+    const lanes = lanesOf(), d = SV.draft[SV.cam].slice(0, lanes.length);
+    const picked = lanes.map((_, i) => d[i]).filter(Boolean);
+    if (picked.length < lanes.length) SV.checkMsg = "Choose a direction for every lane, or leave the check unsaved.";
+    else if (new Set(picked).size < picked.length) SV.checkMsg = "Two lanes cannot have the same direction: the system expects one lane per approach. If they share a road, use the option beside this button.";
+    else if (!SV.how) SV.checkMsg = "Say how you know. A direction with no source is still a guess.";
+    else { SV.checks[SV.cam] = { dirs: picked, how: SV.how }; SV.checkMsg = "Saved for this page only. The real build records it as camera evidence."; }
+  } else if (e.target.id === "dirNa") { SV.checks[SV.cam] = { na: true }; SV.checkMsg = "Marked. The letters stay as labels only."; }
+  else if (e.target.id === "dirClear") { delete SV.checks[SV.cam]; SV.checkMsg = ""; }
+  else return;
+  directions(); results(); pins();
+});
+function pins() {
+  const on = $("showLanes").checked, lanes = lanesOf();
+  $("stage").classList.toggle("placing", SV.cam === "new" && SV.placed.length < 4);
+  $("inset").hidden = SV.source !== "demo";
+  if (SV.source === "demo") $("insetFrame").innerHTML = lanes.map(([x, y], i) => `<span style="left:${x * 100}%;top:${y * 100}%">L${i}</span>`).join("");
+  const spot = (lane, i) => {
+    if (SV.source !== "demo") return lane;
+    const letter = checkOf()?.dirs?.[i] ?? LAB[i], [px, py] = ARM[letter].pin;
+    return [px / 640, py / 360];
+  };
+  $("pins").innerHTML = !on ? "" : lanes.map((lane, i) => [spot(lane, i), i]).map(([[x, y], i]) => `<span class="pin" data-pin="L${i}" style="left:${x * 100}%;top:${y * 100}%"><b>L${i}</b>${SV.analysed ? `<i>${countAt(i, SV.t)}</i>` : ""}</span>`).join("");
+}
+function results() {
+  const t = SV.t, lanes = lanesOf();
+  $("resultsAt").textContent = `At ${fmt(t)}`;
+  if (SV.working) { $("resultBody").innerHTML = `<p class="absent">Analysing the video.</p>`; return; }
+  if (!SV.analysed) { $("resultBody").innerHTML = `<p class="absent">Nothing yet. Analyse the video to see counts and forecasts here.</p>`; return; }
+  const seeNow = t < COUNT_FROM ? `<p class="small note" style="margin-bottom:8px">${t < CLASS_FROM ? "Forecasts need history. The level starts at 01:00 and the number at 02:00." : "The vehicle number starts at 02:00."}</p>` : "";
+  const canCompare = t + COMPARE_S <= SV.dur;
+  const rows = lanes.map((_, i) => {
+    const name = `<b>L${i}</b> <span class="muted" style="font-weight:400">${laneNote(i)}</span>`;
+    const past = meanOf(i, t - 60), then = meanOf(i, t);
+    const fLevel = calibrated() ? levelOf(past) : null;
+    const level = !calibrated() ? `<span class="absent">Not calibrated</span>` : t < CLASS_FROM ? `<span class="absent">Waiting</span>` : chip(fLevel);
+    const num = t < COUNT_FROM ? `<span class="absent">Waiting</span>` : `<span class="num" style="font-size:15px">${past.toFixed(1)}</span>`;
+    const hasForecast = calibrated() ? t >= CLASS_FROM : t >= COUNT_FROM;
+    const happened = !canCompare ? `<span class="absent">Video ends first</span>` : !hasForecast ? `<span class="absent">—</span>`
+      : `<span class="mono small">${calibrated() ? levelOf(then) + " " : ""}${then.toFixed(1)}</span>${calibrated() && levelOf(then) !== fLevel ? ' <span class="small" title="The forecast level differed">differs</span>' : ""}`;
+    return `<tr data-result="${i}"><th scope="row" class="small" style="white-space:nowrap">${name}</th><td class="num" style="font-size:15px">${countAt(i, t)}</td><td>${level}</td><td>${num}</td><td>${happened}</td></tr>`;
+  }).join("");
+  $("resultBody").innerHTML = `${seeNow}<div class="scrollX"><table><thead><tr><th scope="col">Lane</th><th scope="col">Counted now</th><th scope="col">Forecast level</th><th scope="col">Forecast number</th><th scope="col">What then happened</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="small muted" style="margin-top:8px">Forecasts cover the next 60 seconds. "What then happened" comes from the same detector's counts, so it is not accuracy.</p>`;
+  renderVidTele();
+}
+const TL_CELLS = 48;
+function timeline() {
+  const lanes = lanesOf(), box = $("timeline");
+  if (!SV.analysed || !lanes.length) { box.innerHTML = `<p class="absent">The pattern across the whole video appears here after analysis.</p>`; return; }
+  const rows = lanes.map((_, i) => {
+    const cells = Array.from({ length: TL_CELLS }, (_, c) => {
+      const from = (c / TL_CELLS) * SV.dur, m = meanOf(i, from), warm = from < (calibrated() ? CLASS_FROM : 0);
+      return calibrated() && !warm ? `<i class="${levelOf(m)}" title="${fmt(from)}: ${levelOf(m)}, about ${m.toFixed(1)} vehicles"></i>`
+        : warm ? `<i class="tlGap" title="${fmt(from)}: no forecast yet"></i>` : `<i style="background:${shade(Math.min(m / 4, 1))}" title="${fmt(from)}: about ${m.toFixed(1)} vehicles"></i>`;
+    }).join("");
+    return `<div class="tlRow"><b>L${i}</b><div class="tlCells" data-tl>${cells}</div></div>`;
+  }).join("");
+  box.innerHTML = `<div class="tl" id="tl">${rows}<span class="playhead" id="playhead"></span></div><div class="axis" style="grid-template-columns:26px minmax(0,1fr)"><div><span>00:00</span><i></i><span>${fmt(SV.dur)}</span></div></div>`;
+  movePlayhead();
+}
+function movePlayhead() {
+  const p = $("playhead"), row = document.querySelector("#tl [data-tl]"); if (!p || !row) return;
+  const box = $("tl").getBoundingClientRect(), r = row.getBoundingClientRect();
+  p.style.left = `${r.left - box.left + (SV.t / SV.dur) * r.width}px`;
+}
+function tick() {
+  $("scrub").max = Number.isFinite(SV.dur) ? SV.dur : 0; $("scrub").value = SV.t;
+  $("clock").textContent = `${fmt(SV.t)} / ${Number.isFinite(SV.dur) ? fmt(SV.dur) : "--:--"}`;
+  $("play").textContent = SV.playing ? "Pause" : "Play";
+  $("speed").textContent = `${SV.rate}×`;
+  movePlayhead();
+  const step = Math.floor(SV.t / 2);
+  if (step !== SV.last) { SV.last = step; pins(); results(); }
+  drawScene();
+}
+function seek(t) {
+  SV.t = Math.min(Math.max(t, 0), Number.isFinite(SV.dur) ? SV.dur : 0);
+  if (SV.source === "file") $("vid").currentTime = SV.t;
+  SV.last = -1; tick();
+}
+function pausePlayer() { SV.playing = false; if (SV.source === "file") $("vid").pause(); $("play").textContent = "Play"; }
+function demoLoop(prev) {
+  if (!SV.playing || SV.source !== "demo") return;
+  requestAnimationFrame((now) => {
+    if (!SV.playing || SV.source !== "demo") return;
+    SV.t += ((now - prev) / 1000) * SV.rate;
+    if (SV.t >= SV.dur) { SV.t = SV.dur; SV.playing = false; }
+    tick(); demoLoop(now);
+  });
+}
+const TOKEN = getComputedStyle(document.documentElement);
+// The example is a standard diagram of a four-way junction, the same for every
+// camera, and drawn the way the Live diagram is: N at the top, right-hand traffic.
+const RW = 100, ROAD = { x0: 320 - RW / 2, x1: 320 + RW / 2, y0: 180 - RW / 2, y1: 180 + RW / 2 };
+const ARM = {
+  N: { pin: [295, 62], from: [295, -20], dir: [0, 1] }, S: { pin: [345, 298], from: [345, 380], dir: [0, -1] },
+  E: { pin: [548, 155], from: [660, 155], dir: [-1, 0] }, W: { pin: [92, 205], from: [-20, 205], dir: [1, 0] },
+};
+function drawScene() {
+  if (SV.source !== "demo") return;
+  const c = $("scene").getContext("2d"), W = 640, H = 360, css = (n) => TOKEN.getPropertyValue(n);
+  const { x0, x1, y0, y1 } = ROAD, stop = 26;
+  c.fillStyle = css("--road"); c.fillRect(0, 0, W, H);
+  c.fillStyle = css("--road-edge"); c.fillRect(x0, 0, RW, H); c.fillRect(0, y0, W, RW);
+  // Centre lines, stopping short of the crossings.
+  c.strokeStyle = css("--frame-class"); c.lineWidth = 1.5; c.setLineDash([10, 9]); c.beginPath();
+  c.moveTo(320, 0); c.lineTo(320, y0 - stop); c.moveTo(320, y1 + stop); c.lineTo(320, H);
+  c.moveTo(0, 180); c.lineTo(x0 - stop, 180); c.moveTo(x1 + stop, 180); c.lineTo(W, 180); c.stroke(); c.setLineDash([]);
+  // Crossings, then a stop line across each inbound half.
+  c.fillStyle = css("--frame-count");
+  for (let i = 0; i < 9; i++) {
+    const o = 5 + i * 10.5;
+    c.fillRect(x0 + o, y0 - 20, 5, 15); c.fillRect(x0 + o, y1 + 5, 5, 15);
+    c.fillRect(x0 - 20, y0 + o, 15, 5); c.fillRect(x1 + 5, y0 + o, 15, 5);
+  }
+  c.fillStyle = css("--ink");
+  c.fillRect(x0, y0 - stop, RW / 2, 3); c.fillRect(320, y1 + stop - 3, RW / 2, 3);
+  c.fillRect(x1 + stop - 3, y0, 3, RW / 2); c.fillRect(x0 - stop, 180, 3, RW / 2);
+  // A painted arrow on each inbound lane, near its stop line, and the arm's label at its far end.
+  for (const [key, arm] of Object.entries(ARM)) {
+    const [dx, dy] = arm.dir, ax = key === "N" || key === "S" ? arm.pin[0] : (key === "E" ? x1 + 44 : x0 - 44), ay = key === "N" || key === "S" ? (key === "N" ? y0 - 44 : y1 + 44) : arm.pin[1];
+    c.save(); c.translate(ax, ay); c.rotate(Math.atan2(dy, dx)); c.fillStyle = css("--frame-class");
+    c.beginPath(); c.moveTo(11, 0); c.lineTo(1, -7); c.lineTo(1, -2.5); c.lineTo(-11, -2.5); c.lineTo(-11, 2.5); c.lineTo(1, 2.5); c.lineTo(1, 7); c.closePath(); c.fill(); c.restore();
+  }
+  c.fillStyle = css("--muted"); c.font = "700 13px sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText("N", x0 - 14, 14); c.fillText("S", x1 + 14, H - 14); c.fillText("E", W - 14, y1 + 14); c.fillText("W", 14, y1 + 14);
+  // Each vehicle comes in on its arm's inbound half, crosses, and leaves straight on.
+  const boxes = $("showBoxes").checked, keys = Object.keys(ARM);
+  for (let k = 0; k < 16; k++) {
+    const arm = ARM[keys[k % 4]], speed = 10 + (k % 5) * 3, along = (SV.t * speed + k * 67) % 760;
+    const x = arm.from[0] + arm.dir[0] * along, y = arm.from[1] + arm.dir[1] * along;
+    c.save(); c.translate(x, y); c.rotate(Math.atan2(arm.dir[1], arm.dir[0]));
+    c.fillStyle = css("--frame-class"); c.fillRect(-11, -6, 22, 12);
+    if (boxes) { c.strokeStyle = css("--ink"); c.lineWidth = 1.5; c.strokeRect(-14, -9, 28, 18); }
+    c.restore();
+  }
+}
+function setDemo(cam) {
+  pausePlayer();
+  if (SV.url) { URL.revokeObjectURL(SV.url); SV.url = null; }
+  $("vid").removeAttribute("src"); $("vid").hidden = true; $("scene").hidden = false; $("videoError").hidden = true;
+  $("stage").style.aspectRatio = "16 / 9"; $("videoFile").value = "";
+  Object.assign(SV, { source: "demo", cam, file: "", placed: [], analysed: false, t: 0, dur: 480, last: -1 , checkMsg: "" });
+  studio(); tick();
+}
+function openFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith("video/") && !/\.(mp4|webm|mov|mkv)$/i.test(file.name)) { $("videoError").hidden = false; $("videoError").textContent = `${file.name} is not a video.`; return; }
+  pausePlayer();
+  if (SV.url) URL.revokeObjectURL(SV.url);
+  Object.assign(SV, { source: "file", cam: "", file: file.name, url: URL.createObjectURL(file), placed: [], analysed: false, t: 0, dur: NaN, last: -1 });
+  $("videoError").hidden = true; $("scene").hidden = true;
+  const v = $("vid"); v.hidden = false; v.src = SV.url; v.load();
+  studio(); tick();
+}
+$("pick").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setDemo(b.dataset.c); });
+$("videoFile").addEventListener("change", (e) => openFile(e.target.files[0]));
+$("drop").addEventListener("dragover", (e) => { e.preventDefault(); $("drop").classList.add("over"); });
+$("drop").addEventListener("dragleave", () => $("drop").classList.remove("over"));
+$("drop").addEventListener("drop", (e) => { e.preventDefault(); $("drop").classList.remove("over"); openFile(e.dataTransfer.files[0]); });
+$("whichCam").addEventListener("change", (e) => { SV.cam = e.target.value; SV.checkMsg = ""; SV.placed = []; SV.analysed = false; studio(); });
+$("vid").addEventListener("loadedmetadata", (e) => {
+  const v = e.target;
+  SV.dur = v.duration;
+  if (v.videoWidth) $("stage").style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
+  studio(); tick();
+});
+$("vid").addEventListener("timeupdate", (e) => { SV.t = e.target.currentTime; tick(); });
+$("vid").addEventListener("play", () => { SV.playing = true; tick(); });
+$("vid").addEventListener("pause", () => { SV.playing = false; tick(); });
+$("vid").addEventListener("error", () => { if (!SV.url) return; $("videoError").hidden = false; $("videoError").textContent = "This browser cannot play this video's format. MP4 with H.264 usually works."; });
+$("play").addEventListener("click", () => {
+  if (SV.source === "file") { const v = $("vid"); if (v.paused) v.play(); else v.pause(); return; }
+  if (SV.t >= SV.dur) SV.t = 0;
+  SV.playing = !SV.playing; tick();
+  if (SV.playing) demoLoop(performance.now());
+});
+$("scrub").addEventListener("input", (e) => seek(Number(e.target.value)));
+$("speed").addEventListener("click", () => { SV.rate = { 1: 2, 2: 4, 4: 8, 8: 1 }[SV.rate]; $("vid").playbackRate = SV.rate; tick(); });
+$("showLanes").addEventListener("change", pins);
+$("showBoxes").addEventListener("change", drawScene);
+$("stage").addEventListener("click", (e) => {
+  if (SV.cam !== "new" || SV.placed.length >= 4) return;
+  const r = $("stage").getBoundingClientRect();
+  SV.placed.push([(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]);
+  SV.analysed = false; studio();
+});
+$("analyse").addEventListener("click", () => {
+  pausePlayer();
+  SV.working = true; SV.analysed = false; studio();
+  const stages = ["Reading the video", "Counting vehicles in each lane", "Making the forecasts", "Comparing them with what happened"];
+  $("progressBar").hidden = false;
+  let p = 0;
+  const timer = setInterval(() => {
+    p += 5;
+    $("progress").style.width = `${p}%`;
+    $("analyseNote").textContent = `${stages[Math.min(Math.floor(p / 25), 3)]} (simulated here)`;
+    if (p >= 100) {
+      clearInterval(timer);
+      SV.working = false; SV.analysed = true; $("progressBar").hidden = true; SV.last = -1;
+      studio(); tick(); renderVidTele();
+    }
+  }, 90);
+});
+$("timeline").addEventListener("click", (e) => {
+  const row = e.target.closest("[data-tl]"); if (!row) return;
+  const r = row.getBoundingClientRect();
+  seek(((e.clientX - r.left) / r.width) * SV.dur);
+});
+window.addEventListener("resize", movePlayhead);
+// ---- Engineering Telemetry ----
+// PCU weights are the project's own: mfstnet/corpus/pcu.py, Indo-HCM 2017, intermediate/two-lane
+// urban (ADR-017, proposed, not signed off by the guide). The real dashboard reads them from the server.
+// The counts and fleet shares here are invented: they show the layout and labelling a real build uses.
+// There is no queue: the camera path has no speed or stop line, so a queue is "Not measured" (D35)
+// and is never derived from counts.
+const PCU_W = { car: 1.0, truck: 5.0, bus: 4.5 };
+const FLEET_BASE = {
+  Eastgate: [[0.72, 0.18, 0.10], [0.80, 0.14, 0.06], [0.65, 0.22, 0.13], [0.85, 0.10, 0.05]],
+  Newport:  [[0.68, 0.20, 0.12], [0.75, 0.17, 0.08], [0.70, 0.19, 0.11], [0.78, 0.15, 0.07]],
+  SE38th:   [[0.60, 0.25, 0.15], [0.82, 0.12, 0.06], [0.73, 0.18, 0.09], [0.69, 0.21, 0.10]],
+  new:      [[0.74, 0.16, 0.10], [0.74, 0.16, 0.10], [0.74, 0.16, 0.10], [0.74, 0.16, 0.10]],
+};
+// PCU for a lane at time t (uses same sinusoidal count base as countAt, then weights by fleet).
+function pcuAt(camKey, laneIdx, t) {
+  const cam = CAMS[camKey] || CAMS.new;
+  const raw = Math.max(0, cam.base[laneIdx] * (1 + 0.6 * Math.sin(t / 70 + laneIdx * 1.7) + 0.35 * Math.sin(t / 23 + laneIdx)));
+  const fb = (FLEET_BASE[camKey] || FLEET_BASE.new)[laneIdx];
+  const pcu = raw * (fb[0] * PCU_W.car + fb[1] * PCU_W.truck + fb[2] * PCU_W.bus);
+  return { raw, pcu, car: fb[0], truck: fb[1], bus: fb[2] };
+}
+function fleetBar(car, truck, bus) {
+  const pct = (f) => `${Math.round(f * 100)}%`;
+  return `<div class="fleet" title="Car ${pct(car)}, Truck ${pct(truck)}, Bus ${pct(bus)}" role="img" aria-label="Fleet: ${pct(car)} car, ${pct(truck)} truck, ${pct(bus)} bus">
+    <i class="car" style="flex:${car}"></i><i class="truck" style="flex:${truck}"></i><i class="bus" style="flex:${bus}"></i></div>
+    <span class="mono small">car ${pct(car)} · truck ${pct(truck)} · bus ${pct(bus)}</span>`;
+}
+function teleRows(camKey, lanes, t) {
+  if (!camKey || !lanes.length) return `<p class="absent">Choose a camera to see telemetry.</p>`;
+  const rows = lanes.map((_, i) => {
+    const { raw, pcu, car, truck, bus } = pcuAt(camKey, i, t);
+    return `<tr>
+      <th scope="row" class="small" style="white-space:nowrap"><b>L${i}</b></th>
+      <td class="pcu" title="PCU count: vehicles × their passenger car unit weight">${pcu.toFixed(1)}</td>
+      <td class="absent">Not measured</td>
+      <td>${fleetBar(car, truck, bus)}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="scrollX"><table>
+    <thead><tr>
+      <th scope="col">Lane</th>
+      <th scope="col" title="Passenger car unit weighted count">PCU count</th>
+      <th scope="col">Queue</th>
+      <th scope="col" style="min-width:140px">Fleet composition</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div class="fleetKey">
+    <span><i class="car"></i>Car (×1.0 PCU)</span>
+    <span><i class="truck"></i>Truck (×5.0 PCU)</span>
+    <span><i class="bus"></i>Bus (×4.5 PCU)</span>
+  </div>
+  <p class="small muted" style="margin-top:4px">PCU weights are Indo-HCM 2017 (intermediate/two-lane urban), the project's own table (mfstnet/corpus/pcu.py, ADR-017, proposed). Queue is not measured: the camera path has no speed or stop line, so it is never derived from counts (D35). Fleet proportions are fixed illustrative values. All values in this prototype are made up.</p>`;
+}
+// Live telemetry panel (uses fake Live data from STATES).
+let liveTeleOpen = false;
+function renderLiveTele(s) {
+  const btn = $("liveTeleBtn"), panel = $("liveTelePanel");
+  btn.setAttribute("aria-expanded", String(liveTeleOpen));
+  panel.hidden = !liveTeleOpen;
+  if (!liveTeleOpen) return;
+  // For Live, pick the first known approach's lane index mapping (N→0, S→1, E→2, W→3).
+  // We use Eastgate as the default camera for the Live example.
+  const known = AP.filter((a) => a in s.roads);
+  const camKey = "Eastgate";
+  const laneIdxMap = { N: 0, S: 1, E: 2, W: 3 };
+  const rows = known.map((a) => {
+    const i = laneIdxMap[a], t = 300 + i * 70; // fixed notional time for the live snapshot
+    const { pcu, car, truck, bus } = pcuAt(camKey, i, t);
+    return `<tr>
+      <th scope="row" class="small" style="white-space:nowrap"><b>${a}</b></th>
+      <td class="pcu">${pcu.toFixed(1)}</td>
+      <td class="absent">Not measured</td>
+      <td>${fleetBar(car, truck, bus)}</td>
+    </tr>`;
+  }).join("");
+  panel.innerHTML = !known.length
+    ? `<p class="absent">No forecast — no telemetry to show.</p>`
+    : `<div class="scrollX"><table>
+    <thead><tr>
+      <th scope="col">Approach</th>
+      <th scope="col" title="Passenger car unit weighted count">PCU count</th>
+      <th scope="col">Queue</th>
+      <th scope="col" style="min-width:140px">Fleet composition</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div class="fleetKey">
+    <span><i class="car"></i>Car (×1.0 PCU)</span>
+    <span><i class="truck"></i>Truck (×5.0 PCU)</span>
+    <span><i class="bus"></i>Bus (×4.5 PCU)</span>
+  </div>
+  <p class="small muted" style="margin-top:4px">PCU weights are Indo-HCM 2017, the project's own table. Queue is not measured (D35). Fleet proportions are illustrative. All counts in this prototype are made up.</p>`;
+}
+$("liveTeleBtn").addEventListener("click", () => {
+  liveTeleOpen = !liveTeleOpen;
+  renderLiveTele(STATES[current]);
+  $("liveTeleNote").textContent = liveTeleOpen ? "PCU · fleet composition; queue not measured" : "Hidden by default";
+});
+// Video telemetry panel.
+let vidTeleOpen = false;
+function renderVidTele() {
+  const btn = $("vidTeleBtn"), panel = $("vidTelePanel"), head = $("vidTeleHead");
+  head.hidden = !SV.analysed;
+  if (!SV.analysed) { vidTeleOpen = false; }
+  btn.setAttribute("aria-expanded", String(vidTeleOpen));
+  panel.hidden = !vidTeleOpen;
+  if (!vidTeleOpen) return;
+  const camKey = SV.cam || "new", lanes = lanesOf();
+  panel.innerHTML = teleRows(camKey, lanes, SV.t);
+}
+$("vidTeleBtn").addEventListener("click", () => {
+  vidTeleOpen = !vidTeleOpen;
+  renderVidTele();
+});
+
+// Analytics: invented hourly means, on one neutral ramp. A gap is dashed, never zero.
+function shade(t) { return `color-mix(in srgb, var(--ink) ${Math.round(6 + t * 86)}%, var(--panel))`; }
+const HOURS = (peak, base) => Array.from({ length: 24 }, (_, h) => Math.max(0.1, base * (0.25 + Math.exp(-((h - 8) ** 2) / 8) * 0.8 + Math.exp(-((h - peak) ** 2) / 10) * 1.1)));
+const HM = { N: HOURS(17, 2.6), S: HOURS(16, 1.4), E: HOURS(17, 3.2), W: HOURS(18, 0.7) };
+let hm = "<span></span>" + Array.from({ length: 24 }, (_, h) => `<span>${h % 3 ? "" : String(h).padStart(2, "0")}</span>`).join("");
+for (const a of AP) hm += `<b>${a}</b>` + HM[a].map((v, h) => (h === 11 || h === 12) ? `<i class="none" title="${a}, ${h}:00: no counts"></i>` : `<i style="background:${shade(Math.min(v / 4.2, 1))}" title="${a}, ${h}:00: about ${v.toFixed(1)} vehicles in view"></i>`).join("");
+$("hm").innerHTML = hm;
+$("ramp").innerHTML = [0, .25, .5, .75, 1].map((t) => `<i style="background:${shade(t)}"></i>`).join("");
+// Results: values from P130, mean total delay over the 28 primary seeds.
+const RP = [["Webster split, clamped", 37.37, 34.10, 40.92, 0], ["Tuned Webster", 39.81, 36.06, 43.94, 0], ["PPO, no forecast", 43.72, 38.75, 49.40, 1], ["Fixed 30 s", 45.69, 41.20, 50.98, 0], ["PPO, persistence forecast", 46.75, 40.47, 54.95, 1], ["PPO, perfect forecast", 49.13, 39.92, 62.22, 1]];
+const X = (v) => (v / 70) * 100;
+$("rp").innerHTML = RP.map(([n, m, a, b, p]) => `<span>${n}</span><div class="tr" title="${n}: ${m} s [${a}, ${b}]"><span class="ci" style="left:${X(a)}%;width:${X(b) - X(a)}%"></span><span class="pt${p ? " ppo" : ""}" style="left:${X(m)}%"></span></div><span class="mono muted">${m.toFixed(1)} [${a.toFixed(1)}, ${b.toFixed(1)}]</span>`).join("") + `<div class="scale"><span>0 s</span><span>35 s</span><span>70 s</span></div>`;
+
+function fromAddress() {
+  const [st, tb] = location.hash.slice(1).split("/");
+  show(st); tab(TABS.some(([k]) => k === tb) ? tb : "live");
+}
+studio(); fromAddress();
+window.addEventListener("hashchange", fromAddress);
+
+// ---- Glossary ----
+const GLOSSARY = [
+  ["Approach", "One road arm entering the intersection. N, S, E and W are its labels."],
+  ["Lane (L0 to L3)", "A counted area in the camera's picture. It is named by number, because its position in the picture does not show its direction."],
+  ["Congestion level", "LOW, MEDIUM or HIGH. The limits are set separately for each camera."],
+  ["Expected vehicles in view", "A forecast of the average number of vehicles visible in that lane over the next 60 seconds. It is not how many will pass through."],
+  ["Counted", "What the detector measured in the video. Bicycles are left out of these counts."],
+  ["Forecast", "An estimate of the next 60 seconds. After 60 seconds it is out of date."],
+  ["Edge unit", "The computer that reads the video and counts vehicles. The video stays there; only numbers leave it."],
+  ["Detector", "The vision model that finds vehicles in the video."],
+  ["Replay", "Recorded footage run through the system as if it were arriving now. It is never a live camera."],
+  ["Out of date", "Older than its 60 seconds, so it describes a minute that has passed."],
+  ["Check", "A past forecast beside what the counts then showed. Both sides come from the same detector."],
+  ["Persistence", "The forecast method behind the level: it expects the current level to continue."],
+  ["Ridge", "The forecast method behind the vehicle number: a simple statistical model of recent counts."],
+  ["Webster", "A long-established formula that sets signal timing from traffic demand."],
+  ["PCU (Passenger Car Unit)", "A weight that converts different vehicle types to a common unit of road space. The project uses Indo-HCM 2017 (intermediate/two-lane urban): car 1.0, motorcycle 0.3, auto-rickshaw 1.2, bus 4.5, truck 5.0. The PCU count is the vehicle count weighted by these factors."],
+  ["Queue", "Not measured. A queue needs vehicle speeds or a stop line, and the camera path has neither, so the system shows \"Not measured\" rather than deriving a queue from counts (D35)."],
+  ["Fleet composition", "The share of cars, trucks and buses in a lane, shown as a bar and written out. Values here are illustrative; the real dashboard reads them from the detector's class counts (D35)."],
+  ["PPO", "A reinforcement learning method, tested on signal timing only in simulation here."],
+  ["95% interval", "The range the measured value plausibly falls in. Wide means less certain."],
+];
+$("glossaryList").innerHTML = GLOSSARY.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join("");
+$("glossaryOpen").addEventListener("click", () => $("glossary").showModal());
+
+// ---- The tour ----
+// Runs on the example data and puts the page back as it found it. Every sentence
+// states what the system really does: nothing here claims more than the page can.
+const knownOf = (s) => AP.filter((a) => a in s.roads);
+const STEPS_LIVE = [
+  { target: ".top", tab: "live", section: "Live", title: "The top bar: where you are, and what you are watching",
+    what: "Moves between the four sections and shows where the numbers come from.",
+    read: ["<b>Live, Analyze a video, Analytics, Results</b> are the four sections. Only one shows at a time.", "<b>The source badge</b> says Live camera, Replay, or that the source is out of date or unknown.", "<b>The clock</b> is this computer's clock.", "<b>Read-only</b> means this page cannot send commands to anything."],
+    now: (s) => `The badge reads: ${s.source[1]}.`,
+    limit: "Live camera appears only while the edge unit has reported recently. If it goes quiet, the badge changes, so a recording or an old feed is not mistaken for live." },
+  { target: "#sites", tab: "live", section: "Live", title: "The corridor strip: which intersection this is",
+    what: "Shows the three cameras on file along 150th, and which one this page is showing.",
+    read: ["<b>The outlined tile</b> is the intersection on this page.", "<b>The mark and the line under each name</b> say whether that camera is reporting.", "<b>No edge unit running</b> means nobody is counting that camera right now."],
+    limit: "No edge unit running says nothing about the road: traffic may be heavy there. Each camera needs its own edge unit, so a demonstration usually runs one." },
+  { target: "#status", tab: "live", section: "Live", title: "The status banner: read this first",
+    what: "Tells you whether you can trust the rest of the page right now. It updates every 2 seconds.",
+    read: ["<b>The large line</b> is the answer: are updates arriving?", "<b>The smaller line</b> says how old the forecast is and how long it holds.", "<b>Each state has its own shape</b>: dot, diamond, square or dashed box, so colour is never the only sign."],
+    tryIt: ["normal", "replay", "silent", "stale", "none", "down"], tryLabel: "See what each situation looks like:",
+    now: (s) => `It reads: ${s.status[1]}. ${s.status[2]}`,
+    limit: "The broker and the ingest service do not report their own health. If one of them stops, you see it here as updates stopping." },
+  { target: "#kpis", tab: "live", section: "Live", title: "The four tiles: the situation at a glance",
+    what: "Four short answers, so you do not need to read the whole page.",
+    read: ["<b>Highest congestion expected</b>: the worst level in the next 60 seconds, and where.", "<b>Busiest approach</b>: the largest expected vehicle number.", "<b>Approaches reporting</b>: how many of the four have a forecast.", "<b>Forecast valid for</b>: seconds left before this forecast expires."],
+    now: (s) => { const k = knownOf(s); if (!k.length) return "No tile can give an answer, and each says so instead of showing zero."; return `${k.length} of 4 approaches have a forecast.`; },
+    limit: "The first two tiles can name different approaches. Level and vehicle number are two separate forecasts, and levels are set per camera." },
+  { target: "#drawingCard", tab: "live", section: "Live", title: "The drawing: the next 60 seconds at each approach",
+    what: "A diagram of the four approaches. It is not a map or a video, and the marks are not vehicles.",
+    read: ["<b>Ribbon length</b>: expected vehicles, on a fixed scale of 0 to 10, so lengths compare over time.", "<b>Outlined track</b>: that 0 to 10 scale. It is not the road's capacity.", "<b>Colour and word</b>: the congestion level.", "<b>Dashed ribbon</b>: out of date.", "<b>No track and no ribbon</b>: no forecast. That does not mean the road is empty.", "<b>Two cuts near the end of a ribbon</b>: more than 10.", "<b>Dashed squares</b>: signals, which are not connected."],
+    tryIt: ["normal", "partial", "stale"], tryLabel: "See how the drawing changes:",
+    now: (s) => { const k = knownOf(s); if (!k.length) return "No ribbons, because there is no forecast."; const b = k.reduce((m, a) => (s.roads[a][1] > s.roads[m][1] ? a : m)); return `${s.past ? "The last forecast had" : "Approach " + b + " has"} ${s.past ? "dashed ribbons, so treat them as past." : "the longest ribbon, at " + s.roads[b][1].toFixed(1) + " vehicles."}`; },
+    limit: "N, S, E and W are labels. N is drawn at the top, but its direction has not been verified for this camera." },
+  { target: "#approaches", tab: "live", section: "Live", title: "The approaches table: the exact numbers",
+    what: "The same forecast as the drawing, in numbers, beside what was recently counted.",
+    read: ["<b>Congestion level</b>: the forecast level for each approach.", "<b>Expected vehicles in view</b>: an average across the next 60 seconds, which is why it can be 2.4.", "<b>Counted, last 15 min</b>: a measurement, not a forecast. The dot is the latest value.", "<b>Share of expected vehicles</b>: how the expected total divides across approaches."],
+    limit: "It counts vehicles in view, not vehicles passing through. Forecasts include bicycles and counted values do not, so the two columns are not exactly like for like." },
+  { target: "#heatCard", tab: "live", section: "Live", title: "The 20-minute row: what happened, and how forecasts did",
+    what: "Each cell is one minute, oldest on the left. It shows both the recent pattern and whether the forecast matched.",
+    read: ["<b>Colour and letter</b>: the level the counts showed that minute.", "<b>Cut corner</b>: the forecast had said a different level.", "<b>Dashed cell</b>: no valid check that minute. It is a gap, not a good or bad result.", "<b>17 of 19</b>: forecasts that matched, out of those checked. It is never shown as a percentage."],
+    limit: "This is not accuracy. Both sides come from the same detector's counts, not from a person checking the traffic. These are the persistence and ridge forecasts, not MFSTNet." },
+  { target: "[data-limit='signal']", tab: "live", section: "Live", title: "What this system does not do",
+    what: "This line stays on the page in every state, because it is the most important limit.",
+    read: ["<b>It forecasts traffic.</b> It reads video, counts vehicles and estimates the next minute.", "<b>It does not change any traffic light.</b> No forecast is connected to signal timing.", "<b>Signal timing was studied separately, in simulation.</b> The full tour shows that result in Results."],
+    limit: "Nothing on this page should be read as instructions for operating a signal." },
+  { target: "details.tech", tab: "live", section: "Live", openTech: true, title: "Technical details: for reviewers",
+    what: "Everything an engineer or examiner needs, kept out of the way until wanted. You can ignore it to use the page.",
+    read: ["<b>Forecasters and model ids</b>: which version produced the forecast.", "<b>Horizon, age and heartbeat</b>: the timing behind the status banner.", "<b>Round trip</b>: how long this browser waited for the server.", "<b>References such as ADR-014 and P97a</b>: where each decision is recorded."] },
+];
+const STEPS_MORE = [
+  { target: "#studioSource", tab: "clip", section: "Analyze a video", title: "Analyze a video: choose and prepare",
+    what: "Turns a recording into counts and forecasts. Start here: choose a video, say which camera recorded it, then analyse it.",
+    read: ["<b>Open a video</b>: it plays in this browser and is not uploaded.", "<b>Which camera?</b> You say it, because a file name cannot prove it.", "<b>A known camera</b> has lanes and levels on file.", "<b>A different camera</b>: click to mark its lanes. You get counts and a vehicle number, but no level.", "<b>At least 5 minutes</b>, because forecasts need history first."],
+    limit: "This is a recording, so it is not a live camera test. In this prototype the numbers are made up, because it runs no detector." },
+  { target: "#studioPlayer", tab: "clip", section: "Analyze a video", title: "Analyze a video: watch it",
+    what: "The picture, with the lanes marked on it. Everything on this page follows the position in the video.",
+    read: ["<b>Play, drag or change speed</b>: the results move with the picture.", "<b>L0 to L3</b>: the counted lanes, with their counts after analysis. On your own video they sit at their true places in the picture.", "<b>The example</b> is a standard diagram, with each lane on the arm its label names. The small picture shows where the lanes really sit in this camera's view.", "<b>Vehicle boxes</b>: what the detector found. Drawn only on the example here, and never faked on a real video."],
+    limit: "The video stays on this computer. Only counts and forecasts are kept, never frames." },
+  { target: "#studioDirections", tab: "clip", section: "Analyze a video", title: "Analyze a video: check the directions",
+    what: "Says what each lane really is. The letters N, S, E and W start as labels, because the camera's lane file names no directions.",
+    read: ["<b>The top of a video is not always north.</b> A camera can face any way, so position in the picture proves nothing.", "<b>Choose where each lane's traffic comes from</b>, and say how you know: a map or a site visit. On the diagram, each lane then moves to that arm.", "<b>Not one per approach</b>: use this when lanes are two parts of one road."],
+    limit: "In this prototype a check lasts only until the page closes. The real build records it as evidence against the camera, and only then does the notice on Live go away." },
+  { target: "#studioResults", tab: "clip", section: "Analyze a video", title: "Analyze a video: read the results",
+    what: "For the moment you are watching: what was counted, what was forecast, and what then happened. Only a recording can show the last one.",
+    read: ["<b>Counted now</b>: vehicles in that lane at this moment.", "<b>Forecast level and number</b>: for the next 60 seconds. The level starts at 01:00 and the number at 02:00.", "<b>What then happened</b>: the following 60 seconds of counts, with a note if the level differed."],
+    limit: "Both sides come from the same detector's counts, so this is not accuracy." },
+  { target: "[data-tab='analytics']", tab: "analytics", section: "Analytics", title: "Analytics: when is each approach busy?",
+    what: "Looks back over the last 24 hours of measured counts, to show the pattern across the day.",
+    read: ["<b>The top tiles</b>: the busiest and quietest times, and hours with no counts.", "<b>Each row</b> is an approach and each column an hour. Lighter means more vehicles in view.", "<b>Dashed cell</b>: nothing was counted that hour. That is not zero traffic."],
+    limit: "These are measurements, not forecasts. Counts leave out bicycles and are kept for 48 hours." },
+  { target: "#signalStudy", tab: "results", section: "Results", title: "Results: signal timing, in simulation",
+    what: "A past study in a traffic simulator, from committed files. Nothing here is live, and live numbers never appear beside it.",
+    read: ["<b>Each row</b> is one way of controlling the signal.", "<b>Further left</b> means less delay.", "<b>Marker and line</b>: the average and its 95% interval. Squares are rule-based and circles are PPO."],
+    now: () => "Every PPO controller had more delay than both Webster controllers, and a perfect forecast did not help.",
+    limit: "That is a measured result for the tested controller and conditions. It does not show that forecasts can never help." },
+  { target: "#resultsSide", tab: "results", section: "Results", title: "Results: the count forecast, and what is not built",
+    what: "How well the live vehicle number was forecast in testing, and why the page gives no signal advice.",
+    read: ["<b>Next-minute count forecast</b>: how far the number was off, ridge against persistence. Lower is better.", "<b>Live signal advice: not built</b>: the four things it would need first."],
+    limit: "The forecast test scores against detector counts, not people checking the traffic, and covers three cameras on one road network." },
+];
+const QUIZ = [
+  { q: "On the example page, are updates arriving?", a: ["Yes", "No", "The page cannot say"], ok: 0, why: "The status banner answers this first: Updates are arriving." },
+  { q: "Which approaches have the highest expected congestion?", a: ["N and E", "S and W", "All four"], ok: 0, why: "The first tile names them, and the table and drawing agree." },
+  { q: "Does this system change the traffic lights?", a: ["Yes, automatically", "Only for HIGH traffic", "No"], ok: 2, why: "It forecasts traffic and is not connected to any signal." },
+];
+let T = null;
+function tourStart(opener) {
+  T = { steps: [], i: 0, opener, state: current, tab: document.querySelector("main[data-tab]:not([hidden])").dataset.tab, tech: document.querySelector("details.tech").open, mode: null, answers: {} };
+  $("nudge").hidden = true;
+  show("normal"); tab("live");
+  document.querySelector(".page").inert = true;
+  document.body.classList.add("touring");
+  $("tourShield").hidden = false; $("tourCard").hidden = false;
+  window.scrollTo(0, 0);
+  tourRender();
+}
+function tourEnd() {
+  if (!T) return;
+  const { state, tab: was, tech, opener } = T;
+  T = null;
+  $("tourShield").hidden = true; $("spot").hidden = true; $("tourCard").hidden = true;
+  document.querySelector(".page").inert = false;
+  document.body.classList.remove("touring");
+  document.querySelector("details.tech").open = tech;
+  show(state); tab(was);
+  window.scrollTo(0, 0);
+  const back = opener && !opener.closest("[hidden]") ? opener : $("tourStart");
+  back.focus();
+}
+function tourPick(mode) { T.mode = mode; T.steps = mode === "full" ? [...STEPS_LIVE, ...STEPS_MORE] : STEPS_LIVE; T.i = 0; tourRender(); }
+function tourGo(i) { T.i = i; show("normal"); tourRender(); }
+function intro() {
+  return `<div class="eyebrow"><span>Welcome</span><button class="tourX" type="button" data-x aria-label="Exit the tour">Exit</button></div>
+    <h2 id="tourTitle" tabindex="-1">What is STMS?</h2>
+    <p>STMS watches an intersection through a camera and forecasts traffic on each approach for the next 60 seconds. This page shows those forecasts, how recent they are, and what can go wrong. It is a monitor: it does not control traffic signals.</p>
+    <div class="tb"><h3>How the numbers reach this page</h3>
+      <ol class="flow"><li><b>Camera</b>Video, live or recorded</li><li><b>Edge unit</b>Counts vehicles per lane</li><li><b>Two forecasts</b>A level and a vehicle number</li><li><b>Server</b>Stores what it receives</li><li><b>This page</b>Shows it, read-only</li></ol></div>
+    <p class="small muted">The video stays on the edge unit. Only counts and forecasts travel. All values in this prototype are examples.</p>
+    <div class="tourNav" style="flex-wrap:wrap"><button class="primary" type="button" data-mode="live">Tour the Live page (${STEPS_LIVE.length} steps)</button><button class="ghost" type="button" data-mode="full">Tour every section (${STEPS_LIVE.length + STEPS_MORE.length} steps)</button></div>`;
+}
+function quiz() {
+  const answered = Object.keys(T.answers).length, right = QUIZ.filter((q, n) => T.answers[n] === q.ok).length;
+  return `<div class="eyebrow"><span>Check your understanding</span><button class="tourX" type="button" data-x aria-label="Exit the tour">Exit</button></div>
+    <h2 id="tourTitle" tabindex="-1">Three questions</h2>
+    ${QUIZ.map((q, n) => `<fieldset class="q" style="border:0;padding:0;margin:0"><legend style="padding:0;font-weight:600">${n + 1}. ${q.q}</legend>
+      ${q.a.map((t, k) => `<label><input type="radio" name="q${n}" data-q="${n}" data-a="${k}" ${T.answers[n] === k ? "checked" : ""}>${t}</label>`).join("")}
+      ${n in T.answers ? `<p class="feedback">${T.answers[n] === q.ok ? "Correct." : `The answer is: ${q.a[q.ok]}.`} ${q.why}</p>` : ""}</fieldset>`).join("")}
+    ${answered === QUIZ.length ? `<p style="font-weight:600">${right} of ${QUIZ.length} correct. ${right === QUIZ.length ? "You can read this page." : "The tour can show you the part you missed."}</p>` : ""}
+    <p class="small muted">Answers stay on this page and are not recorded.</p>
+    <div class="tourNav"><button class="ghost" type="button" data-prev>Back</button><span style="display:flex;gap:8px"><button class="ghost" type="button" data-again>Tour again</button><button class="primary" type="button" data-x>Finish</button></span></div>`;
+}
+function stepCard(step, n, total) {
+  const s = STATES[current];
+  const now = step.now ? step.now(s) : "";
+  return `<div class="eyebrow"><span>Step ${n + 1} of ${total} · ${step.section}</span><button class="tourX" type="button" data-x aria-label="Exit the tour">Exit</button></div>
+    <h2 id="tourTitle" tabindex="-1">${step.title}</h2>
+    <p>${step.what}</p>
+    <div class="tb"><h3>How to read it</h3><ul>${step.read.map((r) => `<li>${r}</li>`).join("")}</ul></div>
+    ${now ? `<div class="tb now"><h3>On the page right now</h3><p>${now}</p></div>` : ""}
+    ${step.tryIt ? `<div class="tb"><h3>${step.tryLabel}</h3><div class="tryRow">${step.tryIt.map((k) => `<button type="button" data-try="${k}" aria-pressed="${k === current}">${STATES[k].label}</button>`).join("")}</div></div>` : ""}
+    ${step.limit ? `<div class="tb limit2"><h3>Keep in mind</h3><p>${step.limit}</p></div>` : ""}
+    <div class="dots" role="group" aria-label="Go to a step">${Array.from({ length: total }, (_, k) => `<button type="button" data-go="${k}" class="${k < n ? "done" : ""}" ${k === n ? 'aria-current="step"' : ""} aria-label="Step ${k + 1}"></button>`).join("")}</div>
+    <div class="tourNav"><button class="ghost" type="button" data-prev>Back</button><button class="primary" type="button" data-next>${n === total - 1 ? "Check your understanding" : "Next"}</button></div>`;
+}
+function tourTarget() { const st = T.steps[T.i]; return st ? document.querySelector(st.target) : null; }
+function tourRender() {
+  const card = $("tourCard"), n = T.i, total = T.steps.length;
+  const narrow = innerWidth <= 640;
+  card.classList.toggle("sheet", narrow);
+  if (!T.mode || n >= total) {
+    card.classList.add("center");
+    card.innerHTML = T.mode ? quiz() : intro();
+    $("spot").hidden = true; $("tourShield").classList.add("dim");
+    show("normal"); tab("live"); document.querySelector("details.tech").open = T.tech;
+  } else {
+    const step = T.steps[n];
+    tab(step.tab);
+    document.querySelector("details.tech").open = step.openTech ? true : T.tech;
+    card.classList.remove("center");
+    card.innerHTML = stepCard(step, n, total);
+    $("tourShield").classList.remove("dim");
+    $("spot").hidden = false;
+    const el = tourTarget();
+    el.classList.add("scrollTarget");
+    el.scrollIntoView({ block: "start" });
+  }
+  card.scrollTop = 0;
+  tourPlace();
+  card.querySelector("h2").focus({ preventScroll: true });
+}
+function tourPlace() {
+  if (!T) return;
+  const card = $("tourCard"), el = T.mode && T.i < T.steps.length ? tourTarget() : null;
+  if (!el) return;
+  const r = el.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = innerHeight, pad = 6, m = 14;
+  const top = Math.max(r.top - pad, 2), left = Math.max(r.left - pad, 2);
+  Object.assign($("spot").style, { top: `${top}px`, left: `${left}px`, width: `${Math.min(r.right + pad, vw - 2) - left}px`, height: `${Math.max(Math.min(r.bottom + pad, vh - 2) - top, 4)}px` });
+  card.classList.remove("wide");
+  if (card.classList.contains("sheet")) return;
+  // With no room at the side, a wider, shorter card can sit under or over the section.
+  if (r.right + m + card.offsetWidth > vw - 8 && r.left - m - card.offsetWidth < 2) card.classList.add("wide");
+  const cw = card.offsetWidth, ch = card.offsetHeight, clampY = (y) => Math.min(Math.max(y, 12), vh - ch - 12), clampX = (x) => Math.min(Math.max(x, 12), vw - cw - 12);
+  let x, y;
+  if (r.right + m + cw <= vw - 8) { x = r.right + m; y = clampY(r.top); }
+  else if (r.left - m - cw >= 2) { x = r.left - m - cw; y = clampY(r.top); }
+  else if (r.bottom + m + ch <= vh - 8) { x = clampX(r.left); y = r.bottom + m; }
+  else if (r.top - m - ch >= 8) { x = clampX(r.left); y = r.top - m - ch; }
+  else { x = vw - cw - 12; y = vh - ch - 12; }
+  card.style.left = `${x}px`; card.style.top = `${y}px`;
+}
+$("tourCard").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b || !T) return;
+  if ("x" in b.dataset) return tourEnd();
+  if (b.dataset.mode) return tourPick(b.dataset.mode);
+  if ("next" in b.dataset) return tourGo(T.i + 1);
+  if ("prev" in b.dataset) return T.i > 0 ? tourGo(T.i - 1) : (T.mode = null, T.steps = [], tourRender());
+  if (b.dataset.go) return tourGo(Number(b.dataset.go));
+  if ("again" in b.dataset) { T.answers = {}; T.mode = null; T.steps = []; T.i = 0; return tourRender(); }
+  if (b.dataset.try) { show(b.dataset.try); return tourRender(); }
+});
+$("tourCard").addEventListener("change", (e) => {
+  const q = e.target.dataset.q; if (q === undefined || !T) return;
+  T.answers[q] = Number(e.target.dataset.a);
+  const focusKey = `[data-q="${q}"][data-a="${e.target.dataset.a}"]`;
+  $("tourCard").innerHTML = quiz();
+  $("tourCard").querySelector(focusKey).focus();
+});
+document.addEventListener("keydown", (e) => {
+  if (!T) return;
+  if (e.key === "Escape") { e.preventDefault(); return tourEnd(); }
+  if (e.target.matches?.("input")) return;
+  if (!T.mode) return;
+  if (e.key === "ArrowRight" && T.i < T.steps.length) tourGo(T.i + 1);
+  if (e.key === "ArrowLeft" && T.i > 0) tourGo(T.i - 1);
+  if (e.key === "Tab") {
+    const f = [...$("tourCard").querySelectorAll("button, input")].filter((x) => !x.disabled);
+    const first = f[0], last = f.at(-1);
+    if (e.shiftKey && (document.activeElement === first || document.activeElement.id === "tourTitle")) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
+window.addEventListener("resize", () => { if (T) tourRender(); });
+window.addEventListener("scroll", tourPlace, { passive: true });
+$("tourStart").addEventListener("click", (e) => tourStart(e.currentTarget));
+$("nudgeStart").addEventListener("click", () => tourStart($("tourStart")));
+$("nudgeNo").addEventListener("click", () => { $("nudge").hidden = true; });
+</script>
+</body>
+</html>

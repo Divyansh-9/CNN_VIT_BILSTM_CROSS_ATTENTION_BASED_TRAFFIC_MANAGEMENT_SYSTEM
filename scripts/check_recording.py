@@ -41,6 +41,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 # A15: T=60 steps x 5 s = 295 s of history, plus the 60 s prediction horizon.
 MIN_CLIP_S = 355
 # Measured on BMD-45, the viewpoint the detector demonstrably works on.

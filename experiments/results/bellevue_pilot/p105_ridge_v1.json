@@ -1,0 +1,35 @@
+{
+  "name": "P105 ridge v1 (change forecaster)",
+  "protocol": "PREREGISTRATION_P105.md",
+  "target": "next 60 s mean minus last 60 s mean, one lane",
+  "features": [
+    "mean30-mean60",
+    "mean15-mean30",
+    "mean5-mean15",
+    "last-mean30",
+    "slope60"
+  ],
+  "model": "Ridge(alpha=1.0, fit_intercept=False), unstandardised",
+  "coef": [
+    -1.0303370351025767,
+    0.06105835677541491,
+    0.12009093127608447,
+    0.27595716079625005,
+    -3.6330753808678087
+  ],
+  "intercept": 0.0,
+  "trained_on": {
+    "lane_windows": 8985,
+    "sources_counts_sha256": {
+      "data\\corpus_p99": "71a3680419e92a17f8886eef2b2cd3f2412d2689aa0310c2ff1dd7e0382dde17",
+      "data\\corpus_p103\\150th_Eastgate": "4e3b070b7aaacbe6d74e747e691affc19855a89bf2d58091be05ad6aa02c1cf2",
+      "data\\corpus_p103\\150th_Newport": "e00e46214d5df0c6807f6ec7b6f1c5c205c01819c3e3c9032899e088cbbb05b0",
+      "data\\corpus_p103\\150th_SE38th": "ce9325bbf6be7555d0bd0ba11b0cd693ed24c9ae4c19529b9db0c66ab39f9493"
+    }
+  },
+  "sklearn": "1.9.0",
+  "checks": {
+    "shift_by_7_changes_prediction_by": 8.604228440844963e-16,
+    "scale_by_3_error": 8.326672684688674e-16
+  }
+}

@@ -35,27 +35,27 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 
 def clip_frames(path: Path, indices: list[int], stride: int, size: int):
-    """Read the sampled frames of one clip as a normalised tensor batch."""
-    import cv2
-    import numpy as np
+    """Read the sampled frames of one clip as a normalised tensor batch.
+
+    The per-frame transform is `mfstnet.preprocess.preprocess_frame`, shared
+    with the edge node so a deployed model sees exactly the input it trained
+    on (P88).
+    """
     import torch
 
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+    from mfstnet.corpus.video import iter_sampled_frames
+    from mfstnet.preprocess import preprocess_frame
 
-    capture = cv2.VideoCapture(str(path))
-    frames = []
-    for index in indices:
-        capture.set(cv2.CAP_PROP_POS_FRAMES, index * stride)
-        ok, frame = capture.read()
-        if not ok:
-            break
-        frame = cv2.resize(frame, (size, size), interpolation=cv2.INTER_AREA)
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-        frames.append(torch.from_numpy(((rgb - mean) / std).transpose(2, 0, 1)))
-    capture.release()
+    # P51: decoded forward rather than seeked to, which returns byte-identical
+    # frames and skips the keyframe walk a seek pays for on every sample.
+    frames = [preprocess_frame(frame, size)
+              for frame in iter_sampled_frames(path, stride, limit=len(indices))]
     return torch.stack(frames) if frames else None
 
 
@@ -68,7 +68,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-id", default="corpus")
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--limit", type=int, help="first N clips, for a smoke run")
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--device", default="auto",
+        help="auto|cpu|cuda. Defaulted to cpu until P32, which meant the "
+             "backbones ran on the CPU unless someone remembered the flag — "
+             "and forgetting it cost hours without looking like an error")
     args = parser.parse_args(argv)
 
     import torch
@@ -92,8 +96,34 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {len(clips)} clip(s), step {step_s}s, image {spec.image_size}px")
     print(f"  cnn {spec.cnn}  vit {spec.vit}  dtype {spec.dtype}")
 
-    cnn_branch = CNNBranch(encoder).to(args.device).eval()
-    vit_branch = ViTBranch(encoder).to(args.device).eval()
+    from scripts.device import resolve_device
+
+    device = resolve_device(args.device)
+    print(f"  device {device}")
+
+    # TF32 OFF for the cache, deliberately (P33).
+    #
+    # `torch.backends.cudnn.allow_tf32` defaults to True, giving convolutions a
+    # 10-bit mantissa. Measured on this ResNet-50 + DINOv2 pair, that puts the
+    # GPU's features up to 3.8e-2 away from the CPU's — far above the fp16 the
+    # cache stores them in, so a CPU-built and a GPU-built cache are genuinely
+    # different data. `preprocessing_hash` does not include the device, so they
+    # look interchangeable and can be mixed clip by clip: the model would then
+    # see a device artifact correlated with the clip, and clips are what the
+    # splits are cut on.
+    #
+    # With TF32 off the gap is 6.5e-5, below fp16 storage precision, and the
+    # cache is device-independent as ADR-005 assumes. It costs 4% on a one-time
+    # build (163 ms -> 170 ms per 32-frame batch), which is not a trade worth
+    # thinking about twice.
+    #
+    # Training is free to use TF32; it is written once and read many times, and
+    # this is the "written once" half.
+    if device.startswith("cuda"):
+        torch.backends.cudnn.allow_tf32 = False
+        torch.backends.cuda.matmul.allow_tf32 = False
+    cnn_branch = CNNBranch(encoder).to(device).eval()
+    vit_branch = ViTBranch(encoder).to(device).eval()
 
     sources = {p.stem: p for p in args.clips.rglob("*.mp4")}
     missing = [c for c in clips if c not in sources]
@@ -130,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         cnn_maps, vit_maps = [], []
         with torch.no_grad():
             for start in range(0, len(images), args.batch):
-                chunk = images[start:start + args.batch].to(args.device)
+                chunk = images[start:start + args.batch].to(device)
                 cnn_maps.append(cnn_branch(chunk).to(torch.float16).cpu())
                 vit_maps.append(vit_branch(chunk).to(torch.float16).cpu())
         cnn = torch.cat(cnn_maps)

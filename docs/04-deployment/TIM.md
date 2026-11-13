@@ -1,0 +1,506 @@
+# Transition and Implementation Manual (TIM)
+
+| | |
+|---|---|
+| **Wave** | 4 (ADR-004) |
+| **Status** | **Draft for review**, 2026-10-22. Not approved |
+| **Describes** | Installing the prototype from the repository at commit `21c8708` (D7) |
+| **Validated by** | A script that followed it literally in a fresh clone of `d2db1c3` (code identical to `21c8708`), against an authenticated amqtt broker, 2026-10-22 (§12.1). §4's install commands were not rerun in that validation. **Not yet followed by a person on a machine that has never run the project**, which is what [the deployment README](README.md) asks for |
+| **Authority** | The [PRD](../00-planning/PRD.md) and the ADRs. Where this manual and the code disagree, the code is the fact and this manual is the defect |
+| **Audience** | A team member installing the prototype on a Windows laptop |
+
+> **This installs a research prototype. It is not a deployment to a real
+> intersection.**
+> - **Nothing here connects to signal hardware.** The server's command endpoint
+>   proposes phases with a placeholder rule, and no forecast feeds signal
+>   timing (ADR-027, P97a).
+> - **The edge's local cycle is a fixed 30 s alternation that drives no
+>   output.** It is FR-A06's fallback behaviour, logged and nothing more.
+> - **Four prerequisites are not in the repository** (§1). Until they are
+>   resolved, a teammate cannot complete this installation from the repository
+>   alone.
+
+---
+
+## 1. Four prerequisites the repository does not provide
+
+| # | Prerequisite | State at `21c8708` | Owner |
+|---|---|---|---|
+| 1 | **Detector weights**, `models/external/best_xl_ITD_v1.2.pt` | Not distributed: `models/` is gitignored. The only copy is the project owner's private backup (S66). Third-party weights, **licence unresolved**: do not publish or redistribute them | Project owner |
+| 2 | **Camera configuration**: a reviewed lane file and calibrated thresholds for the target camera | No committed lane file belongs to a camera in the persistence spec. **No committed command calibrates a new camera into the spec**: `scripts/persistence_freeze.py` regenerates the frozen spec for its four known cameras only | Team |
+| 3 | **An authenticated deployment broker** | Both clients authenticate (D6). With `STMS_MQTT_CA_FILE` set, they also use TLS, with verification mandatory (D10). Both behaviours were verified against **Mosquitto 2.1.2 in a test configuration** (§7.3). **No deployment broker configuration or certificate is committed**, and without a CA file the link is plain TCP | Team |
+| 4 | **The environment**: Python 3.12 and disk space | `py -3.12` needs a Python 3.12 install. About 9 GB free: pip's cache took 3.1 GB and the environment 6.0 GB (measured) | Each machine |
+
+§5, §6 and §7 say what to do about 1, 2 and 3 today, and what is not possible
+yet.
+
+---
+
+## 2. What gets installed, and where
+
+```
+ laptop (ADR-003)                                            same laptop, or a second one
+ ┌──────────────────────────────┐   MQTT 1883   ┌────────┐   MQTT   ┌───────────────────────────┐
+ │ python -m edge.run           │──────────────▶│ broker │─────────▶│ python -m server.mqtt_ingest │
+ │  video file or camera (RTSP) │  credentials  └────────┘          │        │ store (SQLite)   │
+ │  detector → counts →         │  from env                         │ uvicorn server.app:app    │
+ │  persistence + ridge         │                                   │  HTTP :8000 ──▶ dashboard │
+ └──────────────────────────────┘                                   └───────────────────────────┘
+ frames stay here (NFR-13)                                           read-only, GET only
+```
+
+| Component | Installed from | Runs as |
+|---|---|---|
+| Python environment | `requirements.txt` (§4) | `.venv` in the clone |
+| Edge program | the repository | `python -m edge.run` (§9) |
+| MQTT broker | **not in `requirements.txt`** (§7) | its own process |
+| Server and ingest | the repository | two processes (§8) |
+| Dashboard | `dashboard/`, built with Node (§10) | static files served by the server |
+
+**Not committed, despite older text that says so:** a Docker Compose file
+(D4). Nothing in this manual uses Docker.
+
+---
+
+## 3. Machine requirements
+
+| Item | Requirement | Tested with |
+|---|---|---|
+| Operating system | Windows 11 | Windows 11 Home 10.0.26200 |
+| Python | **3.12**, the version CI runs (D4) | 3.12.10; 3.14.4 also passed |
+| Git | any recent version | git with Git LFS 3.6.1 (LFS is not needed for this manual) |
+| Node.js | for building the dashboard only (§10) | v24.15.0 |
+| Disk | **about 9 GB free**: pip's download cache and the environment | cache 3.1 GB, environment 6.0 GB (measured) |
+| GPU | optional. The detector uses the GPU when PyTorch sees one | RTX 4050 Laptop, 6 GB. **CPU-only was measured** (D11): whole-step p95 1,119 ms against 84 ms on the GPU. It keeps up with the 2 s sampling interval in that measurement only; see §15 for what is not established |
+| Free ports | 1883 (broker), 8000 (server) | |
+
+---
+
+## 4. Get the code and the Python environment
+
+```powershell
+git clone <repository URL> stms
+cd stms
+git checkout 21c8708                  # the commit this manual describes
+
+python scripts/check_env.py           # stdlib only: runs before anything is installed
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install torch==2.13.0+cu126 torchvision==0.28.0+cu126 --index-url https://download.pytorch.org/whl/cu126
+pip install -r requirements.txt
+python scripts/check_env.py           # expect "No blockers"
+python scripts/check_sim_versions.py  # expect "simulation stack matches requirements.txt"
+```
+
+- **`py -3.12` fails?** Python 3.12 is not installed. Install it from
+  python.org; it coexists with other versions. `py -0` lists what is installed.
+- **Short of disk on the system drive?** Before the two `pip install`
+  commands, point pip's cache and temporary files at a drive with room:
+
+  ```powershell
+  $env:PIP_CACHE_DIR = "D:\pip-cache"; $env:TMP = "D:\tmp"; $env:TEMP = "D:\tmp"
+  ```
+
+- **Use the `cu126` index.** `cu121` and `cu124` carry no torch at any
+  version, and the failure looks like a network problem (P32).
+- **Two expected warnings from `check_env.py`:** 6 GB of VRAM is too small
+  for *uncached* MFSTNet training (irrelevant here), and Shapely is not
+  installed (nothing imports it).
+
+---
+
+## 5. Detector weights (prerequisite 1)
+
+The edge counts with `best_xl_ITD_v1.2.pt`. Its path, with the confidence
+threshold (0.45) and input size (992), is read from the `counting` block of
+`indiatrafficnet/class_mapping.yaml` (D5).
+
+1. **Obtain the file.** Today the only copy is the project owner's private
+   backup (`trained_weight.zip`, S66). Ask the owner. **Do not publish,
+   upload or redistribute it**: it is third-party, and its licence is
+   unresolved.
+2. **Place it** at `models\external\best_xl_ITD_v1.2.pt`.
+3. **Verify it** against the committed manifest. The two hashes must be
+   identical:
+
+   ```powershell
+   (Get-FileHash models\external\best_xl_ITD_v1.2.pt -Algorithm SHA256).Hash.ToLower()
+   Select-String "best_xl_ITD_v1.2.pt" experiments\results\model_artifacts.sha256
+   ```
+
+   Expected: `06006ecb5fe52a348ceed805bf0aa6b32af7e24e689d09a6582f6d53159d6b00`.
+
+`python scripts/backup_models.py check` is **not** the right tool for one
+file. It checks all 301 artifacts the manifest lists, and reports the other
+300 as gone from disk.
+
+---
+
+## 6. Camera configuration (prerequisite 2)
+
+The edge needs three things that belong to one camera:
+
+| Item | Where it comes from | Checked at start-up |
+|---|---|---|
+| **Lane file** | `docs/demo/place_lanes.html` to place the lane centres by hand, then `python scripts/import_lane_centres.py` (Execution Manual §2.3). A corpus manifest built from that camera also works | It must say `"reviewed": true`, or be a corpus manifest. Automatic centres are never used (P23) |
+| **Approach mapping** | Which lane is N, S, E or W, from looking at the camera | Every lane mapped once, to a distinct approach |
+| **Thresholds** | The camera's key in `experiments/results/bellevue_pilot/persistence_v1.json` | The key must exist, and its lane count must equal the lane file's |
+
+**What is not possible today:**
+- **No committed lane file belongs to a camera in the spec.**
+- **No committed command adds a new camera's thresholds.** The spec is frozen
+  (its hash is the model id), and `scripts/persistence_freeze.py` rebuilds it
+  for its four known cameras only. A new camera needs a calibration hour
+  (ADR-017) and a new, reviewed freeze.
+
+**For an installation check only,** the committed 4-lane
+`data/corpus/manifest.json` with `--camera 150th_Eastgate` (also 4 lanes)
+starts the program. It is not that camera's geometry, so its forecasts mean
+nothing.
+
+---
+
+## 7. The MQTT broker (prerequisite 3)
+
+### 7.1 Credentials
+
+Both clients read the same two environment variables (D6). Set them in the
+shell that starts each program, never on its command line:
+
+```powershell
+$env:STMS_MQTT_USERNAME = "edge-ne8th"
+$env:STMS_MQTT_PASSWORD = "..."     # from wherever the team keeps secrets; never in git
+```
+
+- **Both or neither.** One without the other stops the program at start-up
+  with an error that names the missing variable and quotes no value.
+- **Neither** means an anonymous connection. Each program warns that only a
+  development broker should accept it.
+- **Use one user per program**, for example `edge-ne8th` and `stms-ingest`, so
+  one can be revoked without the other.
+
+### 7.2 The tested broker: amqtt (development and verification)
+
+This is the broker D6 verified authentication against. It is **not** a
+project dependency: install it in a separate environment, so its
+dependencies never meet the project's.
+
+```powershell
+py -3.13 -m venv C:\stms-broker
+C:\stms-broker\Scripts\pip install amqtt==0.12.1      # brings pwdlib for Argon2 hashes
+```
+
+`broker.yaml`, with anonymous access off:
+
+```yaml
+listeners:
+  default:
+    type: tcp
+    bind: 127.0.0.1:1883
+plugins:
+  amqtt.plugins.authentication.AnonymousAuthPlugin:
+    allow_anonymous: false
+  amqtt.plugins.authentication.FileAuthPlugin:
+    password_file: C:/stms-broker/passwords
+```
+
+`passwords` holds one `username:hash` line per user. Make each hash with the
+broker's own hasher (amqtt requires `pwdlib[argon2]`, so it is already
+installed). The password is typed at a prompt that does not echo it. **The
+prompt is interactive**: on Windows it reads the keyboard directly, so it
+cannot be scripted or piped:
+
+```powershell
+C:\stms-broker\Scripts\python -c "import getpass; from pwdlib.hashers.argon2 import Argon2Hasher; print(Argon2Hasher().hash(getpass.getpass()))"
+C:\stms-broker\Scripts\amqtt -c broker.yaml
+```
+
+Keep `passwords` out of the repository.
+
+### 7.3 Mosquitto (verified in a test configuration)
+
+PRD §17 names Mosquitto. **Mosquitto 2.1.2 has been tested with this code**
+(D10, `tests/test_mosquitto_live.py`), in the test configuration below and
+nothing else.
+- **No deployment configuration is committed.** That means no certificates,
+  password file or service set-up.
+- **The installer is not Authenticode-signed.** The Mosquitto project does
+  not sign its Windows installers. The copy used was checked against two
+  independent hash records (the setup notes, outside the repository).
+- **The test broker runs only in the foreground.** It was never installed as
+  a Windows service.
+
+**TEST CONFIGURATION**, not a deployment configuration:
+
+```
+listener 8883 127.0.0.1
+allow_anonymous false
+password_file D:/path/to/passwd
+certfile D:/path/to/server.crt
+keyfile D:/path/to/server.key
+tls_version tlsv1.2
+persistence false
+log_dest file D:/path/to/mosquitto.log
+```
+
+Create the password file without putting a password on a command line: write
+`user:password` lines into it, then run `mosquitto_passwd -U <file>` to hash
+it in place. Without `certfile` and `keyfile`, the same listener is plain TCP.
+
+**What was verified, for both the edge and the ingest:**
+- **Authentication:** the right credentials are accepted. Anonymous, a wrong
+  password and an unknown user are refused with the broker's reason code.
+- **Restart:** the edge reconnects after a broker restart.
+- **TLS:**
+  - with the right CA, a prediction reaches the server's store;
+  - a wrong CA, an untrusted self-signed certificate and a hostname mismatch
+    all fail;
+  - plain TCP to the TLS listener fails.
+- **Secrets:** no password, private-key path or key content appears in a log.
+
+### 7.4 MQTT over TLS (D10)
+
+- **Turn it on** by setting `STMS_MQTT_CA_FILE` to the CA certificate (PEM)
+  that signed the broker's certificate. Set it for both the edge and the
+  ingest, and point them at the broker's TLS port (8883 by convention) with
+  `--broker-port` and `--port`.
+- **Verification is mandatory.** The broker must present a certificate from
+  that CA whose name matches the host the client connects to. Use the name in
+  the certificate's subjectAltName. TLS 1.2 or later is required, and no
+  setting turns verification off.
+- **A CA file that cannot be used stops the program** with
+  `STMS_MQTT_CA_FILE does not name a readable PEM CA certificate; refusing to
+  connect without TLS`. It never falls back to plain TCP.
+- **With the variable unset**, both programs warn
+  `STMS_MQTT_CA_FILE not set; connecting over plain TCP, without TLS`. Keep
+  such a broker on `127.0.0.1` or a trusted LAN.
+- **A certificate that fails verification looks like an unreachable broker.**
+  The edge logs `not reachable over TLS (or its certificate failed
+  verification)`; the ingest exits with the same.
+- **Keep certificates and keys out of git.** The tests make throwaway ones
+  (`scripts/tls_material.py`). A deployment needs certificates from a CA the
+  team controls, which is not part of this repository.
+- **This covers MQTT only.** The HTTP API is still plain HTTP (§8).
+
+---
+
+## 8. Server and ingest
+
+Start both **from the repository root**: the store is `data\server\stms.sqlite`,
+a path relative to the working directory.
+
+```powershell
+$env:STMS_API_TOKEN = "..."                                  # the write token (below); never in git
+python -m uvicorn server.app:app --port 8000                 # HTTP; 127.0.0.1 by default
+$env:STMS_MQTT_USERNAME = "stms-ingest"; $env:STMS_MQTT_PASSWORD = "..."
+python -m server.mqtt_ingest --host 127.0.0.1 --port 1883     # a second terminal
+```
+
+| You see | Meaning |
+|---|---|
+| `subscribed to stms/+/congestion/prediction and stms/+/count/forecast on 127.0.0.1:1883` | The ingest is connected to both forecast topics (D7) |
+| `the broker at … refused the connection: Not authorized` (exit code 1) | Wrong, missing or unknown credentials |
+| `STMS_MQTT_USERNAME is set but STMS_MQTT_PASSWORD is not; …` (exit code 1) | Half a credential. Unlike the edge, the ingest exits with code 1 and no `error:` prefix |
+| `could not subscribe at …` (exit code 1) | No broker on that host and port |
+
+**Writes need a bearer token; reads do not** (NFR-12 as amended, A37; D9).
+
+- **Set `STMS_API_TOKEN`** in the server's environment before starting it.
+  Every `POST` (`/observation`, `/prediction/{id}`, `/count_forecast/{id}`)
+  must carry `Authorization: Bearer <token>`.
+- **Anything else is refused** with 401 `a valid bearer token is required to
+  write`. The refusal does not say what was wrong and does not repeat what was
+  sent. An unauthenticated request is refused before its body is validated.
+- **Unset or empty, the server refuses every write.** It logs
+  `STMS_API_TOKEN is not set; every POST will be refused until it is (D9)`.
+  No setting turns the check off.
+- **The repository's HTTP clients read the same variable:**
+  `scripts/benchmark_live.py` and `scripts/verify_edge.py`. The MQTT path is
+  separate: the ingest stores forecasts directly, and its broker credentials
+  are §7's.
+- **Reads stay open.** Every `GET`, and the dashboard, answer without a token,
+  so anyone who can reach the server can read stored observations and
+  forecasts.
+- **The token crosses plain HTTP.** Keep uvicorn on `127.0.0.1`, its default,
+  and do not pass `--host 0.0.0.0`.
+- **Rotation:** set a new `STMS_API_TOKEN`, then restart the server and every
+  HTTP client. Writes are refused between the two restarts.
+
+---
+
+## 9. The edge program
+
+```powershell
+$env:STMS_MQTT_USERNAME = "edge-ne8th"; $env:STMS_MQTT_PASSWORD = "..."
+python -m edge.run --source clip.mp4 --lanes lanes.json --approaches lane_0=W lane_1=N lane_2=E `
+    --camera NE8th --intersection-id ne8th --broker-host 127.0.0.1 --broker-port 1883
+```
+
+| Argument | Meaning |
+|---|---|
+| `--source` | A video file, or `camera`, which reads the stream URL from `STMS_CAMERA_URL`. Set the URL in the environment, never on the command line |
+| `--lanes` | The reviewed lane file, or a corpus manifest (§6) |
+| `--approaches` | Every lane once, each to a distinct `N`, `S`, `E` or `W` |
+| `--camera` | The camera's key in the persistence spec |
+| `--intersection-id` | 1 to 32 characters from `A-Z a-z 0-9 _ -` (P142) |
+| `--broker-host`, `--broker-port` | Default `127.0.0.1`, `1883` |
+| `--weights`, `--conf`, `--imgsz` | Default to the `counting` block of `class_mapping.yaml` (D5). Changing them invalidates the thresholds |
+| `--persistence-spec`, `--ridge-spec` | Default to the frozen specs in `experiments/results/bellevue_pilot/` |
+| `--samples N` | Stop after N samples of 2 s |
+| `--realtime` | Pace a video file at one sample per 2 s, as a camera would |
+
+Anything invalid stops the program at start-up with exit code 2 and one
+`error:` line. That covers a bad argument, a missing file, an unreviewed lane
+file, mismatched thresholds, half a broker credential, `--source camera`
+without `STMS_CAMERA_URL`, and a `counting` block missing a setting.
+
+---
+
+## 10. The dashboard
+
+```powershell
+cd dashboard
+npm install            # exact versions are pinned in package.json
+npm run build          # writes dashboard\dist, which the server serves at /dashboard
+cd ..
+```
+
+**Restart the server after the first build.** It mounts `/dashboard` only if
+`dashboard\dist` exists when it starts. Then open
+`http://127.0.0.1:8000/dashboard/?id=<intersection id>`.
+
+The dashboard is read-only (GET only) and has no login.
+
+---
+
+## 11. Start-up order
+
+1. The broker (§7).
+2. The server, then the ingest (§8). **The ingest exits** if the broker is
+   missing or refuses it, so the broker comes first.
+3. The edge (§9). The edge **does not exit** without a broker: it warns, and
+   FR-A06's local cycle takes over 10 s after the last acknowledged publish.
+4. The dashboard (§10).
+
+The SOP covers daily operation, shutdown and recovery.
+
+---
+
+## 12. Installation check
+
+Run it after every installation. Each line separates **started** from
+**delivered**.
+
+| # | Check | Expected |
+|---|---|---|
+| 1 | `python scripts/check_env.py`; `python scripts/check_sim_versions.py` | "No blockers"; "simulation stack matches requirements.txt" |
+| 2 | The weights hash (§5) | Equal to the manifest's |
+| 3 | `python -m edge.run --help` | Exit 0 |
+| 4 | `GET http://127.0.0.1:8000/health` | `{"status": "ok", "limits": …}` |
+| 4a | `POST /observation` with no `Authorization` header | 401, `a valid bearer token is required to write` (D9) |
+| 5 | **NFR-11, refused:** start the ingest with **no** credentials set | Exit code 1: `the broker at … refused the connection: Not authorized` |
+| 6 | **NFR-11, accepted:** start the ingest with its credentials | `subscribed to …` in its terminal |
+| 7 | Start the edge (§9) on a test video with `--realtime` | Log: `source: …`, no `error:`. This shows it **started**, nothing more |
+| 8 | After 60 s: `GET /prediction/<id>/latest` | 200, with `"stale": false`. This is **delivery** of a class forecast. Measured: 63.1 s after the edge started (at `d2db1c3`) |
+| 9 | After 120 s: `GET /count_forecast/<id>/latest` | 200. The count forecast needs a 2-minute window. Measured: 123.1 s |
+| 10 | The dashboard at `/dashboard/?id=<id>` | Both panels populated |
+
+For a check without a real camera, use the §6 installation fixture and any
+licensed test video. **The forecasts from it are not evidence of anything.**
+
+### 12.1 How this manual was validated (2026-10-22)
+
+**Revision validated: `d2db1c3`**, whose code is identical to `21c8708` (D7).
+A script followed §4 to §12 literally in a fresh clone of it on 2026-10-22.
+It used:
+- the amqtt broker of §7.2, with anonymous access off and random passwords;
+- a synthetic test video;
+- the §6 installation fixture.
+
+**§4's install commands were not rerun in this validation.** The clone's
+environment was installed by those commands at the D4 clean-environment check.
+That `requirements.txt` is unchanged since is supporting context, not a
+substitute for a fresh install.
+
+An earlier run at `0e86119`, before D7, saw the old message wording, and this
+run supersedes it. The script and its outputs are held with the review
+evidence, outside the repository.
+
+| Result | Steps |
+|---|---|
+| **Passed at `d2db1c3`** | §4 pre-flight checks (`check_env.py`, `check_sim_versions.py`); §5 hash commands (equal to the manifest); §10 `npm install` and `npm run build`, then `/dashboard/` 200; §8 server, `/health` 200; §12 checks 1–10. **Refusals:** an anonymous ingest (`Not authorized`, exit code 1), half a credential at the ingest (exit code 1) and at the edge (exit code 2), and a wrong edge password (logged, local cycle). **Delivery:** first class forecast at 63.1 s, first count forecast at 123.1 s. **D7 wording:** the recovery line reads exactly `link restored: publishes are acknowledged again`, the old wording appears nowhere, and the ingest's start-up line names both topics, visible in a redirected log. **SOP §5:** the broker stopped and restarted, with the timings in the SOP's table. **Hygiene:** the only new file was the server's store, and no password appeared in any log |
+| **Carried over, not rerun** | §4's install commands (`py -3.12 -m venv`, the torch command, `pip install -r requirements.txt`): last run at the D4 clean-environment check |
+| **Corrected after the run** | The disk requirement (§1, §3); the ingest's exit codes and messages (§8); that the hash prompt is interactive (§7.2) |
+| **Not established** | §7.2's interactive hash prompt, which cannot be scripted (the same hasher was fed from standard input instead); §7.3 Mosquitto; a camera stream; a first-time installation by a person; CPU-only operation (measured separately since; D11, §15) |
+
+---
+
+## 13. Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `py -3.12` not found | No Python 3.12 installed | Install it from python.org (§4) |
+| `No matching distribution found for torch` | Wrong index | Use the `cu126` command exactly (§4) |
+| pip fails with a full disk | pip's cache is on a full drive | Redirect `PIP_CACHE_DIR`, `TMP`, `TEMP` (§4) |
+| `check_sim_versions.py` reports a mismatch | A SUMO package drifted, for example `sumo-data` (D4) | `pip install -r requirements.txt` again |
+| Weights hash differs | Wrong or damaged file | Get the file again from the owner (§5) |
+| `error: --lanes …: … not a reviewed lane file` | Unreviewed automatic centres | Place and import them (§6) |
+| `error: --camera … has no thresholds` / `was calibrated on N lanes` | No calibration for this camera, or the wrong lane file | §6; there is no committed command for a new camera |
+| `error: STMS_MQTT_USERNAME is set but STMS_MQTT_PASSWORD is not` (or the reverse) | Half a credential | Set both, or neither for a development broker |
+| `broker … refused the connection (Not authorized)` (edge) | Wrong or unknown credentials | Check the user exists in the broker's password file |
+| `broker … not reachable` (edge) | No broker on that host and port | Start the broker; the edge connects when it appears |
+| `401 a valid bearer token is required to write` | No token sent, a wrong token, or `STMS_API_TOKEN` unset at the server | Set the same `STMS_API_TOKEN` for the server and the client, then restart both (§8) |
+| `STMS_MQTT_CA_FILE does not name a readable PEM CA certificate; …` | The CA file is missing, unreadable or not a certificate | Point it at the CA certificate (PEM) that signed the broker's certificate (§7.4) |
+| `not reachable over TLS (or its certificate failed verification)` | The broker is down, or its certificate is from another CA, self-signed, or for another host name | Check the broker; connect by the name in its certificate; check the CA file (§7.4) |
+| `404 no prediction for this intersection yet` | Fewer than 30 samples delivered, or a different id | Wait 60 s; check `--intersection-id` |
+| `"stale": true` | Nothing delivered for longer than the forecast horizon (60 s) | See the SOP, broker disconnection |
+| `/dashboard` 404 | The server started before `dashboard\dist` existed | Restart the server (§10) |
+
+---
+
+## 14. Removal and rollback
+
+- **Rollback:** `git checkout <previous commit>` and
+  `pip install -r requirements.txt`. Keep a copy of `data\server\stms.sqlite`
+  before switching; whether an older commit reads a newer store has not been
+  checked.
+- **Removal:** delete the clone (with `.venv` and `data\server`), the broker
+  environment and its password file. Nothing is installed system-wide except
+  Python, Node and, if used, Mosquitto.
+
+---
+
+## 15. What this manual has not established
+
+- **Real-intersection operation.** No camera stream at deployment resolution
+  has been qualified (S65). No signal hardware is connected.
+- **A deployment broker.** Mosquitto 2.1.2 was verified only in a test
+  configuration (§7.3). No deployment broker configuration, certificates or key
+  handling are committed, and HTTP has no TLS (prerequisite 3).
+- **CPU-only operation beyond one short measurement.** CPU-only was measured
+  (D11, 2026-10-23) on the RTX 4050 laptop with the GPU hidden. That is a
+  proxy host (ADR-003), not deployment hardware.
+  - **What was measured:**
+    - 60 samples of the NE8th recording at the 2 s step;
+    - forecasts sent to an in-memory stand-in for publishing, not to a live
+      camera or broker;
+    - 34 forecasts published, the same as on the GPU.
+  - **Results:**
+    - whole-step p95 **1,119 ms** on CPU, against **84 ms** on the GPU;
+    - the slowest sample took **1,145 ms**, leaving about **855 ms** before
+      the next 2 s sample.
+  - **What this is not:** it does **not** meet the pre-registered
+    p95 ≤ 1,000 ms step target. That target applies to the MFSTNet path, and
+    is quoted only for comparison.
+  - **Not established:**
+    - multi-hour thermal stability;
+    - CPU contention with other processes;
+    - other hardware;
+    - live-camera performance at deployment resolution (S65).
+- **A first-time installation by someone else.** The deployment README asks
+  for this manual to be validated on a machine that has never run the
+  project. That has not been done.
+
+**Sources:** the SAD and HLD (`docs/02-design/`); Execution Manual §0.3, §0.7
+and §5.3; PRD-CHANGELOG D3 to D6.

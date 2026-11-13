@@ -1,0 +1,6 @@
+stream,codec,resolution,stream_fps,decoder,decode_fps,decode_error,decode_x_realtime,samples,samples_expected,predictions,lag_first_s,lag_last_s,lag_growth_s,interval_p50_s,interval_p95_s,step_ms_p95,passed
+av1_4k_original,av1,3840x2160,29.97,software,41.3,,1.38,150,150,91,3.2,39.4,36.2,2.657,3.001,508.4,False
+av1_4k_original,av1,3840x2160,29.97,nvdec,106.5,,3.55,150,150,91,3.31,2.07,-1.24,2.004,2.165,495.6,True
+h264_4k,h264,3840x2160,29.97,software,293.8,,9.8,150,150,91,3.75,1.8,-1.95,1.999,2.118,471.3,True
+h264_4k,h264,3840x2160,29.97,nvdec,274.1,,9.15,150,150,91,3.68,2.3,-1.39,2.018,2.221,517.4,True
+h264_1080p,h264,1920x1080,29.97,software,824.4,,27.51,150,150,91,3.28,1.72,-1.56,1.995,2.099,412.5,True

@@ -30,6 +30,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 # COCO index -> our class name, for the four that genuinely correspond.
 COCO_TO_OURS = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 NO_COCO_EQUIVALENT = ("auto_rickshaw", "e_rickshaw", "cattle")

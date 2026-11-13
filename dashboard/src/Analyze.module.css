@@ -1,0 +1,65 @@
+/* D34: a recording beside its results. A cell's colour is the forecast level,
+   and its value is also in the table and the cell's title. */
+.intro { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; margin-bottom: 12px; }
+.intro h2 { font-size: 20px; }
+.intro p { margin: 0; }
+.layout { display: grid; grid-template-columns: 270px minmax(0, 1.1fr) minmax(330px, 1fr); gap: 12px; align-items: start; margin-bottom: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.card h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.wide { grid-column: 2 / -1; }
+.withAssistant { grid-template-columns: 340px minmax(0, 1.1fr) minmax(320px, 1fr); }
+.drop { position: relative; display: grid; gap: 2px; border: 1px dashed var(--frame-class); border-radius: 7px; padding: 10px 12px; cursor: pointer; overflow-wrap: anywhere; transition: border-color .15s; }
+.drop:hover, .drop:focus-within { border-color: var(--brand); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.small { color: var(--muted); font-size: 13px; font-weight: 400; margin: 0; }
+.muted { color: var(--muted); font-weight: 400; }
+.mono { font-family: var(--mono); }
+.absent { color: var(--muted); font-style: italic; font-size: 13px; margin: 0; }
+.note { margin: 0; font-size: 13px; border-left: 3px solid var(--frame-count); padding-left: 10px; }
+.notice { margin: 0; font-size: 13px; }
+.differs { color: var(--ink); font-family: var(--sans); font-size: 12px; }
+.how { font-size: 13px; color: var(--muted); }
+.how summary { cursor: pointer; color: var(--ink); }
+.how p { margin: 6px 0; }
+.how code { display: block; font: 12px var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; overflow-wrap: anywhere; }
+.limits ul { margin: 4px 0 0; padding-left: 17px; font-size: 13px; color: var(--muted); }
+.stage { position: relative; width: 100%; background: var(--road); border-radius: 6px; overflow: hidden; display: grid; place-items: center; }
+.stage video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; }
+.noPicture { margin: 0; color: var(--muted); padding: 12px; text-align: center; }
+.tag { position: absolute; left: 8px; top: 8px; background: var(--bg); border: 1px solid var(--ink); border-radius: 4px; padding: 1px 7px; font-size: 12px; font-weight: 600; pointer-events: none; }
+.boxes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.boxes rect { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.pin { position: absolute; transform: translate(-50%, -50%); padding: 2px 8px; background: var(--bg); border: 1.5px solid var(--ink); border-radius: 13px; font: 12px var(--mono); white-space: nowrap; pointer-events: none; }
+.transport { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font-size: 13px; }
+.transport button { background: transparent; color: var(--ink); border: 1px solid var(--frame-count); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+.transport button:disabled { color: var(--muted); cursor: not-allowed; }
+.transport input { width: 100%; accent-color: var(--brand); }
+.toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-size: 13px; }
+.toggles label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+.scroll { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table thead th { color: var(--muted); font-size: 12px; font-weight: 500; text-align: left; vertical-align: bottom; padding: 3px 8px 5px 0; }
+.table tbody th, .table td { text-align: left; padding: 6px 8px 6px 0; border-top: 1px solid var(--line); white-space: nowrap; }
+.timeline { display: grid; gap: 2px; cursor: pointer; }
+.timelineRow { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: center; font: 13px var(--mono); }
+.timelineCells { position: relative; display: grid; grid-template-columns: repeat(48, minmax(0, 1fr)); gap: 1px; }
+.timelineCells::after { content: ""; position: absolute; left: var(--played); top: -2px; bottom: -2px; width: 2px; background: var(--ink); pointer-events: none; }
+.timelineCells i { display: block; height: 16px; border-radius: 1px; }
+.LOW { background: var(--low); }
+.MEDIUM { background: var(--medium); }
+.HIGH { background: var(--high); }
+.waiting { border: 1px dashed var(--line); }
+.axis { display: flex; align-items: center; gap: 8px; margin: 4px 0 0 34px; color: var(--muted); font-size: 12px; }
+.axis i { flex: 1; height: 1px; background: var(--frame-count); }
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .wide { grid-column: auto; }
+}
+/* D35: small enough to leave the picture readable, and off by default. */
+.classLabel { position: absolute; transform: translateY(-100%); padding: 0 4px; background: var(--bg); border: 1px solid var(--line); font: 11px var(--mono); color: var(--ink); white-space: nowrap; pointer-events: none; }
+/* D41: placing a new camera's lanes on the picture. */
+.placing { cursor: crosshair; outline: 2px solid var(--brand); outline-offset: 2px; }
+.reach { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 3; }
+.placeHint { position: absolute; right: 8px; bottom: 8px; background: var(--bg); border: 1px solid var(--brand); border-radius: 4px; padding: 2px 8px; font-size: 12px; pointer-events: none; }
+/* D42: a declared camera's lanes, shown before analysing so a wrong camera is visible. */
+.previewPin { border-style: dashed; border-color: var(--brand); }

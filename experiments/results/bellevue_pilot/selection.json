@@ -1,0 +1,12 @@
+{
+  "config": "G",
+  "seed": 21,
+  "val_macro_f1": 0.8704,
+  "rule": "experiments/results/bellevue_pilot/PREREGISTRATION.md",
+  "columns_read": [
+    "config",
+    "seed",
+    "val_macro_f1",
+    "epochs_run"
+  ]
+}

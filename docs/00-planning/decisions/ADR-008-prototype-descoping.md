@@ -90,3 +90,19 @@ a viva.
 **Keep four pages, cut the backend instead.** Rejected — the backend carries FR-A01–A06, which
 includes the fallback behaviour that is genuinely interesting. Cutting evidence and safety to keep
 UI polish inverts the priorities.
+
+## Implementation note (2026-10-22, A37, D9)
+
+The shared password is implemented as a **bearer token on HTTP writes**
+(`STMS_API_TOKEN`), not as a dashboard login.
+- **Why writes, not the dashboard.** The dashboard only reads, and the write
+  endpoints are where an unauthenticated caller could reach the control path.
+  That keeps this ADR's stated intent, "unauthenticated users cannot control
+  signals".
+- **Reads stay open**, so anyone who can reach the server can read stored
+  observations and forecasts.
+- **The server stays on 127.0.0.1**, because the token crosses plain HTTP.
+- **NFR-12's text was amended to match** (A37).
+
+The MQTT broker's authentication is separate, and unchanged by this note
+(NFR-11, D6).

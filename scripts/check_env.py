@@ -15,6 +15,19 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+
+# P50, applied inline rather than by importing scripts.console: these three run
+# BEFORE the environment is built (check_env) or in CI with nothing on the path,
+# so they must stay stdlib-only and self-contained. A status board full of
+# check marks is unprintable on a cp1252 console without this, and the script
+# dies describing work it just verified.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if _reconfigure is not None:
+        try:
+            _reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
 from pathlib import Path
 
 # torch 2.3.1 publishes wheels for CPython 3.8-3.12 only.
@@ -68,8 +81,30 @@ def check_torch() -> None:
     except ImportError:
         report(WARN, "PyTorch", "not installed yet (expected before setup)")
         return
+    except OSError as error:
+        # The failure this pre-flight most needs to name, and the one it used to
+        # let escape as a raw traceback. A torch whose DLLs fail to initialise is
+        # *installed*, so the import raises `OSError: [WinError 1114]` and never
+        # `ImportError` — most often a Visual C++ runtime that does not match the
+        # wheel. Reporting it as a named blocker is the difference between a
+        # pre-flight that failed and a pre-flight that crashed.
+        report(FAIL, "PyTorch", f"installed but will not load -- {error}")
+        report(
+            WARN,
+            "PyTorch",
+            "WinError 1114 is usually the Visual C++ runtime: install "
+            "Microsoft.VCRedist.2015+.x64 and reboot before reinstalling torch. "
+            "Every torch-importing test collects as an ERROR until it loads, and "
+            "collection errors are not test failures",
+        )
+        return
 
-    report(OK, "PyTorch", torch.__version__)
+    # The BUILD matters as much as the version. `2.13.0+cpu` reads as a healthy
+    # PyTorch and cannot use a GPU that is sitting right there, and reporting it
+    # OK is how it went unnoticed for weeks (P32).
+    build = "+" + torch.__version__.split("+")[1] if "+" in torch.__version__ else ""
+    report(OK if build != "+cpu" else WARN, "PyTorch",
+           torch.__version__ + ("  -- CPU-only build" if build == "+cpu" else ""))
     if torch.cuda.is_available():
         name = torch.cuda.get_device_name(0)
         vram = torch.cuda.get_device_properties(0).total_memory / 1024**3
@@ -88,8 +123,13 @@ def check_torch() -> None:
         report(
             WARN,
             "CUDA",
-            "unavailable -- CPU-only torch wheel? Reinstall from "
-            "--index-url https://download.pytorch.org/whl/cu121",
+            "unavailable -- CPU-only torch wheel? Reinstall the SAME version "
+            "from the CUDA index: pip install --no-cache-dir "
+            f"torch=={torch.__version__.split('+')[0]}+cu126 "
+            "--index-url https://download.pytorch.org/whl/cu126 "
+            "(cu121 and cu124 no longer carry torch at any version, so the "
+            "old instruction resolved to the CPU wheel silently; cu128 stops "
+            "at 2.11.0)",
         )
 
 
@@ -108,6 +148,12 @@ def check_packages() -> None:
             report(OK, label, getattr(m, "__version__", "installed"))
         except ImportError:
             report(WARN, label, "not installed")
+        except OSError as error:
+            # Same case as `check_torch`: installed, imports, fails to load its
+            # own libraries. Ultralytics and ONNX Runtime both reach this by
+            # importing torch, so a broken torch would otherwise take the
+            # pre-flight down three checks after it already reported the cause.
+            report(FAIL, label, f"installed but will not load -- {error}")
 
 
 def check_git_lfs() -> None:

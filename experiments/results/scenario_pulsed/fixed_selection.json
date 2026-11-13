@@ -1,0 +1,95 @@
+{
+  "protocol": "PREREGISTRATION_P123_fixed.md",
+  "regime": "pulsed",
+  "seeds": [
+    400,
+    401,
+    402,
+    403,
+    404,
+    405,
+    406,
+    407,
+    408,
+    409,
+    410,
+    411,
+    412,
+    413,
+    414,
+    415,
+    416,
+    417,
+    418,
+    419
+  ],
+  "duration_s": 1800,
+  "lateral_resolution": 0.8,
+  "rule": "lowest mean_total_delay_s among configurations with clamp rate <= 50% and arrived fraction >= 85%",
+  "selected": {
+    "green_s": 30,
+    "seeds": 20,
+    "mean_total_delay_s": 44.8796,
+    "mean_wait_s": 28.0756,
+    "arrived_fraction": 0.9437,
+    "starvation_events": 0.0,
+    "throughput": 1366.0
+  },
+  "rejected": [],
+  "summary": [
+    {
+      "green_s": 10,
+      "seeds": 20,
+      "mean_total_delay_s": 58.1006,
+      "mean_wait_s": 32.8379,
+      "arrived_fraction": 0.9346,
+      "starvation_events": 0.0,
+      "throughput": 1356.15
+    },
+    {
+      "green_s": 15,
+      "seeds": 20,
+      "mean_total_delay_s": 76.5726,
+      "mean_wait_s": 27.332,
+      "arrived_fraction": 0.9165,
+      "starvation_events": 0.0,
+      "throughput": 1305.3
+    },
+    {
+      "green_s": 20,
+      "seeds": 20,
+      "mean_total_delay_s": 46.3732,
+      "mean_wait_s": 28.1415,
+      "arrived_fraction": 0.9421,
+      "starvation_events": 0.0,
+      "throughput": 1368.6
+    },
+    {
+      "green_s": 30,
+      "seeds": 20,
+      "mean_total_delay_s": 44.8796,
+      "mean_wait_s": 28.0756,
+      "arrived_fraction": 0.9437,
+      "starvation_events": 0.0,
+      "throughput": 1366.0
+    },
+    {
+      "green_s": 45,
+      "seeds": 20,
+      "mean_total_delay_s": 46.1078,
+      "mean_wait_s": 30.613,
+      "arrived_fraction": 0.9428,
+      "starvation_events": 0.0,
+      "throughput": 1366.15
+    },
+    {
+      "green_s": 60,
+      "seeds": 20,
+      "mean_total_delay_s": 50.7683,
+      "mean_wait_s": 34.2515,
+      "arrived_fraction": 0.941,
+      "starvation_events": 0.0,
+      "throughput": 1362.3
+    }
+  ]
+}

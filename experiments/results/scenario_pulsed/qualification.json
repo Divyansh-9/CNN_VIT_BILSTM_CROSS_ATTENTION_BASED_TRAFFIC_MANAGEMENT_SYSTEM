@@ -1,0 +1,260 @@
+{
+  "protocol": "PREREGISTRATION_P115.md",
+  "attempt": 1,
+  "frozen_hash": "8267da50f659",
+  "seeds": [
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215,
+    216,
+    217,
+    218,
+    219
+  ],
+  "frozen_policy": "models\\ppo\\ppo_no-forecast_saturated_keep_or_switch_seed42.zip",
+  "frozen_policy_sha256": "a7f06ba8c21085155bda998e23163846b7432762048b4ad9343a748339e20985",
+  "thresholds": {
+    "Q1": 0.2,
+    "Q2": 0.1,
+    "Q3": 0.1,
+    "Q5_tolerance": 0.05,
+    "Q5_range": 0.15,
+    "Q6": 0.85
+  },
+  "metrics": {
+    "Q1_oracle_differs_from_persistence": 0.3137,
+    "Q2_oracle_class_share": {
+      "LOW": 0.2292,
+      "MEDIUM": 0.3797,
+      "HIGH": 0.3911
+    },
+    "Q3_state_classifier_disagrees": 0.4822,
+    "Q4a_deterministic_seeds": "20/20",
+    "Q4b_demand_aligned_seeds": "20/20",
+    "Q5_grid": {
+      "0.0": {
+        "skill": 0.0,
+        "accuracy": 0.6863,
+        "macro_f1_3class": 0.6755
+      },
+      "0.25": {
+        "skill": 0.25,
+        "accuracy": 0.7648,
+        "macro_f1_3class": 0.7575
+      },
+      "0.5": {
+        "skill": 0.5198,
+        "accuracy": 0.8494,
+        "macro_f1_3class": 0.8439
+      },
+      "0.75": {
+        "skill": 0.7107,
+        "accuracy": 0.9092,
+        "macro_f1_3class": 0.9045
+      },
+      "1.0": {
+        "skill": 1.0,
+        "accuracy": 1.0,
+        "macro_f1_3class": 1.0
+      }
+    },
+    "Q6_mean_arrived_fraction": 0.938,
+    "reported_arrived_fraction_fixed30": 0.9552,
+    "reported_transitions": {
+      "LOW->LOW": 2573,
+      "LOW->MEDIUM": 1829,
+      "MEDIUM->MEDIUM": 4000,
+      "MEDIUM->LOW": 1482,
+      "MEDIUM->HIGH": 1231,
+      "LOW->HIGH": 79,
+      "HIGH->HIGH": 5663,
+      "HIGH->MEDIUM": 940,
+      "HIGH->LOW": 31
+    },
+    "rows": 17828
+  },
+  "checks": {
+    "Q1": true,
+    "Q2": true,
+    "Q3": true,
+    "Q4": true,
+    "Q5": true,
+    "Q6": true
+  },
+  "passed": true,
+  "per_seed": {
+    "200": {
+      "decisions": 230,
+      "rows": 888,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9179,
+      "arrived_fraction_fixed30": 0.9531
+    },
+    "201": {
+      "decisions": 232,
+      "rows": 900,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9596,
+      "arrived_fraction_fixed30": 0.9739
+    },
+    "202": {
+      "decisions": 237,
+      "rows": 916,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9239,
+      "arrived_fraction_fixed30": 0.9413
+    },
+    "203": {
+      "decisions": 227,
+      "rows": 876,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9231,
+      "arrived_fraction_fixed30": 0.954
+    },
+    "204": {
+      "decisions": 227,
+      "rows": 876,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9352,
+      "arrived_fraction_fixed30": 0.9796
+    },
+    "205": {
+      "decisions": 236,
+      "rows": 912,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9592,
+      "arrived_fraction_fixed30": 0.9622
+    },
+    "206": {
+      "decisions": 226,
+      "rows": 876,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9373,
+      "arrived_fraction_fixed30": 0.9541
+    },
+    "207": {
+      "decisions": 227,
+      "rows": 880,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.931,
+      "arrived_fraction_fixed30": 0.9413
+    },
+    "208": {
+      "decisions": 227,
+      "rows": 880,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9155,
+      "arrived_fraction_fixed30": 0.9304
+    },
+    "209": {
+      "decisions": 227,
+      "rows": 880,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9104,
+      "arrived_fraction_fixed30": 0.9227
+    },
+    "210": {
+      "decisions": 227,
+      "rows": 876,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9643,
+      "arrived_fraction_fixed30": 0.9635
+    },
+    "211": {
+      "decisions": 239,
+      "rows": 928,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9341,
+      "arrived_fraction_fixed30": 0.9378
+    },
+    "212": {
+      "decisions": 227,
+      "rows": 876,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9587,
+      "arrived_fraction_fixed30": 0.9704
+    },
+    "213": {
+      "decisions": 227,
+      "rows": 876,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.945,
+      "arrived_fraction_fixed30": 0.9497
+    },
+    "214": {
+      "decisions": 228,
+      "rows": 880,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9169,
+      "arrived_fraction_fixed30": 0.9478
+    },
+    "215": {
+      "decisions": 235,
+      "rows": 908,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9381,
+      "arrived_fraction_fixed30": 0.9739
+    },
+    "216": {
+      "decisions": 228,
+      "rows": 880,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9299,
+      "arrived_fraction_fixed30": 0.9663
+    },
+    "217": {
+      "decisions": 236,
+      "rows": 916,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9598,
+      "arrived_fraction_fixed30": 0.9582
+    },
+    "218": {
+      "decisions": 228,
+      "rows": 884,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9397,
+      "arrived_fraction_fixed30": 0.9598
+    },
+    "219": {
+      "decisions": 237,
+      "rows": 920,
+      "deterministic": true,
+      "demand_aligned": true,
+      "arrived_fraction": 0.9608,
+      "arrived_fraction_fixed30": 0.9648
+    }
+  }
+}

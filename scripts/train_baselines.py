@@ -37,6 +37,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 CLASSES = ("LOW", "MEDIUM", "HIGH")
 RESULTS = Path("experiments/results/baselines_mfstnet.csv")
 
@@ -71,13 +75,111 @@ def windows(sequences, series, manifest):
     return features, targets, splits
 
 
+SUMMARY = Path("experiments/results/baselines_summary.csv")
+
+
+def summarise(directory: Path, out: Path) -> list[dict]:
+    """Aggregate per-fold, per-seed baseline CSVs into one reportable table.
+
+    Owned by the script that produces the rows, so the aggregate cannot drift
+    from them (NFR-09/10). Mirrors `run_loco.py --restat`.
+
+    **Seed spread is reported beside the mean**, because P54 established that
+    on this corpus a one-seed number ranks initialisations — and P75 recorded
+    that these very baselines were first run at one seed, one document after
+    that standard was written down.
+
+    Naive and XGBoost do not train stochastically, so their spread is exactly
+    0.000 and that is the check that the seeding reaches the model rather than
+    only the filename.
+    """
+    import re
+    import statistics
+
+    per = {}
+    for path in sorted(directory.glob("fold*_seed*.csv")):
+        match = re.search(r"fold(\d+)_seed(\d+)", path.name)
+        if not match:
+            continue
+        fold, seed = match.group(1), match.group(2)
+        with path.open(encoding="utf-8", newline="") as handle:
+            for row in csv.DictReader(handle):
+                per.setdefault(row["model"], {}).setdefault(fold, []).append(
+                    (seed, float(row["macro_f1"]), float(row["accuracy"]),
+                     float(row["qwk"])))
+    if not per:
+        raise SystemExit(
+            f"no baseline CSVs under {directory}. Run train_baselines.py per "
+            f"fold and seed first — an aggregate over nothing is a table that "
+            f"looks like a result."
+        )
+
+    summary = []
+    for model, by_fold in sorted(per.items()):
+        flat = [r[1] for runs in by_fold.values() for r in runs]
+        spreads = [max(r[1] for r in runs) - min(r[1] for r in runs)
+                   for runs in by_fold.values() if len(runs) > 1]
+        summary.append({
+            "model": model,
+            "n_folds": len(by_fold),
+            "n_seeds": max(len(runs) for runs in by_fold.values()),
+            "macro_f1_mean": round(statistics.fmean(flat), 4),
+            "macro_f1_seed_spread": (round(statistics.fmean(spreads), 4)
+                                     if spreads else ""),
+            "accuracy_mean": round(statistics.fmean(
+                r[2] for runs in by_fold.values() for r in runs), 4),
+            "qwk_mean": round(statistics.fmean(
+                r[3] for runs in by_fold.values() for r in runs), 4),
+            "macro_f1_per_fold": " ".join(
+                f"{fold}:{statistics.fmean(r[1] for r in runs):.4f}"
+                for fold, runs in sorted(by_fold.items())),
+        })
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(summary[0]))
+        writer.writeheader()
+        writer.writerows(summary)
+    return summary
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--corpus", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--out", type=Path, default=RESULTS)
+    parser.add_argument("--restat", type=Path, metavar="DIR",
+                        help="aggregate per-fold, per-seed CSVs in DIR into "
+                             "experiments/results/baselines_summary.csv and "
+                             "exit, retraining nothing")
+    parser.add_argument("--summary", type=Path, default=SUMMARY)
     args = parser.parse_args(argv)
+
+    if args.restat:
+        summary = summarise(args.restat, args.summary)
+        print("  {:<20}{:>7}{:>7}{:>10}{:>13}".format(
+            "count model", "folds", "seeds", "macroF1", "seed spread"))
+        for entry in sorted(summary, key=lambda e: -e["macro_f1_mean"]):
+            print("  {:<20}{:>7}{:>7}{:>10.4f}{:>13}".format(
+                entry["model"], entry["n_folds"], entry["n_seeds"],
+                entry["macro_f1_mean"], entry["macro_f1_seed_spread"]))
+        best = max(summary, key=lambda e: e["macro_f1_mean"])
+        naive = next((e for e in summary if "naive" in e["model"]), None)
+        if naive is not None and best["model"] != naive["model"]:
+            lead = best["macro_f1_mean"] - naive["macro_f1_mean"]
+            spread = best["macro_f1_seed_spread"] or 0
+            print()
+            print(f"  {best['model']} leads naive last-value by {lead:.4f}, "
+                  f"against its own seed spread of {spread}.")
+            if spread and lead < spread:
+                print("  The best learned model's margin over doing nothing is "
+                      "smaller than the")
+                print("  noise from re-running it. Report that, not the "
+                      "ordering (PRD §2.5.5).")
+        print()
+        print(f"  wrote {args.summary}")
+        return 0
 
     import torch
 
@@ -189,6 +291,9 @@ def main(argv: list[str] | None = None) -> int:
         writer = csv.DictWriter(handle, fieldnames=list(out_rows[0]))
         writer.writeheader()
         writer.writerows(out_rows)
+    from experiments.provenance import write_sidecar
+
+    write_sidecar(args.out, corpus=str(args.corpus))
     print("\n  wrote " + str(args.out))
     if auto:
         print("  A32: these models observe the variable the label is computed")

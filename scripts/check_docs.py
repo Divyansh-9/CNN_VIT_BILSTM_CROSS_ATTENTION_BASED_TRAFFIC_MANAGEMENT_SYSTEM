@@ -17,6 +17,19 @@ from __future__ import annotations
 
 import re
 import sys
+
+# P50, applied inline rather than by importing scripts.console: these three run
+# BEFORE the environment is built (check_env) or in CI with nothing on the path,
+# so they must stay stdlib-only and self-contained. A status board full of
+# check marks is unprintable on a cp1252 console without this, and the script
+# dies describing work it just verified.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if _reconfigure is not None:
+        try:
+            _reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -124,11 +137,178 @@ def check_adrs_registered() -> None:
             failures.append(f"unregistered ADR  {adr.name} absent from DOCUMENT-REGISTER.md")
 
 
+# Where each requirement family is DEFINED. Not one place, and CLAUDE.md said
+# it was: NFR-14 to NFR-16 are introduced by NFR.md itself, which states as
+# much, because they are constraints the PRD implies without ever writing down
+# as verifiable requirements. A rule that does not match the repository is
+# worse than no rule -- it invites a defect report against the documents.
+DEFINITIONS = {
+    "BR": ["docs/00-planning/BRD.md", "docs/01-requirements/BRS.md"],
+    "FR": ["docs/00-planning/PRD.md", "docs/01-requirements/SRS.md"],
+    "NFR": ["docs/00-planning/PRD.md", "docs/01-requirements/NFR.md"],
+}
+RTM_PATH = "docs/01-requirements/RTM.md"
+REQUIREMENT = re.compile(r"\b((?:BR|NFR|FR)-[A-Z]?[0-9]{2})\b")
+
+
+def defined_requirements() -> dict:
+    """Every requirement id that some definition document actually declares."""
+    found = {}
+    for family, sources in DEFINITIONS.items():
+        ids = set()
+        for relative in sources:
+            path = ROOT / relative
+            if path.exists():
+                ids |= {i for i in REQUIREMENT.findall(
+                    path.read_text(encoding="utf-8", errors="replace"))
+                    if i.startswith(family + "-")}
+        found[family] = ids
+    return found
+
+
+def check_requirements_traceable(files: list[Path]) -> None:
+    """Two directions, both of which have gone wrong in this repository.
+
+    **Cited but undefined** is the one that bites a reader: a document leans on
+    `NFR-16` and there is nowhere to look it up. It is also how a requirement
+    gets invented in prose and then treated as governing.
+
+    **Defined but absent from the RTM** is the one that bites the project: the
+    RTM is the join table (BR -> FR/NFR -> DES -> TC -> M) and a requirement
+    missing from it has no traceable test or milestone. It is a graded
+    deliverable, and it went 12 days without an update while 15 ADRs landed.
+    """
+    defined = defined_requirements()
+    every = set().union(*defined.values())
+    if not every:
+        failures.append("no requirement ids found in any definition document")
+        return
+
+    cited = {}
+    for path in files:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for identifier in REQUIREMENT.findall(text):
+            cited.setdefault(identifier, set()).add(
+                path.relative_to(ROOT).as_posix())
+
+    for identifier in sorted(set(cited) - every):
+        where = sorted(cited[identifier])[:2]
+        failures.append(
+            f"undefined requirement  {identifier} is cited in "
+            f"{', '.join(where)} but no definition document declares it")
+
+    rtm = ROOT / RTM_PATH
+    if not rtm.exists():
+        failures.append(f"missing  {RTM_PATH}")
+        return
+    traced = set(REQUIREMENT.findall(
+        rtm.read_text(encoding="utf-8", errors="replace")))
+    for identifier in sorted(every - traced):
+        failures.append(
+            f"untraced requirement  {identifier} is defined but absent from "
+            f"{RTM_PATH}, so it has no test or milestone behind it")
+
+
+AMENDS = re.compile(r"(?:Amends|Supersedes|Replaces).*PRD.*" + chr(167))
+
+
+def check_amendments_land(files: list[Path]) -> None:
+    """An ADR that amends a PRD section must be reachable FROM that section.
+
+    CLAUDE.md's rule is "amend the PRD and log it in PRD-CHANGELOG -- never work
+    around a PRD statement you believe is incorrect." The changelog half is easy
+    to remember because it is where the work happens. The PRD half is easy to
+    skip, and skipping it leaves the source of truth stating something two
+    decisions have since replaced.
+
+    That happened twice in one day: ADR-019 amended the split ratio and ADR-020
+    the state layout, and the PRD mentioned neither. A reader of PRD 8.4 had no
+    way to learn that leave-one-camera-out exists.
+
+    The check is deliberately weak -- it asks only that the ADR's identifier
+    appear somewhere in the PRD, not that the prose be correct. A stronger check
+    would need to understand the amendment, and a check nobody can satisfy is a
+    check that gets deleted.
+    """
+    prd = ROOT / "docs" / "00-planning" / "PRD.md"
+    if not prd.exists():
+        failures.append("missing  docs/00-planning/PRD.md")
+        return
+    text = prd.read_text(encoding="utf-8", errors="replace")
+    adr_dir = ROOT / "docs" / "00-planning" / "decisions"
+    for adr in sorted(adr_dir.glob("ADR-*.md")):
+        head = adr.read_text(encoding="utf-8", errors="replace").split(chr(10))[:12]
+        if not any(AMENDS.search(line) for line in head):
+            continue
+        identifier = adr.name[:7]
+        if identifier not in text:
+            failures.append(
+                f"unlanded amendment  {adr.name} says it amends a PRD section, "
+                f"but the PRD never mentions {identifier} -- a reader of that "
+                f"section cannot learn the amendment exists")
+
+
+D_HEADING = re.compile(r"^## D(\d+)(?:[–-]D(\d+))? — ", re.M)
+
+
+def d_entry_problems(text: str) -> list[str]:
+    """Every D entry from D1 to the newest has exactly one heading (D45).
+
+    Two defects went out unnoticed because nothing checked this. A script that
+    added D43 replaced D42's heading instead of inserting above it, and a split
+    commit later shipped D40-D44's code without their five entries. A combined
+    heading such as "D1–D2" covers both numbers."""
+    seen: dict[int, int] = {}
+    for match in D_HEADING.finditer(text):
+        first = int(match[1])
+        last = int(match[2]) if match[2] else first
+        for n in range(first, last + 1):
+            seen[n] = seen.get(n, 0) + 1
+    if not seen:
+        return []
+    problems = [f"changelog  D{n} has no heading" for n in range(1, max(seen) + 1) if n not in seen]
+    problems += [f"changelog  D{n} has {k} headings" for n, k in sorted(seen.items()) if k > 1]
+    return problems
+
+
+CLAUDE_D_RANGE = re.compile(r"\(D1–D(\d+)\)")
+
+
+def d_range_problem(changelog: str, claude: str) -> str | None:
+    """CLAUDE.md states the D range; the changelog's newest entry must match it.
+    A changelog that simply stops early is consistent with itself, which is how
+    D40-D44's entries went missing unnoticed (D45)."""
+    stated = CLAUDE_D_RANGE.search(claude)
+    numbers = [int(m[2] or m[1]) for m in D_HEADING.finditer(changelog)]
+    if not stated or not numbers:
+        return None
+    if int(stated[1]) != max(numbers):
+        return (f"changelog  CLAUDE.md says D1–D{stated[1]}, but the changelog's newest D entry "
+                f"is D{max(numbers)}")
+    return None
+
+
+def check_changelog_entries() -> None:
+    log = ROOT / "docs" / "00-planning" / "PRD-CHANGELOG.md"
+    if not log.exists():
+        return
+    text = log.read_text(encoding="utf-8", errors="replace")
+    failures.extend(d_entry_problems(text))
+    claude = ROOT / "CLAUDE.md"
+    if claude.exists():
+        problem = d_range_problem(text, claude.read_text(encoding="utf-8", errors="replace"))
+        if problem:
+            failures.append(problem)
+
+
 def main() -> int:
     files = markdown_files()
     check_links(files)
     check_withdrawn(files)
     check_adrs_registered()
+    check_requirements_traceable(files)
+    check_amendments_land(files)
+    check_changelog_entries()
 
     print(f"checked {len(files)} markdown files")
     if failures:
@@ -136,7 +316,9 @@ def main() -> int:
         for f in failures:
             print(f"  {f}")
         return 1
-    print("links resolve, no withdrawn claims resurrected, all ADRs registered")
+    print("links resolve, no withdrawn claims resurrected, all ADRs "
+          "registered, every requirement defined and traced, "
+          "every PRD amendment reachable from the PRD, every D entry headed once")
     return 0
 
 

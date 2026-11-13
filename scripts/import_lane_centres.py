@@ -19,6 +19,10 @@ below are the ones that matter:
   arbitrarily; the assignment would be disjoint and meaningless.
 * **Every camera accounted for.** A camera silently missing from the JSON is a
   camera silently dropped from the corpus.
+* **The same lane count on every camera.** The per-lane head is built once at a
+  fixed width, so one corpus cannot mix a two-lane camera with a four-lane one
+  (P26). Reported here, where the fix is a few clicks, rather than at the end
+  of a corpus build.
 """
 
 from __future__ import annotations
@@ -30,6 +34,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
 
 MIN_SEPARATION = 0.05
 
@@ -43,6 +51,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=Path("data/lanes_reviewed"))
     parser.add_argument("--max-radius", type=float, default=0.25)
     parser.add_argument("--min-separation", type=float, default=MIN_SEPARATION)
+    parser.add_argument("--reviewer", default="",
+                        help="who placed these centres, recorded verbatim in "
+                             "each file. `reviewed: true` asserts a reviewer "
+                             "existed; this says which one, so a placement "
+                             "nobody on the team made cannot read as one "
+                             "somebody did.")
     args = parser.parse_args(argv)
 
     from mfstnet.corpus.lanes import LaneCentres
@@ -60,6 +74,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     written, problems = 0, []
+    counts: dict[str, int] = {}
     print(f"  {len(placed)} camera(s) in {args.json.name}\n")
     print("  {:<48}{:>7}{:>12}".format("clip", "lanes", "separation"))
 
@@ -96,16 +111,36 @@ def main(argv: list[str] | None = None) -> int:
             "clip": clip,
             "surveyed_from": spec.get("surveyed_from", ""),
             "reviewed": True,
+            "reviewer": args.reviewer or "unrecorded",
             "max_radius": resolved.max_radius,
             "lanes": [{"name": n, "centre": list(c)}
                       for n, c in zip(resolved.names, resolved.centres)],
-            "note": ("Placed by hand over a detection-density heatmap. P23: "
+            "note": ("Placed against the camera's own preview render. P23: "
                      "automatic centres moved 0.164 of frame width when the "
                      "detector changed, so they are not used unreviewed. "
                      "P17: these belong to THIS camera only."),
         }, indent=2), encoding="utf-8")
         written += 1
+        counts[clip] = len(centres)
         print("  {:<48}{:>7}{:>12.3f}".format(clip[:46], len(centres), closest))
+
+    # P26. Positions are per camera by design; the COUNT cannot be, because the
+    # head is one fixed width. Warn rather than refuse: a partial import is
+    # still useful, and build_corpus is the gate that actually blocks.
+    if counts and len(set(counts.values())) > 1:
+        tally: dict[int, list[str]] = {}
+        for clip, n in counts.items():
+            tally.setdefault(n, []).append(clip)
+        print()
+        print("  LANE COUNTS DISAGREE — a corpus cannot mix them:")
+        for n in sorted(tally, reverse=True):
+            print(f"    {n} lanes: {len(tally[n])} camera(s)")
+            for clip in sorted(tally[n])[:3]:
+                print(f"      {clip[:64]}")
+            if len(tally[n]) > 3:
+                print(f"      ... and {len(tally[n]) - 3} more")
+        print("  build_corpus.py will refuse this. Place the same number on "
+              "each camera.")
 
     missing = sorted(set(surveyed) - {e.get("clip") for e in placed})
     if missing:

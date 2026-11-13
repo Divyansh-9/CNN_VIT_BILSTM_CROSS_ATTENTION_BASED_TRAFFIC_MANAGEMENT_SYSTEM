@@ -1,0 +1,101 @@
+{
+ "source": "Bellevue traffic-video Drive folders (listed 2026-10-16)",
+ "files": [
+  {
+   "camera": "116th_NE12th",
+   "role": "calibration",
+   "name": "Bellevue_116th_NE12th__2017-09-10_19-08-25.mp4",
+   "drive_id": "1TeDzDnHVIrAX0lEv2qPcQUO_7Xy2fFgM"
+  },
+  {
+   "camera": "116th_NE12th",
+   "role": "test",
+   "name": "Bellevue_116th_NE12th__2017-09-11_07-08-32.mp4",
+   "drive_id": "11iEaThdLlOHeIrO53eZUtlyNPu0Irg3X"
+  },
+  {
+   "camera": "116th_NE12th",
+   "role": "test",
+   "name": "Bellevue_116th_NE12th__2017-09-11_12-08-33.mp4",
+   "drive_id": "1c3lvwz7FfTnTEVyLaopPg6NjpJ2pAn7Q"
+  },
+  {
+   "camera": "116th_NE12th",
+   "role": "test",
+   "name": "Bellevue_116th_NE12th__2017-09-11_16-08-37.mp4",
+   "drive_id": "1QFcCPPBHSXVXUzkSHrNaF7dZJvF3UhR8"
+  },
+  {
+   "camera": "150th_Eastgate",
+   "role": "calibration",
+   "name": "Bellevue_150th_Eastgate__2017-09-10_19-08-25.mp4",
+   "drive_id": "1-eLCFmQ43fk-kb78uPPPzbnAStKQ_-gw"
+  },
+  {
+   "camera": "150th_Eastgate",
+   "role": "test",
+   "name": "Bellevue_150th_Eastgate__2017-09-11_07-08-31.mp4",
+   "drive_id": "1H4zezXl3hvgTOjv8Iy9NvRb6gYw3jkuw"
+  },
+  {
+   "camera": "150th_Eastgate",
+   "role": "test",
+   "name": "Bellevue_150th_Eastgate__2017-09-11_12-08-32.mp4",
+   "drive_id": "1wzl-2eyXYCl7DC9lSjM8gOt_3uNDlMc0"
+  },
+  {
+   "camera": "150th_Eastgate",
+   "role": "test",
+   "name": "Bellevue_150th_Eastgate__2017-09-11_16-08-33.mp4",
+   "drive_id": "1JOvH6o2z-fArr5pl3DE7euZeIeQncSUV"
+  },
+  {
+   "camera": "150th_Newport",
+   "role": "calibration",
+   "name": "Bellevue_150th_Newport__2017-09-10_19-08-24.mp4",
+   "drive_id": "1GqDcwnBAjCkXJPVz35PFz-a3o4d63kGx"
+  },
+  {
+   "camera": "150th_Newport",
+   "role": "test",
+   "name": "Bellevue_150th_Newport__2017-09-11_07-08-31.mp4",
+   "drive_id": "1JDtlXuDlsIZdNYYefyTdhAChdXMy-vcZ"
+  },
+  {
+   "camera": "150th_Newport",
+   "role": "test",
+   "name": "Bellevue_150th_Newport__2017-09-11_12-08-32.mp4",
+   "drive_id": "1VO8ybwTwwwvEIT6oYKo-h93xiEZf7T9L"
+  },
+  {
+   "camera": "150th_Newport",
+   "role": "test",
+   "name": "Bellevue_150th_Newport__2017-09-11_16-08-32.mp4",
+   "drive_id": "1saClvMNGNZlszHDuNpPsVPs8gHdgCTAd"
+  },
+  {
+   "camera": "150th_SE38th",
+   "role": "calibration",
+   "name": "Bellevue_150th_SE38th__2017-09-10_19-08-25.mp4",
+   "drive_id": "1zDBnY-yUE3Y3noEEY_Q6G2dGy_V1jSCt"
+  },
+  {
+   "camera": "150th_SE38th",
+   "role": "test",
+   "name": "Bellevue_150th_SE38th__2017-09-11_07-08-31.mp4",
+   "drive_id": "1k8hpCQM6MW0zvjD2zAF7O8qHWVx08oXe"
+  },
+  {
+   "camera": "150th_SE38th",
+   "role": "test",
+   "name": "Bellevue_150th_SE38th__2017-09-11_12-08-38.mp4",
+   "drive_id": "1WRIp8O6EE85fvecbQDBB5AhGq1pvSbk1"
+  },
+  {
+   "camera": "150th_SE38th",
+   "role": "test",
+   "name": "Bellevue_150th_SE38th__2017-09-11_16-08-35.mp4",
+   "drive_id": "1xgyemW20A6Afy5KVC6H_GpxjYTbbGe0Z"
+  }
+ ]
+}

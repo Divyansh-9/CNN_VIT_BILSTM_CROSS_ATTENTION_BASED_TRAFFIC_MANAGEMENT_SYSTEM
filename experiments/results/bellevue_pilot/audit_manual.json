@@ -1,0 +1,27 @@
+{
+ "annotator": "unrecorded",
+ "protocol": "AUDIT_PROTOCOL.md",
+ "blind": true,
+ "frames": [
+  {"sample": 30, "lane_0": 10, "lane_1": 10, "lane_2": 0, "lane_3": 17, "note": "", "counted_at": "2026-10-15T08:55:15.364Z"},
+  {"sample": 210, "lane_0": 1, "lane_1": 16, "lane_2": 2, "lane_3": 1, "note": "", "counted_at": "2026-10-15T08:57:07.572Z"},
+  {"sample": 390, "lane_0": 7, "lane_1": 1, "lane_2": 1, "lane_3": 16, "note": "", "counted_at": "2026-10-15T08:57:40.016Z"},
+  {"sample": 570, "lane_0": 8, "lane_1": 22, "lane_2": 2, "lane_3": 25, "note": "", "counted_at": "2026-10-15T08:59:28.243Z"},
+  {"sample": 750, "lane_0": 3, "lane_1": 19, "lane_2": 2, "lane_3": 3, "note": "", "counted_at": "2026-10-15T08:59:58.740Z"},
+  {"sample": 930, "lane_0": 11, "lane_1": 7, "lane_2": 3, "lane_3": 9, "note": "", "counted_at": "2026-10-15T09:00:27.814Z"},
+  {"sample": 1110, "lane_0": 12, "lane_1": 10, "lane_2": 0, "lane_3": 13, "note": "", "counted_at": "2026-10-15T09:01:03.472Z"},
+  {"sample": 1290, "lane_0": 4, "lane_1": 20, "lane_2": 2, "lane_3": 1, "note": "", "counted_at": "2026-10-15T09:01:29.308Z"},
+  {"sample": 1470, "lane_0": 11, "lane_1": 9, "lane_2": 2, "lane_3": 20, "note": "", "counted_at": "2026-10-15T09:02:09.938Z"},
+  {"sample": 1650, "lane_0": 14, "lane_1": 6, "lane_2": 0, "lane_3": 16, "note": "", "counted_at": "2026-10-15T09:03:10.277Z"},
+  {"sample": 1830, "lane_0": 8, "lane_1": 21, "lane_2": 3, "lane_3": 3, "note": "", "counted_at": "2026-10-15T09:03:44.820Z"},
+  {"sample": 2010, "lane_0": 6, "lane_1": 20, "lane_2": 1, "lane_3": 15, "note": "", "counted_at": "2026-10-15T09:04:36.056Z"},
+  {"sample": 2190, "lane_0": 6, "lane_1": 11, "lane_2": 3, "lane_3": 6, "note": "", "counted_at": "2026-10-15T09:05:50.786Z"},
+  {"sample": 2370, "lane_0": 10, "lane_1": 5, "lane_2": 1, "lane_3": 14, "note": "", "counted_at": "2026-10-15T09:06:19.116Z"},
+  {"sample": 2550, "lane_0": 4, "lane_1": 19, "lane_2": 4, "lane_3": 5, "note": "", "counted_at": "2026-10-15T09:06:55.652Z"},
+  {"sample": 2730, "lane_0": 11, "lane_1": 15, "lane_2": 1, "lane_3": 12, "note": "", "counted_at": "2026-10-15T09:07:39.842Z"},
+  {"sample": 2910, "lane_0": 10, "lane_1": 15, "lane_2": 3, "lane_3": 11, "note": "", "counted_at": "2026-10-15T09:08:17.305Z"},
+  {"sample": 3090, "lane_0": 12, "lane_1": 15, "lane_2": 1, "lane_3": 6, "note": "", "counted_at": "2026-10-15T09:08:46.278Z"},
+  {"sample": 3270, "lane_0": 10, "lane_1": 12, "lane_2": 2, "lane_3": 15, "note": "", "counted_at": "2026-10-15T09:09:21.198Z"},
+  {"sample": 3450, "lane_0": 6, "lane_1": 8, "lane_2": 3, "lane_3": 2, "note": "", "counted_at": "2026-10-15T09:09:49.108Z"}
+ ]
+}

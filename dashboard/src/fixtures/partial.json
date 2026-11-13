@@ -1,0 +1,1464 @@
+{
+  "banner": "Updates are arriving from a recording, with approaches E, W missing",
+  "clock": 1767225600.0,
+  "generated_by": "python scripts/ui_fixture.py --write-fixtures",
+  "purpose": "Arriving, with approaches missing: no level for E and W, no number for W, and lane_3 has never reported.",
+  "responses": {
+    "/count_forecast/test-fixture/history": {
+      "body": {
+        "intersection_id": "test-fixture",
+        "rows": [
+          {
+            "at": 1767225599.0,
+            "counts": {
+              "E": 6.4,
+              "N": 3.2,
+              "S": 1.1
+            },
+            "missing_approaches": [
+              "W"
+            ],
+            "model": "ridge@000000000000",
+            "role": "next_minute_count (ridge)"
+          }
+        ]
+      },
+      "status": 200
+    },
+    "/count_forecast/test-fixture/latest": {
+      "body": {
+        "age_s": 1.0,
+        "at": 1767225599.0,
+        "counts": {
+          "E": 6.4,
+          "N": 3.2,
+          "S": 1.1
+        },
+        "horizon_sec": 60,
+        "missing_approaches": [
+          "W"
+        ],
+        "model": "ridge@000000000000",
+        "note": "point estimate of each approach's mean vehicle count over the next 60 s (P105); not a congestion class, and not used for signal timing",
+        "role": "next_minute_count (ridge)",
+        "stale": false
+      },
+      "status": 200
+    },
+    "/forecast_check/test-fixture/recent": {
+      "body": {
+        "detail": "no forecast check for this intersection yet"
+      },
+      "status": 404
+    },
+    "/health": {
+      "body": {
+        "limits": {
+          "all_red_s": 3,
+          "emergency_response_s": 3,
+          "max_green_s": 90,
+          "min_green_s": 10,
+          "mqtt_timeout_s": 10
+        },
+        "status": "ok"
+      },
+      "status": 200
+    },
+    "/heartbeat/test-fixture/latest": {
+      "body": {
+        "age_s": 1.0,
+        "at": 1767225599.0,
+        "directions_verified": false,
+        "edge_status": "online",
+        "lanes": {
+          "lane_0": "N",
+          "lane_1": "S",
+          "lane_2": "E",
+          "lane_3": "W"
+        },
+        "mode": "M-NORMAL",
+        "note": "what the edge last reported about itself: its source and its lane map. Times on this page are when the server received each message, not when the footage was recorded",
+        "source": {
+          "duration_s": null,
+          "kind": "replay",
+          "label": "TEST_FIXTURE_partial",
+          "position_s": 600.0,
+          "session": "000000000001"
+        },
+        "stale": false
+      },
+      "status": 200
+    },
+    "/prediction/test-fixture/history": {
+      "body": {
+        "intersection_id": "test-fixture",
+        "rows": [
+          {
+            "at": 1767225599.0,
+            "missing_approaches": [
+              "E",
+              "W"
+            ],
+            "model": "persistence@000000000000",
+            "predictions": {
+              "N": "MEDIUM",
+              "S": "LOW"
+            },
+            "role": "congestion_class (persistence)"
+          }
+        ]
+      },
+      "status": 200
+    },
+    "/prediction/test-fixture/latest": {
+      "body": {
+        "age_s": 1.0,
+        "at": 1767225599.0,
+        "confidences": {
+          "N": 0.55,
+          "S": 0.82
+        },
+        "gate_value": null,
+        "missing_approaches": [
+          "E",
+          "W"
+        ],
+        "model": "persistence@000000000000",
+        "predictions": {
+          "N": "MEDIUM",
+          "S": "LOW"
+        },
+        "role": "congestion_class (persistence)",
+        "stale": false,
+        "state_11_14": [
+          0.6666666666666666,
+          0.3333333333333333,
+          null,
+          null
+        ]
+      },
+      "status": 200
+    },
+    "/sites": {
+      "body": {
+        "sites": [
+          {
+            "age_s": 1.0,
+            "id": "test-fixture",
+            "kind": "replay",
+            "label": "TEST_FIXTURE_partial",
+            "stale": false
+          }
+        ]
+      },
+      "status": 200
+    },
+    "/vehicle_count/test-fixture/history?window=1h": {
+      "body": {
+        "bucket_s": 60,
+        "buckets": [
+          {
+            "lanes": {},
+            "t": 1767222060
+          },
+          {
+            "lanes": {},
+            "t": 1767222120
+          },
+          {
+            "lanes": {},
+            "t": 1767222180
+          },
+          {
+            "lanes": {},
+            "t": 1767222240
+          },
+          {
+            "lanes": {},
+            "t": 1767222300
+          },
+          {
+            "lanes": {},
+            "t": 1767222360
+          },
+          {
+            "lanes": {},
+            "t": 1767222420
+          },
+          {
+            "lanes": {},
+            "t": 1767222480
+          },
+          {
+            "lanes": {},
+            "t": 1767222540
+          },
+          {
+            "lanes": {},
+            "t": 1767222600
+          },
+          {
+            "lanes": {},
+            "t": 1767222660
+          },
+          {
+            "lanes": {},
+            "t": 1767222720
+          },
+          {
+            "lanes": {},
+            "t": 1767222780
+          },
+          {
+            "lanes": {},
+            "t": 1767222840
+          },
+          {
+            "lanes": {},
+            "t": 1767222900
+          },
+          {
+            "lanes": {},
+            "t": 1767222960
+          },
+          {
+            "lanes": {},
+            "t": 1767223020
+          },
+          {
+            "lanes": {},
+            "t": 1767223080
+          },
+          {
+            "lanes": {},
+            "t": 1767223140
+          },
+          {
+            "lanes": {},
+            "t": 1767223200
+          },
+          {
+            "lanes": {},
+            "t": 1767223260
+          },
+          {
+            "lanes": {},
+            "t": 1767223320
+          },
+          {
+            "lanes": {},
+            "t": 1767223380
+          },
+          {
+            "lanes": {},
+            "t": 1767223440
+          },
+          {
+            "lanes": {},
+            "t": 1767223500
+          },
+          {
+            "lanes": {},
+            "t": 1767223560
+          },
+          {
+            "lanes": {},
+            "t": 1767223620
+          },
+          {
+            "lanes": {},
+            "t": 1767223680
+          },
+          {
+            "lanes": {},
+            "t": 1767223740
+          },
+          {
+            "lanes": {},
+            "t": 1767223800
+          },
+          {
+            "lanes": {},
+            "t": 1767223860
+          },
+          {
+            "lanes": {},
+            "t": 1767223920
+          },
+          {
+            "lanes": {},
+            "t": 1767223980
+          },
+          {
+            "lanes": {},
+            "t": 1767224040
+          },
+          {
+            "lanes": {},
+            "t": 1767224100
+          },
+          {
+            "lanes": {},
+            "t": 1767224160
+          },
+          {
+            "lanes": {},
+            "t": 1767224220
+          },
+          {
+            "lanes": {},
+            "t": 1767224280
+          },
+          {
+            "lanes": {},
+            "t": 1767224340
+          },
+          {
+            "lanes": {},
+            "t": 1767224400
+          },
+          {
+            "lanes": {},
+            "t": 1767224460
+          },
+          {
+            "lanes": {},
+            "t": 1767224520
+          },
+          {
+            "lanes": {},
+            "t": 1767224580
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 4.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 7.0,
+                "n": 1
+              }
+            },
+            "t": 1767224640
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 5.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 3.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 8.0,
+                "n": 1
+              }
+            },
+            "t": 1767224700
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 4.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 7.0,
+                "n": 1
+              }
+            },
+            "t": 1767224760
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 1.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 6.0,
+                "n": 1
+              }
+            },
+            "t": 1767224820
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 0.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 5.0,
+                "n": 1
+              }
+            },
+            "t": 1767224880
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 1.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 6.0,
+                "n": 1
+              }
+            },
+            "t": 1767224940
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 4.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 7.0,
+                "n": 1
+              }
+            },
+            "t": 1767225000
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 5.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 3.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 8.0,
+                "n": 1
+              }
+            },
+            "t": 1767225060
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 4.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 7.0,
+                "n": 1
+              }
+            },
+            "t": 1767225120
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 1.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 6.0,
+                "n": 1
+              }
+            },
+            "t": 1767225180
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 0.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 5.0,
+                "n": 1
+              }
+            },
+            "t": 1767225240
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 1.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 6.0,
+                "n": 1
+              }
+            },
+            "t": 1767225300
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 4.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 7.0,
+                "n": 1
+              }
+            },
+            "t": 1767225360
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 5.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 3.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 8.0,
+                "n": 1
+              }
+            },
+            "t": 1767225420
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 4.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 7.0,
+                "n": 1
+              }
+            },
+            "t": 1767225480
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 1.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 6.0,
+                "n": 1
+              }
+            },
+            "t": 1767225540
+          },
+          {
+            "lanes": {},
+            "t": 1767225600
+          }
+        ],
+        "end": 1767225660,
+        "intersection_id": "test-fixture",
+        "lanes": [
+          "lane_0",
+          "lane_1",
+          "lane_2"
+        ],
+        "note": "observed: the mean number of vehicles in each lane's counting region per bucket, as counted at the edge; a measurement, not a forecast. A bucket with no samples is a gap, never zero",
+        "start": 1767222060,
+        "window": "1h"
+      },
+      "status": 200
+    },
+    "/vehicle_count/test-fixture/history?window=24h": {
+      "body": {
+        "bucket_s": 900,
+        "buckets": [
+          {
+            "lanes": {},
+            "t": 1767140100
+          },
+          {
+            "lanes": {},
+            "t": 1767141000
+          },
+          {
+            "lanes": {},
+            "t": 1767141900
+          },
+          {
+            "lanes": {},
+            "t": 1767142800
+          },
+          {
+            "lanes": {},
+            "t": 1767143700
+          },
+          {
+            "lanes": {},
+            "t": 1767144600
+          },
+          {
+            "lanes": {},
+            "t": 1767145500
+          },
+          {
+            "lanes": {},
+            "t": 1767146400
+          },
+          {
+            "lanes": {},
+            "t": 1767147300
+          },
+          {
+            "lanes": {},
+            "t": 1767148200
+          },
+          {
+            "lanes": {},
+            "t": 1767149100
+          },
+          {
+            "lanes": {},
+            "t": 1767150000
+          },
+          {
+            "lanes": {},
+            "t": 1767150900
+          },
+          {
+            "lanes": {},
+            "t": 1767151800
+          },
+          {
+            "lanes": {},
+            "t": 1767152700
+          },
+          {
+            "lanes": {},
+            "t": 1767153600
+          },
+          {
+            "lanes": {},
+            "t": 1767154500
+          },
+          {
+            "lanes": {},
+            "t": 1767155400
+          },
+          {
+            "lanes": {},
+            "t": 1767156300
+          },
+          {
+            "lanes": {},
+            "t": 1767157200
+          },
+          {
+            "lanes": {},
+            "t": 1767158100
+          },
+          {
+            "lanes": {},
+            "t": 1767159000
+          },
+          {
+            "lanes": {},
+            "t": 1767159900
+          },
+          {
+            "lanes": {},
+            "t": 1767160800
+          },
+          {
+            "lanes": {},
+            "t": 1767161700
+          },
+          {
+            "lanes": {},
+            "t": 1767162600
+          },
+          {
+            "lanes": {},
+            "t": 1767163500
+          },
+          {
+            "lanes": {},
+            "t": 1767164400
+          },
+          {
+            "lanes": {},
+            "t": 1767165300
+          },
+          {
+            "lanes": {},
+            "t": 1767166200
+          },
+          {
+            "lanes": {},
+            "t": 1767167100
+          },
+          {
+            "lanes": {},
+            "t": 1767168000
+          },
+          {
+            "lanes": {},
+            "t": 1767168900
+          },
+          {
+            "lanes": {},
+            "t": 1767169800
+          },
+          {
+            "lanes": {},
+            "t": 1767170700
+          },
+          {
+            "lanes": {},
+            "t": 1767171600
+          },
+          {
+            "lanes": {},
+            "t": 1767172500
+          },
+          {
+            "lanes": {},
+            "t": 1767173400
+          },
+          {
+            "lanes": {},
+            "t": 1767174300
+          },
+          {
+            "lanes": {},
+            "t": 1767175200
+          },
+          {
+            "lanes": {},
+            "t": 1767176100
+          },
+          {
+            "lanes": {},
+            "t": 1767177000
+          },
+          {
+            "lanes": {},
+            "t": 1767177900
+          },
+          {
+            "lanes": {},
+            "t": 1767178800
+          },
+          {
+            "lanes": {},
+            "t": 1767179700
+          },
+          {
+            "lanes": {},
+            "t": 1767180600
+          },
+          {
+            "lanes": {},
+            "t": 1767181500
+          },
+          {
+            "lanes": {},
+            "t": 1767182400
+          },
+          {
+            "lanes": {},
+            "t": 1767183300
+          },
+          {
+            "lanes": {},
+            "t": 1767184200
+          },
+          {
+            "lanes": {},
+            "t": 1767185100
+          },
+          {
+            "lanes": {},
+            "t": 1767186000
+          },
+          {
+            "lanes": {},
+            "t": 1767186900
+          },
+          {
+            "lanes": {},
+            "t": 1767187800
+          },
+          {
+            "lanes": {},
+            "t": 1767188700
+          },
+          {
+            "lanes": {},
+            "t": 1767189600
+          },
+          {
+            "lanes": {},
+            "t": 1767190500
+          },
+          {
+            "lanes": {},
+            "t": 1767191400
+          },
+          {
+            "lanes": {},
+            "t": 1767192300
+          },
+          {
+            "lanes": {},
+            "t": 1767193200
+          },
+          {
+            "lanes": {},
+            "t": 1767194100
+          },
+          {
+            "lanes": {},
+            "t": 1767195000
+          },
+          {
+            "lanes": {},
+            "t": 1767195900
+          },
+          {
+            "lanes": {},
+            "t": 1767196800
+          },
+          {
+            "lanes": {},
+            "t": 1767197700
+          },
+          {
+            "lanes": {},
+            "t": 1767198600
+          },
+          {
+            "lanes": {},
+            "t": 1767199500
+          },
+          {
+            "lanes": {},
+            "t": 1767200400
+          },
+          {
+            "lanes": {},
+            "t": 1767201300
+          },
+          {
+            "lanes": {},
+            "t": 1767202200
+          },
+          {
+            "lanes": {},
+            "t": 1767203100
+          },
+          {
+            "lanes": {},
+            "t": 1767204000
+          },
+          {
+            "lanes": {},
+            "t": 1767204900
+          },
+          {
+            "lanes": {},
+            "t": 1767205800
+          },
+          {
+            "lanes": {},
+            "t": 1767206700
+          },
+          {
+            "lanes": {},
+            "t": 1767207600
+          },
+          {
+            "lanes": {},
+            "t": 1767208500
+          },
+          {
+            "lanes": {},
+            "t": 1767209400
+          },
+          {
+            "lanes": {},
+            "t": 1767210300
+          },
+          {
+            "lanes": {},
+            "t": 1767211200
+          },
+          {
+            "lanes": {},
+            "t": 1767212100
+          },
+          {
+            "lanes": {},
+            "t": 1767213000
+          },
+          {
+            "lanes": {},
+            "t": 1767213900
+          },
+          {
+            "lanes": {},
+            "t": 1767214800
+          },
+          {
+            "lanes": {},
+            "t": 1767215700
+          },
+          {
+            "lanes": {},
+            "t": 1767216600
+          },
+          {
+            "lanes": {},
+            "t": 1767217500
+          },
+          {
+            "lanes": {},
+            "t": 1767218400
+          },
+          {
+            "lanes": {},
+            "t": 1767219300
+          },
+          {
+            "lanes": {},
+            "t": 1767220200
+          },
+          {
+            "lanes": {},
+            "t": 1767221100
+          },
+          {
+            "lanes": {},
+            "t": 1767222000
+          },
+          {
+            "lanes": {},
+            "t": 1767222900
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 4.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 7.0,
+                "n": 1
+              }
+            },
+            "t": 1767223800
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.6,
+                "n": 15
+              },
+              "lane_1": {
+                "mean": 1.6,
+                "n": 15
+              },
+              "lane_2": {
+                "mean": 6.6,
+                "n": 15
+              }
+            },
+            "t": 1767224700
+          },
+          {
+            "lanes": {},
+            "t": 1767225600
+          }
+        ],
+        "end": 1767226500,
+        "intersection_id": "test-fixture",
+        "lanes": [
+          "lane_0",
+          "lane_1",
+          "lane_2"
+        ],
+        "note": "observed: the mean number of vehicles in each lane's counting region per bucket, as counted at the edge; a measurement, not a forecast. A bucket with no samples is a gap, never zero",
+        "start": 1767140100,
+        "window": "24h"
+      },
+      "status": 200
+    },
+    "/vehicle_count/test-fixture/history?window=6h": {
+      "body": {
+        "bucket_s": 300,
+        "buckets": [
+          {
+            "lanes": {},
+            "t": 1767204300
+          },
+          {
+            "lanes": {},
+            "t": 1767204600
+          },
+          {
+            "lanes": {},
+            "t": 1767204900
+          },
+          {
+            "lanes": {},
+            "t": 1767205200
+          },
+          {
+            "lanes": {},
+            "t": 1767205500
+          },
+          {
+            "lanes": {},
+            "t": 1767205800
+          },
+          {
+            "lanes": {},
+            "t": 1767206100
+          },
+          {
+            "lanes": {},
+            "t": 1767206400
+          },
+          {
+            "lanes": {},
+            "t": 1767206700
+          },
+          {
+            "lanes": {},
+            "t": 1767207000
+          },
+          {
+            "lanes": {},
+            "t": 1767207300
+          },
+          {
+            "lanes": {},
+            "t": 1767207600
+          },
+          {
+            "lanes": {},
+            "t": 1767207900
+          },
+          {
+            "lanes": {},
+            "t": 1767208200
+          },
+          {
+            "lanes": {},
+            "t": 1767208500
+          },
+          {
+            "lanes": {},
+            "t": 1767208800
+          },
+          {
+            "lanes": {},
+            "t": 1767209100
+          },
+          {
+            "lanes": {},
+            "t": 1767209400
+          },
+          {
+            "lanes": {},
+            "t": 1767209700
+          },
+          {
+            "lanes": {},
+            "t": 1767210000
+          },
+          {
+            "lanes": {},
+            "t": 1767210300
+          },
+          {
+            "lanes": {},
+            "t": 1767210600
+          },
+          {
+            "lanes": {},
+            "t": 1767210900
+          },
+          {
+            "lanes": {},
+            "t": 1767211200
+          },
+          {
+            "lanes": {},
+            "t": 1767211500
+          },
+          {
+            "lanes": {},
+            "t": 1767211800
+          },
+          {
+            "lanes": {},
+            "t": 1767212100
+          },
+          {
+            "lanes": {},
+            "t": 1767212400
+          },
+          {
+            "lanes": {},
+            "t": 1767212700
+          },
+          {
+            "lanes": {},
+            "t": 1767213000
+          },
+          {
+            "lanes": {},
+            "t": 1767213300
+          },
+          {
+            "lanes": {},
+            "t": 1767213600
+          },
+          {
+            "lanes": {},
+            "t": 1767213900
+          },
+          {
+            "lanes": {},
+            "t": 1767214200
+          },
+          {
+            "lanes": {},
+            "t": 1767214500
+          },
+          {
+            "lanes": {},
+            "t": 1767214800
+          },
+          {
+            "lanes": {},
+            "t": 1767215100
+          },
+          {
+            "lanes": {},
+            "t": 1767215400
+          },
+          {
+            "lanes": {},
+            "t": 1767215700
+          },
+          {
+            "lanes": {},
+            "t": 1767216000
+          },
+          {
+            "lanes": {},
+            "t": 1767216300
+          },
+          {
+            "lanes": {},
+            "t": 1767216600
+          },
+          {
+            "lanes": {},
+            "t": 1767216900
+          },
+          {
+            "lanes": {},
+            "t": 1767217200
+          },
+          {
+            "lanes": {},
+            "t": 1767217500
+          },
+          {
+            "lanes": {},
+            "t": 1767217800
+          },
+          {
+            "lanes": {},
+            "t": 1767218100
+          },
+          {
+            "lanes": {},
+            "t": 1767218400
+          },
+          {
+            "lanes": {},
+            "t": 1767218700
+          },
+          {
+            "lanes": {},
+            "t": 1767219000
+          },
+          {
+            "lanes": {},
+            "t": 1767219300
+          },
+          {
+            "lanes": {},
+            "t": 1767219600
+          },
+          {
+            "lanes": {},
+            "t": 1767219900
+          },
+          {
+            "lanes": {},
+            "t": 1767220200
+          },
+          {
+            "lanes": {},
+            "t": 1767220500
+          },
+          {
+            "lanes": {},
+            "t": 1767220800
+          },
+          {
+            "lanes": {},
+            "t": 1767221100
+          },
+          {
+            "lanes": {},
+            "t": 1767221400
+          },
+          {
+            "lanes": {},
+            "t": 1767221700
+          },
+          {
+            "lanes": {},
+            "t": 1767222000
+          },
+          {
+            "lanes": {},
+            "t": 1767222300
+          },
+          {
+            "lanes": {},
+            "t": 1767222600
+          },
+          {
+            "lanes": {},
+            "t": 1767222900
+          },
+          {
+            "lanes": {},
+            "t": 1767223200
+          },
+          {
+            "lanes": {},
+            "t": 1767223500
+          },
+          {
+            "lanes": {},
+            "t": 1767223800
+          },
+          {
+            "lanes": {},
+            "t": 1767224100
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 4.0,
+                "n": 1
+              },
+              "lane_1": {
+                "mean": 2.0,
+                "n": 1
+              },
+              "lane_2": {
+                "mean": 7.0,
+                "n": 1
+              }
+            },
+            "t": 1767224400
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.4,
+                "n": 5
+              },
+              "lane_1": {
+                "mean": 1.4,
+                "n": 5
+              },
+              "lane_2": {
+                "mean": 6.4,
+                "n": 5
+              }
+            },
+            "t": 1767224700
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.6,
+                "n": 5
+              },
+              "lane_1": {
+                "mean": 1.6,
+                "n": 5
+              },
+              "lane_2": {
+                "mean": 6.6,
+                "n": 5
+              }
+            },
+            "t": 1767225000
+          },
+          {
+            "lanes": {
+              "lane_0": {
+                "mean": 3.8,
+                "n": 5
+              },
+              "lane_1": {
+                "mean": 1.8,
+                "n": 5
+              },
+              "lane_2": {
+                "mean": 6.8,
+                "n": 5
+              }
+            },
+            "t": 1767225300
+          },
+          {
+            "lanes": {},
+            "t": 1767225600
+          }
+        ],
+        "end": 1767225900,
+        "intersection_id": "test-fixture",
+        "lanes": [
+          "lane_0",
+          "lane_1",
+          "lane_2"
+        ],
+        "note": "observed: the mean number of vehicles in each lane's counting region per bucket, as counted at the edge; a measurement, not a forecast. A bucket with no samples is a gap, never zero",
+        "start": 1767204300,
+        "window": "6h"
+      },
+      "status": 200
+    },
+    "/vehicle_count/test-fixture/latest": {
+      "body": {
+        "intersection_id": "test-fixture",
+        "lanes": {
+          "lane_0": {
+            "age_s": 1.0,
+            "count": 3,
+            "fps": 0.5,
+            "stale": false,
+            "types": {
+              "car": 3
+            }
+          },
+          "lane_1": {
+            "age_s": 1.0,
+            "count": 1,
+            "fps": 0.5,
+            "stale": false,
+            "types": {
+              "car": 1
+            }
+          },
+          "lane_2": {
+            "age_s": 1.0,
+            "count": 6,
+            "fps": 0.5,
+            "stale": false,
+            "types": {
+              "auto-rickshaw": 1,
+              "bus": 1,
+              "car": 4
+            }
+          }
+        },
+        "pcu": {
+          "assumed": [
+            "e-rickshaw",
+            "cattle"
+          ],
+          "source": "Indo-HCM 2017, intermediate/two-lane urban (ADR-017, proposed, not signed off by the guide)",
+          "weights": {
+            "auto-rickshaw": 1.2,
+            "bus": 4.5,
+            "car": 1.0,
+            "cattle": 1.5,
+            "e-rickshaw": 1.2,
+            "motorcycle": 0.3,
+            "pedestrian": 0.0,
+            "truck": 5.0
+          }
+        }
+      },
+      "status": 200
+    }
+  },
+  "state": "partial"
+}

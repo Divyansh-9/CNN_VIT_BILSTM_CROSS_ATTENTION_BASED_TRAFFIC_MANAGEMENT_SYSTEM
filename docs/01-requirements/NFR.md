@@ -103,8 +103,16 @@ and configs of earlier runs no longer exist.
 - Summary tables in the paper are generated from the CSVs by a committed script. A table typed by
   hand cannot be recomputed, and a table that cannot be recomputed is not evidence.
 
-Docker Compose is committed for the server stack (broker, API, database, dashboard). It is not
-required for training, which runs on Colab.
+Docker Compose for the server stack (broker, API, database, dashboard) is **committed** as
+`docker-compose.yml`, `deploy/server.Dockerfile` and `deploy/smoke_test.py` (PRD-CHANGELOG
+D15, closing the D4 gap).
+- **Docker path:** verified in CI, run `40274825271` at commit `0530650` (D16). On a fresh runner
+  the image was built, the stack started, and the smoke test passed 9 of 9, then 6 of 6 after a
+  restart. It has **not** been run on the development laptop, and CI verification is not a
+  production deployment.
+- **Native path:** the scripts were also exercised against the same services run natively.
+- **Not covered:** the edge runs on its own device (ADR-003) and is not in the stack.
+- **Training** does not need it.
 
 ---
 
@@ -113,7 +121,7 @@ required for training, which runs on Colab.
 | ID | Target | Measurement procedure | Method | TC | Owner |
 |---|---|---|---|---|---|
 | NFR-11 | MQTT username/password auth | Broker configured with `allow_anonymous false`. Verification: an unauthenticated connect attempt is **refused** | T | TC-N11 | R4 |
-| NFR-12 | JWT login, 24 h expiry | Protected endpoint returns 401 without a token and after a token older than 24 h | T | TC-N12 | R4 |
+| NFR-12 | Shared-secret bearer token on every HTTP write; reads stay open (ADR-008, A37) | Every `POST` without the token, or with a wrong one, returns 401 without repeating what was sent; with no token configured, every `POST` returns 401; `GET` endpoints answer without one | T | TC-N12 | R4 |
 
 Credentials come from environment variables, never from committed files. `.gitignore` excludes
 `.env` and `secrets.yaml`. This is a demo system on a local network — the requirement is that

@@ -24,11 +24,11 @@ on:
 jobs:
   fast:
     name: fast suites (no torch)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -36,7 +36,28 @@ jobs:
         # Deliberately NOT requirements.txt — torch is ~2 GB and none of these
         # suites import it. Keeping this job dependency-light keeps it fast
         # enough that people actually read the result.
-        run: pip install pytest pyyaml
+        #
+        # python-pptx is here for a specific reason: the deck and progress-report
+        # suites guard their geometry with `importorskip("pptx")`, so a runner
+        # without it reports them as skipped and the job passes green over the
+        # guards — the exact failure this workflow's header warns about for
+        # torch. It is a ~500 KB pure-Python wheel, so there is no cost argument
+        # for leaving it out. The `.docx` builders need no dependency at all;
+        # they write OOXML directly.
+        #
+        # numpy, fastapi, pydantic and httpx (pinned as in requirements.txt)
+        # for the same reason: the forecaster, calibration, server and
+        # dashboard-evidence suites (P104-P110) are guards, and without these
+        # they either fail to import or `importorskip` away. All four are
+        # small pure-Python or prebuilt wheels.
+        # pytest, pyyaml and python-pptx come pinned from requirements.txt: unpinned,
+        # pytest 9.2.0's release failed test_pins_match_what_is_installed on
+        # 2026-10-29 with no change to this repository.
+        # uvicorn (D36) for the same reason as the four above: the UI fixture runner's
+        # process tests start the real server, and without it they skip.
+        run: >
+          pip install $(grep -iE '^(pytest|pyyaml|python-pptx)==' requirements.txt) numpy==2.5.2
+          fastapi==0.141.1 pydantic==2.13.4 httpx==0.28.1 uvicorn==0.52.4
 
       - name: Run suites
         run: >
@@ -46,14 +67,36 @@ jobs:
           --ignore=tests/test_cache.py
           --ignore=tests/test_sumo_network.py
           --ignore=tests/test_simulation.py
+          --ignore=tests/test_checkpoint_guard.py
+          --ignore=tests/test_video_sampling.py
+
+      - name: Build the submitted documents and check them against the guidelines
+        # The three documents are generated, never hand-edited, and the two
+        # checkers read the produced `.docx` rather than the source — so the
+        # only way to run them in CI is to build first. No `--pdf`: that drives
+        # real Word and PowerPoint over COM and is Windows-only, and an
+        # approximate PDF of a submitted document is worse than no PDF.
+        #
+        # This is what makes the guideline rules — A4 and the prescribed
+        # margins, the chapter order, the 25-30 paper bound, captions and
+        # equations cited in the text, citations matched in both directions,
+        # and the rule that two of the three documents can quote no measured
+        # result — hold on every push rather than when someone remembers.
+        run: |
+          python scripts/build_synopsis.py --which all --out-dir "$RUNNER_TEMP/docs"
+          python scripts/check_synopsis.py \
+            "$RUNNER_TEMP/docs/MFSTNet-Synopsis-Report.docx" \
+            "$RUNNER_TEMP/docs/MFSTNet-Synopsis-Phase1.docx"
+          python scripts/check_progress_report.py \
+            "$RUNNER_TEMP/docs/MFSTNet-Phase1-Progress-Report-1.docx"
 
   model:
     name: model suites (CPU torch)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -62,10 +105,20 @@ jobs:
         # assert geometry and gradient flow, which are device-independent.
         run: |
           pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
-          pip install pytest pyyaml timm
-          pip install gymnasium stable-baselines3
+          pip install pytest pyyaml timm onnxruntime onnx psutil fastapi httpx paho-mqtt amqtt
+          pip install gymnasium==1.3.0 stable-baselines3==2.9.0
           pip install nbformat nbclient ipykernel pandas matplotlib
-          pip install eclipse-sumo traci sumolib
+          # Pinned to requirements.txt: every committed SUMO result was produced on
+          # 1.27.1, and an unpinned install drew 1.28.0, which simulates differently
+          # (P137). sumo-data too: eclipse-sumo requires it unversioned, and a
+          # clean install drew 1.28.0 (D4).
+          pip install eclipse-sumo==1.27.1 sumo-data==1.27.1 traci==1.27.1 sumolib==1.27.1
+          pip install opencv-python-headless
+
+      - name: Simulation stack matches requirements.txt (P137)
+        # Every committed SUMO and PPO result came from the pinned versions; an
+        # unpinned install drew SUMO 1.28.0 and a committed episode changed.
+        run: python scripts/check_sim_versions.py
 
       - name: Fail if torch is missing rather than skipping
         # Without this the suites `importorskip` away and the job passes green
@@ -80,7 +133,13 @@ jobs:
           pytest -q --tb=short
           tests/test_encoders.py tests/test_model.py tests/test_cache.py
           tests/test_spec_matches_code.py tests/test_sumo_network.py
-          tests/test_simulation.py
+          tests/test_simulation.py tests/test_checkpoints.py
+          tests/test_edge_forecaster.py tests/test_mqtt_live.py
+          tests/test_checkpoint_guard.py tests/test_video_sampling.py
+          tests/test_scenarios.py tests/test_harness_equivalence.py
+          tests/test_forecast_producer.py tests/test_train_ppo_guard.py tests/test_ceiling_eval.py
+          tests/test_seed_separation.py tests/test_faw.py
+          tests/test_v1.py
 
       - name: Overfit check (S26)
         # The cheapest decisive test in the model track. A graph that cannot
@@ -95,3 +154,87 @@ jobs:
         # diff on every run. A notebook whose stored output came from code that
         # no longer exists is worse than no notebook: it looks like evidence.
         run: python scripts/run_notebook.py notebooks/03_results.ipynb --check
+
+  dashboard:
+    # The read-only dashboard (P107). Its 12 tests pin that it is GET-only, that
+    # a missing approach is never shown as zero or LOW, and the stale, invalid
+    # and error states. A separate job so a Node problem cannot mask a Python one.
+    name: dashboard (vitest + build)
+    runs-on: ubuntu-26.04
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install exactly the locked dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  compose:
+    # D15: the server stack built from the committed Dockerfile, started fresh
+    # and tested on the real path:
+    #   MQTT over TLS with a login -> ingest -> SQLite -> the API -> the built dashboard
+    # It is restarted, and the store must persist. A fresh runner on every push
+    # is the Docker path's fresh-environment evidence. The Windows path has its
+    # own kit, and this does not stand in for it.
+    name: compose stack (build, start, smoke test)
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # the image maps every result file to its commit (D15)
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Smoke-test dependencies, pinned from requirements.txt
+        run: pip install $(grep -iE '^(pydantic|paho-mqtt)==' requirements.txt)
+
+      - name: Throwaway secrets (gitignored, outside the build context)
+        run: python deploy/make_local_secrets.py
+
+      - name: Build and start
+        run: docker compose up -d --build
+
+      - name: Smoke test
+        run: python deploy/smoke_test.py
+
+      - name: Restart; the store must persist
+        run: |
+          docker compose restart server ingest
+          python deploy/smoke_test.py --after-restart
+
+      - name: No secret in any log or image layer; nothing private in the image
+        run: |
+          token=$(sed -n 's/^STMS_API_TOKEN=//p' deploy/secrets/server.env)
+          logs=$(docker compose logs --no-color)
+          for secret in "$token" $(cut -d: -f2 deploy/secrets/passwd.plain); do
+            if grep -qF -- "$secret" <<<"$logs"; then echo "a secret appears in the logs"; exit 1; fi
+          done
+          if docker history --no-trunc stms-server:local | grep -qF -- "$token"; then
+            echo "the API token is in an image layer"; exit 1
+          fi
+          docker run --rm --entrypoint sh stms-server:local -c \
+            'test ! -e /app/deploy && test ! -e /app/.git && test ! -e /app/data/corpus && test ! -e /app/models'
+          echo "clean"
+
+      - name: Logs, on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

@@ -1,0 +1,247 @@
+{
+ "protocol": "PREREGISTRATION_P99b.md",
+ "seed": 2028,
+ "order_seed": 2029,
+ "frames": [
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 1013
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 1201
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 1030
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 1561
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 950
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 1639
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 798
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 596
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 60
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 647
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 1619
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 684
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 483
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 1144
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 45
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 1519
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 1727
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 1286
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 1087
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 1465
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 240
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 643
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 1164
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 749
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 956
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 450
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 1511
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 921
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 45
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 873
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 1272
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 262
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 1479
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 1124
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 1435
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 766
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 314
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 226
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 187
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 1758
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 517
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 1582
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 989
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 1680
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 1304
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 528
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 666
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 432
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 980
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 819
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 412
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 376
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_07-08-31",
+   "sample": 1398
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 1691
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 1344
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 260
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_06-08-29",
+   "sample": 1344
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 38
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-11_08-08-31",
+   "sample": 180
+  },
+  {
+   "clip": "Bellevue_Bellevue_NE8th__2017-09-10_19-08-24",
+   "sample": 216
+  }
+ ]
+}

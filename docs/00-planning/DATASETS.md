@@ -121,24 +121,25 @@ not a failure — it is the reason IndiaTrafficNet exists.
 
 ### 2.05 Published evidence that off-the-shelf detection fails here
 
-Rashmi & Shantala (2020) ran YOLO over a week of Karnataka, India footage
-([B10](BIBLIOGRAPHY.md)). Accuracy reached **92–99% for buses, cars and motorcycles** — and dropped
-**below any useful level** on the vehicle modes specific to the study zone.
+> **Corrected in D39 (S45 citation audit, 2026-11-06).** This section used to quote Rashmi & Shantala
+> (2020, [B10](BIBLIOGRAPHY.md)) as reporting YOLO at 92–99% on buses, cars and motorcycles and below
+> any useful level on zone-specific modes. Those figures were recalled, not retrieved. The paper's
+> record is now found (ICECA 2020), its abstract gives no accuracy figure, and the full text has not
+> been read, so the figures are withdrawn. B10 supports only that YOLOv3 has been applied to vehicle
+> density analysis and classification.
 
-Two consequences, and both are load-bearing:
-
-**It justifies the dataset.** This is independent, published evidence that a general-purpose detector
-fails on exactly the classes IndiaTrafficNet exists to add. That is a far stronger motivation than
-"we wanted our own data," and it belongs in the paper's introduction.
+**The dataset is justified by coverage, not by B10.** Public Indian and South Asian datasets do not
+cover a fixed elevated intersection camera with these classes (B32, B33, B34), which is how the
+Phase-I Progress Report already argues it. Whether an off-the-shelf detector fails on the
+zone-specific classes is something this project measures (FR-D09), not something it takes from B10.
 
 **It is a live risk to M2.** FR-D09 requires ≥25% mAP improvement on auto-rickshaw. If fine-tuning
 does not lift the zone-specific classes, that milestone fails. Recorded as SOW R25. Report per-class
 mAP **with sample count** either way — a detector that cannot learn auto-rickshaw from 12,000 frames
 is itself a reportable finding about transfer, not a failure to conceal.
 
-> ⚠️ B10 is currently the weakest-sourced important claim in the project. It is priority 1 in the
-> [bibliography verification queue](BIBLIOGRAPHY.md#verification-queue). Verify it before it carries
-> weight in the paper.
+> B10 stays priority 1 in the [bibliography verification queue](BIBLIOGRAPHY.md#verification-queue):
+> read the full text before any number from it is quoted.
 
 ### 2.1 This strengthens your paper
 
@@ -732,3 +733,50 @@ lane splitting are why per-lane ROI counting is noisier in South Asian traffic
 than the PRD assumes** — vehicles genuinely occupy the boundary between lanes.
 That is an argument for reporting the unassigned rate with every corpus, which
 [P17](../00-planning/PRD-CHANGELOG.md) already requires.
+
+## Chennai Traffic Dataset (Zenodo 21545806, 2026) — assessed 2026-10-15
+
+| | |
+|---|---|
+| **Source** | [zenodo.org/records/21545806](https://zenodo.org/records/21545806) — Srinivasulu, Sebastian, Vanajakshi |
+| **Licence** | CC BY 4.0 |
+| **Contents** | `train.zip` 680 MB, 1,855 JPEGs; `train_labels.zip` |
+| **Structure** | two sequences, `offcampus` (source frames 0–2744) and `oncampus` (0–1890), sampled at every second frame or coarser |
+| **Viewpoint** | road-level from a moving vehicle; plates already blurred |
+
+Assessed without downloading it: the archive's directory was read over HTTP
+range requests and one frame was extracted and viewed.
+
+**Rejected for the forecaster.** It fails two gates in `scripts/check_sources.py`
+independently. It is not a fixed elevated camera, and its longer sequence is
+about 110 s even at 25 fps — under the 120 s one window spans, let alone the
+390 s a camera needs to be fold-eligible. **A candidate for the detector**, where
+neither property matters and the licence is clean; whether its label taxonomy
+maps onto ours is not yet checked.
+
+The register entry is `chennai_zenodo_21545806` in `data/sources.json`.
+
+## BMD-45 metadata checked for sequences — 2026-10-15
+
+The question was whether the published BMD-45 can supply forecasting windows
+after all: 60 frames at 2 s from one camera, 390 s of continuity per camera.
+Only the metadata was downloaded (`metadata.jsonl` for both splits, 21.6 MB),
+never the 153 GB of images.
+
+| check | finding |
+|---|---|
+| camera id | **none** — each row is `file_name`, `objects.bbox`, `objects.categories` |
+| per-image time | **none** — the README states one window for the whole dataset, February 2025, 06:00–18:00 IST |
+| reliable ordering | **no** — 45,986 ids spread over 41…999,988, median gap 15, **longest run of consecutive ids 4** |
+| 390 s continuous | **cannot be established** |
+
+The README says why. Images were "sampled from long-duration CCTV recordings
+using spatial and temporal diversity criteria", which is the right design for a
+detection benchmark and rules out reconstructing sequences.
+
+**BMD-45 stays detector-only.** The same README confirms that the long-duration
+recordings exist and who operates the cameras: about 3,679 Safe City cameras
+run by Bengaluru Police, recorded February 2025. That makes the request in
+[OUTREACH-2026-10-15](OUTREACH-2026-10-15.md) §0A specific rather than
+speculative.
+

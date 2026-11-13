@@ -108,7 +108,7 @@ directly from camera imagery, and it was not surveyed.
 | Chakraborty et al. (2018), *Transportation Research Record* | Congestion detection from camera images using deep CNNs |
 | Deep learning for congestion detection, prediction and alleviation — survey (arXiv 2102.09759, 2021) | An entire survey of this space. Its existence is the point |
 | End-to-end spatio-temporal flow prediction from surveillance cameras (*Transportmetrica B*, 2024) | Detection, tracking and prediction in one pipeline from fixed low-resolution cameras |
-| Rashmi & Shantala (2020) | YOLO on one week of Karnataka, India footage |
+| Rashmi & Shantala (2020), ICECA | YOLOv3 for vehicle density analysis and classification on smart-city footage |
 
 **What this costs the project.** "Camera-only congestion forecasting" is not novel. C1 must be
 narrowed, and §3 below is rewritten accordingly. Being the second overclaim this review has caught,
@@ -116,12 +116,13 @@ it is also a reminder that a novelty search is only as good as the search terms 
 forecasting literature was surveyed because the architecture suggested it, and the vision literature
 was missed because nobody searched for the *task*.
 
-**What it gives back.** Rashmi & Shantala's result is directly useful and belongs in the paper's
-motivation: YOLO reaches 92–99% accuracy on buses, cars and motorcycles in Indian footage, but drops
-**below any useful level** on the vehicle modes specific to the study zone. That is independent
-published evidence that off-the-shelf detection fails on exactly the classes IndiaTrafficNet exists
-to add — the strongest external justification for the dataset contribution the project has, and a
-live risk to FR-D09's ≥25% auto-rickshaw criterion (SOW R25).
+**What it gives back, corrected in D39.** This paragraph used to quote Rashmi & Shantala as
+reporting YOLO at 92–99% on buses, cars and motorcycles and below any useful level on zone-specific
+modes. The S45 audit (2026-11-06) found the paper (ICECA 2020); its abstract gives no accuracy figure
+and the full text has not been read, so those figures are withdrawn ([B10](BIBLIOGRAPHY.md)). The
+motivation for the dataset rests on viewpoint and class coverage (B32, B33, B34). Detector failure on
+the zone-specific classes stays a live risk to FR-D09's ≥25% auto-rickshaw criterion (SOW R25), to be
+measured here rather than cited.
 
 ### 2.7 Indian and fixed-camera traffic datasets
 

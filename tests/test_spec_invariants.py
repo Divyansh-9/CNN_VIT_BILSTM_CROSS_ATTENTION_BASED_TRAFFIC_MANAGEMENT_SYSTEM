@@ -120,27 +120,30 @@ def test_state_index_map_is_dense_and_matches_declared_dim(spec):
 def test_gate_mean_is_absent_from_the_state(spec):
     """A16 removed it: no SUMO analogue, so it would be a constant dead input."""
     assert "mfst_gate_mean" not in spec["ppo_state"]["index_map"]
-    assert spec["ppo_state"]["dim"] == 16
+    assert spec["ppo_state"]["dim"] == 17          # ADR-020 as amended: + forecast_age
 
 
-def test_mfstnet_fields_zeroed_on_unavailability_are_exactly_the_prediction_slots(spec):
+def test_the_unavailable_operation_covers_exactly_the_forecast_slots(spec):
     st = spec["ppo_state"]
     expected = [st["index_map"][f"mfst_pred_{l}"] for l in spec["lanes"]]
+    off = st["forecast_unavailable"]
 
-    assert sorted(st["zero_when_mfstnet_unavailable"]) == sorted(expected), (
-        "FR-A06 zeroes the MFSTNet slots and nothing else. Shortening the "
-        "vector instead would invalidate every trained checkpoint."
-    )
+    assert sorted(off["class_slots"]) == sorted(expected), (
+        "the fallback touches the class slots and nothing else; shortening the "
+        "vector instead would invalidate every trained checkpoint")
+    assert off["age_slot"] == st["index_map"]["forecast_age"]
+    assert off["age_value"] == 1.0
 
 
-def test_prediction_normaliser_maps_classes_into_unit_range(spec):
-    div = spec["ppo_state"]["normalisers"]["mfst_pred_divisor"]
-    n_classes = len(spec["congestion"]["classes"])
+def test_class_values_are_increasing_in_unit_range_and_never_the_absent_value(spec):
+    """P97a: no class may share the value that means "no forecast"."""
+    values = spec["ppo_state"]["normalisers"]["forecast_class_value"]
+    ordered = [values[c] for c in spec["congestion"]["classes"]]
+    absent = spec["ppo_state"]["forecast_unavailable"]["absent_value"]
 
-    assert div == n_classes - 1, (
-        f"divisor {div} should be n_classes-1 = {n_classes - 1} so the highest "
-        f"class maps to 1.0"
-    )
+    assert ordered == sorted(ordered) and len(set(ordered)) == len(ordered)
+    assert 0.0 < ordered[0] and ordered[-1] == 1.0
+    assert absent not in ordered
 
 
 # --------------------------------------------------------------------------

@@ -1,0 +1,38 @@
+{
+  "clip": "video1.mp4",
+  "surveyed_from": "D:\\traffic dataset\\video1.mp4",
+  "reviewed": true,
+  "reviewer": "Claude (assistant), placed from data/lanes_k4/*.preview.jpg on 2026-08-21; NOT yet confirmed by a team member",
+  "max_radius": 0.25,
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.13,
+        0.74
+      ]
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.24,
+        0.33
+      ]
+    },
+    {
+      "name": "lane_2",
+      "centre": [
+        0.55,
+        0.8
+      ]
+    },
+    {
+      "name": "lane_3",
+      "centre": [
+        0.76,
+        0.42
+      ]
+    }
+  ],
+  "note": "Placed against the camera's own preview render. P23: automatic centres moved 0.164 of frame width when the detector changed, so they are not used unreviewed. P17: these belong to THIS camera only."
+}

@@ -39,6 +39,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 from mfstnet.corpus.labels import (  # noqa: E402
     CongestionClass,
     label_from_count,

@@ -33,6 +33,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.console import use_utf8  # noqa: E402
+
+use_utf8()
+
 from experiments.results_io import merge_by_key  # noqa: E402
 
 # ADR-012: no published value fits a mixed-traffic Indian approach, so the sweep
@@ -95,6 +99,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("\n  NOTHING QUALIFIES. Report the sweep and make no "
               "'Webster's best' claim (ADR-012).")
+    from experiments.provenance import write_sidecar
+
+    write_sidecar(args.out)
     print(f"  wrote {args.out}")
     return 0
 

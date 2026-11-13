@@ -128,9 +128,15 @@ class MFSTNet(nn.Module):
     # ------------------------------------------------------------------ api --
 
     def forward(
-        self, cnn_maps: torch.Tensor | None, vit_maps: torch.Tensor | None
+        self, cnn_maps: torch.Tensor | None, vit_maps: torch.Tensor | None,
+        lane_masks: torch.Tensor | None = None,
     ) -> MFSTNetOutput:
         """Raw cached maps `[B, T, C, h, w]` -> per-lane logits `[B, L, classes]`.
+
+        `lane_masks` is optional per-sample geometry `[B, L, G, G]`. Omit it and
+        every item pools through the masks given at construction, which is
+        correct only for a single-camera corpus; pass it and each item pools
+        through its own camera's lanes (P26).
 
         The two branches arrive at *different* shapes — that is the A24 defect in
         its natural state. Alignment happens in the adapters, inside this model,
@@ -154,7 +160,7 @@ class MFSTNet(nn.Module):
         fused, gate = self.fusion(flat_cnn, flat_vit)            # [B*T, G², D]
 
         maps = fused.transpose(1, 2).reshape(b, t, d, g, g)
-        lanes = self.lane_pool(maps)                             # [B, T, L, D]
+        lanes = self.lane_pool(maps, lane_masks)                 # [B, T, L, D]
 
         # One sequence per (item, lane); lanes share temporal weights.
         seqs = lanes.permute(0, 2, 1, 3).reshape(b * self.cfg.n_lanes, t, d)
