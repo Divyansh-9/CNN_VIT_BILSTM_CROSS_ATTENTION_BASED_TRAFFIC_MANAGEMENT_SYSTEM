@@ -12116,6 +12116,306 @@ represent.
   one camera shows only that the level can saturate. The limits stay frozen; changing them is a
   pre-registered decision, not a display fix.
 
+## D45 — the D40–D44 records restored after a split commit overwrote them (2026-11-10)
+
+**What happened.** D39 and D40–D44 were committed separately, from another working session, so that each commit
+held only its own changelog entry. The prepared D39-only versions of `PRD-CHANGELOG.md` and `BUILD-LOG.md` were
+copied over the working files instead of being staged directly. The working tree lost what D40–D44 had added
+to those two files, so commit `0185fdb` went out without them:
+- the five changelog entries D40 to D44;
+- BUILD-LOG's S42 note on the workbench, and S43's move to ✅ with the fault-injection result.
+
+The code, tests, Manual, README and CLAUDE.md in that commit were complete.
+
+**A second defect, found while restoring.** The script that added D43 replaced D42's heading line instead of
+inserting above it. So even before the overwrite, D42's text had sat headless under D43. `check_docs.py` does
+not check that every D entry has a heading, so neither defect failed a check.
+
+**Restored.**
+- **The entries:** each was rebuilt from the script that first wrote it.
+- **The check:** D40 and D41 matched, word for word, the review diff saved when they were written.
+- **The order:** the five entries are back above D39, newest first, each with its heading.
+- **The board:** the S42 and S43 rows are re-applied as D43 wrote them.
+
+**How to split a commit without this risk:** stage a prepared partial file directly into the index
+(`git hash-object -w` and `git update-index --cacheinfo`). The working file is never overwritten.
+
+**Now a check, so neither can recur unnoticed.** `check_docs.py` (stdlib, runs in CI) adds two checks, with
+seven tests in `tests/test_check_docs_entries.py`:
+- **Every heading present:** every D entry from D1 to the newest has exactly one heading. A combined heading
+  such as D1–D2 counts for both.
+- **CLAUDE.md agrees:** the newest D entry matches the "D1–Dn" range CLAUDE.md states.
+- **Proof it works:** run against the pushed `0185fdb`, it reports "CLAUDE.md says D1–D44, but the
+  changelog's newest D entry is D39".
+
+## D44 — the prototype's engineering telemetry, brought within the project's rules (2026-11-10)
+
+**What happened.** Another working session added an "Engineering telemetry" panel to the design reference,
+`docs/demo/ui_prototype_v2.html`. It sits on Live and on Analyze a video, and shows a PCU count, a queue
+estimate and the fleet composition per lane, all from the prototype's invented counts. The idea mirrors the
+real dashboard's Engineering view (D35). As written, four of its parts broke rules the project had already
+set, so it was corrected before any commit. The layout and the toggle stay.
+
+| As added | The rule it broke | Now |
+|---|---|---|
+| PCU weights car 1.0, truck 2.5, bus 3.0, called "Indian HCM" | ADR-017's values live once in `mfstnet/corpus/pcu.py` (Indo-HCM 2017): bus 4.5, truck 5.0. The real view reads them from the server, and a test holds the two equal | car 1.0, truck 5.0, bus 4.5, with the source named, and the glossary lists the full table |
+| A queue estimate from accumulated excess flow | D35: the camera path has no speed or stop line, so the queue always reads "Not measured" and is never derived from counts | "Not measured", with the reason in the glossary |
+| Fleet bar coloured with the "ok" and "stale" state colours and the brand orange; the queue bar in the MEDIUM class colour | D18: orange is for the interface only, never traffic data; state and class colours keep their meanings | neutral tokens, with the shares written out beside the bar, so identity is never colour alone |
+| Open toggle drawn in the "ok" state colour | D18: state colours mean states | the brand colour, as every other interface control |
+
+**Checked in a browser:** the Live panel opens and lists, per approach:
+- the PCU count;
+- "Not measured" for the queue;
+- the shares as text (for example "car 72% · truck 18% · bus 10%").
+
+The weights read ×1.0, ×5.0 and ×4.5.
+
+**What it still is:** a design reference on invented counts, as the rest of that page. The real dashboard's
+Engineering view (D35) is unchanged.
+
+## D43 — a whole video's forecasts checked against what then happened; FR-A06 fault injection on a real broker (2026-11-09)
+
+**Why.** The owner asked for an audit of what remains, and for the frontend feature most useful to the project.
+
+**The feature: "Forecast check for this video"** (`dashboard/src/check.js`, `VideoCheck.jsx`), on Analyze a
+video under the whole-video timeline. It does over a whole recording what the live ribbon (D26) does over 20
+minutes, and adds P105's question: does the ridge count forecast beat repeating the last minute?
+- **What it reports, per lane and over all lanes:**
+  - how often the class forecast agreed with what the next 60 s then showed, as "k of n";
+  - the mean distance of the ridge count forecast, and of the last minute repeated (P105's persistence
+    baseline), from what then happened, in vehicles;
+  - which of the two was closer, as ridge · repeat · tied of n.
+- **How comparisons are made:** each is paired. Only samples where every compared value exists are used.
+- **The chart:**
+  - **What it plots:** one lane at a time, one-minute means, a hover tooltip, and a click that jumps the
+    video there. The table uses every sample.
+  - **The three lines:** they are neutral theme tokens, told apart by line style, a direct label and a
+    legend. Orange is reserved for the interface, and the three class colours mean LOW, MEDIUM and HIGH
+    (D18).
+  - **The palette check:** the dataviz validator fails the greys on its lightness and chroma checks, which
+    is expected for neutrals. They pass colour-vision separation (ΔE 22.5), the normal-vision floor and
+    contrast. Identity never rests on colour.
+- **Print or save as PDF:** prints the check in the page's colours, leaving out the picture, the controls and
+  the navigation, so a printed check holds numbers and never a frame.
+- **What it does not say:** accuracy. Both sides come from the same detector (S67 not done), and a level
+  depends on the camera's limits. It uses no percentage, as D26. One video is one example, not P105's result.
+- **First real reading:** SE38th 12:08 (60 min). Over 6,816 paired forecasts the ridge forecast was off by
+  1.05 vehicles on average, against 1.43 for repeating the last minute, and closer in 4,101 of 6,816. The
+  class forecast agreed in 5,064 of 6,936.
+
+**S43 closed: fault injection across a real broker.** `tests/test_mosquitto_live.py::
+test_fr_a06_fault_injection_on_a_real_broker` runs the real edge node over its real MQTT transport to a real
+Mosquitto, stops the broker, keeps ticking, and starts it again.
+- **The result:** the node switched to the locally embedded cycle **10.0 s** after the stop, which is FR-A06's
+  timeout and not before. The local cycle alternated NS and EW, and the node was normal again **0.5 s** after
+  the restart.
+- **Repeatability:** identical in three runs (19 of 19 live-broker tests each time).
+- **Where it runs:** on this laptop with `MOSQUITTO_EXE` set (ADR-003). CI does not install Mosquitto, so CI
+  skips it, as it skips the rest of that file.
+- **What remains software-only:** the MFSTNet-inference fallback.
+
+**Status board:**
+- **S43** is ✅.
+- **S45** is 🟨: the audit is done and D39 corrected it. A person still owes reading B10, and obtaining
+  IRC:SP:41-1994 and Webster (1958).
+- **S42** records D40–D43.
+
+**Tests:** 214 dashboard tests, including 6 new, and the live-broker test above.
+
+## D42 — a declared camera is previewed, any analysed video replays on Live, and Live connects a camera (2026-11-09)
+
+**Why.** The owner analysed a 116th NE12th recording with the **150th_Eastgate** camera declared, and asked
+two questions:
+- why the page showed almost only HIGH and MEDIUM;
+- how Live connects to a camera, and whether a 1–2 hour video can go through Live the way it does through
+  Analyze.
+
+There were two reasons for the first:
+- **Wrong camera.** Eastgate's lanes were laid over another intersection's picture. Nothing showed that before
+  the analysis ran.
+- **Low limits.** Eastgate's limits are 0.13 and 0.97 vehicles in view, from a Sunday-evening calibration hour
+  (D37's reported weakness), so one vehicle in a lane already reads HIGH.
+
+The limits stay frozen, as D37 decided. The first reason is fixed here.
+
+**What was built (an extension of the item D40 lifted from the freeze, on the owner's instruction):**
+- **Lane preview.**
+  - **What it shows:** choosing a camera lays its lanes, with each lane's reach, over the viewer's paused
+    video as dashed rings, with the question "do they sit on this video's roads?".
+  - **When:** before anything runs. Nothing is inferred: the viewer still declares the camera (ADR-028),
+    and now sees what that declaration means.
+  - **Where the geometry comes from:** `/workbench/cameras` now carries each camera's lane centres and reach.
+- **Replay on Live.**
+  - **What it does:** after an analysis, the same video replays through the edge, MQTT, the server and Live,
+    for 7 min, 30 min or the whole video (5 to 180 minutes, refused outside that range).
+  - **Who can:** any found recording with any camera whose levels are set. A provisional camera must be
+    analysed first.
+  - **What Live shows:** REPLAY.
+- **Live camera.** Live's panel is now "Run through the system", with **Recorded clip** and **Live camera**.
+  - **The address:** read only from `STMS_CAMERA_URL` in the workbench's environment, which the edge inherits.
+    The page learns only `camera_configured`, never the address.
+  - **What runs:** the edge as `--source camera`, unpaced and unbounded until Stop. The first milestone is
+    "the edge reports the live camera", from a heartbeat whose kind is `camera`; a replay can never satisfy
+    it.
+  - **Without a camera configured:** the panel lists the steps instead (Manual §5.5.2).
+- **Opening another video** clears the previous results on the page.
+
+**Verified (RTX 4050 laptop, 2026-11-09, ADR-003):**
+- **Preview:** NE12th 07:08 with 150th_Eastgate declared showed Eastgate's four lanes over the NE12th picture
+  before analysing.
+- **Replay on Live:** SE38th 12:08 replayed for 7 min from Analyze. The page moved to Live with REPLAY; the
+  edge reported at 0:17 and the first class forecast came at 1:08.
+- **Camera path, against a stand-in stream, not a camera:**
+  - **The stand-in:** a recorded SE38th clip served as MJPEG on 127.0.0.1 and named by `STMS_CAMERA_URL`.
+  - **The run:** the badge read LIVE CAMERA, the edge reported the camera at 0:29, the first class forecast
+    came at 1:19, and the first count forecast at 2:15.
+  - **What it shows:** the wiring only. No real camera has been tried, and this is not S65.
+- **Tests:**
+  - **Dashboard:** 208 tests pass, including 4 new for the preview, Replay on Live, and the camera tab with
+    and without a camera configured.
+  - **Python:** 7 new tests, for replaying any recording and the refusals, the camera needing to be
+    configured, and the stack running a camera unpaced and unbounded.
+
+**Not established:** that the system works with a real camera, at any frame rate or for any length of time
+(S65, M8, M10).
+
+## D41 — one interface: the workbench is the dashboard, for any video and any camera (2026-11-06)
+
+**Why, and on whose word.** Reviewing D40 in the browser, the owner asked for three fixes on 2026-11-06:
+- one interface instead of a launcher page and then the dashboard;
+- any video, not only the files the launcher listed;
+- the browser's native drop-downs, which ignore the page's colours, fixed.
+
+This extends the item D40 lifted from the freeze. The tours and the glossy style stay future scope.
+
+**One interface:**
+- **The single page:** `scripts/demo_launcher.py` serves the dashboard as its only page. `/` opens Analyze,
+  and D40's separate HTML page is gone.
+- **Workbench mode:** the dashboard asks `/workbench/capabilities`. When it is answered:
+  - Analyze holds the whole analysis inline (`Workbench.jsx`).
+  - Live holds the replay.
+  - The header reads "Local workbench · no signal commands".
+- **The live panels during a replay:** the server's read-only endpoints are passed through, unchanged, to
+  the replay's server. The list is pinned against `api.js` by a test.
+- **Without a replay:** `/evidence` comes from the server's own function over the same committed files.
+
+**Any video:**
+- **Opening:** the viewer opens the video in the page, from anywhere.
+- **Finding it on disk:** the page sends its name, size and fingerprint, computed in the browser by the
+  same algorithm as `scripts/workbench.py`; a test pins the digests on both sides. The workbench looks in
+  its folders, in folders shown to it before, and in the usual user folders.
+- **When it is not found:** this computer's own folder window asks the viewer, and only the folder's name
+  comes back.
+- **Frames:** no frame crosses HTTP. The page plays the viewer's file, and the workbench reads the same
+  file from disk.
+
+**Any camera.** A camera with no profile can be placed on the viewer's own paused video:
+- **Lanes:** one to four lane centres, each labelled N, S, E or W, with a reach.
+- **Where it is kept:** saved as a **provisional** camera in the results folder, never in `cameras/`.
+- **Its levels:** the first analysis sets them from that recording by ADR-017's rule as P103 ran it (q33/q67
+  of 60 s means, a window every 15 samples, pooled over lanes). The class forecasts and "then" are then
+  recomputed from the stored counts through the real persistence forecaster.
+- **Refusals:** a recording that barely varies is refused, and the camera stays without levels.
+- **What every result says:** its lanes are unreviewed, and its levels flatter that recording and are not
+  evidence.
+
+**The boundary, restated and pinned by tests.** The dashboard was "GET-only by construction".
+- **Now:** `api.js` stays GET-only, and `workbench.js` is the one module that may POST.
+- **What `workbench.js` may send:** only to the workbench's seven actions, and only plain data (short text,
+  numbers, lane positions; never a Blob, an ArrayBuffer or a file's bytes).
+- **What none of them can reach:** a signal, `/observation`, or the server, which has no `/workbench`
+  route.
+- **Served by the server:** the dashboard is byte-for-byte the read-only page it was. A test shows that
+  nothing of the workbench renders there.
+
+**Fixes:**
+- Native `<select>` lists are replaced by a themed choice list with radio semantics, which filters when long.
+- A not-yet-reached replay milestone no longer shows in the error colour.
+- The clip list collapses while a replay runs.
+- Analyze's left column is wider in workbench mode.
+
+**Verified (RTX 4050 laptop, 2026-11-06, ADR-003):**
+- **One interface, end to end:** `/` → Analyze → open the SE38th 12:08 video. It was found on disk, the
+  stored result reopened at once beside the playing video, and the length matched (3,600 s).
+- **A camera with no profile (NE12th 07:08, 6.8 min):**
+  - Three lanes were placed, saved as provisional, analysed, and given levels (LOW up to 0.92, MEDIUM up to
+    1.99) in under 2 minutes.
+  - The test lanes were placed without looking at the picture (footage licence), so that camera and its
+    result were deleted afterwards.
+- **Replay from Live:** SE38th 16:08.
+  - The badge read REPLAY, and the banner "Updates are arriving from a recording".
+  - First class forecast at 1:09, first count forecast at 2:09.
+  - Stopped through the workbench's stop action.
+- **Tests:** 204 dashboard tests, including 7 new. The Python workbench and launcher tests were rewritten
+  for D41, and the whole Python suite passes.
+
+**Known limits, reported and not fixed:**
+- **A wrong camera cannot be detected.** Profiles hold no resolution, so a video declared under the wrong
+  camera is counted in the wrong lanes.
+- **The folder window opens on the computer running the workbench.** That is the same computer, because it
+  answers on 127.0.0.1 only.
+- **Console noise without a replay.** The live panels' requests are answered 404, which the browser logs;
+  the page shows nothing false.
+- **A provisional camera is local.** Promoting one to `cameras/` stays a reviewed change under ADR-028.
+
+## D40 — the workbench: analyse a recording and open it, without a command (2026-11-06)
+
+**Why, and on whose word.** The owner asked on 2026-11-06 for "Try a clip" and "Analyze a video" to become
+one flow, for any recording. That is the first future-scope item D38 recorded, and the owner's instruction
+lifts the 2026-11-04 freeze for this item only. The tours and the glossy style stay future scope.
+
+**What was built.** `scripts/demo_launcher.py` (D29) is now a two-action page on 127.0.0.1, and
+`scripts/workbench.py` holds the analysis jobs.
+- **Analyze a recording:**
+  - **Inputs:** any video under `--videos-root` (default `--clips-root`), and a camera the viewer
+    declares from the valid profiles. Nothing infers the camera from a file name (ADR-028).
+  - **Stages:** check, analyse, validate, ready.
+    - The pre-flight refuses a video it cannot decode or one under 5 minutes, and gives the reason.
+    - The calibration hour is noted, not refused.
+  - **Progress:** read from the tool itself, as frames done of frames total. The time left is shown
+    only once it has been measured.
+  - **The tool:** `analyze_video.py` runs unchanged in a child process. It gains one flag, `--progress`,
+    which adds a machine-readable line every 10 s of video.
+  - **Validation:** what the tool wrote is checked for kind, schema, camera, clip, and sample count
+    against the video's length.
+  - **Storage:** the result is stored by a key over the video fingerprint and name, the profile hash, and
+    the detector, counting settings, ridge spec and tool. The same inputs reopen at once.
+- **Replay through the system:** today's "Try a clip", unchanged. A finished analysis of a clip that can
+  also replay offers it. The two actions take turns, because both need the GPU.
+- **The hand-off to the dashboard:**
+  - **Serving:** the workbench serves the built `dashboard/dist`, read-only and unchanged, with a check
+    that no file outside it is served.
+  - **The new GET:** the dashboard gains one allowed endpoint, `/workbench/analysis/<64 hex>`. App reads
+    `?analysis=<key>`, and Analyze checks the result exactly as an opened file. The server has no such
+    route, so on the server the link says it works only on the computer whose workbench made it.
+
+**What stays as it was:**
+- **No frame in a request or a response (NFR-13, D29).** The video is never served: the viewer opens it in
+  the Analyze page and it plays from their disk. `Analyze.jsx` still contains no request, which
+  `test_demo_live.py` checks.
+- **The dashboard is GET-only, and the server is unchanged.** No model, threshold or output format
+  changed.
+
+**Verified (RTX 4050 laptop, 2026-11-06, ADR-003):**
+- **9.4-minute clip:** SE38th 16:08 passed every stage in under 45 s.
+- **60-minute clip:** SE38th 12:08 took about 2½ minutes. It opened with 4 lane rows and the whole-video
+  timeline. The same video then played from a local file at a matching length (3,600 s).
+- **Tests:** 38 new Python tests (`tests/test_workbench.py`) and 6 new dashboard tests. The whole Python
+  suite and all 197 dashboard tests pass.
+- **Found by the browser run and fixed:**
+  - The page's refresh erased the "choose the camera first" message.
+  - A finished job read "281 of 282 … under a minute left".
+  - The analyse stage kept saying "loading the detector" after frames arrived.
+
+**Known limits, reported and not fixed:**
+- **A wrong camera cannot be detected.** Profiles hold lane positions as fractions of the picture and no
+  resolution, so a video declared under the wrong camera is counted in the wrong lanes.
+- **Console noise.** The dashboard opened from the workbench still polls the server's live endpoints,
+  which answer 404 there. The browser console logs them; the page shows nothing false.
+- **Still future, because each changes the ADR-028 profile contract:**
+  - making a new camera's profile in the page;
+  - analysing a camera with lanes but no calibrated limits (counts only, class marked not calibrated).
+
 ## D39 — two unsupported citation figures withdrawn (S45 audit, 2026-11-06)
 
 Documentation only. No code, test, configuration, result, threshold or claim changed, and the submitted

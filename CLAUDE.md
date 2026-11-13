@@ -158,7 +158,7 @@ toward nothing.
 file, and neither is defined where it is used.
 
 **`P<n>` is a changelog entry in [PRD-CHANGELOG.md](docs/00-planning/PRD-CHANGELOG.md)**,
-currently running to P143, with `D<n>` entries (D1–D44) for the
+currently running to P143, with `D<n>` entries (D1–D45) for the
 deployment and dashboard work. It is the defect and amendment journal: what was
 believed, what was measured, what changed, and what was rejected along with the
 reason. Entries record rejected options on purpose — P42 rejects disabling cuDNN

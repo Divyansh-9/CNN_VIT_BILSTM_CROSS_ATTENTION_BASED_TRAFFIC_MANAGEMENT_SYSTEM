@@ -248,6 +248,59 @@ def check_amendments_land(files: list[Path]) -> None:
                 f"section cannot learn the amendment exists")
 
 
+D_HEADING = re.compile(r"^## D(\d+)(?:[–-]D(\d+))? — ", re.M)
+
+
+def d_entry_problems(text: str) -> list[str]:
+    """Every D entry from D1 to the newest has exactly one heading (D45).
+
+    Two defects went out unnoticed because nothing checked this. A script that
+    added D43 replaced D42's heading instead of inserting above it, and a split
+    commit later shipped D40-D44's code without their five entries. A combined
+    heading such as "D1–D2" covers both numbers."""
+    seen: dict[int, int] = {}
+    for match in D_HEADING.finditer(text):
+        first = int(match[1])
+        last = int(match[2]) if match[2] else first
+        for n in range(first, last + 1):
+            seen[n] = seen.get(n, 0) + 1
+    if not seen:
+        return []
+    problems = [f"changelog  D{n} has no heading" for n in range(1, max(seen) + 1) if n not in seen]
+    problems += [f"changelog  D{n} has {k} headings" for n, k in sorted(seen.items()) if k > 1]
+    return problems
+
+
+CLAUDE_D_RANGE = re.compile(r"\(D1–D(\d+)\)")
+
+
+def d_range_problem(changelog: str, claude: str) -> str | None:
+    """CLAUDE.md states the D range; the changelog's newest entry must match it.
+    A changelog that simply stops early is consistent with itself, which is how
+    D40-D44's entries went missing unnoticed (D45)."""
+    stated = CLAUDE_D_RANGE.search(claude)
+    numbers = [int(m[2] or m[1]) for m in D_HEADING.finditer(changelog)]
+    if not stated or not numbers:
+        return None
+    if int(stated[1]) != max(numbers):
+        return (f"changelog  CLAUDE.md says D1–D{stated[1]}, but the changelog's newest D entry "
+                f"is D{max(numbers)}")
+    return None
+
+
+def check_changelog_entries() -> None:
+    log = ROOT / "docs" / "00-planning" / "PRD-CHANGELOG.md"
+    if not log.exists():
+        return
+    text = log.read_text(encoding="utf-8", errors="replace")
+    failures.extend(d_entry_problems(text))
+    claude = ROOT / "CLAUDE.md"
+    if claude.exists():
+        problem = d_range_problem(text, claude.read_text(encoding="utf-8", errors="replace"))
+        if problem:
+            failures.append(problem)
+
+
 def main() -> int:
     files = markdown_files()
     check_links(files)
@@ -255,6 +308,7 @@ def main() -> int:
     check_adrs_registered()
     check_requirements_traceable(files)
     check_amendments_land(files)
+    check_changelog_entries()
 
     print(f"checked {len(files)} markdown files")
     if failures:
@@ -264,7 +318,7 @@ def main() -> int:
         return 1
     print("links resolve, no withdrawn claims resurrected, all ADRs "
           "registered, every requirement defined and traced, "
-          "every PRD amendment reachable from the PRD")
+          "every PRD amendment reachable from the PRD, every D entry headed once")
     return 0
 
 
