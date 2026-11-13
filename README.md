@@ -21,7 +21,7 @@ research, targeting unstructured Indian intersections**
 ![temporal](https://img.shields.io/badge/TEMPORAL-BiLSTM%202%C3%97128-20B2AA?style=for-the-badge)
 
 ![state](https://img.shields.io/badge/PPO%20STATE-17--dim-informational?style=for-the-badge)
-![adrs](https://img.shields.io/badge/ADRs-27-lightgrey?style=for-the-badge)
+![adrs](https://img.shields.io/badge/ADRs-28-lightgrey?style=for-the-badge)
 ![budget](https://img.shields.io/badge/BUDGET-%E2%82%B90-brightgreen?style=for-the-badge)
 ![project](https://img.shields.io/badge/PROJECT-B.Tech%20CSE%20(ML%2FAI)-navy?style=for-the-badge)
 
@@ -57,13 +57,16 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 | | |
 |---|---|
 | **Built** | ~62,900 lines of Python in 279 files · 90 test modules · 1,525 tests: **1,522 pass, 3 skip** in a local run on 2026-10-21 (Python 3.14.4, Windows; CI runs Python 3.12 on Linux) |
-| **Specified** | 27 architecture decisions · changelog P1–P143, plus D1–D12 · build steps S01–S68 |
+| **Specified** | 28 architecture decisions · changelog P1–P143, plus D1–D45 · build steps S01–S69 |
 | **Waiting on the guide** | Narrowing claim C1 (MEMO-2026-10-17, S63zm) |
 | **On hold (owner, P143)** | Indian-data acquisition: the Part B evaluation set (S19) and the BMD-45 outreach (S54). Engineering proceeds on the foreign corpus; Indian-domain validation stays unestablished |
 | **Waiting on the owner** | V1 labellers · the S65 camera window · licensing (handled separately) |
 
 > **New to the project?** Start with **[EXPLAIN.md](EXPLAIN.md)**, which
 > covers everything in plain English.
+>
+> **On the team and catching up?** **[docs/TEAM-STATUS.md](docs/TEAM-STATUS.md)** says,
+> on one page, what is built, what it showed, how to see it running, and what is left.
 >
 > **Want the current status?** **[BUILD-LOG.md](BUILD-LOG.md)** is the status
 > board. `scripts/check_build_log.py` checks it against the repository.
@@ -78,7 +81,7 @@ B.Tech CSE (ML/AI) major project · 20 weeks · 3–4 members · ₹0 cash budge
 | [Results](#results-and-what-they-support) | What has been measured, and what each result supports |
 | [Reading paths](#reading-paths) | Where to start, by role |
 | [Why each component](#why-each-component) | The defence of every technology choice |
-| [Decisions](#decisions) | All 27 ADRs |
+| [Decisions](#decisions) | All 28 ADRs |
 | [Open items](#open-items) | Everything unresolved, with its owner |
 | [Claims](#what-we-claim-and-what-we-do-not) | What survives peer review |
 | [Repository](#repository) · [Getting started](#getting-started) · [Rules](#working-rules) | Practicalities |
@@ -248,7 +251,7 @@ weak, it says so.
 
 ## Decisions
 
-There are 27 ADRs in [decisions/](docs/00-planning/decisions/), and each one
+There are 28 ADRs in [decisions/](docs/00-planning/decisions/), and each one
 carries its rejected alternatives.
 
 - **Accepted** by the project owner, unless the ADR's status line says
@@ -256,7 +259,8 @@ carries its rejected alternatives.
   - ADR-001 to ADR-012;
   - ADR-020, as amended;
   - ADR-026;
-  - ADR-027.
+  - ADR-027;
+  - ADR-028 (one profile per camera, D31).
 - **Proposed:** ADR-013 to ADR-019 and ADR-021 to ADR-025.
   - **The status field is not a record of what is running.** ADR-019, for
     example, is fully implemented.
@@ -310,7 +314,7 @@ The full analysis is in [Related Work](docs/00-planning/RELATED-WORK.md) and
 
 ```
 docs/            The SDLC suite, indexed at docs/README.md
-  00-planning/     PRD · PRD-CHANGELOG · CLAIMS.yaml · decisions/ (27 ADRs) · memos · plans
+  00-planning/     PRD · PRD-CHANGELOG · CLAIMS.yaml · decisions/ (28 ADRs) · memos · plans
   01-requirements/ SRS · FRD · NFR · RTM
   02-design/       SAD · HLD · HLD (corpus pipeline) · LLD outstanding
   03-testing/      STP, STD, UAT and STR outstanding
