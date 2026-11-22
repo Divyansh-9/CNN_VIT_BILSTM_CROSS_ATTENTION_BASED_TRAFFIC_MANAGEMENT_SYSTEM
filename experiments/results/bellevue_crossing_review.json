@@ -1,0 +1,115 @@
+{
+  "recording": "monitor-demo.webm",
+  "camera": "Bellevue_116th_NE12th",
+  "review_start_s": 0,
+  "review_end_s": 31,
+  "approaches_reviewed": [
+    "N",
+    "S"
+  ],
+  "match_tolerance_s": 1.25,
+  "method": "Single visual reviewer. Reviewed the raw recording with the configured finite lines and inbound arrows overlaid, without seeing detector boxes or predicted events. Labeled visible vehicle centers passing the line in the inbound direction. N and S refer to profile labels.",
+  "events": [
+    {
+      "approach": "N",
+      "time_s": 12.0,
+      "description": "Light-colored car joins the queue on its left edge."
+    },
+    {
+      "approach": "S",
+      "time_s": 15.5,
+      "description": "Dark vehicle passes the stopped SUV in the outer lane."
+    },
+    {
+      "approach": "S",
+      "time_s": 21.5,
+      "description": "A second dark vehicle passes through the outer lane."
+    }
+  ],
+  "before": {
+    "matched": 3,
+    "missed": 0,
+    "unmatched": [
+      {
+        "track_id": 7,
+        "t": 1.75,
+        "type": "car",
+        "approach": "S",
+        "confidence": 0.752
+      }
+    ],
+    "event_matches": [
+      {
+        "reference_s": 12.0,
+        "prediction": {
+          "track_id": 114,
+          "t": 12.25,
+          "type": "car",
+          "approach": "N",
+          "confidence": 0.598
+        }
+      },
+      {
+        "reference_s": 15.5,
+        "prediction": {
+          "track_id": 140,
+          "t": 15.75,
+          "type": "car",
+          "approach": "S",
+          "confidence": 0.627
+        }
+      },
+      {
+        "reference_s": 21.5,
+        "prediction": {
+          "track_id": 224,
+          "t": 22.0,
+          "type": "car",
+          "approach": "S",
+          "confidence": 0.776
+        }
+      }
+    ],
+    "all_approaches_uncalibrated_total": 16
+  },
+  "after": {
+    "matched": 3,
+    "missed": 0,
+    "unmatched": [],
+    "event_matches": [
+      {
+        "reference_s": 12.0,
+        "prediction": {
+          "track_id": 114,
+          "t": 12.75,
+          "type": "car",
+          "approach": "N",
+          "confidence": 0.71
+        }
+      },
+      {
+        "reference_s": 15.5,
+        "prediction": {
+          "track_id": 140,
+          "t": 15.75,
+          "type": "car",
+          "approach": "S",
+          "confidence": 0.627
+        }
+      },
+      {
+        "reference_s": 21.5,
+        "prediction": {
+          "track_id": 224,
+          "t": 22.0,
+          "type": "car",
+          "approach": "S",
+          "confidence": 0.776
+        }
+      }
+    ],
+    "all_approaches_uncalibrated_total": 11
+  },
+  "model": "YOLO11s, 960 px, 0.30 occupancy threshold",
+  "limitations": "Small development sample used to expose a counting bug. Does not establish independent test-set accuracy across the full recording, other approaches or cameras."
+}

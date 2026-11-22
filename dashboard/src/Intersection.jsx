@@ -99,7 +99,10 @@ export function labelLines(a, lane) {
 }
 
 export function Intersection({ cls, count }) {
-  const j = junction(cls, count);
+  return <JunctionMap snapshot={junction(cls, count)} />;
+}
+
+export function JunctionMap({ snapshot: j, approachNames, selected, onSelect }) {
   const zebra = [];
   for (let i = 0; i < 8; i++) {
     const o = -HALF + 3 + i * 8.5;
@@ -108,10 +111,13 @@ export function Intersection({ cls, count }) {
   const g = HALF + 22;
   return (
     <figure className={styles.figure} data-junction={j.stale ? "stale" : "current"}>
+      <div className={onSelect ? styles.interactiveMap : styles.map}>
       <svg className={styles.svg} viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} aria-hidden="true" focusable="false">
         <rect className={styles.road} x="0" y={C - HALF} width={SIZE} height={HALF * 2} />
         <rect className={styles.road} x={C - HALF} y="0" width={HALF * 2} height={SIZE} />
         <rect className={styles.box} x={C - HALF} y={C - HALF} width={HALF * 2} height={HALF * 2} />
+        {selected && <rect className={styles.selectedArm} x={C - HALF} y="0" width={HALF * 2} height={C - HALF}
+                           transform={`rotate(${TURN[selected]} ${C} ${C})`} />}
         {zebra.map(([x, y, w, h], i) => <rect key={i} className={styles.zebra} x={x} y={y} width={w} height={h} />)}
         <path className={styles.centre} d={`M${C},0 V${C - STOP} M${C},${C + STOP} V${SIZE} M0,${C} H${C - STOP} M${C + STOP},${C} H${SIZE}`} />
         {APPROACHES.map((a) => <rect key={a} className={styles.stop} {...STOP_LINES[a]} />)}
@@ -141,11 +147,21 @@ export function Intersection({ cls, count }) {
           </text>
         ))}
       </svg>
+      {onSelect && APPROACHES.map((direction) => (
+        <button key={direction} type="button" className={styles.armButton} data-arm={direction}
+                aria-label={`${approachNames[direction]} approach`} aria-pressed={selected === direction}
+                onClick={() => onSelect(direction)}>
+          {direction}
+        </button>
+      ))}
+      </div>
       <figcaption className={styles.caption}>
+        {onSelect ? "Select an approach to inspect it. Ribbons fill at 10 vehicles, with larger values shown in the labels." : <>
         A longer ribbon means more vehicles expected; its outlined track is the scale, 0 to {SCALE_MAX}. Two cuts
         near its outer end mean more than {SCALE_MAX}. Each ribbon points into the junction. Colour and word:
         congestion level. A grey ribbon has a vehicle number but no level yet. Dashed ribbons are out of date. No track and no ribbon means no vehicle number is forecast there. Squares with
         a ? mark signals, which are not connected, so their colour is not known here.
+        </>}
       </figcaption>
     </figure>
   );

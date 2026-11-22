@@ -26,14 +26,20 @@ last spoke; the server decides whether that is too long ago. A device that has
 crashed cannot report that it has crashed, so a timeout measured on the sender
 would never fire in the case it exists for.
 
-**Writes need a bearer token; reads do not** (NFR-12 as amended, ADR-008, D9).
+**Writes need a bearer token** (NFR-12 as amended, ADR-008, D9).
 Every POST requires `Authorization: Bearer <token>`, matched in constant time
 against `STMS_API_TOKEN` in the server's environment. With that variable unset
 or empty, every POST is refused: there is no switch that turns the check off.
-GET endpoints, and the dashboard that uses them, stay open for reading, so
-stored observations and forecasts are visible to anyone who can reach the
-server. The token crosses plain HTTP, which is why the server stays on
+The token crosses plain HTTP, which is why the server stays on
 127.0.0.1. Neither the token nor a refused value is ever logged or echoed.
+
+**Reads need a signed-in person or the same token** (owner's request,
+2026-11-14). Every GET except `/`, `/health`, the sign-in routes under `/auth/` and
+the built page under `/dashboard/` answers 401 unless it carries a valid
+session cookie (`server/auth.py`) or the bearer token above. The check is a
+middleware, so a route added later is protected without anyone remembering to.
+A session can only read: no POST accepts a cookie, so the dashboard still
+cannot write. Before this, reads were open to anyone who could reach the server.
 """
 
 from __future__ import annotations
@@ -51,8 +57,11 @@ from typing import Annotated, Literal
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, BeforeValidator, Field
+from fastapi.concurrency import run_in_threadpool
+
+from server import auth, local_analysis
 
 from contracts.mqtt import (INTERSECTION_ID, ContractError, Topic, check_intersection_id, check_lane,
                             decode)
@@ -90,6 +99,24 @@ def require_write_token(authorization: str | None = Header(default=None)) -> Non
 
 
 WRITE = [Depends(require_write_token)]
+
+
+def bearer_ok(authorization: str | None) -> bool:
+    """The service token (D9) on a read: how scripts and other servers read."""
+    expected = os.environ.get(API_TOKEN_ENV, "").strip()
+    scheme, _, supplied = (authorization or "").partition(" ")
+    supplied = supplied.strip()
+    return bool(expected and scheme.lower() == "bearer" and supplied
+                and hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8")))
+
+
+#: The landing page and bundled sample data are public. Real data comes from protected routes.
+PUBLIC_EXACT = {"/", "/health"}
+PUBLIC_PREFIXES = ("/auth/", "/dashboard/")
+
+
+def is_public(path: str) -> bool:
+    return path in PUBLIC_EXACT or path == "/dashboard" or path.startswith(PUBLIC_PREFIXES)
 
 
 def write_auth_header() -> dict[str, str]:
@@ -167,6 +194,46 @@ class AccessLogFilter(logging.Filter):
 
 
 logging.getLogger("uvicorn.access").addFilter(AccessLogFilter())
+
+
+@app.middleware("http")
+async def require_sign_in(request: Request, call_next):
+    """Fail closed: every read outside `is_public` needs a session or the token.
+    POSTs are left to their own `WRITE` dependency, which accepts only the token."""
+    path = request.url.path
+    local_workbench = path.startswith("/workbench/") and local_analysis.allowed(request)
+    if request.method in ("GET", "HEAD") and not (is_public(path) or local_workbench):
+        allowed = bearer_ok(request.headers.get("authorization"))
+        if not allowed:
+            token = request.cookies.get(auth.COOKIE)
+            allowed = bool(token) and await run_in_threadpool(auth.session_user, token) is not None
+        if not allowed:
+            return JSONResponse(status_code=401, content={"detail": auth.SIGN_IN_REQUIRED},
+                                headers={"Cache-Control": "no-store"})
+    response = await call_next(request)
+    if not path.startswith("/dashboard"):
+        # Data must not survive sign-out in the browser's cache or back/forward history.
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+app.include_router(local_analysis.router)
+
+
+@app.api_route("/auth/{action}", methods=["GET", "POST"], include_in_schema=False)
+async def auth_route(action: str, request: Request) -> JSONResponse:
+    """Sign-in, registration, sign-out and password reset (`server/auth.py`)."""
+    raw = await request.body() if request.method == "POST" else b""
+    client = request.client.host if request.client else ""
+    reply = await run_in_threadpool(
+        auth.api, request.method, action, raw=raw, content_type=request.headers.get("content-type"),
+        origin=request.headers.get("origin"), host=request.headers.get("host"),
+        token=request.cookies.get(auth.COOKIE), client=client)
+    response = JSONResponse(status_code=reply.status, content=reply.payload,
+                            headers={"Cache-Control": "no-store", **reply.headers})
+    if reply.set_cookie:
+        response.headers.append("set-cookie", reply.set_cookie)
+    return response
 
 
 @app.exception_handler(RequestValidationError)
@@ -1075,6 +1142,13 @@ def history(intersection_id: str, limit: int = Query(50, ge=1)) -> dict:
 # The read-only dashboard (ADR-008 Live/Results, ADR-014 two panels), served
 # from the same origin when it has been built: `npm run build` in dashboard/.
 _DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard" / "dist"
+
+
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+def dashboard_home() -> RedirectResponse:
+    return RedirectResponse("/dashboard/")
+
+
 if _DASHBOARD.is_dir():
     from fastapi.staticfiles import StaticFiles
 

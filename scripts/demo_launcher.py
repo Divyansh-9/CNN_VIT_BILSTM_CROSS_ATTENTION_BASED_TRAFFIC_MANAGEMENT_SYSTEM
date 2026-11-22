@@ -2,7 +2,7 @@
 
     python scripts/demo_launcher.py --mosquitto <mosquitto.exe> --clips-root <footage folder>
 
-then open the address it prints. It serves the built dashboard as its only page,
+then open the workbench address it prints. It serves the built dashboard as its only page,
 so analysing a recording, replaying one through the system and watching the
 result all happen in one interface.
 
@@ -20,6 +20,10 @@ size and fingerprint, lane positions, and text about the work. Never a path, and
 never a frame (NFR-13): the video plays in the page from a file the viewer opened,
 and this process never serves it. A folder is shown to it through this computer's
 own folder window, and only the folder's name comes back.
+
+**Sign-in (D46).** The page and `/auth/*` answer anyone; every other read and every
+action needs a signed-in session from the same account store as the server
+(`server/auth.py`). The live panels' pass-through sends the replay server's own D9 token.
 
 **It binds to 127.0.0.1 only**, and a request is refused unless its Host names this
 address, its Origin, if any, is this address, and a POST is JSON. So another site
@@ -64,12 +68,16 @@ from scripts.demo_e2e import CAMERA_SOURCE, Stack  # noqa: E402
 from scripts.demo_live import (DEFAULT_MINUTES, LIVE_ID, MILESTONES, MIN_MINUTES, REHEARSED, Clip,  # noqa: E402
                                available_clips, port_free, run_with_cleanup)
 from scripts.workbench import Analyses, Cameras, Locator, Refused, catalogue, choose_folder  # noqa: E402
+from server import auth  # noqa: E402
 
 use_utf8()
 
 __all__ = ["Launcher", "Refused", "SERVER_GETS", "make_handler", "main", "static_file", "status_text"]
 
 DIST = ROOT / "dashboard" / "dist"
+#: The running replay server's read token (D9), set when its stack starts. The live panels
+#: are passed through to that server, and its reads need a session or this token.
+_UPSTREAM = {"token": None}
 RESULTS = ROOT / "data" / "_workbench"
 CAMERA_ENV = "STMS_CAMERA_URL"   # as edge.run.CAMERA_ENV: read there, never here
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -224,6 +232,10 @@ def run_clip(args):
                 super().mark(text)
                 report(text)
 
+            def start_server(self) -> None:
+                super().start_server()
+                _UPSTREAM["token"] = self.env("server.env").get("STMS_API_TOKEN")
+
         def sleep(seconds: float) -> None:
             if stopping.wait(seconds):
                 raise KeyboardInterrupt      # demo_live's own way out: it stops what it started
@@ -269,8 +281,13 @@ def local_evidence() -> tuple[int, bytes]:
 
 
 def pass_through(port: int, path: str) -> tuple[int, bytes]:
+    from urllib.request import Request
+
+    token = _UPSTREAM["token"]
+    request = Request(f"http://127.0.0.1:{port}{path}",
+                      headers={"Authorization": f"Bearer {token}"} if token else {})
     try:
-        with urlopen(f"http://127.0.0.1:{port}{path}", timeout=3) as reply:
+        with urlopen(request, timeout=3) as reply:
             return reply.status, reply.read()
     except HTTPError as error:
         return error.code, error.read()
@@ -305,6 +322,25 @@ def make_handler(launcher: Launcher, port_of, analyses: Analyses | None = None, 
         def answer(self, status, payload) -> None:
             self.reply(status, json.dumps(payload).encode("utf-8"))
 
+        # ------------------------------------------------------------ sign-in ---
+        # The same accounts and sessions as the server (server/auth.py). Only the page
+        # itself and /auth/* answer without a session; every read and action needs one.
+        def signed_in(self) -> bool:
+            return auth.session_user(auth.cookie_token(self.headers.get("Cookie"))) is not None
+
+        def refuse_signed_out(self) -> None:
+            self.answer(HTTPStatus.UNAUTHORIZED, {"detail": auth.SIGN_IN_REQUIRED})
+
+        def auth_action(self, method: str, path: str, raw: bytes = b"") -> None:
+            result = auth.api(method, path[len("/auth/"):], raw=raw, content_type=self.headers.get("Content-Type"),
+                              origin=self.headers.get("Origin"), host=self.headers.get("Host"),
+                              token=auth.cookie_token(self.headers.get("Cookie")),
+                              client=self.client_address[0], link_base=f"http://127.0.0.1:{port_of()}")
+            extra = [(name, value) for name, value in result.headers.items()]
+            if result.set_cookie:
+                extra.append(("Set-Cookie", result.set_cookie))
+            self.reply(result.status, json.dumps(result.payload).encode("utf-8"), extra=extra)
+
         def local(self) -> bool:
             """Host must name this address, so DNS rebinding gets nowhere; and an
             Origin, when a browser sends one, must be this address."""
@@ -318,9 +354,14 @@ def make_handler(launcher: Launcher, port_of, analyses: Analyses | None = None, 
             if not self.local():
                 return self.answer(HTTPStatus.FORBIDDEN, {"error": "this page answers on its own address only"})
             path = urlsplit(self.path).path
+            if path.startswith("/auth/"):
+                return self.auth_action("GET", path)
+            public = path in ("/", "/dashboard") or path.startswith("/dashboard/")
+            if not public and not self.signed_in():
+                return self.refuse_signed_out()
             if path == "/":
                 return self.reply(HTTPStatus.FOUND, b"", "text/plain",
-                                  (("Location", f"/dashboard/?id={LIVE_ID}#analyze"),))
+                                  (("Location", "/dashboard/"),))
             if path in ("/clips", "/workbench/replay/clips"):
                 return self.answer(HTTPStatus.OK, launcher.listing())
             if path in ("/state", "/workbench/replay/state"):
@@ -386,6 +427,11 @@ def make_handler(launcher: Launcher, port_of, analyses: Analyses | None = None, 
             # A cross-site form cannot send this type without asking first.
             if self.headers.get("Content-Type") != "application/json":
                 return self.answer(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, {"error": "send JSON"})
+            path = urlsplit(self.path).path
+            if path.startswith("/auth/"):
+                return self.auth_action("POST", path, raw if 0 <= length <= auth.MAX_BODY else b"x" * (auth.MAX_BODY + 1))
+            if not self.signed_in():
+                return self.refuse_signed_out()
             if not 0 <= length <= MAX_BODY:
                 return self.answer(HTTPStatus.BAD_REQUEST, {"error": "bad length"})
             try:
@@ -517,6 +563,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(f"Open http://127.0.0.1:{args.port}/  ({len(analyses.recordings)} recordings known, "
           f"{len(profiles)} committed cameras; Ctrl+C here stops everything)", flush=True)
+    print(f"Workbench: http://127.0.0.1:{args.port}/dashboard/?id={LIVE_ID}#analyze", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

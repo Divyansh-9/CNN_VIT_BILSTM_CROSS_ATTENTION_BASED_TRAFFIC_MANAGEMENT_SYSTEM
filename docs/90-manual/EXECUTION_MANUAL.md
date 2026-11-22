@@ -1004,9 +1004,10 @@ The workbench is the dashboard served from this computer, with the actions only 
 python scripts/demo_launcher.py --mosquitto <mosquitto.exe> --clips-root <footage folder>     [--videos-root <folder> ...] [--results-dir <folder>]
 ```
 
-Build the dashboard first (`cd dashboard && npm run build`): it is the tool's only page. Open
-`http://127.0.0.1:18080/`, which lands on **Analyze a video**. The header reads "Local workbench · no signal
-commands".
+Build the dashboard first (`cd dashboard && npm run build`). Open
+`http://127.0.0.1:18080/dashboard/?id=live#analyze` and sign in to reach
+**Analyze a video**. The header reads "Local workbench · no signal commands".
+The workbench server's root address opens the public team page.
 
 **To analyse a video:**
 1. **Open any video on this computer.** It plays in the page and is never uploaded.

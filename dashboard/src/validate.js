@@ -276,6 +276,73 @@ function sampleProblem(s, laneNames, approaches, schema) {
   return schema === 2 ? detectionsProblem(s, laneNames) : null;
 }
 
+function signalRow(row) {
+  return row && typeof row.phase === "string" && typeof row.reason === "string"
+    && Array.isArray(row.approaches) && row.approaches.every(a => APPROACHES.includes(a))
+    && [row.start, row.green_end, row.yellow_end, row.end, row.green_s, row.red_wait_s, row.visible]
+      .every(n => Number.isFinite(n) && n >= 0)
+    && row.green_end === row.start + row.green_s && row.green_s > 0
+    && row.yellow_end > row.green_end && row.end > row.yellow_end;
+}
+
+function signalRows(rows) {
+  return Array.isArray(rows) && rows.length > 0
+    && rows.every((row, i) => signalRow(row) && (i === 0 || row.start === rows[i - 1].end));
+}
+
+function signalSnapshot(signal) {
+  const metric = n => n === null || (Number.isFinite(n) && n >= 0);
+  return signal && signal.source === "simulated" && signalRow(signal.phase)
+    && ["green", "yellow", "all-red"].includes(signal.state) && typeof signal.next_locked === "boolean"
+    && Number.isFinite(signal.as_of) && signalRows(signal.upcoming) && signal.upcoming.length === 3
+    && signal.upcoming[0].start === signal.phase.end
+    && signal.measurements && Object.entries(signal.measurements).every(([a, row]) =>
+      APPROACHES.includes(a) && row && metric(row.visible) && metric(row.inbound_per_min));
+}
+
+function trackedTrafficProblem(json) {
+  const { traffic, processing } = json;
+  if (traffic === undefined && processing === undefined) return null;
+  const array = (x) => Array.isArray(x);
+  const point = (x) => array(x) && x.length === 2 && x.every(Number.isFinite);
+  const nonnegative = (n) => Number.isFinite(n) && n >= 0;
+  const kinds = ["car", "motorcycle", "bus", "truck"];
+  if (!processing || typeof processing.filename !== "string" || typeof processing.model !== "string"
+      || typeof processing.tracker !== "string" || !point(processing.resolution) || !processing.resolution.every(n => n > 0)
+      || !array(processing.supported_classes) || !processing.supported_classes.every(k => kinds.includes(k))
+      || ![processing.seconds, processing.frames, processing.fps].every(v => Number.isFinite(v) && v > 0)
+      || (processing.source === "camera" ? processing.source_size !== 0 : !(processing.source_size > 0))) {
+    return "invalid recording processing metadata";
+  }
+  if (!traffic || !nonnegative(traffic.average_visible) || !array(traffic.crossings) || !array(traffic.alerts)
+      || !kinds.every(k => Number.isInteger(traffic.by_type?.[k]) && traffic.by_type[k] >= 0)
+      || !array(traffic.windows) || !traffic.windows.length || !array(traffic.lines)
+      || !traffic.lines.every(l => array(l?.endpoints) && l.endpoints.length === 2 && l.endpoints.every(point))
+      || !array(traffic.policy?.greens) || traffic.policy.greens.length !== 4
+      || ![...traffic.policy.greens, traffic.policy.previous_green, traffic.policy.yellow, traffic.policy.all_red].every(number)) {
+    return "invalid tracked traffic summary";
+  }
+  if (!traffic.windows.every(w => w && [w.t, w.end, w.visible, w.crossings].every(nonnegative)
+      && ["Low", "Moderate", "High", "Severe"].includes(w.level)
+      && w.green && w.approaches && Object.keys(w.green).every(a => APPROACHES.includes(a) && number(w.green[a]) && number(w.approaches[a])))) {
+    return "invalid traffic windows";
+  }
+  if (!traffic.crossings.every(c => c && Number.isInteger(c.track_id) && nonnegative(c.t) && APPROACHES.includes(c.approach) && kinds.includes(c.type))
+      || !traffic.alerts.every(a => a && nonnegative(a.t) && [a.id, a.type, a.severity, a.reason].every(v => typeof v === "string"))) {
+    return "invalid recorded events";
+  }
+  if (traffic.signal_schedule !== undefined) {
+    const schedule = traffic.signal_schedule;
+    if (schedule?.mode !== "offline" || !signalRows(schedule.phases)
+        || schedule.phases[0].start !== 0 || schedule.coverage_s !== json.duration_s
+        || schedule.phases.at(-1).end < schedule.coverage_s || !(schedule.max_red_s > 0)) {
+      return "invalid offline signal schedule";
+    }
+  }
+  if (traffic.signal_problem !== undefined && typeof traffic.signal_problem !== "string") return "invalid signal configuration status";
+  return null;
+}
+
 export function validateAnalysis(json) {
   if (!json || json.kind !== "stms-video-analysis") return fail("it is not an analysis results file");
   if (json.schema !== 1 && json.schema !== 2) return fail(`unknown schema ${String(json.schema)}`);
@@ -301,6 +368,11 @@ export function validateAnalysis(json) {
     const problem = sampleProblem(s, laneNames, approaches, json.schema);
     if (problem) return fail(`sample ${i + 1}: ${problem}`);
     if (i > 0 && s.t <= json.samples[i - 1].t) return fail(`sample ${i + 1}: out of order`);
+    if (s.track_ids !== undefined && (!Array.isArray(s.track_ids) || s.track_ids.length !== s.boxes.length
+        || !s.track_ids.every(id => id === null || (Number.isInteger(id) && id >= 0)))) return fail(`sample ${i + 1}: invalid track IDs`);
+    if (s.signal !== undefined && (!signalSnapshot(s.signal) || s.signal.as_of > s.t)) return fail(`sample ${i + 1}: invalid live signal prediction`);
   }
+  const trafficProblem = trackedTrafficProblem(json);
+  if (trafficProblem) return fail(trafficProblem);
   return { ok: true, data: json };
 }

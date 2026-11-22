@@ -8,15 +8,25 @@
 // no body can carry anything but short text, numbers and lane positions: never a
 // picture or a file's bytes (NFR-13). The video stays in the browser.
 
+import { announceSignedOut } from "./auth.js";
+
 export const READS = [
   /^\/workbench\/capabilities$/,
   /^\/workbench\/cameras$/,
   /^\/workbench\/jobs\/current$/,
+  /^\/workbench\/jobs\/current\?mode=live$/,
+  /^\/workbench\/jobs\/active$/,
+  /^\/workbench\/jobs$/,
+  /^\/workbench\/monitor\/camera$/,
+  /^\/workbench\/monitor\/demo\/[0-9a-f]{32}\?offset=\d+$/,
   /^\/workbench\/replay\/clips$/,
   /^\/workbench\/replay\/state$/,
 ];
 export const ACTIONS = ["/workbench/locate", "/workbench/folder", "/workbench/cameras", "/workbench/jobs",
-  "/workbench/jobs/stop", "/workbench/replay/start", "/workbench/replay/stop", "/workbench/camera/start"];
+  "/workbench/jobs/stop", "/workbench/replay/start", "/workbench/replay/stop", "/workbench/camera/start",
+  "/workbench/alerts/status", "/workbench/rejected", "/workbench/monitor/connect",
+  "/workbench/monitor/disconnect", "/workbench/monitor/finish", "/workbench/history/new",
+  "/workbench/history/reset", "/workbench/history/delete"];
 
 // A body is plain data: short strings, finite numbers, booleans, and arrays or
 // objects of those, a few levels deep. Anything else is refused before sending.
@@ -36,6 +46,8 @@ export function plainBody(value, depth = 0) {
 async function reply(response) {
   let data = null;
   try { data = await response.json(); } catch { /* no JSON body */ }
+  // The session ended or expired: the sign-in gate takes over (AuthGate.jsx).
+  if (response.status === 401) announceSignedOut();
   if (!response.ok) return { status: "error", code: response.status, reason: data?.error || data?.detail || `refused (${response.status})` };
   return { status: "ok", data };
 }
@@ -56,6 +68,17 @@ export async function wbPost(path, body = {}, fetcher = globalThis.fetch) {
     return await reply(await fetcher(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
   } catch (error) {
     return { status: "error", reason: `the workbench is not answering (${error.message})` };
+  }
+}
+
+export async function uploadVideo(file, fetcher = globalThis.fetch, signal) {
+  try {
+    return await reply(await fetcher("/workbench/upload", {
+      method: "POST", signal, body: file,
+      headers: { "content-type": "application/octet-stream", "x-stms-filename": encodeURIComponent(file.name) },
+    }));
+  } catch (error) {
+    return { status: "error", reason: `The recording could not be uploaded (${error.message}).` };
   }
 }
 

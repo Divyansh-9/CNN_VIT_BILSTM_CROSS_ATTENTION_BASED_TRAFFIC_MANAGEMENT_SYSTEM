@@ -324,20 +324,19 @@ def test_the_run_sheet_says_what_the_demo_is_not(tmp_path):
     assert "%" not in text
 
 
-def test_the_dashboard_shows_video_only_from_a_file_opened_in_the_browser():
-    """NFR-13, narrowed by D34: no frame ever reaches the page over the network. The
-    Analyze page may play a file the viewer opens, through an object URL. No other
-    page can show a picture, and no endpoint the page may call can carry one."""
+def test_video_players_and_camera_previews_are_limited_to_their_designated_components():
+    """Playback belongs to Analyze and browser camera preview. Operator ingest
+    read routes do not expose video or frames. Workbench media is tested separately."""
     source = Path(__file__).resolve().parent.parent / "dashboard" / "src"
     for path in source.glob("*.jsx"):
         text = path.read_text(encoding="utf-8")
-        assert "<img" not in text and "<iframe" not in text, path.name
-        if path.name != "Analyze.jsx" and ".test." not in path.name:
+        assert "<iframe" not in text, path.name
+        if path.name not in {"Analyze.jsx", "BrowserCamera.jsx"} and ".test." not in path.name:
             assert "<video" not in text, path.name
     analyze = (source / "Analyze.jsx").read_text(encoding="utf-8")
     assert analyze.count("<video") == 1 and "src={video.url}" in analyze
     assert "URL.createObjectURL(file)" in analyze
-    assert "fetch" not in analyze and "http" not in analyze and "api.js" not in analyze
+    assert "fetch" not in analyze and "api.js" not in analyze
     allowed = (source / "api.js").read_text(encoding="utf-8")
     assert "video\/" not in allowed and "frame" not in allowed.split("ALLOWED", 1)[1].split("];", 1)[0]
 

@@ -276,11 +276,31 @@ class Runner:
     def folder(self) -> Path:
         return Path(next(line for line in self.seen if line.startswith("run folder: ")).split(": ", 1)[1])
 
+    cookie: str | None = None
+
     def get(self, path: str):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
-        connection.request("GET", path)
+        connection.request("GET", path, headers={"Cookie": self.cookie} if self.cookie else {})
         reply = connection.getresponse()
         return reply.status, reply.getheader("Content-Type"), reply.read()
+
+    def post_json(self, path: str, payload: dict):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
+        connection.request("POST", path, body=json.dumps(payload),
+                           headers={"Content-Type": "application/json", "Origin": f"http://127.0.0.1:{self.port}"})
+        reply = connection.getresponse()
+        return reply.status, reply.getheader("Set-Cookie"), reply.read()
+
+    def sign_in(self) -> None:
+        """Register a throwaway account through the page host, then sign in with it."""
+        password = "Fixture-Run-42!"
+        status, _, _ = self.post_json("/auth/register", {
+            "full_name": "Fixture Tester", "email": "tester@example.org", "username": "fixture_tester",
+            "password": password, "confirm_password": password, "accept_terms": True})
+        assert status in (201, 422)
+        status, cookie, _ = self.post_json("/auth/login", {"identifier": "fixture_tester", "password": password})
+        assert status == 200 and cookie
+        self.cookie = cookie.split(";", 1)[0]
 
     def quit(self) -> int:
         self.send("quit")
@@ -332,6 +352,9 @@ def test_the_runner_serves_a_state_goes_down_recovers_and_cleans_up(tmp_path):
             connection.request("GET", path)
             assert connection.getresponse().getheader("Cache-Control") == "no-store", path
         assert runner.get("/dashboard/assets/app.js")[1].startswith("text/javascript")
+        # The data needs a signed-in person here too; the page and /health do not.
+        assert runner.get("/heartbeat/test-fixture/latest")[0] == 401
+        runner.sign_in()
         status, _, raw = runner.get("/heartbeat/test-fixture/latest")
         beat = json.loads(raw)
         assert status == 200 and beat["source"]["label"] == "TEST_FIXTURE_normal" and beat["source"]["kind"] == "replay"
@@ -375,6 +398,7 @@ def test_the_runner_runs_twice_in_a_row(tmp_path):
         runner = Runner(tmp_path, "no_data")
         try:
             runner.wait_for("Open: ")
+            runner.sign_in()
             assert runner.get("/prediction/test-fixture/latest")[0] == 404
             assert runner.quit() == 0
             assert run_folders(tmp_path) == []

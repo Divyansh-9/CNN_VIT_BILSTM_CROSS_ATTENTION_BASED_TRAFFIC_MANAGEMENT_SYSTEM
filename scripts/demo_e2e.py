@@ -150,8 +150,11 @@ class Stack:
                    {**self.env("edge.env"), "STMS_MQTT_CA_FILE": ca})
 
     def get(self, path: str):
+        # Reads need a session or the run's own token (server/app.py, 2026-11-14).
+        token = self.env("server.env").get("STMS_API_TOKEN", "")
+        request = urllib.request.Request(self.base + path, headers={"Authorization": f"Bearer {token}"})
         try:
-            with urllib.request.urlopen(self.base + path, timeout=5) as response:
+            with urllib.request.urlopen(request, timeout=5) as response:
                 body = response.read()
                 try:
                     return response.status, json.loads(body)

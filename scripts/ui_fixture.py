@@ -46,6 +46,7 @@ import http.client
 import json
 import os
 import queue
+import secrets
 import shutil
 import signal
 import subprocess
@@ -281,18 +282,26 @@ def generate(name: str) -> dict:
     # The prune timer is the server's own state: put it back, so generating a fixture
     # leaves the server module as it found it.
     saved = server.DATABASE, server._next_prune
+    # Reads need a session or the service token (2026-11-14): a one-off token, put back after.
+    saved_token = os.environ.get(server.API_TOKEN_ENV)
+    token = secrets.token_urlsafe(24)
     with tempfile.TemporaryDirectory(prefix=GENERATE_PREFIX) as folder:
         server.DATABASE = Path(folder) / "fixture.sqlite"
+        os.environ[server.API_TOKEN_ENV] = token
         try:
             with server_clock(clock):
                 load(name, clock, CLOCK)
-                client = TestClient(server.app)
+                client = TestClient(server.app, headers={"Authorization": f"Bearer {token}"})
                 responses = {}
                 for path in endpoints():
                     reply = client.get(path)
                     responses[path] = {"status": reply.status_code, "body": reply.json()}
         finally:
             server.DATABASE, server._next_prune = saved
+            if saved_token is None:
+                os.environ.pop(server.API_TOKEN_ENV, None)
+            else:
+                os.environ[server.API_TOKEN_ENV] = saved_token
     return {"state": name, "purpose": state.purpose, "banner": state.banner, "clock": CLOCK,
             "generated_by": "python scripts/ui_fixture.py --write-fixtures", "responses": responses}
 
@@ -396,8 +405,9 @@ def serve_api(name: str, db: Path, port: int) -> int:
 class ApiProcess:
     """The API process, started and stopped only through the handle this run holds."""
 
-    def __init__(self, work: Path, port: int):
+    def __init__(self, work: Path, port: int, page_port: int | None = None):
         self.work, self.port, self.proc, self.db, self.n = work, port, None, None, 0
+        self.page_port = page_port
 
     def start(self, name: str) -> None:
         self.stop()
@@ -405,6 +415,11 @@ class ApiProcess:
         self.db = self.work / f"state-{self.n}.sqlite"
         env = {k: v for k, v in os.environ.items() if k != "STMS_API_TOKEN"}
         env["PYTHONIOENCODING"] = "utf-8"
+        # Sign-in is required here too. Accounts made on a fixture run are throwaway: they
+        # live in the run folder and go with it, never in data/server/.
+        env["STMS_AUTH_DB"] = str(self.work / "accounts.sqlite")
+        env["STMS_AUTH_OUTBOX"] = str(self.work / "outbox")
+        env["STMS_PUBLIC_URL"] = f"http://127.0.0.1:{self.page_port}" if self.page_port else ""
         # stdin is never the runner's own: on Windows a child that inherits a handle the command
         # reader is blocked on stalls at start-up until the next command is typed.
         with (self.work / "api.log").open("a", encoding="utf-8") as log:
@@ -470,7 +485,7 @@ class PageHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/dashboard/"):
             self.path = self.path[len("/dashboard"):]
             return super().do_GET()
-        if self.path.startswith(API_PREFIXES):
+        if self.path.startswith(API_PREFIXES) or self.path.startswith("/auth/"):
             return self.forward()
         self.send_error(404)
 
@@ -484,14 +499,33 @@ class PageHandler(SimpleHTTPRequestHandler):
         self.send_error(405)
 
     def do_POST(self):
+        # Only the sign-in routes accept a POST; the data stays GET-only.
+        if self.path.startswith("/auth/"):
+            return self.forward("POST")
         self.send_error(405, "this page host forwards GET only")
 
-    do_PUT = do_DELETE = do_PATCH = do_POST
+    def do_PUT(self):
+        self.send_error(405, "this page host forwards GET only")
 
-    def forward(self) -> None:
+    do_DELETE = do_PATCH = do_PUT
+
+    def forward(self, method: str = "GET") -> None:
+        # The browser's Host, Origin and session cookie go through unchanged, so the API's
+        # same-origin check and its session check see what the browser sent.
+        headers = {"Accept": "application/json"}
+        for name in ("Host", "Origin", "Cookie", "Content-Type"):
+            if self.headers.get(name):
+                headers[name] = self.headers[name]
+        body = None
+        if method == "POST":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                length = 0
+            body = self.rfile.read(min(max(length, 0), 16 * 1024))
         try:
             connection = http.client.HTTPConnection("127.0.0.1", self.server.api_port, timeout=10)
-            connection.request("GET", self.path, headers={"Accept": "application/json"})
+            connection.request(method, self.path, body=body, headers=headers)
             reply = connection.getresponse()
             body = reply.read()
         except OSError:
@@ -502,6 +536,9 @@ class PageHandler(SimpleHTTPRequestHandler):
         self.send_response(reply.status)
         self.send_header("Content-Type", reply.getheader("Content-Type", "application/json"))
         self.send_header("Content-Length", str(len(body)))
+        for name in ("Set-Cookie", "Retry-After"):
+            for value in reply.headers.get_all(name) or ():
+                self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -596,7 +633,7 @@ def run(name: str, port: int, api_port: int, dist: Path) -> int:
     work = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
     (work / OWNER_FILE).write_text(json.dumps({"pid": os.getpid(), "started": time.time()}), encoding="utf-8")
     print(f"run folder: {work}", flush=True)
-    api, host = ApiProcess(work, api_port), None
+    api, host = ApiProcess(work, api_port, page_port=port), None
     if os.name == "nt":
         signal.signal(signal.SIGBREAK, _interrupt)
     else:

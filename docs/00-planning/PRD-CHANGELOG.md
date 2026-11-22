@@ -12116,6 +12116,60 @@ represent.
   one camera shows only that the level can saturate. The limits stay frozen; changing them is a
   pre-registered decision, not a display fix.
 
+## D46 — sign-in required for the whole application (2026-11-14)
+
+**The request.** A team member asked that nobody reach any page or any data without an account: a Login page
+first, Registration, Remember me, Forgot password, Logout, expired sessions handled, and the backend APIs
+protected, not only the pages. Before this, every GET and the dashboard were open to anyone who could reach
+the server (D9 protected writes only). This is a scope addition by the team, not a guide decision, and it
+reverses the dashboard README's "there is no login, because the page only reads".
+
+**What was built.**
+- **One core, two servers.** `server/auth.py` holds accounts, sessions, guessing limits and resets, with no
+  HTTP framework in it. The control server (`server/app.py`) and the local workbench
+  (`scripts/demo_launcher.py`) both answer `/auth/*` through `auth.api()` and share one account store,
+  `data/server/auth.sqlite` (gitignored; `STMS_AUTH_DB`).
+- **Passwords.** scrypt, N=2^17, r=8, p=1, 16-byte salt, self-describing hash string. Never stored, logged or
+  echoed in plain text. An unknown account still costs a full hash.
+- **Sessions.** A random 256-bit token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` with
+  `STMS_COOKIE_SECURE=1`); only its SHA-256 is stored. 12 h and 2 h idle, or 30 days with Remember me, all
+  from the environment. Sign-out and a password reset delete the server-side row, so a copied cookie dies.
+- **The read gate is a middleware and fails closed.** Every GET except `/health`, `/auth/*` and the built page
+  needs a session or the D9 bearer token, so a route added later is protected without anyone remembering to.
+  `/docs` and `/openapi.json` are behind it too. A session can only read: no POST accepts a cookie, so the
+  dashboard still cannot write.
+- **Guessing and forgery.** Five failures lock an account for 15 minutes, thirty lock a client address. Auth
+  POSTs must be JSON and same-origin.
+- **Resets** are single-use, 30 minutes, stored hashed. The link goes by SMTP when `STMS_SMTP_HOST` is set,
+  otherwise to an .eml in `data/server/outbox`. Its address comes from `STMS_PUBLIC_URL`, never the Host
+  header. The answer is the same whether or not the address has an account.
+- **The page.** `AuthGate.jsx` renders nothing of the project until `GET /auth/me` names a user, then sends
+  sign-in to `#home`. It re-asks every minute, on tab focus and on a back/forward-cache restore. Any read that
+  answers 401 signs the page out (`api.js`, `workbench.js`). Sign-out replaces the history entry, so Back
+  does not reopen the console. `Auth.jsx` holds the four screens in the requested navy and electric-cyan look,
+  from `--auth-*` tokens in `theme.css`, used only before sign-in. An account menu sits beside each page's
+  theme switch.
+- **The client boundary.** `api.js` stays GET-only. `auth.js` is the second module allowed to POST, only to
+  the five `/auth` actions; `dashboard.test.jsx` pins that.
+- **Scripts that read the server** (`demo_e2e.Stack.get`, `deploy/smoke_test.py`, `benchmark_live.py`, the
+  workbench's pass-through) now send the D9 token. `ui_fixture.py` forwards `/auth` and the cookie, and its
+  runs keep throwaway accounts in the run folder.
+
+**Verified.** `tests/test_auth.py` (new, 44 tests) and the updated server, workbench and fixture tests pass.
+The whole pytest suite, run on a copy of the repository with no `.git` and on a Python that is not the project
+venv, fails four tests, none touched by this change: `test_every_study_names_its_file_and_commit` and
+`test_lock_verification_rehashes_sidecars_and_finds_the_commit` (no git history),
+`test_pins_match_what_is_installed` (that interpreter's packages), and
+`test_the_dashboard_shows_video_only_from_a_file_opened_in_the_browser` (it reads `experience.test.jsx`, whose
+comment says `<img>`; unchanged here). vitest: 272 of 272, with `auth.test.jsx` new. A
+browser run in Edge against the real server passed 30 of 30 checks, including direct URLs while signed out,
+Back after sign-out, an expired session on the console, a reset through the outbox, the lockout, and no
+horizontal scroll at 390 and 820 px.
+
+**Not established.** No penetration test and no review by anyone outside the team. The server still runs on
+plain HTTP on 127.0.0.1 (D9), so `STMS_COOKIE_SECURE` must be set wherever HTTPS is added. There are no roles:
+every signed-in person sees everything. Docker was not run on this machine (as for D15).
+
 ## D45 — the D40–D44 records restored after a split commit overwrote them (2026-11-10)
 
 **What happened.** D39 and D40–D44 were committed separately, from another working session, so that each commit

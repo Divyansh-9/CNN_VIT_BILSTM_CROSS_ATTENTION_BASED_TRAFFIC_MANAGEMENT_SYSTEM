@@ -180,10 +180,12 @@ def test_a_result_that_matches_passes(tmp_path):
 @needs_profile
 def test_the_preflight_refuses_with_a_reason_and_writes_nothing(tmp_path):
     video = Recording(tmp_path / "Bellevue_150th_Eastgate__2017-09-10_19-08-25.mp4")
-    checks, profile, length = preflight(video, PROFILE, probe=lambda _: (1280, 720), duration=lambda _: 240.0)
+    checks, profile, length = preflight(video, PROFILE, probe=lambda _: (1280, 720), duration=lambda _: 1.0)
     by = {c.name: c for c in checks}
     assert by["Camera profile"].ok and by["Video can be read"].detail == "1280 × 720"
-    assert by["Long enough"].ok is False and "at least 5 min" in by["Long enough"].detail
+    assert by["Long enough"].ok is False and "at least 2 seconds" in by["Long enough"].detail
+    checks, _, _ = preflight(video, PROFILE, probe=lambda _: (1280, 720), duration=lambda _: 30.0)
+    assert {c.name: c.ok for c in checks}["Long enough"] is True
     checks, _, _ = preflight(video, PROFILE, probe=lambda _: None, duration=lambda _: 600.0)
     assert {c.name: c.ok for c in checks}["Video can be read"] is False
     checks, _, _ = preflight(video, tmp_path / "missing.json", probe=lambda _: (1, 1), duration=lambda _: 600.0)
@@ -328,9 +330,10 @@ def test_a_flat_first_recording_leaves_the_camera_without_levels(videos, tmp_pat
     jobs.start(2, "Gate_2")
     assert wait_for(lambda: not jobs.running())
     s = jobs.snapshot()
-    assert {st["id"]: st["state"] for st in s["stages"]}["levels"] == "failed" and "barely varies" in s["problem"]
+    assert {st["id"]: st["state"] for st in s["stages"]}["levels"] == "done" and s["key"]
+    assert s["problem"] is None
     assert jobs.cameras.needs_levels(jobs.cameras.get("Gate_2"))
-    assert not list((tmp_path / "results").glob("*.json"))
+    assert jobs.result_path(s["key"]).is_file()
 
 
 # ---------------------------------------------------------------- the jobs ---
@@ -405,10 +408,134 @@ def test_stop_ends_the_tool_and_leaves_nothing_behind(videos, tmp_path):
     jobs = make(videos, tmp_path, tool)
     jobs.start(1, "150th_Eastgate")
     assert wait_for(lambda: jobs.snapshot()["progress"] is not None)
+    assert not jobs.stop(identifier="some-other-session")
+    assert jobs.running() and not jobs.stopping.is_set()
     jobs.stop(wait_s=5)
     s = jobs.snapshot()
     assert s["status"] == "Stopped" and not jobs.running()
     assert not list((tmp_path / "results").glob("*.json"))
+
+
+@needs_profile
+def test_live_and_offline_jobs_share_uploads_without_sharing_session_state(videos, tmp_path):
+    from scripts.video_history import VideoHistory
+
+    offline_tool, live_tool = Tool(), Tool()
+    cameras = Cameras([load_profile(PROFILE)], tmp_path / "cameras")
+    history = VideoHistory(tmp_path / "jobs.sqlite")
+    offline = Analyses([], cameras, tmp_path, history=history, runner=offline_tool,
+                       inputs=lambda: INPUTS, check=passing())
+
+    def stream(video, profile, output, progress, stopping, *, on_frame):
+        on_frame({"sample": {"t": 0}})
+        return live_tool(video, profile, output, progress, stopping)
+
+    live = Analyses([], cameras, tmp_path, history=history, runner=stream,
+                    inputs=lambda: INPUTS, check=passing(), catalogue_from=offline)
+    first = offline.add(videos / "b_clip.mp4")
+    second = offline.add(videos / "a_clip.MOV")
+    try:
+        monitored = live.start(first, "150th_Eastgate", pending_replay=True)
+        analysis = offline.start(second, "150th_Eastgate")
+        assert monitored != analysis
+        assert wait_for(lambda: offline.snapshot()["progress"] and live.monitor_batch(monitored, 0)["items"])
+        assert offline.snapshot()["recording"] == "a_clip.MOV"
+        assert live.snapshot()["recording"] == "b_clip.mp4"
+        assert not live.stop(identifier=analysis)
+        offline.stop(wait_s=5, identifier=analysis)
+        assert live.running() and offline.snapshot()["status"] == "Stopped"
+        offline_tool.go.set()
+        same_file = offline.start(first, "150th_Eastgate")
+        live_tool.go.set()
+        assert wait_for(lambda: not offline.running() and not live.running())
+        assert live.snapshot()["key"] != offline.snapshot()["key"]
+        assert history.reveal_replay(monitored)
+        by_id = {row["id"]: row for row in history.recent()}
+        assert by_id[monitored]["mode"] == "demo"
+        assert by_id[same_file]["mode"] == "offline"
+        assert by_id[analysis]["status"] == "Cancelled"
+    finally:
+        offline.stop(wait_s=5)
+        live.stop(wait_s=5)
+
+
+@needs_profile
+def test_offline_history_survives_new_workspaces_and_reset_spares_live(videos, tmp_path, monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from scripts.video_history import VideoHistory
+    from server import local_analysis
+
+    history = VideoHistory(tmp_path / "jobs.sqlite")
+    offline_tool, live_tool = Tool(), Tool()
+    cameras = Cameras([load_profile(PROFILE)], tmp_path / "cameras")
+    offline = Analyses([], cameras, tmp_path, history=history, runner=offline_tool,
+                       inputs=lambda: INPUTS, check=passing())
+
+    def stream(video, profile, output, progress, stopping, *, on_frame):
+        on_frame({"sample": {"t": 0}})
+        return live_tool(video, profile, output, progress, stopping)
+
+    live = Analyses([], cameras, tmp_path, history=history, runner=stream, inputs=lambda: INPUTS,
+                    check=passing(), catalogue_from=offline)
+    monkeypatch.setattr(local_analysis, "analyses", lambda mode="offline": live if mode == "live" else offline)
+    monkeypatch.setenv("STMS_LOCAL_ANALYSIS", "1")
+    app = FastAPI()
+    app.include_router(local_analysis.router)
+    origin = "http://127.0.0.1:8083"
+    first = offline.add(videos / "b_clip.mp4")
+    second = offline.add(videos / "a_clip.MOV")
+    third = offline.add(videos / "nested" / "c_clip.mkv")
+    profile = "150th_Eastgate"
+    with TestClient(app, base_url=origin, client=("127.0.0.1", 50101)) as client:
+        def post(route, body):
+            return client.post(f"/workbench/{route}", json=body, headers={"Origin": origin})
+
+        try:
+            offline_tool.go.set()
+            a = post("jobs", {"recording": first, "camera": profile}).json()["job_id"]
+            assert wait_for(lambda: not offline.running())
+            key_a = offline.snapshot()["key"]
+            path_a = offline.result_path(key_a)
+            assert post("history/new", {}).json() == {"ready": True}
+            assert offline.snapshot()["recording"] is None
+            offline.history = VideoHistory(history.path)
+            path_a.unlink()
+            assert client.get(f"/workbench/analysis/{key_a}").json()["clip"] == "b_clip"
+            monitor = live.start(first, profile, pending_replay=True)
+            assert wait_for(lambda: live.monitor_batch(monitor, 0)["items"])
+            b = post("jobs", {"recording": second, "camera": profile}).json()["job_id"]
+            assert wait_for(lambda: not offline.running())
+            key_b = offline.snapshot()["key"]
+            assert a != b and key_a != key_b
+            assert client.get(f"/workbench/analysis/{key_b}").json()["clip"] == "a_clip"
+            assert post("history/delete", {"job_id": a}).json() == {"deleted": 1}
+            assert client.get(f"/workbench/analysis/{key_a}").status_code == 404
+            assert post("history/reset", {}).status_code == 400
+            assert client.get(f"/workbench/analysis/{key_b}").status_code == 200
+            offline_tool.go.clear()
+            c = post("jobs", {"recording": third, "camera": profile}).json()["job_id"]
+            assert c not in (a, b) and wait_for(lambda: offline.snapshot()["progress"])
+            assert post("history/reset", {"confirm": True}).json() == {"deleted": 2}
+            assert live.running() and live.monitor_batch(monitor, 0)["items"]
+            assert offline.snapshot()["job_id"] is None
+            assert client.get("/workbench/jobs").json() == []
+            assert client.get(f"/workbench/analysis/{key_b}").status_code == 404
+            assert offline.result_path(key_b) is None
+            offline_tool.go.set()
+            assert post("jobs", {"recording": third, "camera": profile}).json()["job_id"] != c
+            assert wait_for(lambda: not offline.running())
+            assert len(client.get("/workbench/jobs").json()) == 1
+            live_tool.go.set()
+            assert wait_for(lambda: not live.running())
+            assert history.reveal_replay(monitor)
+            key_live = live.snapshot()["key"]
+            assert post("history/reset", {"confirm": True}).json() == {"deleted": 1}
+            assert {row["id"] for row in history.recent()} == {monitor}
+            assert client.get(f"/workbench/analysis/{key_live}").status_code == 200
+        finally:
+            offline.stop(wait_s=5)
+            live.stop(wait_s=5)
 
 
 @needs_profile
@@ -453,7 +580,7 @@ class Upstream(BaseHTTPRequestHandler):
 
 
 @pytest.fixture
-def site(videos, tmp_path):
+def site(videos, tmp_path, session_cookie):
     tool = Tool()
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
@@ -489,10 +616,11 @@ def site(videos, tmp_path):
 
     def call(method, path, body=None, headers=None):
         c = http.client.HTTPConnection("127.0.0.1", holder["port"], timeout=5)
-        sent = {"Host": f"127.0.0.1:{holder['port']}"}
+        sent = {"Host": f"127.0.0.1:{holder['port']}", "Cookie": session_cookie}
         if body is not None:
             sent["Content-Type"] = "application/json"
         sent.update(headers or {})
+        sent = {k: v for k, v in sent.items() if v is not None}     # headers={"Cookie": None}: signed out
         c.request(method, path, json.dumps(body) if body is not None else None, sent)
         r = c.getresponse()
         return r.status, r.read(), dict(r.getheaders())
@@ -510,7 +638,7 @@ def site(videos, tmp_path):
 def test_the_address_opens_the_dashboard_and_there_is_no_second_page(site):
     call, *_ = site
     status, _, headers = call("GET", "/")
-    assert status == 302 and headers["Location"] == "/dashboard/?id=live#analyze"
+    assert status == 302 and headers["Location"] == "/dashboard/"
     assert json.loads(call("GET", "/workbench/capabilities")[1])["workbench"] is True
 
 
@@ -729,3 +857,38 @@ def test_the_stack_runs_a_camera_unpaced_and_unbounded_and_a_clip_paced_and_boun
             assert "--realtime" not in argv and "--samples" not in argv and source_kind(args) == "camera"
         else:
             assert "--realtime" in argv and argv[argv.index("--samples") + 1] == "90" and source_kind(args) == "replay"
+
+
+# ------------------------------------------------------------------ sign-in (2026-11-14) ---
+
+@needs_profile
+def test_signed_out_the_workbench_serves_only_the_page_and_sign_in(site):
+    call, *_ = site
+    out = {"Cookie": None}
+    assert call("GET", "/dashboard/", headers=out)[0] == 200          # the page itself, which asks for sign-in
+    assert call("GET", "/", headers=out)[0] == 302
+    for path in ("/workbench/capabilities", "/workbench/recordings", "/workbench/cameras", "/state", "/clips",
+                 "/evidence", "/health", "/sites"):
+        status, raw, _ = call("GET", path, headers=out)
+        assert status == 401 and json.loads(raw) == {"detail": "sign in required"}, path
+    for path in ("/workbench/jobs", "/workbench/replay/start", "/workbench/folder", "/stop"):
+        assert call("POST", path, {}, headers=out)[0] == 401, path
+    assert call("GET", "/auth/me", headers=out)[0] == 401
+    assert call("GET", "/workbench/capabilities")[0] == 200            # and signed in, it answers
+
+
+@needs_profile
+def test_the_workbench_signs_in_and_out_with_the_servers_accounts(site):
+    call, *_ = site
+    out = {"Cookie": None}
+    status, _, headers = call("POST", "/auth/login", {"identifier": "test_person", "password": "Signal-Green-42!"},
+                              headers=out)
+    assert status == 200 and "HttpOnly" in headers["Set-Cookie"]
+    cookie = headers["Set-Cookie"].split(";", 1)[0]
+    assert call("GET", "/workbench/capabilities", headers={"Cookie": cookie})[0] == 200
+    status, _, headers = call("POST", "/auth/logout", {}, headers={"Cookie": cookie})
+    assert status == 200 and "Max-Age=0" in headers["Set-Cookie"]
+    assert call("GET", "/workbench/capabilities", headers={"Cookie": cookie})[0] == 401
+    forged = call("POST", "/auth/login", {"identifier": "test_person", "password": "Signal-Green-42!"},
+                  headers={**out, "Origin": "http://evil.example"})
+    assert forged[0] == 403

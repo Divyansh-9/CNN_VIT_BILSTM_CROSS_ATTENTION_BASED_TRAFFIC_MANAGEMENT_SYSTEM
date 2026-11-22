@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { get } from "./api.js";
 import styles from "./Workbench.module.css";
 import { validateAnalysis } from "./validate.js";
-import { fingerprint, wbGet, wbPost } from "./workbench.js";
+import { fingerprint, uploadVideo, wbGet, wbPost } from "./workbench.js";
 
 // D41: what only the local workbench can do, inside the dashboard itself. Shown only
 // when the page is served by scripts/demo_launcher.py; on the server none of this
@@ -56,10 +56,10 @@ function Stages({ job }) {
       {p && (
         <div data-progress="true">
           <div className={styles.bar} role="progressbar" aria-valuemin={0} aria-valuemax={p.total} aria-valuenow={p.done}
-               aria-label="Frames analysed"><div style={{ width: `${Math.min(100, (100 * p.done) / p.total)}%` }} /></div>
+               aria-label="Analysis progress"><div style={{ width: `${Math.min(100, (100 * p.done) / p.total)}%` }} /></div>
           <p className={styles.count}>{p.done >= p.total
-            ? `All ${p.total.toLocaleString()} frames analysed (one every 2 s of video)`
-            : `${p.done.toLocaleString()} of ${p.total.toLocaleString()} frames analysed (one every 2 s of video) · ${left}`}</p>
+            ? `All ${p.total.toLocaleString()} timed samples analyzed`
+            : `${p.done.toLocaleString()} of ${p.total.toLocaleString()} timed samples analyzed · ${left}`}</p>
         </div>
       )}
       {job.checks.length > 0 && (
@@ -131,7 +131,7 @@ function NewCamera({ lanes, recording, fetcher, onSaved, onCancel }) {
 
 // The whole analysis, beside the picture: find the file, choose its camera, analyse,
 // and the results appear on this page. `file` is the File the viewer opened here.
-export function AnalyzeAssistant({ file, lanes, onResults, fetcher }) {
+export function AnalyzeAssistant({ file, duration, lanes, onResults, onStarting, fetcher, caps = {} }) {
   const [where, setWhere] = useState({ state: "idle" });   // idle | finding | found | missing | error
   const [cameras, setCameras] = useState([]);
   const [camera, setCamera] = useState(null);
@@ -139,7 +139,16 @@ export function AnalyzeAssistant({ file, lanes, onResults, fetcher }) {
   const [job, setJob] = useState(null);
   const [problem, setProblem] = useState("");
   const [asking, setAsking] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
   const delivered = useRef(null);
+  const upload = useRef(null);
+  const uploadController = useRef(null);
+  const currentFile = useRef(file);
+  currentFile.current = file;
+  useEffect(() => {
+    onStarting?.(asking);
+    return () => onStarting?.(false);
+  }, [asking, onStarting]);
 
   const loadCameras = async () => {
     const r = await wbGet("/workbench/cameras", fetcher);
@@ -157,7 +166,17 @@ export function AnalyzeAssistant({ file, lanes, onResults, fetcher }) {
     else if (r.data.found) setWhere({ state: "found", recording: r.data.recording });
     else setWhere({ state: "missing", complete: r.data.searched_everything });
   };
-  useEffect(() => { delivered.current = null; setJob(null); setProblem(""); if (file) onResults(null); find(); }, [file]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    delivered.current = null;
+    setJob(null); setProblem(""); setReviewed(false); setCamera(null); setMaking(false); setAsking(false);
+    upload.current = null;
+    if (caps.uploads) setWhere({ state: file ? "found" : "idle" });
+    else {
+      if (file && !caps.history) onResults(null);
+      find();
+    }
+    return () => uploadController.current?.abort();
+  }, [file, caps.uploads]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // D42: the declared camera's lanes over the picture, before anything is analysed, so a
   // camera that does not match this video shows as lanes off its roads.
@@ -189,40 +208,74 @@ export function AnalyzeAssistant({ file, lanes, onResults, fetcher }) {
   useEffect(() => {
     if (!running) return undefined;
     let alive = true;
-    const timer = setInterval(async () => {
+    let pending = false;
+    const poll = async () => {
+      if (pending) return;
+      pending = true;
       const r = await wbGet("/workbench/jobs/current", fetcher);
-      if (alive && r.status === "ok") setJob(r.data);
-    }, 1000);
+      if (alive && r.status === "ok" && (!job?.job_id || r.data.job_id === job.job_id)) {
+        setProblem("");
+        setJob(r.data);
+      } else if (alive && r.status !== "ok") setProblem(r.reason ?? "The analysis service is unavailable.");
+      pending = false;
+    };
+    poll();
+    const timer = setInterval(poll, 1000);
     return () => { alive = false; clearInterval(timer); };
   }, [running, fetcher]);
   useEffect(() => {
     const key = job?.key;
-    if (!key || delivered.current === key) return;
-    delivered.current = key;
+    if (!key || running || delivered.current === key) return;
+    let active = true;
     (async () => {
       const r = await get(`/workbench/analysis/${key}`, fetcher);
+      if (!active) return;
+      delivered.current = key;
       if (r.status !== "ok") { setProblem(`The finished results could not be read: ${r.reason ?? "not found"}.`); return; }
       const checked = validateAnalysis(r.data);
       if (!checked.ok) { setProblem(`The finished results were refused: ${checked.reason}.`); return; }
-      onResults(checked.data);
+      onResults(checked.data, job.job_id);
       if (job.camera) loadCameras();
     })();
-  }, [job?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { active = false; };
+  }, [job?.key, running, file]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stage = async () => {
+    if (upload.current != null) return upload.current;
+    const controller = new AbortController();
+    uploadController.current = controller;
+    setAsking(true);
+    const response = await uploadVideo(file, fetcher, controller.signal);
+    if (controller.signal.aborted) return null;
+    setAsking(false);
+    if (response.status !== "ok") { setProblem(response.reason); return null; }
+    upload.current = response.data.recording;
+    return upload.current;
+  };
 
   const analyse = async () => {
     setProblem("");
-    if (!camera) { setProblem("Choose the camera that recorded this video first."); return; }
-    const r = await wbPost("/workbench/jobs", { recording: where.recording, camera }, fetcher);
+    if (!caps.uploads && !camera) { setProblem("Choose the camera that recorded this video first."); return; }
+    const recording = caps.uploads ? await stage() : where.recording;
+    if (recording == null) return;
+    setAsking(true);
+    delivered.current = null;
+    const r = await wbPost("/workbench/jobs", { recording, camera: camera ?? "whole-frame" }, fetcher);
+    if (currentFile.current !== file) return;
+    setAsking(false);
     if (r.status !== "ok") { setProblem(r.reason); return; }
     const state = await wbGet("/workbench/jobs/current", fetcher);
-    if (state.status === "ok") setJob(state.data.key ? state.data : { ...state.data, running: true });
+    if (currentFile.current !== file) return;
+    if (state.status === "ok") setJob(state.data);
+    else setJob({ running: true, job_id: r.data.job_id, stages: [], checks: [] });
   };
-  const stop = () => wbPost("/workbench/jobs/stop", {}, fetcher);
+  const stop = () => wbPost("/workbench/jobs/stop", job?.job_id ? { job_id: job.job_id } : {}, fetcher);
 
   if (!file) {
     return (
       <section className={styles.assistant} aria-label="Analyze on this computer" data-assistant="idle">
-        <p className={styles.lead}><b>Any video on this computer.</b> Open it above; it plays here, and the workbench analyses the same file where it lies. Nothing is uploaded.</p>
+        <p className={styles.lead}>{caps.uploads ? "Choose a video to begin." : "Open a recording to choose its camera and review its lane markers."}</p>
+        {caps.analysis_ready === false && <p className={styles.problem} role="status">{caps.analysis_problem}</p>}
       </section>
     );
   }
@@ -234,10 +287,10 @@ export function AnalyzeAssistant({ file, lanes, onResults, fetcher }) {
   const busy = job?.running;
   return (
     <section className={styles.assistant} aria-label="Analyze on this computer" data-assistant={where.state}>
-      <h3>2. Analyze it on this computer</h3>
+      <h3>{caps.uploads ? "Analyze video" : "2. Confirm the camera and lanes"}</h3>
       <p className={styles.where} data-where={where.state}>
         {where.state === "finding" && "Finding this file on this computer…"}
-        {where.state === "found" && <><span className={styles.ok} aria-hidden="true">✓</span> Found on this computer</>}
+        {where.state === "found" && !caps.uploads && <><span className={styles.ok} aria-hidden="true">✓</span> Found on this computer</>}
         {where.state === "missing" && (where.complete
           ? "The workbench cannot see the folder this file is in."
           : "The workbench looked for a while and did not find this file.")}
@@ -253,24 +306,42 @@ export function AnalyzeAssistant({ file, lanes, onResults, fetcher }) {
       )}
       {where.state === "found" && !making && (
         <>
+          {caps.uploads && <p className={styles.small}>Whole-frame detection is ready. A matching camera profile enables lane crossings and signal advice.</p>}
+          <details open={!caps.uploads || undefined}>
+          <summary>Camera profile and lane setup</summary>
+          {caps.uploads && <button type="button" className={styles.linkButton} disabled={busy}
+            onClick={() => { setCamera(null); setReviewed(false); }}>Use the whole frame</button>}
           <p className={styles.label}>The camera that recorded it <span className={styles.small}>You declare it; nothing guesses it.</span></p>
-          <Choice label="Cameras" options={camOptions} value={camera} onChange={setCamera} disabled={busy} />
+          <Choice label="Cameras" options={camOptions} value={camera} onChange={(value) => { setCamera(value); setReviewed(false); }} disabled={busy} />
           {camera && <p className={styles.preview} data-preview-note="true">The dashed lanes on the picture are {camera}'s. If they do not sit on this
             video's roads, the video is from a different camera: choose another, or place its lanes. A wrong camera counts the wrong places.</p>}
-          <button type="button" className={styles.linkButton} onClick={() => setMaking(true)} disabled={busy} data-make-camera="true">+ A camera not listed: place its lanes</button>
+          <button type="button" className={styles.linkButton} onClick={async () => {
+            if (caps.uploads && await stage() == null) return;
+            setMaking(true); setReviewed(false);
+          }} disabled={busy || asking} data-make-camera="true">+ A camera not listed: place its lanes</button>
+          {camera && <label className={styles.confirm}><input type="checkbox" checked={reviewed}
+            onChange={(event) => setReviewed(event.target.checked)} disabled={busy} />The lane markers fit this recording.</label>}
+          </details>
           <div className={styles.row}>
-            <button type="button" className={styles.primary} onClick={analyse} disabled={busy} data-analyse="true">Analyze</button>
-            {busy && <button type="button" className={styles.button} onClick={stop}>Stop</button>}
+            <button type="button" className={styles.primary} onClick={analyse}
+                    disabled={busy || asking || ((!caps.uploads || camera) && !reviewed)
+                      || (caps.uploads ? caps.analysis_ready === false : !caps.history && caps.analysis_ready === false)
+                      || duration < (caps.minimum_duration_s ?? 300)}
+                    data-analyse="true">{asking ? "Preparing video…" : caps.uploads
+                      ? "Analyze Video with AI"
+                      : "Run analysis"}</button>
+            {busy && <button type="button" className={styles.button} onClick={stop}>Cancel analysis</button>}
           </div>
         </>
       )}
       {where.state === "found" && making && (
-        <NewCamera lanes={lanes} recording={where.recording} fetcher={fetcher}
+        <NewCamera lanes={lanes} recording={caps.uploads ? upload.current : where.recording} fetcher={fetcher}
                    onSaved={async (id) => { await loadCameras(); setCamera(id); setMaking(false); }} onCancel={() => setMaking(false)} />
       )}
+      {caps.analysis_ready === false && <p className={styles.problem} role="status">{caps.analysis_problem}</p>}
       {problem && <p className={styles.problem} data-assistant-problem="true">{problem}</p>}
       {job && <Stages job={job} />}
-      {job?.key && !job.running && (
+      {job?.key && !job.running && caps.replay !== false && (
         <div className={styles.next} data-replay-this="true">
           <p className={styles.label}>Replay this video through the system <span className={styles.small}>The same video, in real time,
             through the edge, MQTT, the server and Live. The page says REPLAY.</span></p>

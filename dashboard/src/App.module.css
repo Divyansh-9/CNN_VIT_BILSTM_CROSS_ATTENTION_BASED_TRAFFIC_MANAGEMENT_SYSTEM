@@ -1,31 +1,71 @@
-.page { max-width: 1280px; margin: 0 auto; padding: 16px; }
-/* Top bar (UX step 2). Orange appears here only as chrome: the mark and the
-   active section's edge (and the focus ring, from theme.css). */
-.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
-       padding-bottom: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 20px; }
-.mark { display: inline-flex; color: var(--brand); }
-.sub { color: var(--muted); font-size: 14px; font-weight: 400; }
-.nav { display: flex; flex-wrap: wrap; gap: 4px; }
-.nav a { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid transparent;
-         border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 500; }
-.nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); border-color: var(--brand); }
+/* The console shell: a sidebar on wide screens, a top bar below 1100 px.
+   Orange appears here only as chrome: the mark, the active section and the
+   focus ring (theme.css). The content column keeps the old page width. */
+.page { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; animation: shellIn .3s ease-out both;
+        background: radial-gradient(ellipse at 85% 0%, var(--sky-soft), transparent 42%),
+                    radial-gradient(ellipse 330px 380px at 0 0, var(--brand-soft), transparent), var(--bg); }
+@keyframes shellIn { from { transform: translateY(6px); } to { transform: none; } }
+.content { min-width: 0; width: 100%; max-width: 1400px; margin: 0 auto; padding: clamp(16px, 3vw, 36px); display: grid; gap: var(--dashboard-gap); align-content: start; }
+.content > * { min-width: 0; }
+.top { position: sticky; top: 12px; align-self: start; height: calc(100vh - 24px); height: calc(100dvh - 24px);
+       margin: 12px 0 12px 12px; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 20px;
+       padding: 20px 12px; border: 1px solid var(--line); border-radius: 22px;
+       background: var(--chrome-sheen), var(--chrome-surface); box-shadow: var(--chrome-edge), var(--shadow);
+       -webkit-backdrop-filter: var(--chrome-filter); backdrop-filter: var(--chrome-filter); }
+.brand { display: grid; gap: 4px; margin: 0; font-size: 20px; }
+.brandLink { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 700; }
+.mark { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--brand); color: var(--on-brand); }
+.sub { color: var(--muted); font-size: 13px; font-weight: 400; padding-left: 2px; }
+.nav, .outNav { display: grid; gap: 2px; }
+.nav a, .outNav a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid transparent;
+         border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 500; transition: color .15s, background-color .15s; }
+.nav a:hover, .outNav a:hover { color: var(--ink); background: var(--chrome-sheen), var(--panel-raised); }
+.nav a[aria-current="page"] { color: var(--ink); background: var(--chrome-sheen), var(--brand-soft);
+                              border-color: var(--brand); border-radius: 12px; box-shadow: inset 2px 0 var(--brand), var(--chrome-edge); }
+.outNav { padding-top: 14px; border-top: 1px solid var(--line); }
+.outNav a { font-size: 14px; }
+.top .chips { margin-top: auto; flex-direction: column; align-items: stretch; gap: 10px; }
+.top .chips > * { justify-content: center; text-align: center; }
+.help { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
+.top .chips [data-theme-switch] { align-self: stretch; }
+.top .chips [data-theme-switch] button { flex: 1; justify-content: center; padding: 5px 4px; gap: 4px; }
+@media (max-width: 1100px) {
+  .page { grid-template-columns: minmax(0, 1fr); }
+  .top { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between;
+         gap: 10px; margin: 8px 8px 0; padding: 12px 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .nav, .outNav { display: flex; flex-wrap: wrap; gap: 4px; }
+  .nav a, .outNav a { padding: 7px 10px; }
+  .outNav { padding-top: 0; border-top: 0; }
+  .top .chips { margin-top: 0; flex-direction: row; align-items: center; }
+  .content { padding: 16px; }
+}
 .directions { margin: 0; color: var(--ink); font-size: 13px; border-left: 3px solid var(--line); padding: 2px 0 2px 10px; }
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.readonly { margin: 0; color: var(--muted); font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+.readonly { margin: 0; color: var(--muted); font-size: 12px; }
+@media (max-width: 720px) {
+  .top {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px 12px; overflow: visible;
+  }
+  .nav {
+    grid-row: 2; grid-column: 1 / -1; flex-wrap: nowrap; overflow-x: auto; padding: 3px; scrollbar-width: thin;
+  }
+  .nav a { flex: none; white-space: nowrap; }
+  .outNav { grid-row: 1; grid-column: 2; }
+  .outNav a { font-size: 12px; padding: 4px; white-space: nowrap; }
+  .chips { grid-row: 3; grid-column: 1 / -1; }
+  .readonly { display: none; }
+}
 .mono { font-family: var(--mono); }
 .region { font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
 /* D33: the operator's Live page. Tiles, then the drawing beside the numbers. */
-.clock { font: 600 14px var(--mono); }
 .tourButton { background: transparent; color: var(--ink); border: 1px solid var(--brand); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; font-weight: 600; transition: background-color .15s, color .15s; }
 .tourButton:hover { background: var(--brand); color: var(--on-brand); }
-.linkButton { background: none; border: 0; padding: 4px 6px; cursor: pointer; color: var(--muted); font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.linkButton { background: none; border: 0; padding: 4px 6px; cursor: pointer; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
 .linkButton:hover { color: var(--ink); }
-.invite { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 14px; margin-bottom: 12px; background: var(--notice-bg); border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 6px; font-size: 14px; }
 .tiles { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 .main { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 12px; margin-bottom: 12px; align-items: start; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; display: grid; gap: 10px; min-width: 0; }
 .cardHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
 .cardHead h2 { font-size: 15px; }
 .cardHead span { color: var(--muted); font-size: 13px; }
@@ -50,3 +90,40 @@
 .technical[open] summary { margin-bottom: 12px; }
 .technical .warning { margin-top: 12px; }
 .below { margin-top: 16px; }
+
+/* Alerts chip in the sidebar: a link to Alerts, with the worst severity's shape. */
+.alertChip { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--bad);
+             color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 700; }
+.alertChip svg { color: var(--bad); }
+.alertChip[data-severity="warning"], .alertChip[data-severity="info"] { border-color: var(--frame-count); }
+.alertChip[data-severity="warning"] svg, .alertChip[data-severity="info"] svg { color: var(--muted); }
+
+/* Page tools: full screen, export, print. */
+.toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
+.toolButton { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel);
+              background-image: var(--chrome-sheen); box-shadow: var(--chrome-edge);
+              color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s; }
+.toolButton:hover:not(:disabled) { border-color: var(--brand); }
+.toolButton:disabled { color: var(--muted); cursor: default; }
+.live:fullscreen { overflow-y: auto; padding: 24px; background: var(--bg); }
+
+/* Print / save as PDF: the page content only, without the console's chrome. */
+@media print {
+  .page { display: block; }
+  .top, .toolbar, .toolButton { display: none !important; }
+  .content { max-width: none; padding: 0; }
+}
+.recordingSource { display: grid; gap: 3px; padding: 9px 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel-raised); overflow-wrap: anywhere; color: var(--muted); font-size: 12px; }
+.recordingSource b { color: var(--ink); }
+.processingJobs { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 12px; }
+.processingJobs p { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; color: var(--muted); overflow-wrap: anywhere; }
+.processingJobs strong { color: var(--ink); }
+.analysisActions { display: flex; gap: 8px; flex-wrap: wrap; margin-block: 0 12px; }
+.analysisWorkspace { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+.analysisDialog { max-width: min(480px, calc(100% - 32px)); padding: 24px; color: var(--ink); border: 1px solid var(--line); border-radius: 22px;
+                  background: var(--chrome-sheen), var(--chrome-surface); box-shadow: var(--chrome-edge), var(--shadow);
+                  -webkit-backdrop-filter: var(--chrome-filter); backdrop-filter: var(--chrome-filter); }
+.analysisDialog::backdrop { background: var(--scrim); }
+.analysisDialog h3 { margin-top: 0; }
+.analysisDialog form { margin: 16px 0 0; }

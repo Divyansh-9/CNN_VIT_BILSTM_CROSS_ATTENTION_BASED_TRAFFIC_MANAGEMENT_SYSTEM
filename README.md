@@ -330,6 +330,21 @@ scripts/  tests/  models/ (weights gitignored; the manifest is committed)
 
 ## Getting started
 
+### Open the project dashboard
+
+With the Python and Node dependencies installed, run these commands from the project root.
+
+```powershell
+npm --prefix dashboard run build
+python -m uvicorn server.app:app --host 127.0.0.1 --port 8000
+```
+
+Open [the dashboard](http://127.0.0.1:8000/). The team page opens without
+sign-in and links to **Explore the project** and **Launch project**. The
+public console uses sample traffic data.
+
+### Set up the research environment
+
 ```powershell
 python scripts/check_env.py          # BEFORE installing; says what is missing
 py -3.12 -m venv .venv               # 3.12 is what CI runs; this machine runs 3.14.4

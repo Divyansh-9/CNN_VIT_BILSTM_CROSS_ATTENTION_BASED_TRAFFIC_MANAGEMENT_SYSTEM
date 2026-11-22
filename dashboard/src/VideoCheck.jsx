@@ -31,7 +31,7 @@ function Swatch({ className }) {
   return <svg width="26" height="8" aria-hidden="true"><line className={styles[className]} x1="1" y1="4" x2="25" y2="4" /></svg>;
 }
 
-function Chart({ analysis, lane, t, onSeek }) {
+function Chart({ analysis, lane, t, onSeek, series, forecastName }) {
   const points = useMemo(() => perMinute(laneSeries(analysis, lane), undefined, analysis.step_s), [analysis, lane]);
   const [hover, setHover] = useState(null);
   const box = useRef(null);
@@ -50,7 +50,7 @@ function Chart({ analysis, lane, t, onSeek }) {
     return points.reduce((best, p) => (Math.abs(p.t - time) < Math.abs(best.t - time) ? p : best), points[0]);
   };
   // Direct labels at the right end, nudged apart so they never overlap.
-  const ends = SERIES.map((s) => ({ ...s, p: last(s.key) })).filter((s) => s.p)
+  const ends = series.map((s) => ({ ...s, p: last(s.key) })).filter((s) => s.p)
     .map((s) => ({ ...s, y: y(s.p[s.key]) })).sort((a, b) => a.y - b.y);
   for (let i = 1; i < ends.length; i += 1) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
   const overflow = ends.length ? ends[ends.length - 1].y - (H - PAD.b - 2) : 0;
@@ -59,7 +59,7 @@ function Chart({ analysis, lane, t, onSeek }) {
   return (
     <div className={styles.chartWrap}>
       <svg ref={box} className={styles.chart} viewBox={`0 0 ${W} ${H}`} role="img" data-check-chart={lane}
-           aria-label={`${lane}: what then happened, the ridge forecast and the last minute repeated, in vehicles in view, across the video`}
+           aria-label={`${lane}: what then happened, the ${forecastName.toLowerCase()} and the last minute repeated, in vehicles in view, across the video`}
            onMouseMove={(e) => setHover(at(e))} onMouseLeave={() => setHover(null)} onClick={(e) => onSeek(at(e).from)}>
         {ticks.map((v) => (
           <g key={v}>
@@ -68,13 +68,19 @@ function Chart({ analysis, lane, t, onSeek }) {
           </g>
         ))}
         {xticks.map((v) => <text key={v} className={styles.axis} x={x(v)} y={H - 8} textAnchor="middle">{fmt(v)}</text>)}
-        {SERIES.slice().reverse().map((s) => <path key={s.key} className={styles[s.className]} d={path(points, x, y, s.key)} data-series={s.key} />)}
+        {points.slice(1).map((point, i) => {
+          const previous = points[i];
+          if ([previous.then, previous.ridge, point.then, point.ridge].includes(null)) return null;
+          return <path key={point.t} className={styles.difference}
+                       d={`M${x(previous.t)},${y(previous.then)} L${x(point.t)},${y(point.then)} L${x(point.t)},${y(point.ridge)} L${x(previous.t)},${y(previous.ridge)} Z`} />;
+        })}
+        {series.slice().reverse().map((s) => <path key={s.key} className={styles[s.className]} d={path(points, x, y, s.key)} data-series={s.key} />)}
         <line className={styles.now} x1={x(Math.min(t, end))} x2={x(Math.min(t, end))} y1={PAD.t} y2={H - PAD.b} />
         {ends.map((s) => <text key={s.key} className={styles.endLabel} x={W - PAD.r + 6} y={s.y + 4}>{s.label}</text>)}
         {hover && (
           <g>
             <line className={styles.cross} x1={x(hover.t)} x2={x(hover.t)} y1={PAD.t} y2={H - PAD.b} />
-            {SERIES.filter((s) => hover[s.key] !== null).map((s) => (
+            {series.filter((s) => hover[s.key] !== null).map((s) => (
               <circle key={s.key} className={styles.dot} cx={x(hover.t)} cy={y(hover[s.key])} r="4" />
             ))}
           </g>
@@ -84,7 +90,7 @@ function Chart({ analysis, lane, t, onSeek }) {
       {hover && (
         <div className={styles.tip} style={{ left: `${(x(hover.t) / W) * 100}%` }} data-check-tip="true">
           <b>{fmt(hover.from)}–{fmt(Math.min(hover.from + 60, end))}</b> · forecasts made in this minute, mean
-          {SERIES.map((s) => <span key={s.key}><Swatch className={s.className} /> {s.label} <b>{veh(hover[s.key])}</b></span>)}
+          {series.map((s) => <span key={s.key}><Swatch className={s.className} /> {s.label} <b>{veh(hover[s.key])}</b></span>)}
           <span className={styles.hint}>Click to jump the video here</span>
         </div>
       )}
@@ -97,6 +103,9 @@ export function VideoCheck({ analysis, t, onSeek }) {
   const [lane, setLane] = useState(analysis.lanes[0].name);
   const shown = analysis.lanes.some((l) => l.name === lane) ? lane : analysis.lanes[0].name;
   const p = result.pooled;
+  const blended = String(analysis.models?.number ?? "").startsWith("video-blend-70/30:");
+  const forecastName = blended ? "Blended forecast" : "Ridge forecast";
+  const series = SERIES.map(row => row.key === "ridge" ? { ...row, label: forecastName } : row);
   return (
     <section className={styles.card} aria-label="Forecast check for this video" data-video-check="true">
       <div className={styles.head}>
@@ -105,7 +114,7 @@ export function VideoCheck({ analysis, t, onSeek }) {
       </div>
       <p className={styles.lead} data-check-verdict="true">
         {p.count
-          ? <>Over {p.count.n.toLocaleString()} paired forecasts, the ridge count forecast was off by <b>{veh(p.count.ridge)}</b> vehicles on
+          ? <>Over {p.count.n.toLocaleString()} paired forecasts, the {forecastName.toLowerCase()} was off by <b>{veh(p.count.ridge)}</b> vehicles on
             average, against <b>{veh(p.count.repeat)}</b> for repeating the last minute; it was closer in {p.count.ridgeCloser.toLocaleString()} of {p.count.n.toLocaleString()}.
             The class forecast agreed with what then happened in {p.level.agreed.toLocaleString()} of {p.level.n.toLocaleString()}.</>
           : "Too short to compare: the count forecast starts at 02:00 and needs the minute after it."}
@@ -113,8 +122,8 @@ export function VideoCheck({ analysis, t, onSeek }) {
       <div className={styles.scroll}>
         <table className={styles.table}>
           <thead>
-            <tr><th scope="col">Lane</th><th scope="col">Class forecast agreed</th><th scope="col">Ridge forecast off by</th>
-              <th scope="col">Repeat the last minute off by</th><th scope="col">Closer: ridge · repeat · tied</th></tr>
+            <tr><th scope="col">Lane</th><th scope="col">Class forecast agreed</th><th scope="col">{forecastName} off by</th>
+              <th scope="col">Repeat the last minute off by</th><th scope="col">Closer ({blended ? "blend" : "ridge"}, repeat, tie)</th></tr>
           </thead>
           <tbody>
             {result.rows.map((r, i) => (
@@ -145,16 +154,17 @@ export function VideoCheck({ analysis, t, onSeek }) {
           ))}
         </span>
         <span className={styles.legend} aria-label="Legend">
-          {SERIES.map((s) => <span key={s.key}><Swatch className={s.className} />{s.label}</span>)}
+          {series.map((s) => <span key={s.key}><Swatch className={s.className} />{s.label}</span>)}
+          <span><i className={styles.differenceKey} />Forecast difference</span>
         </span>
       </div>
-      <Chart analysis={analysis} lane={shown} t={t} onSeek={onSeek} />
+      <Chart analysis={analysis} lane={shown} t={t} onSeek={onSeek} series={series} forecastName={forecastName} />
       <p className={styles.note}>
         Each point is the mean of one minute of forecasts, each made for the 60 s after it, beside the mean of what those 60 s then showed.
-        The table uses every forecast. Both sides come from the same
-        detector's counts, so this is agreement, not accuracy: human-verified quality (S67) has not been measured. A class depends on this camera's
-        limits, LOW up to {analysis.limits.low.toFixed(2)} and MEDIUM up to {analysis.limits.med.toFixed(2)} vehicles. The ridge forecaster and repeating the
-        last minute are the comparison P105 made across held-out cameras; one video is one example, not that result.
+        The table uses every comparable forecast. Its reference values are counts from the same detector. A class depends on this camera's
+        limits, LOW up to {analysis.limits.low.toFixed(2)} and MEDIUM up to {analysis.limits.med.toFixed(2)} vehicles.
+        {blended ? " The blended forecast combines Ridge with the previous two minutes of observed counts."
+          : " The original P105 experiment compared Ridge with repeating the last minute across held-out cameras."}
       </p>
     </section>
   );

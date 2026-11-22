@@ -93,10 +93,12 @@ def test_an_invalid_intersection_id_is_refused_without_being_quoted(client):
         assert "<script>" not in response.text
 
 
-def test_history_reads_stay_open_without_a_token(client):
+def test_history_reads_need_a_session_or_the_token(client, write_headers):
+    # Open to anyone until 2026-11-14; now a signed-in session or the token (test_auth.py).
     from fastapi.testclient import TestClient
 
     _, server = client
-    reader = TestClient(server.app)
+    assert TestClient(server.app).get("/prediction/j1/history").status_code == 401
+    reader = TestClient(server.app, headers=write_headers)
     assert reader.get("/prediction/j1/history").status_code == 200
     assert reader.get("/count_forecast/j1/history").status_code == 200

@@ -158,7 +158,7 @@ toward nothing.
 file, and neither is defined where it is used.
 
 **`P<n>` is a changelog entry in [PRD-CHANGELOG.md](docs/00-planning/PRD-CHANGELOG.md)**,
-currently running to P143, with `D<n>` entries (D1–D45) for the
+currently running to P143, with `D<n>` entries (D1–D46) for the
 deployment and dashboard work. It is the defect and amendment journal: what was
 believed, what was measured, what changed, and what was rejected along with the
 reason. Entries record rejected options on purpose — P42 rejects disabling cuDNN
@@ -706,8 +706,19 @@ to ADR-008's descoped shape and ADR-014's two-panel rule.
   - **PCU values:** `mfstnet/corpus/pcu.py`. The server lists them because its image has no mfstnet, and a
     test holds the two equal.
 
+- **Sign-in (D46):** nothing of the application opens without an account, and neither does any read.
+  - **Core:** `server/auth.py`, shared by the server and the workbench through `auth.api()`. scrypt
+    passwords; an HttpOnly, SameSite=Strict session cookie whose SHA-256 alone is stored; Remember me; a
+    lockout after five failures; single-use 30-minute reset links by SMTP or to `data/server/outbox`.
+  - **The gate is a middleware and fails closed:** every GET but `/health`, `/auth/*` and the built page needs
+    a session or the D9 token. No POST accepts a cookie, so the dashboard still cannot write.
+  - **Page:** `AuthGate.jsx` shows nothing until `/auth/me` names a user, then goes to `#home`; any 401 signs
+    the page out. `auth.js` is the second module allowed to POST, only to the five `/auth` actions.
+  - **Scripts reading the server send the D9 token.** Settings are `STMS_AUTH_*`, `STMS_SESSION_*`,
+    `STMS_REMEMBER_DAYS`, `STMS_COOKIE_SECURE`, `STMS_PUBLIC_URL` and `STMS_SMTP_*` (`.env.example`).
+
 **Not implemented:** WebSocket updates, forecast charts,
-a detection overlay on the live view and authentication. Dashboard tests do run in CI: the
+and a detection overlay on the live view. Dashboard tests do run in CI: the
 `dashboard (vitest + build)` job runs `npm test`.
 
 **Forecasting roles:** ADR-027 remains authoritative. MFSTNet's edge path

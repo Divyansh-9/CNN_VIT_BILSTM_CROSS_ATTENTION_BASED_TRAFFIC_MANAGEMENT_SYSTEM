@@ -7,11 +7,21 @@ import { describe, expect, it } from "vitest";
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const theme = readFileSync(join(dir, "theme.css"), "utf8");
-const raw = Object.fromEntries([...theme.matchAll(/--([a-z-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-const token = (name) => {
-  const value = raw[name];
-  const ref = /^var\(--([a-z-]+)\)$/.exec(value ?? "");
-  return ref ? token(ref[1]) : value;
+// Every theme is measured on its own (D18: a theme never changes meaning). Dark
+// is :root; Light is :root[data-theme="light"] over it; System on a light OS
+// repeats Light inside a media query, and must repeat it exactly.
+const tokensIn = (body) => Object.fromEntries([...(body ?? "").matchAll(/--([a-z-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+const DARK = tokensIn(/:root\s*\{([^}]*)\}/.exec(theme)?.[1]);
+const LIGHT_EXPLICIT = tokensIn(/:root\[data-theme="light"\]\s*\{([^}]*)\}/.exec(theme)?.[1]);
+const LIGHT_SYSTEM = tokensIn(/@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme="dark"\]\)\s*\{([^}]*)\}/.exec(theme)?.[1]);
+const THEMES = { dark: DARK, light: { ...DARK, ...LIGHT_EXPLICIT } };
+const resolver = (raw) => {
+  const token = (name) => {
+    const value = raw[name];
+    const ref = /^var\(--([a-z-]+)\)$/.exec(value ?? "");
+    return ref ? token(ref[1]) : value;
+  };
+  return token;
 };
 
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -55,7 +65,7 @@ const lab = (hex, m) => {
   const z = f((0.0193 * c[0] + 0.1192 * c[1] + 0.9505 * c[2]) / 1.08883);
   return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
 };
-const apart = (names, m) => {
+const apart = (token, names, m) => {
   let min = Infinity;
   for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
     const [a, b] = [lab(token(names[i]), m), lab(token(names[j]), m)];
@@ -64,7 +74,19 @@ const apart = (names, m) => {
   return min;
 };
 
-describe("the palette's measured rules", () => {
+describe("the themes", () => {
+  it("defines Dark and Light, and System on a light OS repeats Light exactly", () => {
+    expect(Object.keys(DARK).length).toBeGreaterThan(20);
+    expect(Object.keys(LIGHT_EXPLICIT).length).toBeGreaterThan(20);
+    expect(LIGHT_SYSTEM).toEqual(LIGHT_EXPLICIT);
+  });
+  it("overrides only colours that Dark defines, so no token exists in one theme alone", () => {
+    expect(Object.keys(LIGHT_EXPLICIT).filter((k) => !(k in DARK))).toEqual([]);
+  });
+});
+
+for (const [themeName, raw] of Object.entries(THEMES)) describe(`the palette's measured rules: ${themeName}`, () => {
+  const token = resolver(raw);
   it("text is readable on the background and the panel", () => {
     for (const surface of ["bg", "panel"]) {
       expect(contrast(token("ink"), token(surface))).toBeGreaterThanOrEqual(7);
@@ -81,7 +103,7 @@ describe("the palette's measured rules", () => {
     }
   });
 
-  it("each class is visible on the panel and carries readable dark text", () => {
+  it("each class is visible on the panel and carries readable text", () => {
     for (const c of SCALE) {
       expect(contrast(token(c), token("panel"))).toBeGreaterThanOrEqual(3);
       expect(contrast(token("on-class"), token(c))).toBeGreaterThanOrEqual(4.5);
@@ -113,8 +135,8 @@ describe("the palette's measured rules", () => {
   // never the sole signal, which the labels and shapes already satisfy.
   it("the classes stay at least 20 apart, and the states 12, under three colour-vision simulations", () => {
     for (const m of [null, ...Object.values(CVD)]) {
-      expect(apart(SCALE, m)).toBeGreaterThanOrEqual(20);
-      expect(apart(STATES, m)).toBeGreaterThanOrEqual(12);
+      expect(apart(token, SCALE, m)).toBeGreaterThanOrEqual(20);
+      expect(apart(token, STATES, m)).toBeGreaterThanOrEqual(12);
     }
   });
 });

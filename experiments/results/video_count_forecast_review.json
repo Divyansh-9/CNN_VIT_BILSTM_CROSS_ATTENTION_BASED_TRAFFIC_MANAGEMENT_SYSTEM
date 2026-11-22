@@ -1,0 +1,51 @@
+{
+  "target": "Mean detector-derived occupancy over the next 60 seconds, per approach",
+  "ridge_weight": 0.7,
+  "method": "Replay comparison. The blend was explored on P105 windows, so these are retrospective development results. P105 rows without both historical halves are omitted from both methods. Targets are detector counts.",
+  "p105": {
+    "recordings": 9,
+    "lane_forecasts": 3544,
+    "ridge_mae": 0.747421,
+    "blend_mae": 0.727868,
+    "by_camera": {
+      "150th_Eastgate": {
+        "lane_forecasts": 1344,
+        "ridge_mae": 0.717599,
+        "blend_mae": 0.698079
+      },
+      "150th_Newport": {
+        "lane_forecasts": 1344,
+        "ridge_mae": 0.572009,
+        "blend_mae": 0.552112
+      },
+      "150th_SE38th": {
+        "lane_forecasts": 856,
+        "ridge_mae": 1.06966,
+        "blend_mae": 1.050594
+      }
+    }
+  },
+  "saved_recordings": [
+    {
+      "lane_forecasts": 1504,
+      "ridge_mae": 0.284202,
+      "blend_mae": 0.264924,
+      "detector": null,
+      "clip": "Bellevue_116th_NE12th__2017-09-11_09-08-31"
+    },
+    {
+      "lane_forecasts": 1108,
+      "ridge_mae": 0.505322,
+      "blend_mae": 0.495878,
+      "detector": null,
+      "clip": "Bellevue_116th_NE12th__2017-09-11_14-08-35"
+    },
+    {
+      "lane_forecasts": 1108,
+      "ridge_mae": 0.857259,
+      "blend_mae": 0.83784,
+      "detector": "yolo11s.pt",
+      "clip": "Bellevue_116th_NE12th__2017-09-11_14-08-35"
+    }
+  ]
+}

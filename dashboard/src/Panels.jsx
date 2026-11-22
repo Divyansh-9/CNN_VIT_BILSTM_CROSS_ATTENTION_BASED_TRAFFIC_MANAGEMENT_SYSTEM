@@ -178,7 +178,10 @@ export function operatorStatus({ health, cls, count, heartbeat = { status: "unav
 const BANNER_MARK = { ok: styles.k_fresh, stale: styles.k_stale, bad: styles.k_bad, none: styles.k_none, loading: styles.k_loading };
 
 export function StatusBanner(props) {
-  const s = operatorStatus(props);
+  const status = operatorStatus(props);
+  const s = props.sample && status.kind === "ok"
+    ? { ...status, head: "Sample forecast available", sub: "The data shows a saved snapshot of intersection activity." }
+    : status;
   // Only the headline is announced: the line below it changes every 2 s with the age.
   return (
     <section className={styles.banner} aria-label="Are updates arriving" data-status={s.kind}>
@@ -342,7 +345,7 @@ export function SiteStrip({ state, current }) {
   return (
     <nav className={styles.sites} aria-label="Intersections" data-sites="true">
       {shown.map((s) => (
-        <a key={s.id} href={`?id=${encodeURIComponent(s.id)}#live`} aria-current={s.id === current ? "true" : undefined} data-site={s.id}>
+        <a key={s.id} href={s.id === current ? "#live" : `?id=${encodeURIComponent(s.id)}#live`} aria-current={s.id === current ? "true" : undefined} data-site={s.id}>
           <span className={`${styles.dot} ${s.stale ? styles.k_stale : styles.k_fresh}`} aria-hidden="true" />
           <b>{s.id}</b>
           <span className={styles.siteState}>{s.stale ? `Silent for ${s.age_s.toFixed(0)} s` : s.kind === "replay" ? `Replay · ${s.label}` : `Live camera · ${s.label}`}</span>
@@ -378,7 +381,7 @@ function SignalStudy({ study }) {
   );
 }
 
-function Tile({ label, children, sub, ...rest }) {
+export function Tile({ label, children, sub, ...rest }) {
   return (
     <section className={styles.tile} {...rest}>
       <p className={styles.tileLabel}>{label}</p>

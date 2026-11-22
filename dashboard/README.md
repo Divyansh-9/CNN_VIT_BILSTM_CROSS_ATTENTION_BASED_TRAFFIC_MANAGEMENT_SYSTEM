@@ -1,5 +1,8 @@
 # STMS read-only dashboard
 
+For the local recorded-video workbench, installation, tracking, analytics and
+teacher walkthrough, see [STMS recorded-video demonstration](../docs/90-manual/VIDEO_ANALYSIS_DEMO.md).
+
 A minimal, **read-only** monitor for one intersection. It has three things on
 it, in two regions that never merge (ADR-014):
 
@@ -25,6 +28,32 @@ calculation of green shares, which reaches no signal. The signal heads stay `?`.
 The Engineering view (D35) sits behind one control on Live and on Analyze, and is off by default. It adds
 counts by class, PCU with its working, and the source of each number, from `GET /vehicle_count/{id}/latest`
 or the results file. Queue reads "Not measured", because nothing on the camera path measures one.
+
+## Project preview and operator access
+
+The default address opens the team page. **Explore the project** opens the
+technical walkthrough, and **Launch project** opens the console with bundled
+sample data. This preview needs no account and makes no API requests.
+
+Open the same dashboard with `?id=<intersection>` for real traffic data, or
+with an analysis link from the workbench. These views and their data endpoints
+require sign-in.
+
+- **Sign in** (`src/Auth.jsx`) offers Create account, Forgot password and, from the link in a
+  reset message, Choose a new password. `src/AuthGate.jsx` asks `GET /auth/me` and shows the project only
+  when it names a user; after sign-in it opens `#home`, then Explore or Launch as before.
+- **Sessions:** an HttpOnly, SameSite=Strict cookie set by the server. The page never reads, stores or sends
+  it itself, and keeps nothing about it in browser storage. Any read that answers 401, a check every minute,
+  tab focus and a back/forward-cache restore all end at the sign-in screen when the session has ended.
+- **Sign out** is in the account menu beside the theme switch on every page. It replaces the history
+  entry, so Back does not reopen the console, and the server deletes the session.
+- **The second POST client:** `src/auth.js` posts only to `/auth/register|login|logout|forgot|reset`.
+  `api.js` stays GET-only. Both are pinned by `dashboard.test.jsx`.
+- **The server side** is `server/auth.py`; its settings are in `.env.example`. In development, `npm run dev`
+  proxies `/auth` to port 8000 with the browser's Host, which the server's same-origin check needs.
+
+The sign-in screens use a navy and electric-cyan look from the `--auth-*` tokens in `theme.css`, the
+same in every theme and never used on traffic data.
 
 ## What the page refuses to do
 
@@ -54,9 +83,9 @@ npm test             # vitest: read-only API, error/stale/invalid states, missin
 npm run build        # -> dashboard/dist, served by the FastAPI server at /dashboard
 ```
 
-Then start the server (`uvicorn server.app:app --port 8000`) and open
-`http://127.0.0.1:8000/dashboard/?id=<intersection>`. During development, run
-`npm run dev`, which proxies the three endpoints to port 8000.
+Then start the server (`python -m uvicorn server.app:app --port 8000`) from
+the project root and open `http://127.0.0.1:8000/`. During development, run
+`npm run dev`, which proxies the operator API routes to port 8000.
 
 ## Testing a state without a camera (D36)
 
@@ -90,8 +119,9 @@ This is a deliberately small, ADR-008-descoped shape:
 - there are no charts;
 - the agreement ribbon (D26) is on Live, but there is no detection overlay on
   Live; boxes appear only on Analyze a video, from a results file;
-- there is no login, because the page only reads. The server's write
-  endpoints need a bearer token (D9), which the dashboard never holds.
+- since D46 there is a login: see "Signing in" below. The server's write
+  endpoints still need a bearer token (D9), which the dashboard never holds,
+  and a signed-in session can only read.
 
 It is dark mode only, in the D18 brand palette (`#080808` background, `#EC7C22`
 for chrome only), with every colour in `src/theme.css` and no external font or

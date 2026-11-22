@@ -77,3 +77,4 @@
 .replay .segment button { padding: 4px 12px; font: 600 12px var(--sans); }
 .preview { margin: 0; font-size: 12px; border-left: 3px solid var(--brand); padding-left: 8px; }
 .next { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.confirm { display: flex; gap: 6px; align-items: first baseline; font-size: 13px; }

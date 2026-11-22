@@ -51,6 +51,14 @@ def load_itd_mapping(path: Path = MAPPING_FILE, *, spelling: str = "wire") -> di
     return out
 
 
+def load_video_mapping() -> dict[str, str | None]:
+    """Class aliases for the supported COCO, ITD and BMD-45 video detectors."""
+    import yaml
+
+    spec = yaml.safe_load(MAPPING_FILE.read_text(encoding="utf-8"))
+    return {**spec["itd_mapping"], **spec["bmd45"]["mapping"]}
+
+
 def normalise(types: dict[str, int], mapping: dict[str, str | None] | None = None
               ) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
     """`(kept by contract class, dropped by decision, unknown)`.

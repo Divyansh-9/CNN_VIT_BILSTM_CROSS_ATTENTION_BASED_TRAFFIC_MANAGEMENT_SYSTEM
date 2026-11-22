@@ -1,8 +1,9 @@
-"""D9: every HTTP write needs the bearer token; reads stay open.
+"""D9: every HTTP write needs the bearer token; reads need a session or the token.
 
 NFR-12 as amended to ADR-008: a shared secret, here `STMS_API_TOKEN`, carried
 as `Authorization: Bearer <token>` on every POST. With no token configured, no
-write is accepted. GET endpoints and the dashboard stay open for reading. The
+write is accepted. Since 2026-11-14 (owner's request) GET endpoints need a
+signed-in session or the same token; sessions are tested in test_auth.py. The
 token never appears in a response, a log or a repr.
 
 `conftest.py` configures a synthetic token for every test; the tests of the
@@ -122,12 +123,19 @@ def test_with_no_token_configured_every_write_is_refused(app, monkeypatch, confi
             assert post(TestClient(app.app), path, kwargs, auth=auth).status_code == 401
 
 
-def test_reads_stay_open_without_a_token(app, write_headers):
+def test_reads_need_a_session_or_the_token(app, write_headers):
+    # Owner's request, 2026-11-14: reads were open until then. /health stays open.
     path, kwargs = writes()[1]
     assert post(TestClient(app.app), path, kwargs,
                 auth=write_headers["Authorization"]).status_code == 200
-    reader = TestClient(app.app)
-    assert reader.get("/health").status_code == 200
+    anonymous = TestClient(app.app)
+    assert anonymous.get("/health").status_code == 200
+    for read in ("/prediction/j1/latest", "/count_forecast/j1/latest", "/history/j1", "/evidence",
+                 "/sites", "/openapi.json", "/docs", "/some/route/added/later"):
+        refused = anonymous.get(read)
+        assert refused.status_code == 401, read
+        assert refused.json() == {"detail": "sign in required"}
+    reader = TestClient(app.app, headers=write_headers)
     assert reader.get("/prediction/j1/latest").status_code == 200
     assert reader.get("/count_forecast/j1/latest").status_code == 404
     assert reader.get("/history/j1").status_code == 200

@@ -1,27 +1,41 @@
-/* Dark mode only. Brand palette (owner, 2026-10-26): #080808 black, #EC7C22
-   orange, #A4510E rust, #FFFDFB off-white; Inter, with JetBrains Mono for
-   numbers. System fallbacks otherwise, so the page makes no external font
-   request on a LAN.
+/* Two themes, Dark and Light (D18: Light was approved, and is now built), and a
+   System choice that follows the operating system (theme.js sets data-theme).
+   Brand palette (owner, 2026-10-26): #080808 black, #EC7C22 orange, #A4510E
+   rust, #FFFDFB off-white; Inter, with JetBrains Mono for numbers, self-hosted
+   (main.jsx imports the font files), so the page makes no external request.
 
-   Two rules, pinned by tokens.test.js:
+   The rules, pinned by tokens.test.js for EVERY theme:
    1. Brand orange is for the interface only (logo, navigation, focus, actions),
       never on traffic data. Its hue sits 14 deg from an amber and 24 deg from a
       red, so near data it would read as a congestion level (Law of Similarity).
    2. The congestion scale and the state colours keep at least 30 deg of hue
       from the brand orange, at least 3:1 contrast on the panel (4.5:1 for the
-      state colours, which are read as text), and dark text on every class
-      colour. A class is always labelled in text as well (Von Restorff: never
-      colour alone).
+      state colours, which are read as text), and readable text on every class
+      colour. A class is always labelled in text as well (never colour alone).
    3. A project criterion, not a WCAG requirement: LOW, MEDIUM and HIGH stay
       at least 20 apart (CIELAB) under simulated protanopia, deuteranopia and
-      tritanopia, so they can be told apart where no label fits.
-   The six class and state colours are the D-7 revision of the step-1 set
-   (moved 0.3 to 6.1 in CIELAB), which failed rule 3 and the stale and
-   unreachable separation under deuteranopia. */
+      tritanopia, and the states 12 apart.
+   A theme never changes meaning: the same text renders in every theme.
+
+   Dark keeps the D-7 class and state colours. Light has its own, because the
+   dark set is too pale on white: they were searched against the same rules
+   (2026-11-14) and pass all of them, with LOW/MEDIUM/HIGH at least 35.8 apart
+   under every simulation. White text sits on the light class colours. */
 :root {
   /* surfaces and text */
   --bg: #080808;
   --panel: #141311;
+  --institution-logo-bg: #161411;
+  /* The classroom presentation stays dark regardless of the Explorer theme. */
+  --presentation-bg: #100e0d;
+  --presentation-panel: #1a1715;
+  --presentation-raised: #231e1b;
+  --presentation-text: #fffdfb;
+  --presentation-muted: #bdb4ad;
+  --presentation-line: #423a34;
+  --presentation-accent: #ec7c22;
+  --presentation-blue: #7cc4ff;
+  --presentation-tint: rgba(236, 124, 34, .12);
   --panel-raised: #1b1917;
   --ink: #fffdfb;
   --muted: #a8a29e;
@@ -30,8 +44,12 @@
   /* brand: interface only */
   --brand: #ec7c22;
   --brand-deep: #a4510e;
+  --brand-ink: #f29a52;
   --on-brand: #080808;
   --accent: var(--brand);
+  --signal-red: #f65c5c;
+  --signal-yellow: #f6ca57;
+  --signal-green: #74d688;
 
   /* congestion scale: traffic data only */
   --low: #36d982;
@@ -59,11 +77,167 @@
   --frame-class: #b9b3ad;
   --frame-status: var(--line);
 
-  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  /* Showcase chrome (landing page, project explorer, console shell). Interface
+     only, never on traffic data: the brand orange's tints for glow and soft
+     fills, a sky blue for diagrams and links, and translucent glass. */
+  --brand-soft: rgba(236, 124, 34, 0.12);
+  --brand-glow: rgba(236, 124, 34, 0.28);
+  --sky: #7cc4ff;
+  --sky-soft: rgba(124, 196, 255, 0.12);
+  --glass: rgba(20, 19, 17, 0.72);
+  --glass-line: rgba(255, 253, 251, 0.09);
+  --chrome-surface: var(--panel);
+  --chrome-filter: none;
+  --chrome-sheen: linear-gradient(150deg, var(--glass-line), transparent 44%);
+  --chrome-edge: inset 0 1px var(--glass-line);
+  --hero-top: rgba(8, 8, 8, 0.55);
+  --hero-bottom: rgba(8, 8, 8, 0.96);
+  --grid-line: rgba(255, 253, 251, 0.045);
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  /* Toy cars and signals in the home-page junction */
+  --toy-coral: #ff794b;
+  --toy-cyan: #6be3fa;
+  --toy-yellow: #ffe378;
+  --toy-green: #a9e794;
+  --toy-glass: #173440;
+  --toy-light: #fff7c6;
+  --toy-brake-light: #ff4545;
+  --toy-shadow: #000b;
+  --radius: 14px;
+  --dashboard-gap: clamp(12px, 1.7vw, 22px);
+  --dashboard-padding: clamp(14px, 2vw, 24px);
+  --dashboard-title: clamp(29px, 3vw, 43px);
+  --dashboard-surface: linear-gradient(150deg, var(--panel-raised), var(--panel) 70%);
+
+  /* Sign-in, registration and password reset (Auth.jsx, owner's request 2026-11-14):
+     a navy and electric-cyan smart-city look, the same in every theme, used only on
+     the screens shown before sign-in. Never on traffic data. */
+  --auth-bg: #040a18;
+  --auth-bg-deep: #020611;
+  --auth-panel: rgba(9, 20, 44, 0.86);
+  --auth-field: #071228;
+  --auth-line: rgba(56, 189, 248, 0.22);
+  --auth-line-strong: rgba(34, 211, 238, 0.55);
+  --auth-ink: #eaf3ff;
+  --auth-muted: #9fb2d1;
+  --auth-cyan: #22d3ee;
+  --auth-cyan-ink: #67e8f9;
+  --auth-on-cyan: #031421;
+  --auth-glow: rgba(34, 211, 238, 0.32);
+  --auth-grid: rgba(56, 189, 248, 0.08);
+  --auth-error: #ff9aab;
+  --auth-error-bg: rgba(255, 92, 122, 0.12);
+  --auth-success: #5eead4;
+  --auth-success-bg: rgba(45, 212, 191, 0.12);
+
+  --sans: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Consolas, monospace;
   color-scheme: dark;
 }
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --chrome-surface: var(--glass);
+    --chrome-filter: blur(18px) saturate(130%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root {
+    --chrome-surface: var(--panel);
+    --chrome-filter: none;
+    --chrome-sheen: none;
+    --chrome-edge: inset 0 0 transparent;
+  }
+}
+
+/* Light, chosen explicitly. The block below repeats it for System on a light
+   operating system; tokens.test.js checks the two are identical. */
+:root[data-theme="light"] {
+  --bg: #f6f4f1;
+  --panel: #ffffff;
+  --panel-raised: #faf8f5;
+  --ink: #1c1917;
+  --muted: #57534e;
+  --line: #e4ded6;
+  --brand: #b4530a;
+  --brand-deep: #8f4108;
+  --brand-ink: #b4530a;
+  --on-brand: #ffffff;
+  --low: #09481c;
+  --medium: #7b790a;
+  --high: #c72e87;
+  --on-class: #ffffff;
+  --ok: #069bf1;
+  --stale: #0019f7;
+  --bad: #792183;
+  --stale-bg: #e8eefc;
+  --notice-bg: #f3efe9;
+  --scrim: rgba(28, 25, 23, 0.45);
+  --road: #ebe6df;
+  --road-box: #e0d9d0;
+  --road-edge: #c4bab0;
+  --frame-count: #8a8179;
+  --frame-class: #57534e;
+  --brand-soft: rgba(180, 83, 10, 0.08);
+  --brand-glow: rgba(180, 83, 10, 0.2);
+  --sky: #1d6fb8;
+  --sky-soft: rgba(29, 111, 184, 0.08);
+  --glass: rgba(255, 255, 255, 0.82);
+  --glass-line: rgba(28, 25, 23, 0.09);
+  --hero-top: rgba(246, 244, 241, 0.55);
+  --hero-bottom: rgba(246, 244, 241, 0.96);
+  --grid-line: rgba(28, 25, 23, 0.05);
+  --shadow: 0 18px 40px rgba(28, 25, 23, 0.1);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f4f1;
+    --panel: #ffffff;
+    --panel-raised: #faf8f5;
+    --ink: #1c1917;
+    --muted: #57534e;
+    --line: #e4ded6;
+    --brand: #b4530a;
+    --brand-deep: #8f4108;
+    --brand-ink: #b4530a;
+    --on-brand: #ffffff;
+    --low: #09481c;
+    --medium: #7b790a;
+    --high: #c72e87;
+    --on-class: #ffffff;
+    --ok: #069bf1;
+    --stale: #0019f7;
+    --bad: #792183;
+    --stale-bg: #e8eefc;
+    --notice-bg: #f3efe9;
+    --scrim: rgba(28, 25, 23, 0.45);
+    --road: #ebe6df;
+    --road-box: #e0d9d0;
+    --road-edge: #c4bab0;
+    --frame-count: #8a8179;
+    --frame-class: #57534e;
+    --brand-soft: rgba(180, 83, 10, 0.08);
+    --brand-glow: rgba(180, 83, 10, 0.2);
+    --sky: #1d6fb8;
+    --sky-soft: rgba(29, 111, 184, 0.08);
+    --glass: rgba(255, 255, 255, 0.82);
+    --glass-line: rgba(28, 25, 23, 0.09);
+    --hero-top: rgba(246, 244, 241, 0.55);
+    --hero-bottom: rgba(246, 244, 241, 0.96);
+    --grid-line: rgba(28, 25, 23, 0.05);
+    --shadow: 0 18px 40px rgba(28, 25, 23, 0.1);
+    color-scheme: light;
+  }
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
 h1, h2, h3 { margin: 0; font-weight: 600; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

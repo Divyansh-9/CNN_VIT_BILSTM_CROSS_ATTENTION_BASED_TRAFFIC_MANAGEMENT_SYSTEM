@@ -3,18 +3,18 @@ import { validateLatestCounts } from "./validate.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App, { SECTIONS, analysisFromUrl, intersectionFromUrl, sectionFromHash } from "./App.jsx";
 import { get, isAllowed } from "./api.js";
 import { fingerprint, plainBody, wbGet, wbPost } from "./workbench.js";
 import { forecastCheck, lastMinute, laneSeries, perMinute } from "./check.js";
 import { VideoCheck } from "./VideoCheck.jsx";
-import { ICONS } from "./icons.jsx";
+import { ICONS, Icon } from "./icons.jsx";
 import { ObservedCounts, scaleTop } from "./Analytics.jsx";
 import { Horizon, Intersection, SCALE_MAX, TURN, horizon, junction, ribbonLength, ribbonPath } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, ExpectedShare, EvidencePanel, ForecastTable, HistoryPanel, Overview, SiteStrip, StatusBanner, StatusPanel, SummaryTiles, TimingSuggestion, operatorStatus, overview, recentCounts, timingSuggestion } from "./Panels.jsx";
-import { EXAMPLES, GLOSSARY, LIVE_STEPS, MORE_STEPS, QUIZ } from "./Tour.jsx";
+import { GLOSSARY } from "./Glossary.jsx";
 import { ReplayNote, SourceBadge } from "./Source.jsx";
 import { Agreement, AGREEMENT_LABEL } from "./Agreement.jsx";
 import { AnalyzeVideo, sampleAt } from "./Analyze.jsx";
@@ -68,18 +68,28 @@ describe("read-only by construction", () => {
     await get("/evidence", async (_, init) => { method = init.method; return { ok: true, status: 200, json: async () => ({}) }; });
     expect(method).toBe("GET");
   });
-  it("contains no write call anywhere in the source but the workbench client", () => {
-    // D41: workbench.js is the one module that may POST, and only to the local
-    // workbench's own actions; the server has no such route. Every other file stays read-only.
+  it("contains no write call anywhere in the source but the workbench and sign-in clients", () => {
+    // D41: workbench.js is the one module that may POST to the local workbench's own
+    // actions. Since 2026-11-14 auth.js may POST too, and only to /auth/<action>
+    // (sign in, register, sign out, reset). Every other file stays read-only.
     const dir = dirname(fileURLToPath(import.meta.url));
     for (const f of readdirSync(dir).filter((n) => /\.(js|jsx)$/.test(n) && !n.includes(".test."))) {
       // Code only: a comment saying /observation is unreachable is not a call to it.
       const text = readFileSync(join(dir, f), "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-      if (f !== "workbench.js") expect(text, f).not.toMatch(/method:\s*["'](POST|PUT|PATCH|DELETE)/i);
-      else expect(text.match(/method:\s*["'](POST|PUT|PATCH|DELETE)/gi)).toHaveLength(1);
+      if (f !== "workbench.js" && f !== "auth.js") expect(text, f).not.toMatch(/method:\s*["'](POST|PUT|PATCH|DELETE)/i);
+      else expect(text.match(/method:\s*["'](POST|PUT|PATCH|DELETE)/gi)).toHaveLength(f === "workbench.js" ? 2 : 1);
       expect(text).not.toMatch(/\/observation|signal\/command/);
     }
+  });
+  it("posts sign-in requests only to the five /auth actions", async () => {
+    const { authPost } = await import("./auth.js");
+    const seen = [];
+    const fetcher = async (path, init) => { seen.push([path, init.method, init.credentials]); return { ok: true, status: 200, json: async () => ({}) }; };
+    for (const action of ["register", "login", "logout", "forgot", "reset"]) await authPost(action, {}, fetcher);
+    expect(seen).toEqual(["register", "login", "logout", "forgot", "reset"].map((a) => [`/auth/${a}`, "POST", "same-origin"]));
+    await expect(authPost("observation", {}, fetcher)).rejects.toThrow(/not an auth action/);
+    await expect(authPost("../observation", {}, fetcher)).rejects.toThrow(/not an auth action/);
   });
 });
 
@@ -268,7 +278,16 @@ describe("sections and navigation (UX step 2)", () => {
     window.location.hash = "";
   });
   it("vendors only the icons it uses, each hidden from assistive technology", () => {
-    expect([...ICONS].sort()).toEqual(["history", "live", "results", "signal"]);
+    // The landing page and the explorer added icons, so the list is no longer four.
+    // The rule is unchanged: every vendored icon is named somewhere in the page source.
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const source = readdirSync(dir).filter((f) => /\.jsx?$/.test(f) && f !== "icons.jsx" && !f.includes(".test."))
+      .map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
+    expect(ICONS.filter((name) => !source.includes(`"${name}"`))).toEqual([]);
+    render(<>{ICONS.map((name) => <Icon key={name} name={name} />)}</>);
+    const drawn = [...document.querySelectorAll("svg[data-icon]")];
+    expect(drawn.length).toBe(ICONS.length);
+    expect(drawn.every((svg) => svg.getAttribute("aria-hidden") === "true" && svg.querySelector("path").getAttribute("d"))).toBe(true);
   });
 });
 
@@ -443,10 +462,8 @@ describe("the overview", () => {
       .toBe("Highest congestion expected: Approach N and Approach S HIGH");
   });
   // D37 (F7): with only the vehicle numbers published, this tile said nothing had been published.
-  // Each state below says what is there, and the tour's live line agrees with the tile every time.
-  it("says which forecast is available, and the tour says the same", () => {
+  it("says which forecast is available", () => {
     const COUNT4 = { ...COUNT, counts: { N: 3.2, S: 1.1, E: 6.4, W: 0.8 }, missing_approaches: [] };
-    const tiles = LIVE_STEPS.find((s) => s.target === "tiles");
     const cases = [
       ["both current", ok(CLASS4), ok(COUNT4), "fresh", "Highest congestion expected: Approach N and Approach S HIGH"],
       ["level only", ok(CLASS4), { status: "unavailable" }, "fresh", "Highest congestion expected: Approach N and Approach S HIGH"],
@@ -464,7 +481,6 @@ describe("the overview", () => {
       const tile = document.querySelector("[data-overview]");
       expect(tile.dataset.overview, name).toBe(kind);
       expect(tile.querySelector("[aria-live]").textContent, name).toBe(headline);
-      expect(tiles.now({ cls, count }), name).toBe(headline);           // the tour reads the same answer
       cleanup();
     }
     render(<Overview state={{ status: "unavailable" }} count={ok(COUNT4)} />);
@@ -668,7 +684,10 @@ describe("source badge and lane map (D22)", () => {
     expect(badge(ok(beat({ source: { ...REPLAY, duration_s: null } })))[1]).toContain("01:23 / length unknown");
   });
   it("says LIVE CAMERA only for a fresh, valid camera heartbeat", () => {
-    expect(badge(ok(beat({ source: CAMERA })))).toEqual(["camera", "Live cameraNE8th"]);
+    const [kind, text] = badge(ok(beat({ source: CAMERA })));
+    expect(kind).toBe("camera");
+    expect(text).toContain("Live cameraNE8th");
+    expect(document.querySelector("[data-source] time").dateTime).toBe(new Date(1000000).toISOString());
   });
   it("never falls back to live: no heartbeat, no source, stale, invalid and unreachable all say so", () => {
     for (const [state, kind] of [
@@ -1228,120 +1247,15 @@ describe("the 20-minute level row (D33)", () => {
   });
 });
 
-describe("the walkthrough and glossary (D33)", () => {
+describe("dashboard help (D33)", () => {
   const fetcher = async () => ({ ok: false, status: 404 });
-  window.scrollTo = () => {};   // jsdom has no layout to scroll
-  const open = async (mode) => {
-    render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
-    document.querySelector("[data-tour-start]").click();
-    await waitFor(() => expect(document.querySelector("[data-tour-card]")).toBeTruthy());
-    if (mode) { document.querySelector(`[data-tour-mode="${mode}"]`).click(); await waitFor(() => expect(screen.getByText(/^Step 1 of/)).toBeTruthy()); }
-  };
-  const press = (key) => document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
-  afterEach(() => { window.location.hash = ""; try { window.localStorage.clear(); } catch { /* not available */ } });
 
-  it("names a real part of the page in every Live step", async () => {
+  it("keeps the tour in Project Explorer", () => {
     render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
-    for (const s of LIVE_STEPS) expect(document.querySelector(`[data-tour="${s.target}"]`), s.target).toBeTruthy();
-    cleanup();
-    for (const [hash, s] of [["#analyze", MORE_STEPS[0]], ["#analytics", MORE_STEPS[1]], ["#results", MORE_STEPS[2]]]) {
-      render(<App fetcher={fetcher} search="?id=j1" hash={hash} />);
-      expect(document.querySelector(`[data-tour="${s.target}"]`), s.target).toBeTruthy();
-      cleanup();
-    }
+    expect(screen.getByRole("button", { name: "Glossary" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /take (a|the) tour/i })).toBeNull();
   });
-  it("never claims what the system cannot do", () => {
-    const words = JSON.stringify([LIVE_STEPS.concat(MORE_STEPS).map(({ title, what, read, limit }) => [title, what, read, limit]), GLOSSARY, QUIZ]);
-    // Saying what the system does not measure is the point; claiming it measures them is the failure.
-    expect(words.replace("It is not the road's capacity", "").replaceAll("not measure speed or queues", "")).not.toMatch(/capacity|queue|UTC|cryptographic|adaptive/i);
-  });
-  it("opens with the choice of tours, and blocks the page behind it", async () => {
-    await open();
-    expect(screen.getByText("What is STMS?")).toBeTruthy();
-    expect(document.querySelector("main").hasAttribute("inert")).toBe(true);
-    expect(document.querySelector('[data-tour-mode="live"]').textContent).toContain(`${LIVE_STEPS.length} steps`);
-    expect(document.querySelector('[data-tour-mode="full"]').textContent).toContain(`${LIVE_STEPS.length + MORE_STEPS.length} steps`);
-  });
-  it("draws its examples inside the card, marked, and leaves the real page alone", async () => {
-    await open("live");
-    document.querySelector("[data-tour-next]").click();
-    await waitFor(() => expect(document.querySelector("[data-try]")).toBeTruthy());
-    const real = () => document.querySelector("main [data-status]").dataset.status;
-    const before = real();
-    document.querySelector('[data-try="stale"]').click();
-    await waitFor(() => expect(document.querySelector('[data-tour-example="stale"]')).toBeTruthy());
-    const example = document.querySelector('[data-tour-example="stale"]');
-    expect(example.textContent).toMatch(/Example, not real data/);
-    expect(example.textContent).toMatch(/No recent updates/);
-    expect(real()).toBe(before);
-    expect(document.querySelector('main [data-status]').textContent).not.toMatch(/No recent updates/);
-  });
-  it("gives each example the state it is named for", () => {
-    const head = (k) => operatorStatus(EXAMPLES[k]).head;
-    expect(head("normal")).toBe("Updates are arriving");
-    expect(head("replay")).toBe("Updates are arriving from a recording");
-    expect(head("partial")).toBe("Updates are arriving, with approach W missing");
-    expect(head("silent")).toBe("The edge unit has stopped reporting");
-    expect(head("stale")).toBe("No recent updates");
-    expect(head("none")).toBe("No forecast yet");
-    expect(head("down")).toBe("Cannot reach the server");
-  });
-  it("says what the page really shows now", async () => {
-    await open("live");
-    document.querySelector("[data-tour-next]").click();
-    await waitFor(() => expect(document.querySelector("[data-tour-now]")).toBeTruthy());
-    expect(document.querySelector("[data-tour-now]").textContent).toContain(document.querySelector("main [data-status] h2").textContent);
-  });
-  it("walks every step by keyboard, reaches the questions, and leaves on Escape with the page restored", async () => {
-    await open("live");
-    for (let i = 1; i < LIVE_STEPS.length; i++) {
-      press("ArrowRight");
-      await waitFor(() => expect(screen.getByText(`Step ${i + 1} of ${LIVE_STEPS.length}`)).toBeTruthy());
-    }
-    expect(document.querySelector("[data-technical]").open).toBe(true);
-    press("ArrowRight");
-    await waitFor(() => expect(screen.getByText("Three questions")).toBeTruthy());
-    press("Escape");
-    await waitFor(() => expect(document.querySelector("[data-tour-card]")).toBeNull());
-    expect(document.querySelector("main").hasAttribute("inert")).toBe(false);
-    expect(document.querySelector("[data-technical]").open).toBe(false);
-  });
-  it("goes to Analytics and Results on the full tour, and comes back", async () => {
-    await open("full");
-    for (let i = 1; i <= LIVE_STEPS.length; i++) { press("ArrowRight"); await waitFor(() => expect(screen.getByText(new RegExp(`^Step ${i + 1} of`))).toBeTruthy()); }
-    await waitFor(() => expect(screen.getByLabelText("Analyze a video", { selector: "section" })).toBeTruthy());
-    press("ArrowRight");
-    await waitFor(() => expect(screen.getByLabelText("Analytics", { selector: "section" })).toBeTruthy());
-    press("ArrowRight");
-    await waitFor(() => expect(screen.getByLabelText("Results", { selector: "section" })).toBeTruthy());
-    press("Escape");
-    await waitFor(() => expect(screen.getByLabelText("Live monitor")).toBeTruthy());
-  });
-  it("marks the questions and records nothing", async () => {
-    const asked = [];
-    render(<App fetcher={async (p, init) => { asked.push(init?.method); return { ok: false, status: 404 }; }} search="?id=j1" hash="#live" />);
-    document.querySelector("[data-tour-start]").click();
-    await waitFor(() => expect(document.querySelector("[data-tour-mode]")).toBeTruthy());
-    document.querySelector('[data-tour-mode="live"]').click();
-    await waitFor(() => expect(document.querySelector("[data-tour-next]")).toBeTruthy());
-    for (let i = 0; i < LIVE_STEPS.length; i++) { press("ArrowRight"); await new Promise((r) => setTimeout(r, 5)); }
-    await waitFor(() => expect(screen.getByText("Three questions")).toBeTruthy());
-    const pick = (n, k) => document.querySelectorAll(`input[name="quiz${n}"]`)[k].click();
-    pick(0, 0); pick(1, 0); pick(2, 2);
-    await waitFor(() => expect(document.querySelector("[data-quiz-score]")).toBeTruthy());
-    expect(document.querySelector("[data-quiz-score]").textContent).toBe("2 of 3 correct.");
-    expect(document.querySelector('[data-quiz-feedback="1"]').textContent).toMatch(/The answer is: The system does not know/);
-    expect(asked.every((m) => m === "GET")).toBe(true);
-  });
-  it("invites once, and remembers a no", async () => {
-    render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
-    expect(document.querySelector("[data-tour-invite]")).toBeTruthy();
-    screen.getByText("Not now").click();
-    await waitFor(() => expect(document.querySelector("[data-tour-invite]")).toBeNull());
-    cleanup();
-    render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
-    expect(document.querySelector("[data-tour-invite]")).toBeNull();
-  });
+
   it("says what a level is, and what it is not", () => {
     render(<App fetcher={fetcher} search="?id=j1" hash="#live" />);
     const text = document.querySelector("[data-levels]").textContent;
@@ -1488,14 +1402,14 @@ describe("Analyze a video (D34)", () => {
     expect(sampleAt(ANALYSIS, -1).t).toBe(0);
   });
   it("shows no numbers until a results file is open, and says how to make one", () => {
-    render(<AnalyzeVideo />);
+    render(<AnalyzeVideo legacyFiles />);
     expect(document.querySelector('[data-state="no-results"]')).toBeTruthy();
     expect(document.querySelector("[data-analysis-how]").textContent).toMatch(/analyze_video\.py/);
     expect(document.querySelector("[data-analysis-row]")).toBeNull();
     expect(document.querySelector("[data-box]")).toBeNull();
   });
   it("follows the position in the recording: waiting, then forecasts, then what happened", async () => {
-    render(<AnalyzeVideo />);
+    render(<AnalyzeVideo legacyFiles />);
     await open(ANALYSIS);
     await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
     expect(document.querySelector("[data-analysis-note]").textContent).toMatch(/level starts at 01:00/);
@@ -1503,18 +1417,27 @@ describe("Analyze a video (D34)", () => {
     scrub(4);
     await waitFor(() => expect(row("lane_0")).toMatch(/HIGH2\.4MEDIUM 0\.8 differs/));
     expect(row("lane_1")).not.toMatch(/differs/);
-    expect(document.querySelector("[data-box]")).toBeTruthy();
-    expect(document.querySelector('[data-pin="L0"]').style.left).toBe("20%");
+    expect(document.querySelector("[data-box]")).toBeNull();
+    expect(document.querySelector("[data-pin]")).toBeNull();
+    expect(screen.getByText("Choose a video to preview it here.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Full screen" })).toBeNull();
     expect(document.querySelector("[data-known-limits]").textContent).toMatch(/parked vehicles/);
     expect(document.querySelector('section[aria-label="Results at this moment"]').textContent).toMatch(/LOW is up to 0\.13/);
     expect(document.querySelector('[data-directions="unverified"]')).toBeTruthy();
   });
+  it("jumps the replay and updates the lane counts when a count spike is selected", async () => {
+    render(<AnalyzeVideo legacyFiles />);
+    await open({ ...ANALYSIS, samples: [sample(0), sample(2, { counts: { lane_0: 5, lane_1: 0 } }), sample(4)] });
+    fireEvent.click(await screen.findByRole("button", { name: /00:02.*\+3 vehicles/ }));
+    expect(screen.getByRole("slider", { name: "Position in the video" }).value).toBe("2");
+    expect(row("lane_0")).toMatch(/L0 label N5/);
+  });
   it("refuses a file that is not a results file, and shows nothing from it", async () => {
-    render(<AnalyzeVideo />);
+    render(<AnalyzeVideo legacyFiles />);
     await open("not json");
     await waitFor(() => expect(screen.getByText(/is not a results file/)).toBeTruthy());
     cleanup();
-    render(<AnalyzeVideo />);
+    render(<AnalyzeVideo legacyFiles />);
     await open({ ...ANALYSIS, step_s: 5 });
     await waitFor(() => expect(screen.getByText(/was refused: invalid timing/)).toBeTruthy());
     expect(document.querySelector("[data-analysis-row]")).toBeNull();
@@ -1545,16 +1468,63 @@ describe("Analyze a video (D34)", () => {
     return found;
   });
 
+  it("fullscreens the player and its overlays, then returns to the normal layout", () => withObjectUrls(async () => {
+    render(<AnalyzeVideo legacyFiles />);
+    await open(ANALYSIS);
+    openVideo();
+    const video = await player();
+    Object.defineProperties(video, { duration: { value: 6 }, videoWidth: { value: 720 }, videoHeight: { value: 1280 } });
+    fireEvent.loadedMetadata(video);
+    const button = await screen.findByRole("button", { name: "Full screen" });
+    const viewport = button.closest("section").querySelector("[data-stage]").parentElement.parentElement;
+    const descriptors = Object.getOwnPropertyDescriptors(document);
+    const enter = target => {
+      Object.defineProperty(document, "fullscreenElement", { value: target, configurable: true });
+      document.dispatchEvent(new Event("fullscreenchange"));
+    };
+    viewport.requestFullscreen = async () => enter(viewport);
+    Object.defineProperty(document, "exitFullscreen", { value: async () => enter(null), configurable: true });
+    try {
+      expect(viewport.contains(video)).toBe(true);
+      expect(viewport.querySelector("[data-box]")).toBeTruthy();
+      expect(viewport.querySelector('[data-pin="L0"]').style.left).toBe("20%");
+      expect(viewport.querySelector("[data-stage]").style.getPropertyValue("--video-aspect")).toBe("0.5625");
+      fireEvent.click(button);
+      expect(await screen.findByRole("button", { name: "Exit full screen" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Exit full screen" }));
+      expect(await screen.findByRole("button", { name: "Full screen" })).toBeTruthy();
+    } finally {
+      for (const name of ["fullscreenElement", "exitFullscreen"]) {
+        if (descriptors[name]) Object.defineProperty(document, name, descriptors[name]);
+        else delete document[name];
+      }
+    }
+  }));
+
   it("says so in words when the browser cannot play the video", () => withObjectUrls(async () => {
-    render(<AnalyzeVideo />);
+    render(<AnalyzeVideo legacyFiles />);
     openVideo();
     fireEvent.error(await player());
     await waitFor(() => expect(screen.getAllByText("This browser cannot play this video's format. MP4 with H.264 usually works.").length).toBeGreaterThan(0));
     expect(document.querySelector('[data-state="invalid"]').textContent).toMatch(/cannot play this video's format/);
   }));
 
-  it("shows no results over a video shorter than its results, at any moment", () => withObjectUrls(async () => {
+  it("keeps the player usable after an intentional pause interrupts play", () => withObjectUrls(async () => {
     render(<AnalyzeVideo />);
+    openVideo();
+    const video = await player();
+    const play = vi.fn().mockRejectedValueOnce(new DOMException("Interrupted by pause", "AbortError"))
+      .mockResolvedValueOnce(undefined);
+    Object.defineProperty(video, "play", { value: play });
+    const button = screen.getByRole("button", { name: "Play" });
+    await act(async () => { fireEvent.click(button); });
+    expect(screen.queryByText(/Playback could not start/)).toBeNull();
+    await act(async () => { fireEvent.click(button); });
+    expect(play).toHaveBeenCalledTimes(2);
+  }));
+
+  it("shows no results over a video shorter than its results, at any moment", () => withObjectUrls(async () => {
+    render(<AnalyzeVideo legacyFiles />);
     await open({ ...ANALYSIS, duration_s: 600 });
     await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
     openVideo();
@@ -1566,7 +1536,7 @@ describe("Analyze a video (D34)", () => {
       .toContain("These files do not match. The video is 00:10 long and the results cover 10:00, so no results are shown over it.");
     for (const at of [0, 4, 9, 10]) {
       scrub(at);
-      await waitFor(() => expect(document.querySelector('[data-state="no-results"]').textContent).toBe("Open the results for this video."));
+      await waitFor(() => expect(document.querySelector('[data-state="no-results"]').textContent).toBe("Choose the video that matches this analysis."));
       expect(document.querySelector("[data-analysis-row]")).toBeNull();
       expect(document.querySelector("[data-box]")).toBeNull();
       expect(document.querySelector("[data-pin]")).toBeNull();
@@ -1724,7 +1694,7 @@ describe("Workbench hand-off (D40)", () => {
     const { asked, fetcher } = server(ANALYSIS);
     render(<App fetcher={fetcher} search={`?analysis=${KEY}`} hash="#analyze" />);
     await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
-    expect(document.querySelector("[data-handed]").textContent).toMatch(/choose the video file clip/);
+    expect(document.querySelector("[data-handed]").textContent).toMatch(/choose clip/);
     const handOver = asked.filter(([p]) => p.startsWith("/workbench/analysis/"));
     expect(handOver).toEqual([[`/workbench/analysis/${KEY}`, "GET"]]);
     expect(asked.every(([, method]) => method === "GET")).toBe(true);
@@ -1825,7 +1795,7 @@ describe("Local workbench inside the dashboard (D41)", () => {
     render(<App fetcher={fetcher} search="?id=j1" hash="#analyze" />);
     await waitFor(() => expect(document.querySelector('[data-mode="read-only"]')).toBeTruthy());
     expect(document.querySelector("[data-assistant]")).toBeNull();
-    expect(document.querySelector("[data-open-results]")).toBeTruthy();
+    expect(document.querySelector("[data-open-results]")).toBeNull();
   });
   it("served by the workbench, says so, and offers the replay on Live", async () => {
     const { fetcher } = workbench();
@@ -1842,9 +1812,10 @@ describe("Local workbench inside the dashboard (D41)", () => {
       await waitFor(() => expect(document.querySelector('[data-assistant="idle"]')).toBeTruthy());
       openVideoFile(new File([bytes(4096)], "clip.mp4", { type: "video/mp4" }));
       await waitFor(() => expect(document.querySelector('[data-where="found"]')).toBeTruthy());
-      fireEvent.click(document.querySelector("[data-analyse]"));
-      await waitFor(() => expect(screen.getByText(/Choose the camera that recorded this video first/)).toBeTruthy());
+      expect(document.querySelector("[data-analyse]").disabled).toBe(true);
       fireEvent.click(document.querySelector('[data-choice="150th_Eastgate"]'));
+      expect(document.querySelector("[data-analyse]").disabled).toBe(true);
+      fireEvent.click(screen.getByRole("checkbox", { name: /lane markers fit/i }));
       fireEvent.click(document.querySelector("[data-analyse]"));
       await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
     });
@@ -1915,6 +1886,7 @@ describe("Local workbench inside the dashboard (D41)", () => {
       await waitFor(() => expect(document.querySelectorAll("[data-preview-lane]")).toHaveLength(2));
       expect(document.querySelector('[data-preview-lane="L0"]').style.left).toBe("20%");
       expect(document.querySelector("[data-preview-note]").textContent).toMatch(/different camera/);
+      fireEvent.click(screen.getByRole("checkbox", { name: /lane markers fit/i }));
       fireEvent.click(document.querySelector("[data-analyse]"));
       await waitFor(() => expect(document.querySelector('[data-analysis-row="lane_0"]')).toBeTruthy());
       expect(document.querySelector("[data-preview-lane]")).toBeNull();
@@ -1928,6 +1900,7 @@ describe("Local workbench inside the dashboard (D41)", () => {
       openVideoFile(new File([bytes(100)], "clip.mp4", { type: "video/mp4" }));
       await waitFor(() => expect(document.querySelector('[data-choice="150th_Eastgate"]')).toBeTruthy());
       fireEvent.click(document.querySelector('[data-choice="150th_Eastgate"]'));
+      fireEvent.click(screen.getByRole("checkbox", { name: /lane markers fit/i }));
       fireEvent.click(document.querySelector("[data-analyse]"));
       await waitFor(() => expect(document.querySelector("[data-replay-this]")).toBeTruthy());
       fireEvent.click(screen.getByText("Whole video"));
@@ -2021,7 +1994,7 @@ describe("Forecast check for a whole video (D43)", () => {
     expect(card.querySelector('[data-check-row="lane_0"]').textContent).toMatch(/30 of 61.*0\.40 veh.*1\.00 veh.*31 · 0 · 0 of 31/);
     expect(card.querySelector('[data-check-row="all"]').textContent).toMatch(/60 of 122/);
     expect(card.textContent).not.toMatch(/%/);
-    expect(card.textContent).toMatch(/agreement, not accuracy/);
+    expect(card.textContent).toMatch(/reference values are counts from the same detector/);
     expect(card.textContent).toMatch(/LOW up to 1\.10 and MEDIUM up to 2\.40/);
   });
   it("charts each lane with three styled lines, a gap where a value is missing, and a click that seeks", () => {

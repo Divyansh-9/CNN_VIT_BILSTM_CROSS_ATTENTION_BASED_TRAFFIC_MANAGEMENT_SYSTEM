@@ -1,0 +1,116 @@
+{
+  "source": "Bellevue 116th and NE 12th, morning and afternoon recordings, 2017-09-11",
+  "method": "One visual review before comparing detector outputs. Count four supported vehicle groups by the center of their visible box, including stopped vehicles. Count an articulated truck as one vehicle.",
+  "region_xyxy": [
+    120,
+    100,
+    1110,
+    640
+  ],
+  "baseline": {
+    "model": "yolo11s.pt",
+    "size": 640,
+    "confidence": 0.3,
+    "milliseconds_per_image": 120.6,
+    "images": 12,
+    "reference_total": 176,
+    "mae": 4.6667,
+    "wape": 0.3182,
+    "exact_frames": 1,
+    "detected_total": 120,
+    "predicted_by_frame": {
+      "morning-11": 11,
+      "morning-157": 5,
+      "morning-289": 13,
+      "morning-419": 10,
+      "morning-593": 8,
+      "morning-801": 4,
+      "afternoon-13": 16,
+      "afternoon-153": 12,
+      "afternoon-251": 13,
+      "afternoon-417": 10,
+      "afternoon-543": 11,
+      "afternoon-688": 7
+    }
+  },
+  "tuned": {
+    "model": "yolo11s.pt",
+    "size": 960,
+    "confidence": 0.3,
+    "milliseconds_per_image": 385.4,
+    "images": 12,
+    "reference_total": 176,
+    "mae": 1.9167,
+    "wape": 0.1307,
+    "exact_frames": 2,
+    "detected_total": 169,
+    "predicted_by_frame": {
+      "morning-11": 15,
+      "morning-157": 9,
+      "morning-289": 19,
+      "morning-419": 11,
+      "morning-593": 12,
+      "morning-801": 8,
+      "afternoon-13": 17,
+      "afternoon-153": 15,
+      "afternoon-251": 19,
+      "afternoon-417": 17,
+      "afternoon-543": 17,
+      "afternoon-688": 10
+    }
+  },
+  "alternatives": [
+    {
+      "model": "yolo11s.pt",
+      "size": 1280,
+      "confidence": 0.3,
+      "milliseconds_per_image": 538.5,
+      "images": 12,
+      "reference_total": 176,
+      "mae": 1.9167,
+      "wape": 0.1307,
+      "exact_frames": 0,
+      "detected_total": 195,
+      "predicted_by_frame": {
+        "morning-11": 19,
+        "morning-157": 13,
+        "morning-289": 21,
+        "morning-419": 13,
+        "morning-593": 13,
+        "morning-801": 14,
+        "afternoon-13": 21,
+        "afternoon-153": 17,
+        "afternoon-251": 20,
+        "afternoon-417": 17,
+        "afternoon-543": 16,
+        "afternoon-688": 11
+      }
+    },
+    {
+      "model": "bmd45-yolov12s.pt",
+      "size": 960,
+      "confidence": 0.4,
+      "milliseconds_per_image": 397.2,
+      "images": 12,
+      "reference_total": 176,
+      "mae": 12.1667,
+      "wape": 0.8295,
+      "exact_frames": 0,
+      "detected_total": 30,
+      "predicted_by_frame": {
+        "morning-11": 2,
+        "morning-157": 2,
+        "morning-289": 3,
+        "morning-419": 3,
+        "morning-593": 0,
+        "morning-801": 2,
+        "afternoon-13": 3,
+        "afternoon-153": 3,
+        "afternoon-251": 3,
+        "afternoon-417": 4,
+        "afternoon-543": 3,
+        "afternoon-688": 2
+      }
+    }
+  ]
+}

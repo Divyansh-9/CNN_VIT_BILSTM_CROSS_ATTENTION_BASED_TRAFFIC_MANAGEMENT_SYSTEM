@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Agreement } from "./Agreement.jsx";
 import { AnalyzeVideo } from "./Analyze.jsx";
 import { get } from "./api.js";
@@ -7,25 +7,86 @@ import { wbGet } from "./workbench.js";
 import { BusyByHour } from "./Busy.jsx";
 import { ObservedCounts } from "./Analytics.jsx";
 import styles from "./App.module.css";
+import { ConsoleOverview } from "./ConsoleOverview.jsx";
+import { AlertsPage, PageHead, SignalTiming, SystemPage } from "./OpsPages.jsx";
+import { downloadText, toCsv, worstSeverity } from "./ops.js";
+import { useAlerts } from "./useAlerts.js";
 import { LiveEngineering, ViewToggle } from "./Engineering.jsx";
 import { Icon } from "./icons.jsx";
+import { ThemeSwitch } from "./ThemeSwitch.jsx";
+import { AccountMenu } from "./AuthGate.jsx";
+import { ModelPerformance, ReplayOverview } from "./ReplayOverview.jsx";
+import { CountBenchmark } from "./CountBenchmark.jsx";
 import { Horizon, Intersection } from "./Intersection.jsx";
 import { ClassPanel, CountPanel, EvidencePanel, ExpectedShare, ForecastTable, HistoryPanel, Overview, SiteStrip, StatusBanner, StatusPanel, SummaryTiles, TimingSuggestion } from "./Panels.jsx";
 import { ReplayNote, SourceBadge } from "./Source.jsx";
-import { Glossary, Tour } from "./Tour.jsx";
+import { RecordingPage } from "./RecordingPages.jsx";
+import { useRecording } from "./useRecording.js";
+import { LiveMonitoring } from "./LiveMonitoring.jsx";
+import { Glossary } from "./Glossary.jsx";
 import { useHealth, usePoll } from "./usePoll.js";
 import { validateHeartbeat } from "./validate.js";
 
 const REFRESH_MS = 2000; // PRD: dashboard refresh within 2 s
 const HISTORY_MS = 10000; // a record of the last minutes; the live panels carry the 2 s budget
 
-// Three sections, one shown at a time. Results is its own section, so live
+function ProcessingStatus({ enabled, fetcher }) {
+  const [jobs, setJobs] = useState(null);
+  const seen = useRef(new Set());
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let active = true;
+    let polling = false;
+    async function poll() {
+      if (polling) return;
+      polling = true;
+      const reply = await wbGet("/workbench/jobs/active", fetcher);
+      if (active && reply.status === "ok") {
+        for (const job of Object.values(reply.data)) if (job.running && job.job_id) seen.current.add(job.job_id);
+        setJobs(reply.data);
+      }
+      polling = false;
+    }
+    poll();
+    const timer = setInterval(poll, 1500);
+    return () => { active = false; clearInterval(timer); };
+  }, [enabled, fetcher]);
+  if (!enabled || !jobs || (!jobs.live.running && !jobs.offline.running)) return null;
+  return <div className={styles.processingJobs} aria-label="Video processing status">
+    {[["Live", jobs.live], ["Video analysis", jobs.offline]].map(([label, job]) => <p key={label}>
+      <strong>{label}</strong>
+      <span>{job.running ? (label === "Live" && job.progress && !job.stopping ? "Receiving frames" : job.status) : seen.current.has(job.job_id) ? job.status : "Idle"}</span>
+      {job.running && job.recording && <span>{job.recording}</span>}
+      {job.running && job.progress && <span>{job.progress.done} / {job.progress.total} samples</span>}
+    </p>)}
+  </div>;
+}
+
+// The console's sections, one shown at a time. Results is its own section, so live
 // numbers and historical evidence can never share a screen (ADR-014).
 // Analytics (D21) holds what was counted and what was forecast; it replaced
-// History, whose old address still opens it.
-export const SECTIONS = [["live", "Live"], ["analyze", "Analyze a video"], ["analytics", "Analytics"], ["results", "Results"]];
+// History, whose old address still opens it. Overview is the console's front
+// page (where Launch project lands): the live headline answers only, from the
+// same polls and panels as Live, so it is part of the live region.
+// Signal timing is advisory (P97a: no forecast reaches a signal), Alerts reads
+// the live polls, and System is each part's last report; all three are live
+// region, so none of them shows evaluation evidence.
+export const SECTIONS = [["overview", "Overview"], ["live", "Live"], ["replay", "Guided replay"], ["signals", "Signal timing"], ["analyze", "Analyze a video"],
+  ["analytics", "Analytics"], ["alerts", "Alerts"], ["results", "Results"], ["system", "System"]];
 const ALIASES = { history: "analytics" };
-const ICON_FOR = { live: "live", analyze: "signal", analytics: "history", results: "results" };
+const ICON_FOR = { overview: "squares-four", live: "live", replay: "history", signals: "signal", analyze: "film-strip", analytics: "chart-line",
+  alerts: "warning", results: "results", system: "cpu" };
+
+// Observed counts as rows: one per bucket, one column per lane (named by approach
+// when the edge has reported its lane map). A gap stays empty, never 0.
+function observedCsv(state, laneMap) {
+  if (state.status !== "ok" || !Array.isArray(state.data?.buckets)) return null;
+  const lanes = [...new Set(state.data.buckets.flatMap((b) => Object.keys(b.lanes ?? {})))].sort();
+  const name = (lane) => (laneMap?.[lane] ? `${laneMap[lane]} (${lane})` : lane);
+  const rows = state.data.buckets.map((b) => Object.fromEntries([["time", new Date(b.t * 1000).toISOString()],
+    ...lanes.map((l) => [name(l), b.lanes?.[l]?.mean ?? ""])]));
+  return toCsv(["time", ...lanes.map(name)], rows);
+}
 const COUNTS_MS = 30000; // buckets are a minute or longer, so the counts view polls slowly
 
 export function intersectionFromUrl(search) {
@@ -65,70 +126,103 @@ function useWorkbench(fetcher) {
 }
 
 // Anything that is not a known section opens Live.
+const APPROACH_ROUTE = /^#\/?overview\/([NSEW])$/;
+
 export function sectionFromHash(hash) {
+  if (APPROACH_ROUTE.test(hash)) return "overview";
   const raw = String(hash || "").replace(/^#\/?/, "");
   const name = ALIASES[raw] ?? raw;
   return SECTIONS.some(([key]) => key === name) ? name : "live";
 }
 
-function useSection(initialHash) {
-  const [section, setSection] = useState(() => sectionFromHash(initialHash));
+function useConsoleHash(initialHash) {
+  const [hash, setHash] = useState(initialHash);
   useEffect(() => {
-    const follow = () => setSection(sectionFromHash(window.location.hash));
+    const follow = () => setHash(window.location.hash);
     window.addEventListener("hashchange", follow);
     return () => window.removeEventListener("hashchange", follow);
   }, []);
-  return section;
+  return hash;
 }
 
-// This browser's own clock: everything else on the page is dated by the server.
-function Clock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  return <span className={styles.clock} title="This computer's clock">{now.toLocaleTimeString()}</span>;
+function AnalysisControls({ busy, onAction }) {
+  const dialog = useRef(null);
+  const open = () => {
+    const element = dialog.current;
+    if (typeof element.showModal === "function") element.showModal();
+    else element.setAttribute("open", "");
+  };
+  const close = () => {
+    if (typeof dialog.current.close === "function") dialog.current.close();
+    else dialog.current.removeAttribute("open");
+  };
+  return <>
+    <div className={styles.analysisActions}>
+      <button type="button" className={styles.toolButton} disabled={busy} onClick={() => onAction("new")}>New Analysis</button>
+      <button type="button" className={styles.toolButton} disabled={busy} onClick={open}>Reset All Analysis Data</button>
+    </div>
+    <dialog className={styles.analysisDialog} ref={dialog} aria-labelledby="offline-reset-title" aria-describedby="offline-reset-warning">
+      <h3 id="offline-reset-title">Restart / Reset Analysis</h3>
+      <p id="offline-reset-warning">Are you sure you want to permanently delete all previous analysis results and start fresh? This action cannot be undone.</p>
+      <form method="dialog" className={styles.analysisActions}>
+        <button type="button" className={styles.toolButton} autoFocus onClick={close}>Cancel</button>
+        <button type="button" className={styles.toolButton} onClick={() => {
+          close();
+          onAction("reset");
+        }}>Delete All Results &amp; Restart</button>
+      </form>
+    </dialog>
+  </>;
 }
 
-const SEEN_KEY = "stms.tourSeen";
-// A convenience only: where storage is blocked, the invitation just shows again.
-function tourSeen() {
-  try { return window.localStorage.getItem(SEEN_KEY) === "1"; } catch { return false; }
-}
-function rememberTour() {
-  try { window.localStorage.setItem(SEEN_KEY, "1"); } catch { /* nothing to remember it in */ }
-}
-
-export default function App({ fetcher, search = window.location.search, hash = window.location.hash }) {
-  const id = intersectionFromUrl(search);
-  const section = useSection(hash);
+export default function App({ fetcher, previewSite, redesign, search = window.location.search, hash = window.location.hash }) {
+  const id = previewSite ?? intersectionFromUrl(search);
+  const consoleHash = useConsoleHash(hash);
+  const section = sectionFromHash(consoleHash);
+  const replayOverview = section === "replay" || (redesign && section === "overview" && !APPROACH_ROUTE.test(consoleHash));
+  const approach = APPROACH_ROUTE.exec(consoleHash)?.[1] ?? "E";
   const handed = useHanded(analysisFromUrl(search), fetcher);
   const workbench = useWorkbench(fetcher);
+  const recording = useRecording(workbench, fetcher, section === "results");
+  const [analyzeReportId, setAnalyzeReportId] = useState(null);
+  const [analysisVersion, setAnalysisVersion] = useState(0);
+  const [analysisStarting, setAnalysisStarting] = useState(false);
+  const changeWorkspace = async (action) => {
+    if (await recording.manage(action)) {
+      setAnalyzeReportId(null);
+      setAnalysisVersion(version => version + 1);
+    }
+  };
+  const [monitorFrame, setMonitorFrame] = useState(null);
+  const hasMonitoring = Boolean(workbench?.monitoring);
+  const showMonitoring = Boolean(monitorFrame && (section === "live" ||
+    (!recording.entry && !["results", "analyze", "replay"].includes(section))));
+  const activeContext = showMonitoring ? { ...recording, entry: { result: monitorFrame.result }, selected: null,
+    jobs: [], browseHistory: null, openEvent: () => { window.location.hash = "#live"; } } : recording;
+  const real = recording.real;
+  const showEdge = !real && (!previewSite || workbench !== null);
+  const edgePath = path => showEdge ? path : null;
+  const savedReplay = real && section === "replay";
+  const recordingPage = (real || monitorFrame) && section !== "analyze" && section !== "replay"
+    && (section !== "live" || (Boolean(previewSite) && !hasMonitoring));
   const [countWindow, setCountWindow] = useState("1h");
-  // Every stream keeps polling whichever section is open, so the status and
-  // the overview are current the moment Live is opened again.
-  const count = usePoll(`/count_forecast/${id}/latest`, REFRESH_MS, fetcher);
-  const cls = usePoll(`/prediction/${id}/latest`, REFRESH_MS, fetcher);
-  const evidence = usePoll("/evidence", 0, fetcher);
+  const count = usePoll(edgePath(`/count_forecast/${id}/latest`), REFRESH_MS, fetcher);
+  const cls = usePoll(edgePath(`/prediction/${id}/latest`), REFRESH_MS, fetcher);
+  const evidence = usePoll(edgePath("/evidence"), 0, fetcher);
   const health = useHealth(REFRESH_MS, fetcher);
-  const classHistory = usePoll(`/prediction/${id}/history`, HISTORY_MS, fetcher);
-  const countHistory = usePoll(`/count_forecast/${id}/history`, HISTORY_MS, fetcher);
-  const observed = usePoll(`/vehicle_count/${id}/history?window=${countWindow}`, COUNTS_MS, fetcher);
-  const recent = usePoll(`/vehicle_count/${id}/history?window=1h`, COUNTS_MS, fetcher);
-  const day = usePoll(`/vehicle_count/${id}/history?window=24h`, COUNTS_MS, fetcher);
-  const sites = usePoll("/sites", HISTORY_MS, fetcher);
-  const latestCounts = usePoll(`/vehicle_count/${id}/latest`, REFRESH_MS, fetcher);
+  const classHistory = usePoll(edgePath(`/prediction/${id}/history`), HISTORY_MS, fetcher);
+  const countHistory = usePoll(edgePath(`/count_forecast/${id}/history`), HISTORY_MS, fetcher);
+  const observed = usePoll(edgePath(`/vehicle_count/${id}/history?window=${countWindow}`), COUNTS_MS, fetcher);
+  const recent = usePoll(edgePath(`/vehicle_count/${id}/history?window=1h`), COUNTS_MS, fetcher);
+  const day = usePoll(edgePath(`/vehicle_count/${id}/history?window=24h`), COUNTS_MS, fetcher);
+  const sites = usePoll(edgePath("/sites"), HISTORY_MS, fetcher);
+  const latestCounts = usePoll(edgePath(`/vehicle_count/${id}/latest`), REFRESH_MS, fetcher);
   // D35: Operator is the default, and a reload returns to it. Shared by Live and
   // Analyze, so one choice holds across both.
   const [view, setView] = useState("operator");
-  const [touring, setTouring] = useState(false);
   const [glossary, setGlossary] = useState(false);
-  const [invite, setInvite] = useState(() => !tourSeen());
-  const startTour = () => { setInvite(false); rememberTour(); setTouring(true); };
-  const declineTour = () => { setInvite(false); rememberTour(); };
-  const heartbeat = usePoll(`/heartbeat/${id}/latest`, REFRESH_MS, fetcher);
-  const checks = usePoll(`/forecast_check/${id}/recent`, REFRESH_MS, fetcher);
+  const heartbeat = usePoll(edgePath(`/heartbeat/${id}/latest`), REFRESH_MS, fetcher);
+  const checks = usePoll(edgePath(`/forecast_check/${id}/recent`), REFRESH_MS, fetcher);
   // D22: the edge's lane map, from any valid heartbeat. It is configuration,
   // so a stale heartbeat still says how the lanes were mapped.
   const beat = heartbeat.status === "ok" ? validateHeartbeat(heartbeat.data) : null;
@@ -146,14 +240,25 @@ export default function App({ fetcher, search = window.location.search, hash = w
       N, S, E and W are labels. Their directions have not been verified for this camera.
     </p>
   );
-  const live = { health, cls, count, heartbeat };
+  const alerts = useAlerts(id, { health, cls, count, heartbeat, latestCounts });
+  const liveRef = useRef(null);
+  const fullScreen = () => {
+    const el = liveRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else el.requestFullscreen?.();
+  };
+  const csv = observedCsv(observed, laneMap);
   return (
     <>
-    <main className={styles.page} inert={touring ? "" : undefined}>
+    <main className={styles.page} data-replay-overview={replayOverview || undefined}>
       <header className={styles.top} data-tour="top">
         <h1 className={styles.brand}>
-          <span className={styles.mark}><Icon name="signal" size={24} /></span>
-          STMS <span className={styles.sub}>intersection <span className={styles.mono}>{id}</span></span>
+          <a href="#home" className={styles.brandLink} title="Back to the project home page">
+            <span className={styles.mark}><Icon name="signal" size={20} /></span>
+            STMS
+          </a>
+          <span className={styles.sub}>{real ? "Real analysis" : replayOverview ? "Intersection demo" : <>intersection <span className={styles.mono}>{id}</span></>}</span>
         </h1>
         <nav aria-label="Sections" className={styles.nav}>
           {SECTIONS.map(([key, label]) => (
@@ -162,34 +267,76 @@ export default function App({ fetcher, search = window.location.search, hash = w
             </a>
           ))}
         </nav>
+        <nav aria-label="Project" className={styles.outNav}>
+          <a href="#home"><Icon name="house" size={16} />Back to home</a>
+        </nav>
         <div className={styles.chips}>
-          <button type="button" className={styles.tourButton} data-tour-start="true" onClick={startTour}>Take the tour</button>
-          <button type="button" className={styles.linkButton} onClick={() => setGlossary(true)}>Glossary</button>
           {/* The badge reports the edge. The Analyze page shows a recording, so it must not say Live camera. */}
-          {section !== "analyze" && <SourceBadge state={heartbeat} />}
-          <Clock />
+          {real && <div className={styles.recordingSource} data-mode="real-analysis">
+            <b>Real analysis</b>
+            <span>{showMonitoring ? monitorFrame.result.processing.filename : recording.fileName || "Choose a recording"}</span>
+            {showMonitoring ? <b>{monitorFrame.source === "demo" ? "Demo Live – Recorded Video" : "Live camera monitoring"}</b> : <>
+              {recording.entry?.id && <span>Analysis {recording.entry.id.slice(0, 8)}</span>}
+              {recording.selected?.finished_at && <time dateTime={recording.selected.finished_at}>{new Date(recording.selected.finished_at).toLocaleString()}</time>}
+            </>}
+          </div>}
+          {showEdge && previewSite && (section === "overview" || section === "analyze" || replayOverview) &&
+            <div className={styles.recordingSource} data-mode="demo"><b>Demo mode</b><span>Bundled traffic data</span></div>}
+          {showEdge && section !== "analyze" && section !== "overview" && !replayOverview && <SourceBadge state={heartbeat} sample={Boolean(previewSite)} />}
+          {workbench?.history && previewSite && <button type="button" className={styles.linkButton} onClick={() => recording.setMode(real ? "demo" : "real")}>
+            {real ? "Switch to demo mode" : "Switch to real analysis"}
+          </button>}
+          {showEdge && section !== "overview" && !replayOverview && alerts.current.length > 0 && (
+            <a href="#alerts" className={styles.alertChip} data-severity={worstSeverity(alerts.current)} data-alert-chip="true">
+              <Icon name="warning" size={14} />{alerts.current.length} alert{alerts.current.length > 1 ? "s" : ""}
+            </a>
+          )}
+          <ThemeSwitch />
+          <AccountMenu />
+          <div className={styles.help}>
+            <button type="button" className={styles.linkButton} onClick={() => setGlossary(true)}>Glossary</button>
+          </div>
           <p className={styles.readonly} data-mode={workbench ? "workbench" : "read-only"}>
             {workbench ? "Local workbench · no signal commands" : "Read-only: this page cannot send commands"}
           </p>
         </div>
       </header>
-      {invite && section === "live" && (
-        <section className={styles.invite} aria-label="New here" data-tour-invite="true">
-          <span>New here? The tour explains every part of this page, and shows what problems look like.</span>
-          <button type="button" className={styles.tourButton} onClick={startTour}>Take the tour</button>
-          <button type="button" className={styles.linkButton} onClick={declineTour}>Not now</button>
-        </section>
-      )}
-      {section !== "live" && section !== "analyze" && <ReplayNote state={heartbeat} />}
-      {section === "analytics" && directions}
-      {(section === "live" || section === "analyze") && <ViewToggle view={view} onChange={setView} />}
+      <div className={styles.content}>
+      <ProcessingStatus enabled={workbench?.parallel_analysis} fetcher={fetcher} />
+      {showEdge && section !== "live" && section !== "analyze" && !replayOverview && !previewSite && <ReplayNote state={heartbeat} />}
+      {showEdge && section === "analytics" && directions}
+      {(section === "live" && !recordingPage || section === "analyze" || savedReplay) && <ViewToggle view={view} onChange={setView} />}
+      {real && recording.error && <p role="alert">{recording.error}</p>}
+      {recordingPage && <RecordingPage key={activeContext.entry?.id ?? activeContext.entry?.result.clip ?? "empty"}
+        section={section} context={activeContext} caps={workbench}
+        monitoringTime={showMonitoring ? monitorFrame.time : undefined} fetcher={fetcher} />}
+      {(hasMonitoring || (section === "live" && previewSite)) &&
+        <LiveMonitoring workbench={workbench} fetcher={fetcher} active={section === "live"}
+          onProgress={setMonitorFrame} onSaved={(result, id) => {
+            setMonitorFrame(null);
+            if (!workbench?.manage_history && !recording.fileName) recording.accept(result, id);
+          }} />}
 
-      {section === "live" && (
-        <section className={styles.live} aria-label="Live monitor">
-          {workbench && <ReplayPanel fetcher={fetcher} caps={workbench} />}
+      {showEdge && replayOverview && <ReplayOverview />}
+      {showEdge && section === "overview" && !replayOverview && (
+        <ConsoleOverview id={id} health={health} cls={cls} count={count} heartbeat={heartbeat}
+                         latestCounts={latestCounts} classHistory={classHistory} sample={Boolean(previewSite)} sites={sites}
+                         approach={approach} onApproachChange={(value) => { window.location.hash = `overview/${value}`; }}
+                         view={view} onViewChange={setView} laneMap={laneMap}
+                         edgeSilentFor={edgeSilentFor} alerts={alerts} />
+      )}
+
+      {showEdge && section === "live" && !recordingPage && (!hasMonitoring || !monitorFrame) && (
+        <section className={styles.live} aria-label="Live monitor" ref={liveRef}>
+          <div className={styles.toolbar}>
+            <button type="button" className={styles.toolButton} onClick={fullScreen} data-fullscreen="true">
+              <Icon name="squares-four" size={16} />Full screen
+            </button>
+          </div>
+          {workbench && workbench.replay !== false && <ReplayPanel fetcher={fetcher} caps={workbench} />}
           <SiteStrip state={sites} current={id} />
-          <div data-tour="status"><StatusBanner health={health} cls={cls} count={count} heartbeat={heartbeat} /></div>
-          <ReplayNote state={heartbeat} />
+          <div data-tour="status"><StatusBanner health={health} cls={cls} count={count} heartbeat={heartbeat} sample={Boolean(previewSite)} /></div>
+          {!previewSite && <ReplayNote state={heartbeat} />}
           <div className={styles.tiles} data-tour="tiles">
             <Overview state={cls} count={count} edgeSilentFor={edgeSilentFor} />
             <SummaryTiles cls={cls} count={count} />
@@ -251,28 +398,68 @@ export default function App({ fetcher, search = window.location.search, hash = w
         </section>
       )}
 
-      {section === "analyze" && (
-        <AnalyzeVideo view={view} handed={handed}
-                      assistant={workbench ? (props) => <AnalyzeAssistant {...props} fetcher={fetcher} /> : null} />
-      )}
+      {showEdge && section === "signals" && <SignalTiming health={health} count={count} heartbeat={heartbeat} />}
+      {showEdge && section === "alerts" && <AlertsPage alerts={alerts} />}
+      {showEdge && section === "system" && <SystemPage health={health} cls={cls} count={count} heartbeat={heartbeat} latestCounts={latestCounts} sites={sites} />}
 
-      {section === "analytics" && (
+      {(section === "analyze" || real || recording.entry) && (
+        <div hidden={section !== "analyze"}>
+        {workbench?.manage_history && <AnalysisControls busy={analysisStarting || recording.managing} onAction={changeWorkspace} />}
+        <fieldset className={styles.analysisWorkspace} disabled={recording.managing}>
+        <AnalyzeVideo key={analysisVersion} view={view} handed={workbench?.uploads ? null : recording.handed ?? handed} caps={workbench}
+                      legacyFiles={view === "engineering" && !workbench?.uploads}
+                      onAnalysis={(result, id) => { setAnalyzeReportId(id); recording.accept(result, id); }}
+                      onFile={file => { setAnalyzeReportId(null); recording.openFile(file); }}
+                      onRejected={(file, reason) => { setAnalyzeReportId(null); recording.rejectFile(file, reason); }}
+                      assistant={workbench ? (props) => <AnalyzeAssistant {...props} onStarting={setAnalysisStarting} fetcher={fetcher} caps={workbench} /> : null} />
+        {workbench?.uploads && analyzeReportId && recording.entry?.id === analyzeReportId &&
+          <RecordingPage section="analyze-report" context={recording} caps={workbench} />}
+        </fieldset>
+        </div>
+      )}
+      {savedReplay && <section aria-label="Saved recordings">
+        {!recording.historyOpen && <button type="button" className={styles.toolButton} onClick={recording.browseHistory}>Browse saved sessions</button>}
+        {recording.historyOpen && <label>Completed session <select aria-label="Completed session"
+          value={recording.jobs.some(job => job.id === recording.entry?.id) ? recording.entry.id : ""}
+          onChange={event => recording.select(recording.jobs.find(job => job.id === event.target.value))}>
+          <option value="" disabled>Choose a completed session</option>
+          {recording.jobs.filter(job => job.status === "Completed" && job.result_key).map(job =>
+            <option key={job.id} value={job.id}>{job.filename} · {new Date(job.finished_at).toLocaleString()}</option>)}
+        </select></label>}
+        <AnalyzeVideo view={view} replay handed={recording.handed} seekTo={recording.seek} caps={workbench} />
+      </section>}
+
+      {showEdge && section === "analytics" && (
         <section aria-label="Analytics" data-tour="analytics">
-          <h2 className={styles.region}>Analytics: what was counted, and what was forecast</h2>
+          <PageHead title="Analytics" lead="What was counted, and what was forecast. Measurements, not accuracy.">
+            <button type="button" className={styles.toolButton} disabled={!csv} data-export="observed"
+                    onClick={() => downloadText(`stms-${id}-counts-${countWindow}.csv`, csv)}>
+              <Icon name="code" size={16} />Export counts (CSV)
+            </button>
+            <button type="button" className={styles.toolButton} onClick={() => window.print()} data-print="true">
+              <Icon name="results" size={16} />Print / save as PDF
+            </button>
+          </PageHead>
           <BusyByHour state={day} lanes={laneMap} />
           <ObservedCounts state={observed} window={countWindow} onWindow={setCountWindow} lanes={laneMap} />
           <HistoryPanel classHistory={classHistory} countHistory={countHistory} />
         </section>
       )}
 
-      {section === "results" && (
+      {showEdge && section === "results" && (
         <section aria-label="Results" data-tour="results">
-          <h2 className={styles.region}>Results: historical evaluation evidence</h2>
-          <EvidencePanel state={evidence} />
+          <PageHead title="Results" lead="Forecast comparisons and historical evaluation evidence.">
+            <button type="button" className={styles.toolButton} onClick={() => window.print()} data-print="true">
+              <Icon name="results" size={16} />Print / save as PDF
+            </button>
+          </PageHead>
+          <ModelPerformance />
+          <CountBenchmark />
+          {!previewSite && <EvidencePanel state={evidence} />}
         </section>
       )}
+      </div>
     </main>
-    {touring && <Tour section={section} live={live} onClose={() => setTouring(false)} />}
     {glossary && <Glossary onClose={() => setGlossary(false)} />}
     </>
   );

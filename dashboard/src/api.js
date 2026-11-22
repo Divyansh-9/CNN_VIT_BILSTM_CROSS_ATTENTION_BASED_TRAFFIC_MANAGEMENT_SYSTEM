@@ -2,6 +2,8 @@
 // GET, and only the endpoints below. Nothing here can reach /observation or
 // any signal-control path, and the tests pin that.
 
+import { announceSignedOut } from "./auth.js";
+
 // The id part is the server's INTERSECTION_ID, length included (P142).
 export const ALLOWED = [
   /^\/count_forecast\/[A-Za-z0-9_-]{1,32}\/(latest|history)$/,
@@ -43,6 +45,11 @@ export async function get(path, fetcher = globalThis.fetch) {
     return { status: "error", reason: `server unreachable (${error.message})` };
   }
   if (response.status === 404) return { status: "unavailable" };
+  // The session ended or expired on the server: the sign-in gate takes over (AuthGate.jsx).
+  if (response.status === 401) {
+    announceSignedOut();
+    return { status: "error", reason: "signed out" };
+  }
   if (!response.ok) return { status: "error", reason: `server answered ${response.status}` };
   try {
     return { status: "ok", data: await response.json() };

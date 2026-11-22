@@ -30,3 +30,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Fonts: Inter, JetBrains Mono
+
+Self-hosted from the `@fontsource-variable/inter` and `@fontsource-variable/jetbrains-mono`
+packages (5.3.0, pinned in `package.json`) and
+bundled into `dist/`, so the page fetches no font from outside. Both are licensed
+under the SIL Open Font License 1.1 (https://openfontlicense.org):
+
+- Inter: Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
+- JetBrains Mono: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+
+The full licence text ships with each package, in `node_modules/@fontsource-variable/*/LICENSE`.

@@ -24,6 +24,21 @@
 .labelMuted { fill: var(--muted); font: 12px var(--mono); }
 .labelHead { font-weight: 700; }
 .caption { color: var(--muted); font-size: 12px; max-width: 46ch; text-align: center; }
+.map { width: min(100%, 320px); }
+.interactiveMap { position: relative; width: min(100%, 440px); }
+.map .svg, .interactiveMap .svg { display: block; width: 100%; }
+.selectedArm { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 1; }
+.armButton {
+  position: absolute; display: grid; place-items: center; width: 42px; height: 42px;
+  border: 1px solid var(--frame-count); border-radius: 10px; background: var(--panel);
+  color: var(--ink); font: 700 13px var(--mono); cursor: pointer;
+}
+.armButton:hover { border-color: var(--brand); }
+.armButton[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.armButton[data-arm="N"] { top: 1%; left: 50%; transform: translateX(-50%); }
+.armButton[data-arm="S"] { bottom: 1%; left: 50%; transform: translateX(-50%); }
+.armButton[data-arm="E"] { right: 1%; top: 50%; transform: translateY(-50%); }
+.armButton[data-arm="W"] { left: 1%; top: 50%; transform: translateY(-50%); }
 
 /* The forecast's age against its horizon. */
 .horizon { display: grid; gap: 4px; }

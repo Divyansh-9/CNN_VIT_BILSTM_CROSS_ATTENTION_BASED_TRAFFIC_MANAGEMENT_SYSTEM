@@ -27,9 +27,13 @@ needs_bellevue = pytest.mark.skipif(not RESULTS.exists(),
                                      reason="Bellevue-derived file absent (public tree)")
 
 
+#: Reads need a session or the service token (2026-11-14); conftest sets the token.
+READER = {"Authorization": "Bearer canary-write-value-for-tests"}
+
+
 @pytest.fixture
 def evidence():
-    return TestClient(server.app).get("/evidence").json()
+    return TestClient(server.app, headers=READER).get("/evidence").json()
 
 
 @needs_bellevue
@@ -129,7 +133,7 @@ def test_sites_lists_only_what_has_reported_and_marks_silence(monkeypatch, tmp_p
     from contracts.mqtt import Heartbeat, Mode
 
     monkeypatch.setattr(server, "DATABASE", tmp_path / "s.db")
-    with TestClient(server.app) as client:
+    with TestClient(server.app, headers=READER) as client:
         assert client.get("/sites").json() == {"sites": []}
         beat = Heartbeat(edge_status="online", mode=Mode.NORMAL, mfstnet_active=False, ppo_active=False,
                          source={"kind": "replay", "session": "0123456789ab", "label": "clip", "position_s": 1.0, "duration_s": 9.0})

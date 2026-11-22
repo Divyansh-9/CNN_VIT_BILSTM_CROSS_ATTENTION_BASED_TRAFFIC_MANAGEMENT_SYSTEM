@@ -1,0 +1,10 @@
+/* The theme switch: a three-way segmented control, chrome only. */
+.switch { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--chrome-sheen), var(--panel);
+          border: 1px solid var(--line); box-shadow: var(--chrome-edge); }
+.switch button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 0; border-radius: 999px; background: transparent;
+                 color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: color .15s, background-color .15s; }
+.switch button:hover { color: var(--ink); }
+.switch button[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); }
+.compact button span { display: none; }
+.compact button { padding: 6px 8px; }
+@media (max-width: 680px) { .switch button span { display: none; } .switch button { padding: 6px 8px; } }

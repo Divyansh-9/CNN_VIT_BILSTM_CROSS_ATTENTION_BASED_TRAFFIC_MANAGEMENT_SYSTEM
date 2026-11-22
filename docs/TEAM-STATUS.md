@@ -42,7 +42,8 @@ cd dashboard && npm run build && cd ..
 python scripts/demo_launcher.py --mosquitto <path to mosquitto.exe> --clips-root <footage folder>
 ```
 
-Open `http://127.0.0.1:18080/`.
+The [project landing page](http://127.0.0.1:18080/) opens without sign-in.
+To run the recorded-footage demo, open the [workbench](http://127.0.0.1:18080/dashboard/?id=live#analyze) and sign in.
 - **Analyze a video:** opens a recording and its results.
 - **Live → Run through the system:** replays a clip through the whole deployed system, labelled REPLAY.
 

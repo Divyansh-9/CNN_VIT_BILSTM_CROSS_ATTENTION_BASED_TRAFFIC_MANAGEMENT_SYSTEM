@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -65,6 +66,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from edge.profile import CameraProfile, ProfileError, canonical_hash, load_profile  # noqa: E402
+from scripts.recording_profile import WHOLE_FRAME, WHOLE_FRAME_PATH, load_recording_profile  # noqa: E402
 
 __all__ = ["Analyses", "Cameras", "Check", "Locator", "Recording", "Refused", "analysis_key", "calibration_limits",
            "catalogue", "choose_folder", "fingerprint", "preflight", "progress_line", "redact", "relevel",
@@ -74,7 +76,8 @@ TOOL = ROOT / "scripts" / "analyze_video.py"
 VIDEO_SUFFIXES = (".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi")
 KEY = re.compile(r"[0-9a-f]{64}")
 CHUNK = 1 << 20                 # bytes read at each of three places for a fingerprint
-MIN_S = 300.0                   # as analyze_video.MIN_S: the forecasters need history first
+MIN_S = 2.0                     # same minimum as analyze_video.MIN_S
+MAX_VIDEO_BYTES = 2 * 1024 ** 3
 STEP_S = 2.0                    # as edge.samples.STEP_S: one detected frame per 2 s of video
 KIND, SCHEMA = "stms-video-analysis", 2
 ETA_AFTER = 10                  # samples measured before an estimate of the time left is shown
@@ -82,7 +85,7 @@ PROGRESS = re.compile(r"^PROGRESS (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)$")
 WINDOWS_PATH = re.compile(r"[A-Za-z]:[\\/][^\s'\"<>|]*")
 POSIX_PATH = re.compile(r"(?<![\w.])/(?:[^\s/'\"<>|]+/)+[^\s'\"<>|]*")
 STAGES = (("check", "Check the recording and its camera"),
-          ("analyse", "Detect, count and forecast, one frame every 2 s"),
+          ("analyse", "Decode frames, detect and track vehicles"),
           ("levels", "Set this new camera's levels from this recording"),
           ("validate", "Validate and store the results"),
           ("open", "Results ready"))
@@ -97,6 +100,7 @@ class Refused(Exception):
 @dataclass(frozen=True)
 class Recording:
     path: Path
+    upload_key: str | None = None
 
     @property
     def name(self) -> str:
@@ -145,12 +149,27 @@ def file_sha256(path: Path) -> str:
 
 def tool_inputs() -> dict:
     """What a result depends on besides the video and the profile."""
-    from edge.run import COUNTING_FILE, load_counting
     from scripts.analyze_video import RIDGE_SPEC
+    from scripts import adaptive_signal, recording_profile, tracked_video, video_traffic
+    from edge import classes
+    from dataclasses import asdict
 
-    weights, conf, imgsz = load_counting(COUNTING_FILE)
+    weights, conf, imgsz = tracked_video.detector_settings()
+    if not weights.is_file():
+        raise ValueError(f"Missing detector weights: {weights.name}")
+    signal_path = os.environ.get("STMS_SIGNAL_CONFIG")
+    try:
+        signal_hash = file_sha256(Path(signal_path)) if signal_path else None
+    except OSError:
+        signal_hash = "unreadable"
     return {"detector_sha256": file_sha256(weights), "confidence_threshold": conf, "imgsz": imgsz,
-            "ridge_sha256": file_sha256(RIDGE_SPEC), "tool_sha256": file_sha256(TOOL), "schema": SCHEMA}
+            "ridge_sha256": file_sha256(RIDGE_SPEC), "tool_sha256": file_sha256(TOOL), "schema": SCHEMA,
+            "tracking_sha256": file_sha256(Path(tracked_video.__file__)),
+            "recording_profile_sha256": file_sha256(Path(recording_profile.__file__)),
+            "class_mapping_sha256": file_sha256(classes.MAPPING_FILE),
+            "class_mapping_code_sha256": file_sha256(Path(classes.__file__)),
+            "traffic_sha256": file_sha256(Path(video_traffic.__file__)), "policy": asdict(tracked_video.policy_settings()),
+            "signal_sha256": file_sha256(Path(adaptive_signal.__file__)), "signal_config_sha256": signal_hash}
 
 
 def analysis_key(video_fingerprint: str, clip: str, profile_hash: str, inputs: dict) -> str:
@@ -158,7 +177,7 @@ def analysis_key(video_fingerprint: str, clip: str, profile_hash: str, inputs: d
 
 
 def profile_hash(profile: CameraProfile) -> str:
-    return canonical_hash(json.loads(profile.path.read_text(encoding="utf-8")))
+    return canonical_hash(profile.raw)
 
 
 def probe_video(path: Path) -> tuple[int, int] | None:
@@ -184,13 +203,14 @@ def duration_of(path: Path) -> float | None:
 
 
 def preflight(recording: Recording, profile_path: Path, *, probe=probe_video, duration=duration_of,
-              load=load_profile) -> tuple[list[Check], CameraProfile | None, float | None]:
+              load=load_recording_profile) -> tuple[list[Check], CameraProfile | None, float | None]:
     """Every reason not to start, each with what to do about it. Nothing is written."""
     checks: list[Check] = []
     try:
         profile = load(profile_path)
-        checks.append(Check("Camera profile", True, f"{profile.camera_id}: {len(profile.lanes)} lanes, "
-                                                    "calibrated limits"))
+        detail = "Whole-frame vehicle counts" if profile.camera_id == WHOLE_FRAME else (
+            f"{profile.camera_id}: {len(profile.lanes)} lanes, calibrated limits")
+        checks.append(Check("Camera profile", True, detail))
     except ProfileError as error:
         profile = None
         checks.append(Check("Camera profile", False, f"refused: {redact(str(error))}. Choose another camera, "
@@ -204,11 +224,10 @@ def preflight(recording: Recording, profile_path: Path, *, probe=probe_video, du
     if length is None:
         checks.append(Check("Long enough", False, "its length cannot be read from the file"))
     elif length < MIN_S:
-        checks.append(Check("Long enough", False, f"{length / 60:.1f} min. It needs at least {MIN_S / 60:.0f} min, "
-                                                  "because the forecasts need history first"))
+        checks.append(Check("Long enough", False, f"The recording must be at least {MIN_S:g} seconds long"))
     else:
         checks.append(Check("Long enough", True, f"{length / 60:.1f} min of footage"))
-    if profile is not None and profile.calibrated_on and profile.calibrated_on in recording.path.stem:
+    if profile is not None and profile.camera_id != WHOLE_FRAME and profile.calibrated_on and profile.calibrated_on in recording.path.stem:
         checks.append(Check("Calibration hour", None, "this is the hour this camera's limits were calibrated on, "
                                                      "so its levels flatter it"))
     return checks, profile, length
@@ -246,13 +265,21 @@ def validate_result(path: Path, *, camera: str, clip: str, duration_s: float) ->
 
 
 def run_tool(video: Path, profile: Path, out: Path, on_progress: Callable[[float, float], None],
-             stopping: threading.Event) -> tuple[int, list[str]]:
+             stopping: threading.Event, *, on_frame=None, worker_threads=None, background=False, pause_file=None) -> tuple[int, list[str]]:
     """analyze_video.py in a child process: its own interpreter, so a stop is a kill
     and the GPU is handed back whole. Returns its exit status and its last lines."""
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    if worker_threads is not None:
+        threads = str(worker_threads)
+        env.update(STMS_VIDEO_WORKER_THREADS=threads, OMP_NUM_THREADS=threads, MKL_NUM_THREADS=threads,
+                   OPENBLAS_NUM_THREADS=threads)
+    if background:
+        env["CUDA_VISIBLE_DEVICES"] = ""
+    if pause_file:
+        env["STMS_VIDEO_PAUSE_FILE"] = str(pause_file)
     process = subprocess.Popen(
         [sys.executable, str(TOOL), "--video", str(video), "--profile", str(profile), "--out", str(out),
-         "--force", "--progress"],
+         "--force", "--progress", *(["--monitor"] if on_frame else [])],
         cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
         errors="replace")
     tail: deque[str] = deque(maxlen=20)
@@ -262,6 +289,8 @@ def run_tool(video: Path, profile: Path, out: Path, on_progress: Callable[[float
             seen = progress_line(line)
             if seen:
                 on_progress(*seen)
+            elif on_frame and line.startswith("MONITOR "):
+                on_frame(json.loads(line[8:]))
             elif line.strip():
                 tail.append(line.rstrip())
 
@@ -475,7 +504,6 @@ class Cameras:
 
     def _write(self, camera_id: str, lanes, max_radius: float, low: float, med: float, calibrated: bool,
                source: str, made_from: str) -> CameraProfile:
-        spec_path = self.folder / f"{camera_id}.levels.json"
         spec = {"name": "workbench provisional levels",
                 "method": "forecast for the next 60 s = class of the mean of each lane's last 30 counts (2 s step); "
                           "LOW if mean <= low, MEDIUM if <= med, else HIGH",
@@ -487,6 +515,8 @@ class Cameras:
                                      "and the workbench never shows a confidence",
                 "not_established": "anything: provisional levels, set on the recording they are shown on"}
         spec_bytes = json.dumps(spec, indent=2).encode("utf-8")
+        digest = hashlib.sha256(spec_bytes).hexdigest()
+        spec_path = self.folder / f"{camera_id}.{digest[:16]}.levels.json"
         profile = {
             "schema_version": 1, "camera_id": camera_id,
             "geometry": {"coordinates": "normalised_image", "max_radius": max_radius,
@@ -494,7 +524,7 @@ class Cameras:
                                    for i, (x, y, _) in enumerate(lanes)]},
             "lane_map": {f"lane_{i}": approach for i, (_, _, approach) in enumerate(lanes)},
             "calibration": {"persistence_spec": str(spec_path.resolve()),
-                            "spec_sha256": hashlib.sha256(spec_bytes).hexdigest(), "key": camera_id},
+                            "spec_sha256": digest, "key": camera_id},
             "limitations": [
                 "Provisional camera made in the workbench: its lanes were placed by eye on one recording and "
                 "have not been reviewed (ADR-028)",
@@ -506,9 +536,14 @@ class Cameras:
                            "record": "D41 provisional camera, kept on this computer, not committed"},
             "direction": {"status": "declared"}, "evidence": []}
         self.folder.mkdir(parents=True, exist_ok=True)
-        spec_path.write_bytes(spec_bytes)
+        if not spec_path.exists():
+            pending_spec = spec_path.with_suffix(".tmp")
+            pending_spec.write_bytes(spec_bytes)
+            pending_spec.replace(spec_path)
         path = self.folder / f"{camera_id}.json"
-        path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+        pending_profile = path.with_suffix(".tmp")
+        pending_profile.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+        pending_profile.replace(path)
         return load_profile(path, self.root)
 
     def create(self, camera_id, lanes, max_radius, made_from: str) -> CameraProfile:
@@ -556,15 +591,28 @@ class Analyses:
 
     def __init__(self, recordings: list[Recording], cameras: Cameras, results_dir: Path, *,
                  runner=run_tool, inputs: Callable[[], dict] = tool_inputs, check=preflight,
-                 fingerprint_of=fingerprint, clock=time.monotonic, locator: Locator | None = None) -> None:
+                 fingerprint_of=fingerprint, clock=time.monotonic, locator: Locator | None = None, history=None,
+                 catalogue_from=None, on_release=None, pause_file=None) -> None:
         self.recordings, self.cameras, self.results_dir = list(recordings), cameras, Path(results_dir)
+        if os.name == "nt":
+            absolute = os.path.abspath(self.results_dir)
+            # Hash-based result names add 78 characters, including the partial suffix.
+            if len(absolute) + 79 >= 260 and not absolute.startswith("\\\\?\\"):
+                absolute = "\\\\?\\UNC\\" + absolute[2:] if absolute.startswith("\\\\") else "\\\\?\\" + absolute
+                self.results_dir = Path(absolute)
         self.runner, self._inputs_of, self.check = runner, inputs, check
         self.fingerprint_of, self.clock = fingerprint_of, clock
         self.locator = locator or Locator([], standard=False)
+        self.history = history
         self._inputs: dict | None = None
         #: A recording that is also a replay clip, by its resolved path: the clip's number.
         self.replay: dict[Path, int] = {}
         self.lock = threading.Lock()
+        self.catalogue_lock = catalogue_from.catalogue_lock if catalogue_from else threading.Lock()
+        if catalogue_from:
+            self.recordings = catalogue_from.recordings
+        self.on_release = on_release
+        self.pause_file = pause_file
         self.thread: threading.Thread | None = None
         self.stopping = threading.Event()
         self._reset(None, None)
@@ -577,7 +625,10 @@ class Analyses:
         self.checks: list[Check] = []
         self.problem: str | None = None
         self.key: str | None = None
+        self.partial: Path | None = None
+        self.job_id: str | None = None
         self.cached = False
+        self.monitor_updates = None
         self.started = self.clock()
         self.done = self.total = 0
         self.first: tuple[float, int] | None = None
@@ -590,14 +641,14 @@ class Analyses:
                                for n, r in enumerate(self.recordings, 1)],
                 "cameras": self.cameras.listing()}
 
-    def add(self, path: Path) -> int:
+    def add(self, path: Path, *, upload_key=None) -> int:
         """The recording's number, adding it to the list if it is new."""
         path = Path(path).resolve()
-        with self.lock:
+        with self.catalogue_lock:
             for n, recording in enumerate(self.recordings, 1):
                 if recording.path == path:
                     return n
-            self.recordings.append(Recording(path))
+            self.recordings.append(Recording(path, upload_key))
             return len(self.recordings)
 
     def locate(self, name, size, fp) -> dict:
@@ -606,6 +657,10 @@ class Analyses:
                 or isinstance(size, bool) or not isinstance(size, int) or size <= 0
                 or not isinstance(fp, str) or not KEY.fullmatch(fp)):
             raise Refused(HTTPStatus.BAD_REQUEST, "send the file's name, size and fingerprint")
+        if Path(name).suffix.lower() not in VIDEO_SUFFIXES:
+            raise Refused(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Use an MP4, MOV, AVI, MKV, M4V or WebM recording")
+        if size > MAX_VIDEO_BYTES:
+            raise Refused(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "The recording exceeds the 2 GB limit")
         for n, recording in enumerate(self.recordings, 1):
             if recording.name.casefold() == name.casefold():
                 try:
@@ -625,27 +680,53 @@ class Analyses:
         return items[number - 1]
 
     # ------------------------------------------------------------------- jobs ---
-    def start(self, recording_number, camera_id) -> None:
+    def start(self, recording_number, camera_id, *, pending_replay=False):
         recording = self._pick(recording_number, self.recordings, "recording")
         if not isinstance(camera_id, str):
             raise Refused(HTTPStatus.BAD_REQUEST, "that is not a camera on the list")
-        profile = self.cameras.get(camera_id)
+        profile = load_recording_profile(WHOLE_FRAME_PATH) if camera_id == WHOLE_FRAME else self.cameras.get(camera_id)
         with self.lock:
             if self.running():
                 raise Refused(HTTPStatus.CONFLICT, "an analysis is in progress; stop it first")
             self._reset(recording, profile)
-            self.levels_stage = self.cameras.needs_levels(profile)
+            if self.history:
+                self.job_id = self.history.start(recording.name, recording.path.stat().st_size, profile.camera_id,
+                                                 pending_replay=pending_replay, upload_key=recording.upload_key)
+            self.levels_stage = profile.camera_id != WHOLE_FRAME and self.cameras.needs_levels(profile) and not pending_replay
+            self.monitor_updates = [] if pending_replay else None
             self.stopping = threading.Event()
             self.thread = threading.Thread(target=self._run, args=(recording, profile, self.stopping), daemon=True)
             self.thread.start()
+            return self.job_id
 
     def running(self) -> bool:
         return self.thread is not None and self.thread.is_alive()
 
-    def stop(self, wait_s: float | None = None) -> None:
-        self.stopping.set()
-        if wait_s is not None and self.thread is not None:
-            self.thread.join(wait_s)
+    def stop(self, wait_s: float | None = None, *, identifier=None) -> bool:
+        with self.lock:
+            if identifier is not None and self.job_id != identifier:
+                return False
+            self.stopping.set()
+            worker = self.thread
+        if wait_s is not None and worker is not None:
+            worker.join(wait_s)
+        return True
+
+    def clear_offline_workspace(self):
+        self.stop(wait_s=10)
+        with self.lock:
+            if self.running():
+                raise Refused(HTTPStatus.CONFLICT, "The offline analysis is still stopping. Try again in a moment.")
+            key = self.key
+            self._reset(None, None)
+            self.thread = None
+            self.stopping = threading.Event()
+            return key
+
+    def remove_cached_report(self, key):
+        if KEY.fullmatch(key):
+            for suffix in (".json", ".partial.json"):
+                (self.results_dir / f"{key}{suffix}").unlink(missing_ok=True)
 
     def _set(self, stage: str, state: str, detail: str = "") -> None:
         with self.lock:
@@ -659,12 +740,23 @@ class Analyses:
     def _progress(self, t: float, duration: float) -> None:
         with self.lock:
             self.done = int(round(t / STEP_S)) + 1
-            self.total = max(self.done, int(math.floor(duration / STEP_S)))
+            self.total = max(self.done, int(math.ceil(duration / STEP_S)))
             now = self.clock()
             if self.first is None:
                 self.first = (now, self.done)
                 self.stage_detail["analyse"] = ""        # the detector is loaded: frames are arriving
             self.last_at = now
+
+    def _monitor_frame(self, update):
+        with self.lock:
+            self.monitor_updates.append(update)
+
+    def monitor_batch(self, identifier, offset):
+        with self.lock:
+            if identifier != self.job_id or self.monitor_updates is None:
+                return None
+            items = self.monitor_updates[offset:offset + 64]
+            return {"items": items, "next": offset + len(items)}
 
     def _run(self, recording: Recording, profile: CameraProfile, stopping: threading.Event) -> None:
         try:
@@ -672,13 +764,34 @@ class Analyses:
         except Exception as error:      # noqa: BLE001 - shown on the page, not lost in a thread
             stage = next((k for k, _ in STAGES if self.stage_state[k] == "running"), "check")
             self._fail(stage, f"{type(error).__name__}: {redact(str(error))}")
+        finally:
+            if self.partial:
+                try:
+                    self.partial.unlink(missing_ok=True)
+                except OSError:
+                    logging.getLogger(__name__).exception("Could not remove incomplete analysis %s", self.job_id)
+            if self.history:
+                complete = self.stage_state["open"] == "done"
+                try:
+                    path = self.result_path(self.key) if complete else None
+                    result = json.loads(path.read_text(encoding="utf-8")) if path else None
+                    self.history.finish(self.job_id, self.key if complete else None, self.problem, result)
+                except Exception:
+                    logging.getLogger(__name__).exception("Could not save analysis job %s", self.job_id)
+                    self._fail("open", "Could not save the analysis job. Check local storage and retry.")
+            if self.on_release:
+                self.on_release()
 
     def _key(self, recording: Recording, profile: CameraProfile) -> str:
-        return analysis_key(self.fingerprint_of(recording.path), recording.path.stem, profile_hash(profile),
-                            self._inputs)
+        inputs = self._inputs if self.monitor_updates is None else {**self._inputs, "streaming_session": self.job_id}
+        return analysis_key(recording.upload_key or self.fingerprint_of(recording.path), recording.path.stem, profile_hash(profile),
+                            inputs)
 
     def _steps(self, recording: Recording, profile: CameraProfile, stopping: threading.Event) -> None:
         self._set("check", "running", "reading the video and the camera profile")
+        if recording.path.is_file() and (recording.path.suffix.lower() not in VIDEO_SUFFIXES
+                or not 0 < recording.path.stat().st_size <= MAX_VIDEO_BYTES):
+            return self._fail("check", "Unsupported video format or file size. Use a non-empty video up to 2 GB.")
         checks, loaded, length = self.check(recording, profile.path)
         with self.lock:
             self.checks = checks
@@ -693,7 +806,7 @@ class Analyses:
         with self.lock:
             self.key = key
         self._set("check", "done", f"{loaded.camera_id}, {length / 60:.1f} min")
-        if final.exists() and validate_result(final, camera=loaded.camera_id, clip=recording.path.stem,
+        if self.monitor_updates is None and final.exists() and validate_result(final, camera=loaded.camera_id, clip=recording.path.stem,
                                               duration_s=length) is None:
             with self.lock:
                 self.cached = True
@@ -705,14 +818,19 @@ class Analyses:
             return self._fail("analyse", "stopped")
         self.results_dir.mkdir(parents=True, exist_ok=True)
         partial = self.results_dir / f"{key}.partial.json"
+        self.partial = partial
         self._set("analyse", "running", "loading the detector")
-        code, tail = self.runner(recording.path, loaded.path, partial, self._progress, stopping)
+        options = {"on_frame": self._monitor_frame} if self.monitor_updates is not None else {}
+        code, tail = self.runner(recording.path, loaded.path, partial, self._progress, stopping, **options)
         if code == 130 or stopping.is_set():
             partial.unlink(missing_ok=True)
             return self._fail("analyse", "stopped")
         if code != 0:
             partial.unlink(missing_ok=True)
-            last = next((line for line in reversed(tail) if line.strip()), "no message")
+            last = next((line for line in reversed(tail) if line.strip() and not line.startswith("[h264 @")),
+                        "no message")
+            for path in (recording.path, loaded.path, partial):
+                last = last.replace(str(path).replace("\\", "\\\\"), path.name).replace(str(path), path.name)
             return self._fail("analyse", f"the analysis tool exited with {code}: {redact(last)}")
         with self.lock:
             self.done = self.total       # the last progress line falls short of the end by up to 10 s
@@ -722,16 +840,16 @@ class Analyses:
             try:
                 result = json.loads(partial.read_text(encoding="utf-8"))
                 low, med = calibration_limits(result["samples"], [name for name, _ in loaded.lanes])
-            except ValueError as error:
-                partial.unlink(missing_ok=True)
-                return self._fail("levels", str(error))
-            loaded = self.cameras.set_levels(loaded, low, med, recording.path.stem)
-            partial.write_text(json.dumps(relevel(result, loaded), separators=(",", ":")), encoding="utf-8")
-            key = self._key(recording, loaded)
-            final = self.results_dir / f"{key}.json"
-            with self.lock:
-                self.key, self.profile = key, loaded
-            self._set("levels", "done", f"LOW up to {low:g}, MEDIUM up to {med:g} vehicles; set from this recording")
+            except ValueError:
+                self._set("levels", "done", "Provisional limits retained. This recording has too little usable history or variation.")
+            else:
+                loaded = self.cameras.set_levels(loaded, low, med, recording.path.stem)
+                partial.write_text(json.dumps(relevel(result, loaded), separators=(",", ":")), encoding="utf-8")
+                key = self._key(recording, loaded)
+                final = self.results_dir / f"{key}.json"
+                with self.lock:
+                    self.key, self.profile = key, loaded
+                self._set("levels", "done", f"LOW up to {low:g}, MEDIUM up to {med:g} vehicles; set from this recording")
         self._set("validate", "running", "")
         reason = validate_result(partial, camera=loaded.camera_id, clip=recording.path.stem, duration_s=length)
         if reason:
@@ -751,7 +869,7 @@ class Analyses:
             state = dict(running=self.running(), stopping=self.stopping.is_set() and self.running(),
                          recording=self.recording.name if self.recording else None,
                          camera=self.profile.camera_id if self.profile else None,
-                         problem=self.problem, cached=self.cached, stages=stages, checks=checks)
+                         problem=self.problem, cached=self.cached, stages=stages, checks=checks, job_id=self.job_id)
             ready = self.stage_state["open"] == "done" and self.key is not None
             key = self.key
         eta = None
@@ -760,6 +878,9 @@ class Analyses:
             eta = round(rate * (total - done))
         state["progress"] = {"done": done, "total": total, "eta_s": eta} if total else None
         state["key"] = key if ready else None
+        if self.pause_file:
+            state["queued"] = bool(state["running"] and not state["stopping"] and not state["problem"]
+                                   and self.pause_file.exists() and not ready)
         state["status"] = status_text(state)
         return state
 
@@ -779,6 +900,8 @@ def status_text(s: dict) -> str:
         return "Analysis refused or failed: see why below"
     if s["stopping"]:
         return "Stopping"
+    if s.get("queued"):
+        return "Waiting for live processing capacity"
     if states["open"] == "done":
         return "Analysed before: ready at once" if s["cached"] else "Analysis finished and checked"
     if states["validate"] == "running":

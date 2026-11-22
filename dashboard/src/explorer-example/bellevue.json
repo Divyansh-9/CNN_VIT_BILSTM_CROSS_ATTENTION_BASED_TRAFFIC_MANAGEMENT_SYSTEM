@@ -1,0 +1,180 @@
+{
+  "site": "Bellevue, Washington, USA",
+  "timestamp": "02:32",
+  "forecastWindow": "02:34–03:32",
+  "detector": "yolo11n.pt",
+  "model": "ridge@73532968dcf2",
+  "boxes": [
+    {
+      "label": "car",
+      "confidence": 0.701,
+      "bounds": [
+        0.8165,
+        0.7124,
+        0.909,
+        0.9179
+      ],
+      "lane": "lane_2"
+    },
+    {
+      "label": "car",
+      "confidence": 0.685,
+      "bounds": [
+        0.0392,
+        0.6468,
+        0.1065,
+        0.7342
+      ],
+      "lane": "lane_3"
+    },
+    {
+      "label": "car",
+      "confidence": 0.669,
+      "bounds": [
+        0.4228,
+        0.178,
+        0.454,
+        0.2183
+      ],
+      "lane": "lane_0"
+    },
+    {
+      "label": "car",
+      "confidence": 0.638,
+      "bounds": [
+        0.6685,
+        0.3362,
+        0.7063,
+        0.4425
+      ],
+      "lane": "lane_1"
+    },
+    {
+      "label": "car",
+      "confidence": 0.608,
+      "bounds": [
+        0.804,
+        0.8677,
+        0.8949,
+        1.0
+      ],
+      "lane": "lane_2"
+    },
+    {
+      "label": "car",
+      "confidence": 0.58,
+      "bounds": [
+        0.3858,
+        0.1908,
+        0.4135,
+        0.2372
+      ],
+      "lane": "lane_0"
+    },
+    {
+      "label": "car",
+      "confidence": 0.569,
+      "bounds": [
+        0.5169,
+        0.227,
+        0.5826,
+        0.2965
+      ],
+      "lane": "lane_0"
+    },
+    {
+      "label": "car",
+      "confidence": 0.564,
+      "bounds": [
+        0.7428,
+        0.1821,
+        0.7711,
+        0.2292
+      ],
+      "lane": "lane_1"
+    },
+    {
+      "label": "car",
+      "confidence": 0.53,
+      "bounds": [
+        0.3583,
+        0.2145,
+        0.3847,
+        0.2776
+      ],
+      "lane": "lane_0"
+    },
+    {
+      "label": "car",
+      "confidence": 0.513,
+      "bounds": [
+        0.9101,
+        0.7152,
+        0.9635,
+        0.881
+      ],
+      "lane": "lane_2"
+    },
+    {
+      "label": "car",
+      "confidence": 0.504,
+      "bounds": [
+        0.7062,
+        0.2449,
+        0.7454,
+        0.2937
+      ],
+      "lane": "lane_1"
+    }
+  ],
+  "lanes": [
+    {
+      "name": "lane_0",
+      "centre": [
+        0.394,
+        0.179
+      ],
+      "approach": "N",
+      "count": 4,
+      "forecast": 2.0051,
+      "baseline": 2.6333333333333333,
+      "observed": 1.6
+    },
+    {
+      "name": "lane_1",
+      "centre": [
+        0.748,
+        0.225
+      ],
+      "approach": "E",
+      "count": 3,
+      "forecast": 1.1931,
+      "baseline": 0.8333333333333334,
+      "observed": 1.2667
+    },
+    {
+      "name": "lane_2",
+      "centre": [
+        0.881,
+        0.814
+      ],
+      "approach": "S",
+      "count": 3,
+      "forecast": 2.051,
+      "baseline": 1.5666666666666667,
+      "observed": 1.5
+    },
+    {
+      "name": "lane_3",
+      "centre": [
+        0.156,
+        0.641
+      ],
+      "approach": "W",
+      "count": 1,
+      "forecast": 2.0486,
+      "baseline": 1.5333333333333334,
+      "observed": 2.1
+    }
+  ]
+}

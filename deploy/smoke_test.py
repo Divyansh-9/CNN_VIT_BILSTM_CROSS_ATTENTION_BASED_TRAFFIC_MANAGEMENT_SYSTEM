@@ -44,9 +44,9 @@ def read_env(path: Path) -> dict[str, str]:
     return dict(line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines() if "=" in line)
 
 
-def http(method: str, url: str, body: bytes | None = None) -> tuple[int, bytes]:
+def http(method: str, url: str, body: bytes | None = None, headers: dict | None = None) -> tuple[int, bytes]:
     request = urllib.request.Request(url, data=body, method=method,
-                                     headers={"content-type": "application/json"})
+                                     headers={"content-type": "application/json", **(headers or {})})
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, response.read()
@@ -81,7 +81,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--after-restart", action="store_true")
     ap.add_argument("--timeout", type=float, default=180)
     args = ap.parse_args(argv)
-    get = lambda path: http("GET", args.base + path)                     # noqa: E731
+    # Reads need a session or the server's token since 2026-11-14; the smoke test uses the token.
+    server_env = args.secrets / "server.env"
+    reader = read_env(server_env).get("STMS_API_TOKEN", "") if server_env.is_file() else ""
+    get = lambda path: http("GET", args.base + path, headers={"Authorization": f"Bearer {reader}"})  # noqa: E731
 
     wait_for(lambda: get("/health")[0] == 200, "server answers /health", args.timeout)
 

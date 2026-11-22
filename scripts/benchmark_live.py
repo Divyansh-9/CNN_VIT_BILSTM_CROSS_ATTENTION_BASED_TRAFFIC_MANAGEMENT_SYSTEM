@@ -259,12 +259,16 @@ def poll_freshness(server: str, intersection_id: str, stop: threading.Event,
     import json as _json
     import urllib.request
 
-    url = f"{server.rstrip('/')}/prediction/{intersection_id}/latest"
+    from server.app import write_auth_header
+
+    # Reads need a session or the token since 2026-11-14; this reads with the token.
+    request = urllib.request.Request(f"{server.rstrip('/')}/prediction/{intersection_id}/latest",
+                                     headers=write_auth_header())
     while not stop.wait(1.0):
         if not started_after.is_set():
             continue
         try:
-            with urllib.request.urlopen(url, timeout=2) as response:
+            with urllib.request.urlopen(request, timeout=2) as response:
                 ages.append(float(_json.loads(response.read())["age_s"]))
         except OSError:
             ages.append(float("inf"))                # unreachable reads as not fresh

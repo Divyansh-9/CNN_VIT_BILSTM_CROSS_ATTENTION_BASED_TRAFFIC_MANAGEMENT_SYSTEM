@@ -3,14 +3,56 @@
 .intro { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; margin-bottom: 12px; }
 .intro h2 { font-size: 20px; }
 .intro p { margin: 0; }
-.layout { display: grid; grid-template-columns: 270px minmax(0, 1.1fr) minmax(330px, 1fr); gap: 12px; align-items: start; margin-bottom: 12px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.layout { display: grid; grid-template-columns: minmax(235px, 285px) minmax(0, 1fr); grid-template-areas: "setup player" "setup moment"; gap: var(--dashboard-gap); align-items: start; margin-bottom: 12px; }
+.layout > [data-tour="analyze-files"] { grid-area: setup; }
+.layout > [data-tour="analyze-watch"] { grid-area: player; }
+.layout > [data-tour="analyze-results"] { grid-area: moment; }
+.liveTag { display: grid; gap: 2px; border-color: var(--brand); }
+.liveTag b { color: var(--brand); }
+.liveTag small { color: var(--ink); }
+.monitorSignal { display: flex; align-items: center; gap: 8px; }
+.monitorSignal span { width: 16px; height: 16px; border-radius: 50%; background: var(--line); }
+.monitorSignal [data-active="true"][data-color="red"] { background: var(--signal-red); }
+.monitorSignal [data-active="true"][data-color="yellow"] { background: var(--signal-yellow); }
+.monitorSignal [data-active="true"][data-color="green"] { background: var(--signal-green); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--dashboard-padding); display: grid; gap: 10px; min-width: 0; }
+.countTimeline { display: grid; min-width: 0; gap: 6px; margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--line); }
+.countTimeline h4, .countTimeline p { margin: 0; }
+.countPlot { display: block; width: 100%; background: var(--panel-raised); border: 1px solid var(--line); border-radius: 10px; cursor: crosshair; }
+.plotGrid { stroke: var(--line); }
+.plotLabel { fill: var(--muted); font: 12px var(--mono); }
+.countLine { fill: none; stroke: var(--sky); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.plotCursor { stroke: var(--ink); stroke-width: 1; }
+.spikeDot { fill: var(--panel); stroke: var(--sky); stroke-width: 2; }
+.spikes { display: flex; flex-wrap: wrap; gap: 6px; }
+.spikes button { padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-raised); color: var(--ink); cursor: pointer; font: 12px var(--sans); }
+.spikes button:hover { border-color: var(--sky); }
+.spikes b { font-family: var(--mono); }
 .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .wide { grid-column: 2 / -1; }
-.withAssistant { grid-template-columns: 340px minmax(0, 1.1fr) minmax(320px, 1fr); }
+.withAssistant { grid-template-columns: minmax(245px, 310px) minmax(0, 1fr); }
+.brief header p { margin: 3px 0 0; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.brief dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 8px; margin: 0; }
+.brief dl div { display: grid; align-content: start; gap: 3px; padding: 9px; background: var(--panel-raised); border: 1px solid var(--line); border-radius: 8px; }
+.brief dt { color: var(--muted); font-size: 12px; }
+.brief dd { display: grid; justify-items: start; gap: 5px; margin: 0; font-weight: 600; }
+.brief dd button, .toggles select { color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; font: 12px var(--mono); cursor: pointer; }
+.brief dd button:hover { border-color: var(--sky); }
+.summaryActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .drop { position: relative; display: grid; gap: 2px; border: 1px dashed var(--frame-class); border-radius: 7px; padding: 10px 12px; cursor: pointer; overflow-wrap: anywhere; transition: border-color .15s; }
 .drop:hover, .drop:focus-within { border-color: var(--brand); }
 .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.liveDrop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  min-height: clamp(260px, 46vh, 430px); padding: 28px 20px; text-align: center; background: var(--panel); }
+.liveDrop b { font-size: clamp(1.2rem, 3vw, 1.7rem); }
+.uploadIcon { color: var(--brand); border-bottom: 2px solid currentColor; border-radius: 4px; padding: 0 10px; font-size: 2.5rem; line-height: 1; }
+.browseVideo { display: inline-block; border-radius: 8px; background: var(--brand); color: var(--on-brand); padding: 9px 16px; font-weight: 650; }
+.liveFilename { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.liveWatchLayout, .livePreviewLayout { display: grid; align-items: start; gap: var(--dashboard-gap); margin-block: 12px; }
+.liveWatchLayout > *, .livePreviewLayout > * { min-width: 0; }
+@media (min-width: 1120px) {
+  .liveWatchLayout { grid-template-columns: minmax(0, 7fr) minmax(260px, 3fr); }
+}
 .small { color: var(--muted); font-size: 13px; font-weight: 400; margin: 0; }
 .muted { color: var(--muted); font-weight: 400; }
 .mono { font-family: var(--mono); }
@@ -23,14 +65,25 @@
 .how p { margin: 6px 0; }
 .how code { display: block; font: 12px var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; overflow-wrap: anywhere; }
 .limits ul { margin: 4px 0 0; padding-left: 17px; font-size: 13px; color: var(--muted); }
-.stage { position: relative; width: 100%; background: var(--road); border-radius: 6px; overflow: hidden; display: grid; place-items: center; }
+.playerViewport { display: grid; gap: 10px; min-width: 0; }
+.stage { position: relative; width: 100%; aspect-ratio: var(--video-aspect); background: var(--road); border-radius: 6px; overflow: hidden; display: grid; place-items: center; }
+.playerViewport:fullscreen { display: flex; flex-direction: column; background: var(--bg); padding: 12px; box-sizing: border-box; }
+.playerViewport:fullscreen .stageFrame { display: grid; place-items: center; flex: 1; min-height: 0; container-type: size; }
+.playerViewport:fullscreen .stage { width: min(100cqw, calc(100cqh * var(--video-aspect))); }
 .stage video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; }
+.browserCamera { display: block; width: 100%; max-height: 65vh; background: var(--road); border-radius: 6px; }
 .noPicture { margin: 0; color: var(--muted); padding: 12px; text-align: center; }
 .tag { position: absolute; left: 8px; top: 8px; background: var(--bg); border: 1px solid var(--ink); border-radius: 4px; padding: 1px 7px; font-size: 12px; font-weight: 600; pointer-events: none; }
 .boxes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .boxes rect { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.boxes line { stroke: var(--brand); stroke-width: 2; stroke-dasharray: 6 3; }
 .pin { position: absolute; transform: translate(-50%, -50%); padding: 2px 8px; background: var(--bg); border: 1.5px solid var(--ink); border-radius: 13px; font: 12px var(--mono); white-space: nowrap; pointer-events: none; }
 .transport { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font-size: 13px; }
+.transport:has(.fullScreenButton) { grid-template-columns: auto minmax(0, 1fr) auto auto auto; }
+@media (max-width: 500px) {
+  .transport:has(.fullScreenButton) { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+  .fullScreenButton { grid-column: 1 / -1; justify-self: start; }
+}
 .transport button { background: transparent; color: var(--ink); border: 1px solid var(--frame-count); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
 .transport button:disabled { color: var(--muted); cursor: not-allowed; }
 .transport input { width: 100%; accent-color: var(--brand); }
@@ -52,8 +105,15 @@
 .axis { display: flex; align-items: center; gap: 8px; margin: 4px 0 0 34px; color: var(--muted); font-size: 12px; }
 .axis i { flex: 1; height: 1px; background: var(--frame-count); }
 @media (max-width: 1100px) {
-  .layout { grid-template-columns: minmax(0, 1fr); }
-  .wide { grid-column: auto; }
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "setup" "player" "moment"; }
+  .wide, .layout .brief { grid-column: auto; }
+}
+@media print {
+  :global(html[data-stms-video-summary]) :global(body) :global(*):not(:has([data-video-summary])):not([data-video-summary]):not([data-video-summary] *) { display: none !important; }
+  :global(html[data-stms-video-summary]) .brief { position: fixed; top: 0; left: 0; right: 0; background: white; color: black; }
+  :global(html[data-stms-video-summary]) .brief * { color: black; background: transparent; }
+  :global(html[data-stms-video-summary]) .brief dd button { display: inline-block !important; padding: 0; border: 0; }
+  :global(html[data-stms-video-summary]) .brief .summaryActions { display: none !important; }
 }
 /* D35: small enough to leave the picture readable, and off by default. */
 .classLabel { position: absolute; transform: translateY(-100%); padding: 0 4px; background: var(--bg); border: 1px solid var(--line); font: 11px var(--mono); color: var(--ink); white-space: nowrap; pointer-events: none; }
@@ -63,3 +123,9 @@
 .placeHint { position: absolute; right: 8px; bottom: 8px; background: var(--bg); border: 1px solid var(--brand); border-radius: 4px; padding: 2px 8px; font-size: 12px; pointer-events: none; }
 /* D42: a declared camera's lanes, shown before analysing so a wrong camera is visible. */
 .previewPin { border-style: dashed; border-color: var(--brand); }
+
+/* Drag-and-drop target, and the results export. */
+.drop[data-over="true"] { border-color: var(--brand); background: var(--brand-soft); }
+.export { justify-self: start; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+          font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.export:hover { border-color: var(--brand); }

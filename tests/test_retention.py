@@ -111,5 +111,5 @@ def test_storing_a_count_prunes_and_the_24_hour_view_is_untouched(server, monkey
     monkeypatch.setattr(server.time, "time", lambda: NOW)
     server.store_vehicle_count("j1", "lane_0", VehicleCount(3, {"car": 3}, 0.5).encode())
     assert ages(server) == [0.0, 23.0]
-    view = TestClient(server.app).get("/vehicle_count/j1/history?window=24h").json()
+    view = TestClient(server.app, headers={'Authorization': 'Bearer ' + __import__('os').environ['STMS_API_TOKEN']}).get("/vehicle_count/j1/history?window=24h").json()
     assert sum(b["lanes"].get("lane_0", {}).get("n", 0) for b in view["buckets"]) == 2

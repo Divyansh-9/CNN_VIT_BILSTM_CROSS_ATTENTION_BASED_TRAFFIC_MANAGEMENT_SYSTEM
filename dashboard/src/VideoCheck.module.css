@@ -2,7 +2,7 @@
    three series are neutrals told apart by line style, label and legend: orange is
    for the interface and the three class colours mean LOW, MEDIUM and HIGH, so no new
    hue goes on data. */
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; grid-column: 2 / -1; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--dashboard-padding); display: grid; gap: 10px; min-width: 0; grid-column: 2 / -1; }
 .head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .head h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .print { font: 600 12px var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--muted); border-radius: 7px; padding: 5px 12px; cursor: pointer; }
@@ -24,6 +24,8 @@
 .chartWrap { position: relative; }
 .chart { display: block; width: 100%; height: auto; cursor: crosshair; }
 .grid { stroke: var(--line); stroke-width: 1; }
+.difference { fill: var(--sky-soft); }
+.differenceKey { width: 26px; height: 8px; background: var(--sky-soft); border: 1px solid var(--line); }
 .axis { fill: var(--muted); font: 11px var(--mono); }
 .then, .ridge, .repeat { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .then { stroke: var(--ink); }

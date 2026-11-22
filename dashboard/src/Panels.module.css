@@ -1,15 +1,15 @@
 /* The status banner, the page's first answer. Its state has its own shape as
    well as its colour, and the words carry it either way. */
 .banner { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 14px; align-items: center; margin: 0 0 16px;
-          padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+          padding: 16px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
 .banner[data-status="stale"] { background: var(--stale-bg); border-color: var(--stale); }
 .banner h2 { font-size: 22px; line-height: 1.25; }
 .banner p { grid-column: 2; margin: 0; }
 .bannerMark { width: 16px; height: 16px; }
 /* The overview, the forecast's headline (UX step 2). Its class word is a chip,
    never coloured text, so its contrast is the chip's. */
-.overview { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 0; }
-.tile { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 0; display: grid; gap: 2px; align-content: start; }
+.overview { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; min-width: 0; }
+.tile { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; min-width: 0; display: grid; gap: 2px; align-content: start; }
 .tile p { margin: 0; }
 .tileLabel { color: var(--muted); font-size: 13px; }
 .tileValue { font-size: 21px; font-weight: 600; line-height: 1.25; }
@@ -62,7 +62,7 @@
 .forecast { border-collapse: collapse; width: 100%; }
 .forecast thead th { color: var(--muted); font-size: 13px; font-weight: 500; text-align: left; vertical-align: bottom; padding: 4px 8px 4px 0; }
 .forecast tbody th, .forecast td { text-align: left; padding: 7px 8px 7px 0; border-top: 1px solid var(--line); }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
 /* Distinct top borders so the count and the class are never read as one panel. */
 .count { border-top: 4px solid var(--frame-count); }
 .cls { border-top: 4px solid var(--frame-class); }

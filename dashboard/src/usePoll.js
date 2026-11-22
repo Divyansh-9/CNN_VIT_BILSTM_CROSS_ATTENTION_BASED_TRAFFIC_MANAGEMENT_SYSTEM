@@ -35,6 +35,7 @@ export function useHealth(intervalMs, fetcher, now = clock) {
 export function usePoll(path, intervalMs, fetcher, retryMs = RETRY_MS) {
   const [state, setState] = useState({ status: "loading" });
   useEffect(() => {
+    if (!path) return undefined;
     let alive = true;
     let timer = null;
     const run = async () => {
@@ -51,5 +52,5 @@ export function usePoll(path, intervalMs, fetcher, retryMs = RETRY_MS) {
       if (timer) clearTimeout(timer);
     };
   }, [path, intervalMs, fetcher, retryMs]);
-  return state;
+  return path ? state : { status: "loading" };
 }

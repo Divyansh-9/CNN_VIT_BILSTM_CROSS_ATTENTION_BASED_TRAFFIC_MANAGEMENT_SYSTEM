@@ -160,7 +160,7 @@ def test_a_prediction_published_at_the_edge_is_stored_by_the_server(
         transport.stop()
         ingest.stop()
 
-    latest = TestClient(database.app).get("/prediction/j7/latest").json()
+    latest = TestClient(database.app, headers={'Authorization': 'Bearer ' + __import__('os').environ['STMS_API_TOKEN']}).get("/prediction/j7/latest").json()
     assert latest["model"] == "H@0123456789ab"
     assert latest["predictions"] == {a: "HIGH" for a in "NSEW"}
     assert latest["gate_value"] is None
@@ -286,7 +286,7 @@ def test_authenticated_clients_carry_a_prediction_end_to_end(auth_broker, databa
     finally:
         transport.stop()
         ingest.stop()
-    assert TestClient(database.app).get("/prediction/j7/latest").json()["model"] == \
+    assert TestClient(database.app, headers={'Authorization': 'Bearer ' + __import__('os').environ['STMS_API_TOKEN']}).get("/prediction/j7/latest").json()["model"] == \
         "persistence@2431c6641b9c"
     assert credentials.password not in caplog.text + "".join(capsys.readouterr())
 

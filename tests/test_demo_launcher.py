@@ -48,7 +48,7 @@ class Run:
 
 
 @pytest.fixture
-def site():
+def site(session_cookie):
     run = Run()
     launcher = Launcher(CLIPS, run, minutes=7, dashboard_url="http://127.0.0.1:18000/dashboard/?id=live")
     holder = {}
@@ -58,7 +58,9 @@ def site():
 
     def call(method, path, body=None, headers=None):
         c = http.client.HTTPConnection("127.0.0.1", holder["port"], timeout=5)
-        sent = {"Host": f"127.0.0.1:{holder['port']}", **({"Content-Type": "application/json"} if method == "POST" else {}), **(headers or {})}
+        sent = {"Host": f"127.0.0.1:{holder['port']}", "Cookie": session_cookie,
+                **({"Content-Type": "application/json"} if method == "POST" else {}), **(headers or {})}
+        sent = {k: v for k, v in sent.items() if v is not None}     # headers={"Cookie": None}: signed out
         c.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
         data = b"" if body is None else (body if isinstance(body, bytes) else json.dumps(body).encode())
         for key, value in sent.items():
@@ -280,15 +282,18 @@ def test_status_text_never_claims_a_finished_run_while_one_is_failing():
 
 # ------------------------------------------------- the boundary stays where it is
 
-def test_the_product_gains_no_way_to_start_a_run():
-    """D41: only the dashboard's workbench client can ask for work, only from the local
-    workbench, and the server gains no route for it."""
+def test_the_product_has_no_public_demo_run_command():
+    """Job actions use the same-origin local workbench, separate from public telemetry."""
     for path in (ROOT / "dashboard" / "src").glob("*.js*"):
         if ".test." in path.name:
             continue
         text = path.read_text(encoding="utf-8")
-        assert "/demo/" not in text and '"/run"' not in text, path.name
-        if path.name != "workbench.js":
+        assert "/demo/" not in text.replace("/workbench/monitor/demo/", "") and '"/run"' not in text, path.name
+        if path.name == "auth.js":
+            # D46: the sign-in client posts too, and only to the /auth actions.
+            assert "fetcher(`/auth/${action}`" in text and "/workbench" not in text, path.name
+        elif path.name != "workbench.js":
             assert 'method: "POST"' not in text, path.name
     server = (ROOT / "server" / "app.py").read_text(encoding="utf-8")
-    assert "/demo" not in server and "/workbench" not in server
+    assert '"/demo' not in server
+    assert 'path.startswith("/workbench/") and local_analysis.allowed(request)' in server

@@ -1,0 +1,14 @@
+.ghost { background: transparent; color: var(--ink); border: 1px solid var(--frame-count); border-radius: 6px; padding: 8px 14px; cursor: pointer; font: inherit; }
+.glossary { background: var(--panel-raised); color: var(--ink); border: 1px solid var(--frame-class); border-radius: 12px;
+            width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 32px); padding: 16px 20px; }
+.glossary::backdrop { background: var(--scrim); }
+.glossaryHead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.glossaryHead .ghost { padding: 4px 10px; }
+.glossary h2 { font-size: 19px; }
+.glossary dl { display: grid; gap: 8px; margin: 12px 0 0; }
+.glossary dl > div { display: grid; grid-template-columns: minmax(130px, 190px) minmax(0, 1fr); gap: 2px 16px; }
+.glossary dt { font-weight: 600; }
+.glossary dd { margin: 0; color: var(--muted); }
+@media (max-width: 640px) {
+  .glossary dl > div { grid-template-columns: minmax(0, 1fr); }
+}

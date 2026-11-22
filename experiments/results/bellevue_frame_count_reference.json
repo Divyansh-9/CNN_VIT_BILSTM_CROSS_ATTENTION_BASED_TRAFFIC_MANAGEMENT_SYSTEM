@@ -1,0 +1,20 @@
+{
+  "source": "Bellevue 116th and NE 12th, morning and afternoon recordings, 2017-09-11",
+  "method": "One visual review before comparing detector outputs. Count four supported vehicle groups by the center of their visible box, including stopped vehicles. Count an articulated truck as one vehicle.",
+  "region_xyxy": [120, 100, 1110, 640],
+  "frame_size": [1280, 720],
+  "counts": {
+    "morning-11": 17,
+    "morning-157": 10,
+    "morning-289": 19,
+    "morning-419": 10,
+    "morning-593": 11,
+    "morning-801": 13,
+    "afternoon-13": 20,
+    "afternoon-153": 19,
+    "afternoon-251": 17,
+    "afternoon-417": 16,
+    "afternoon-543": 14,
+    "afternoon-688": 10
+  }
+}

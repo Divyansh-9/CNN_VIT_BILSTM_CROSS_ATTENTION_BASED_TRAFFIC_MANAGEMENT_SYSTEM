@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -17,6 +18,40 @@ from edge.profile import load_profile  # noqa: E402
 from edge.run import PILOT  # noqa: E402
 from mfstnet.corpus.counting import Detection  # noqa: E402
 from scripts import analyze_video as tool  # noqa: E402
+from scripts.tracked_video import TrackedVideo, detector_settings  # noqa: E402
+
+
+def test_detector_override_sets_inference_size(monkeypatch, tmp_path):
+    weights = tmp_path / "custom.pt"
+    monkeypatch.setenv("STMS_VIDEO_WEIGHTS", str(weights))
+    monkeypatch.setenv("STMS_VIDEO_CONF", "0.4")
+    monkeypatch.setenv("STMS_VIDEO_IMGSZ", "960")
+    assert detector_settings() == (weights, .4, 960)
+    monkeypatch.setenv("STMS_VIDEO_IMGSZ", "950")
+    with pytest.raises(ValueError, match="multiple of 32"):
+        detector_settings()
+
+
+def test_cctv_checkpoint_class_names_have_occupancy_weights():
+    result = tool.pcu_table(["Hatchback", "Two-wheeler", "Mini-bus", "LCV", "car"])
+    assert result["weights"]["Hatchback"] == result["weights"]["car"]
+    assert {"Two-wheeler", "Mini-bus", "LCV"} <= result["weights"].keys()
+
+
+def test_occupancy_keeps_detections_without_associated_track_ids():
+    capture = []
+    boxes = SimpleNamespace(xyxy=[(5, 5, 15, 15), (25, 25, 35, 35)], conf=[.9, .8], cls=[0, 0])
+    boxes.cpu = lambda: SimpleNamespace(numpy=lambda: boxes)
+    analyzer = TrackedVideo.__new__(TrackedVideo)
+    analyzer.size, analyzer.ids, analyzer.frames_processed = 640, [0], 0
+    analyzer.model = SimpleNamespace(names={0: "car"}, predict=lambda *_, **__: [
+        SimpleNamespace(orig_shape=(100, 100), orig_img=None, boxes=boxes)])
+    analyzer.tracker = SimpleNamespace(update=lambda *_: [(5, 5, 15, 15, 7, .9, 0, 0)])
+    analyzer.crossings = SimpleNamespace(observe=lambda _, rows, ids, __: capture.append((rows, ids)))
+    analyzer.classes = {"car": "car"}
+    detections, ids = analyzer.track(None, 0)
+    assert len(detections) == 2 and ids == [7, None]
+    assert capture == [([detections[0]], [7])]
 
 PROFILE = ROOT / "cameras" / "150th_Eastgate.json"
 needs_specs = pytest.mark.skipif(not tool.RIDGE_SPEC.exists() or not (PILOT / "persistence_v1.json").exists(),
@@ -48,6 +83,27 @@ def test_forecasts_start_when_the_deployed_forecasters_would():
     s = result["samples"]
     assert s[28]["level"] is None and s[29]["level"] is not None   # 30 samples: 1 min
     assert s[58]["number"] is None and s[59]["number"] is not None  # 60 samples: 2 min
+
+
+@needs_specs
+def test_video_count_blend_uses_only_the_two_minutes_available_at_prediction_time():
+    from edge.count_forecast import RidgeCountForecaster
+    from statistics import fmean
+
+    def demand(k, lane):
+        return (1 if k < 30 else 4) + lane
+    profile, result = run(100, demand)
+    _, changed = run(100, lambda k, lane: demand(k, lane) if k < 60 else 0)
+    ridge = RidgeCountForecaster(tool.RIDGE_SPEC, profile.lane_map)
+    for row in result["samples"][:60]:
+        baseline = ridge.step(row["counts"], row["t"])
+    assert result["models"]["number"].startswith("video-blend-70/30:ridge@")
+    counts = result["samples"][59]["number"]
+    assert counts == changed["samples"][59]["number"]
+    assert result["samples"][59]["then"] != changed["samples"][59]["then"]
+    for lane, approach in profile.lane_map.items():
+        history = fmean(row["counts"][lane] for row in result["samples"][:60])
+        assert counts[approach] == round(.7 * baseline.counts[approach] + .3 * history, 4)
 
 
 @needs_specs
@@ -93,11 +149,11 @@ def test_refuses_a_missing_video_and_will_not_replace_results(tmp_path, capsys):
 
 
 @needs_specs
-def test_refuses_a_video_too_short_to_forecast(tmp_path, capsys):
+def test_refuses_an_unreadable_video(tmp_path, capsys):
     video = tmp_path / "short.mp4"
     video.write_bytes(b"not a video")
     assert tool.main(["--video", str(video), "--profile", str(PROFILE), "--out", str(tmp_path / "o.json")]) == 1
-    assert "at least 5 minutes" in capsys.readouterr().err
+    assert "at least 2 seconds of readable video" in capsys.readouterr().err
 
 
 # D35: class details for the Engineering view, in a new schema.
