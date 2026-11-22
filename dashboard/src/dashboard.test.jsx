@@ -1705,10 +1705,10 @@ describe("Workbench hand-off (D40)", () => {
     await waitFor(() => expect(screen.getByText(/workbench's results were refused: invalid timing/)).toBeTruthy());
     expect(document.querySelector("[data-analysis-row]")).toBeNull();
   });
-  it("says a link works only on its own computer when the key is not found", async () => {
+  it("explains an analysis link is unavailable when the key is not found", async () => {
     const { fetcher } = server(null);
     render(<App fetcher={fetcher} search={`?analysis=${KEY}`} hash="#analyze" />);
-    await waitFor(() => expect(screen.getByText(/works only on the computer whose workbench made it/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Check the analysis link and the account that created it/)).toBeTruthy());
     expect(document.querySelector("[data-analysis-row]")).toBeNull();
   });
   it("asks the workbench nothing when the address carries no key", async () => {

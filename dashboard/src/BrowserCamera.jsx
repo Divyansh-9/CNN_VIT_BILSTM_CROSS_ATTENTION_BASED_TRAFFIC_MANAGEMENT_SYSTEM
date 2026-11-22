@@ -2,10 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import styles from "./OpsPages.module.css";
 import playerStyles from "./Analyze.module.css";
 
-export function LocalWorkbenchLink({ page = "live" }) {
-  return <a href={`http://127.0.0.1:8083/dashboard/#${page}`} target="_blank" rel="noreferrer">Open local STMS workbench</a>;
-}
-
 export function BrowserCamera() {
   const [url, setUrl] = useState("");
   const [input, setInput] = useState(null);
@@ -36,7 +32,7 @@ export function BrowserCamera() {
     const timeout = setTimeout(() => {
       setInput(null);
       setStatus("Error");
-      setMessage("The stream did not send playable video. Check the address or open the local workbench.");
+      setMessage("The stream did not send playable video. Check the stream address and format.");
     }, 15000);
     return () => clearTimeout(timeout);
   }, [input, status]);
@@ -57,7 +53,7 @@ export function BrowserCamera() {
       return;
     }
     if (streamUrl.protocol !== "https:" || streamUrl.username || streamUrl.password) {
-      fail("For RTSP, HTTP or cameras with credentials, open the local STMS workbench.");
+      fail("Browser preview requires an HTTPS video stream without credentials.");
       return;
     }
     disconnect();
@@ -68,7 +64,7 @@ export function BrowserCamera() {
   const connectWebcam = async () => {
     disconnect();
     if (!navigator.mediaDevices?.getUserMedia) {
-      fail("Webcam access is unavailable in this browser window. Open this dashboard directly or use the local workbench.");
+      fail("Webcam access is unavailable in this browser window. Check your browser camera permissions.");
       return;
     }
     setStatus("Connecting");
@@ -110,9 +106,8 @@ export function BrowserCamera() {
     {input && <video key={input.id} className={playerStyles.browserCamera} ref={player} src={input.url} muted autoPlay playsInline controls
       aria-label="Camera preview" onPlaying={() => { setStatus("Connected"); setMessage(""); }}
       onWaiting={() => setStatus("Connecting")}
-      onError={() => fail("The browser could not play this stream. Check the address and video format, or open the local workbench.")}
+      onError={() => fail("The browser could not play this stream. Check the address and video format.")}
       onEnded={disconnect} />}
-    <p className={styles.muted}>This page previews webcams and browser-compatible HTTPS video. For vehicle analysis or an RTSP camera, use the local workbench.</p>
-    <LocalWorkbenchLink />
+    <p className={styles.muted}>This page previews webcams and browser-compatible HTTPS video. AI processing is unavailable in preview mode.</p>
   </section>;
 }

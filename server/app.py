@@ -201,7 +201,23 @@ async def require_sign_in(request: Request, call_next):
     """Fail closed: every read outside `is_public` needs a session or the token.
     POSTs are left to their own `WRITE` dependency, which accepts only the token."""
     path = request.url.path
-    local_workbench = path.startswith("/workbench/") and local_analysis.allowed(request)
+    analysis_path = path.startswith("/workbench/")
+    if analysis_path and local_analysis.hosted_origin():
+        if not local_analysis.hosted_request(request):
+            return JSONResponse({"detail": "Open STMS at its configured address."}, status_code=403)
+        token = request.cookies.get(auth.COOKIE)
+        user = await run_in_threadpool(auth.session_user, token) if token else None
+        if user is None:
+            return JSONResponse({"detail": auth.SIGN_IN_REQUIRED}, status_code=401,
+                                headers={"Cache-Control": "no-store"})
+        scope = local_analysis.account.set(user["id"])
+        try:
+            response = await call_next(request)
+        finally:
+            local_analysis.account.reset(scope)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    local_workbench = analysis_path and local_analysis.allowed(request)
     if request.method in ("GET", "HEAD") and not (is_public(path) or local_workbench):
         allowed = bearer_ok(request.headers.get("authorization"))
         if not allowed:

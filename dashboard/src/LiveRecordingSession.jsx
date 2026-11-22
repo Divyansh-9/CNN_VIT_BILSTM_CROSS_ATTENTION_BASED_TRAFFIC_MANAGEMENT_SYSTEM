@@ -32,7 +32,7 @@ function addSamples(previous, items) {
 
 const delay = () => new Promise(resolve => setTimeout(resolve, 400));
 function data(response) {
-  if (response.status !== "ok") throw new Error(response.reason ?? "The workbench did not respond.");
+  if (response.status !== "ok") throw new Error(response.reason ?? "The analysis service did not respond.");
   return response.data;
 }
 
@@ -107,7 +107,7 @@ export function LiveRecordingSession({ file, duration, revision, profiles, selec
   }, [file, duration, profile, minimum, ready, revision, fetcher, jobPath]);
 
   if (!file) return null;
-  if (!ready) return <p role="alert">{caps.analysis_problem || "The local detector is unavailable."}</p>;
+  if (!ready) return <p role="alert">{caps.analysis_problem || "The vehicle detector is unavailable."}</p>;
   if (Number.isFinite(duration) && duration < minimum) return <p role="alert">Choose a video at least {minimum} seconds long.</p>;
   if (problem) return <p role="alert">{problem} Use Restart to try again.</p>;
   return <p role="status" className={styles.muted}>{status || "Preparing video…"}

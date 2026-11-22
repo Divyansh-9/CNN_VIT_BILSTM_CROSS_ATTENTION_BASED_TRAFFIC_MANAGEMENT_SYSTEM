@@ -11,7 +11,7 @@ import { applyTheme, storedTheme } from "./theme.js";
 
 applyTheme(storedTheme());
 
-const operatorView = needsSignIn(window.location.search, window.location.hash);
+const operatorView = import.meta.env.VITE_STMS_HOSTED === "1" || needsSignIn(window.location.search, window.location.hash);
 const redesign = new URLSearchParams(window.location.search).get("preview") === "redesign";
 
 createRoot(document.getElementById("root")).render(

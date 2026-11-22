@@ -5,7 +5,6 @@ import styles from "./Analyze.module.css";
 import { VideoEngineering } from "./Engineering.jsx";
 import { VideoCheck } from "./VideoCheck.jsx";
 import { CLASSES, validateAnalysis } from "./validate.js";
-import { LocalWorkbenchLink } from "./BrowserCamera.jsx";
 
 // D34: a recording beside the results of scripts/analyze_video.py. Both files are
 // opened in this browser and neither is sent anywhere: this page stays read-only,
@@ -238,6 +237,8 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
   const [screenProblem, setScreenProblem] = useState("");
   const [monitorStarted, setMonitorStarted] = useState(false);
   const [monitorRevision, setMonitorRevision] = useState(0);
+  const [monitorArmed, setMonitorArmed] = useState(false);
+  const chooseWhenToStart = Boolean(monitor && caps?.hosted);
   const monitorJob = useRef(null);
   const wantsPlayback = useRef(false);
   const [buffering, setBuffering] = useState(false);
@@ -330,7 +331,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
     setStreamComplete(false);
     monitorJob.current = null;
     if (restart) setMonitorRevision(n => n + 1);
-    else { setVideo(null); setLength(null); }
+    else { setMonitorArmed(false); setVideo(null); setLength(null); }
   };
 
   useEffect(() => () => { if (video?.file instanceof Blob) URL.revokeObjectURL(video.url); }, [video]);
@@ -349,7 +350,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
     }
     if (handed.status === "empty") { setAnalysis(null); setProblem(""); return; }
     if (handed.status !== "ok") {
-      setProblem("These results are not available here. A workbench link works only on the computer whose workbench made it.");
+      setProblem("These results are unavailable. Check the analysis link and the account that created it.");
       return;
     }
     const checked = validateAnalysis(handed.data);
@@ -419,6 +420,8 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, video, analysis, rate]);
 
+  const maxBytes = caps?.max_video_bytes ?? 2 * 1024 ** 3;
+  const uploadSize = maxBytes >= 1024 ** 3 ? maxBytes / 1024 ** 3 + " GB" : maxBytes / 1024 ** 2 + " MiB";
   const openVideo = (file) => {
     if (!file) return;
     if (!/\.(mp4|m4v|avi|webm|mov|mkv)$/i.test(file.name)) {
@@ -426,13 +429,14 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
       setVideoProblem(`${file.name} is unsupported. Choose MP4, MOV, AVI, MKV, M4V or WebM.`);
       return;
     }
-    if (file.size === 0 || file.size > (caps?.max_video_bytes ?? 2 * 1024 ** 3)) {
+    if (file.size === 0 || file.size > maxBytes) {
       setVideo(null); setAnalysis(null); resetPlayback(); onRejected?.(file, "size");
-      setVideoProblem("The recording must be non-empty and no larger than 2 GB.");
+      setVideoProblem("The recording must be non-empty and no larger than " + uploadSize + ".");
       return;
     }
     onFile?.(file);
     if (monitor) {
+      setMonitorArmed(false);
       setAnalysis(null); resetPlayback(); setStreamComplete(false); monitorJob.current = null;
     }
     if (caps?.uploads || (analysis && (file.name.replace(/\.[^.]+$/, "") !== analysis.clip
@@ -542,7 +546,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
         <p>{replay ? "Inspect a completed recording and its saved detections." : "Upload a traffic video for detection, tracking and a saved report."}</p>
       </div>}
       {monitor?.tools}
-      {monitor && assistant?.({ file: videoProblem ? null : video?.file, duration: length, revision: monitorRevision,
+      {monitor && assistant?.({ file: videoProblem || (chooseWhenToStart && !monitorArmed) ? null : video?.file, duration: length, revision: monitorRevision,
         onResults: accept, onStream: streamAnalysis })}
       {liveView && !video && <>
         <label className={`${styles.drop} ${styles.liveDrop}`} {...dropTo(openVideo)}>
@@ -550,9 +554,9 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
             data-open-video="true" onChange={e => openVideo(e.target.files[0])} />
           <span className={styles.uploadIcon} aria-hidden="true">↑</span>
           <b>Upload Traffic Video for Live Monitoring</b>
-          <span className={styles.small}>Drop a video here. Playback starts when the feed is ready.</span>
+          <span className={styles.small}>{chooseWhenToStart ? "Choose a recording, then start monitoring." : "Drop a video here. Playback starts when the feed is ready."}</span>
           <span className={styles.browseVideo}>Browse Video</span>
-          <span className={styles.small}>MP4, AVI, MOV, MKV, M4V or WebM · Up to 2 GB</span>
+          <span className={styles.small}>MP4, AVI, MOV, MKV, M4V or WebM · Up to {uploadSize}</span>
         </label>
         {videoProblem && <p className={panel.problem} role="alert">{videoProblem}</p>}
       </>}
@@ -574,7 +578,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
           </p>}
           {assistant && assistant({ file: video?.file ?? null, duration: length ?? undefined, lanes, onResults: accept, onStream: streamAnalysis })}
           {!assistant && !replay && !legacyFiles && <div className={styles.note}>
-            <p>AI processing is available in the local STMS workbench.</p><LocalWorkbenchLink page="analyze" />
+            <p role="status">{caps === null ? "Checking the AI analysis service…" : "The AI analysis service is unavailable on this site. You can still preview your video here."}</p>
           </div>}
           {fromWorkbench && analysis && !video && (
             <p className={styles.notice} data-handed="true">Saved results are available. If the original video was kept outside STMS, choose <b>{analysis.processing?.filename ?? analysis.clip}</b> to see its overlays.</p>
@@ -692,8 +696,12 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
               onClick={() => seek(event.t)}>{fmt(event.t)} · {event.type}</button>)}
           </div>}
           {liveView && <div className={styles.summaryActions}>
+            {chooseWhenToStart && !monitorArmed && <button type="button" className={styles.export}
+              disabled={!pictureReady || Boolean(videoProblem) || caps.analysis_ready === false}
+              onClick={() => setMonitorArmed(true)}>Start monitoring</button>}
+            {chooseWhenToStart && caps.analysis_ready === false && <p role="alert">{caps.analysis_problem}</p>}
             <button type="button" className={styles.export} onClick={() => resetMonitor(false)}>Stop</button>
-            {monitor && <button type="button" className={styles.export} onClick={() => resetMonitor(true)}>Restart</button>}
+            {monitor && (!chooseWhenToStart || monitorArmed) && <button type="button" className={styles.export} onClick={() => resetMonitor(true)}>Restart</button>}
           </div>}
           {buffering && <p className={styles.small} role="status">Buffering live detections. Playback resumes when the next sample is ready.</p>}
           {screenProblem && <p className={styles.small} role="status">{screenProblem}</p>}
@@ -739,7 +747,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
         )}
         {synced && !monitor && !wholeFrame && <VideoCheck analysis={analysis} t={t} onSeek={seek} />}
       </div>}
-      {!liveView && <p className={styles.small}>The video stays on this computer. Results hold counts and forecasts, never frames. A recording is not a live camera test, and nothing here controls a signal.</p>}
+      {!liveView && <p className={styles.small}>{caps?.uploads ? "Starting analysis uploads the recording to STMS for processing and saved replay." : "The preview uses your local video file."} Signal recommendations are advisory.</p>}
     </section>
   );
 }

@@ -1,12 +1,5 @@
-// D41: the local workbench's client. The dashboard has two clients and they never mix:
-//   api.js        GET only, the server's read-only endpoints. Everywhere.
-//   workbench.js  this file. Only when the page is served by the local workbench
-//                 (scripts/demo_launcher.py on 127.0.0.1), which says so at
-//                 /workbench/capabilities; the server has no /workbench route.
-// Its POSTs start or stop an analysis or a replay, find a file, open a folder window
-// on this computer, or save a provisional camera. None of them reaches a signal, and
-// no body can carry anything but short text, numbers and lane positions: never a
-// picture or a file's bytes (NFR-13). The video stays in the browser.
+// The dashboard uses same-origin requests and the existing session cookie for
+// upload, monitoring, lane setup and saved analysis. Signal timing is advisory.
 
 import { announceSignedOut } from "./auth.js";
 
@@ -57,7 +50,7 @@ export async function wbGet(path, fetcher = globalThis.fetch) {
   try {
     return await reply(await fetcher(path, { method: "GET", headers: { accept: "application/json" } }));
   } catch (error) {
-    return { status: "error", reason: `the workbench is not answering (${error.message})` };
+    return { status: "error", reason: `the analysis service is not responding (${error.message})` };
   }
 }
 
@@ -67,7 +60,7 @@ export async function wbPost(path, body = {}, fetcher = globalThis.fetch) {
   try {
     return await reply(await fetcher(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
   } catch (error) {
-    return { status: "error", reason: `the workbench is not answering (${error.message})` };
+    return { status: "error", reason: `the analysis service is not responding (${error.message})` };
   }
 }
 

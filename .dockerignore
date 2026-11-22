@@ -16,3 +16,10 @@ kaggle/
 **/*.onnx
 **/*.mp4
 **/*.sqlite
+
+.env
+.env.*
+**/.env
+**/.env.*
+**/*.key
+**/*.pem

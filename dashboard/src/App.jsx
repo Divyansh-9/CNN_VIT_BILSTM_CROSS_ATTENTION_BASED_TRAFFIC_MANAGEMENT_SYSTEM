@@ -297,7 +297,7 @@ export default function App({ fetcher, previewSite, redesign, search = window.lo
             <button type="button" className={styles.linkButton} onClick={() => setGlossary(true)}>Glossary</button>
           </div>
           <p className={styles.readonly} data-mode={workbench ? "workbench" : "read-only"}>
-            {workbench ? "Local workbench · no signal commands" : "Read-only: this page cannot send commands"}
+            {workbench ? "AI analysis · no signal commands" : "Read-only: this page cannot send commands"}
           </p>
         </div>
       </header>

@@ -273,7 +273,7 @@ export function AnalyzeAssistant({ file, duration, lanes, onResults, onStarting,
 
   if (!file) {
     return (
-      <section className={styles.assistant} aria-label="Analyze on this computer" data-assistant="idle">
+      <section className={styles.assistant} aria-label="Video analysis controls" data-assistant="idle">
         <p className={styles.lead}>{caps.uploads ? "Choose a video to begin." : "Open a recording to choose its camera and review its lane markers."}</p>
         {caps.analysis_ready === false && <p className={styles.problem} role="status">{caps.analysis_problem}</p>}
       </section>
@@ -286,7 +286,7 @@ export function AnalyzeAssistant({ file, duration, lanes, onResults, onStarting,
   }));
   const busy = job?.running;
   return (
-    <section className={styles.assistant} aria-label="Analyze on this computer" data-assistant={where.state}>
+    <section className={styles.assistant} aria-label="Video analysis controls" data-assistant={where.state}>
       <h3>{caps.uploads ? "Analyze video" : "2. Confirm the camera and lanes"}</h3>
       <p className={styles.where} data-where={where.state}>
         {where.state === "finding" && "Finding this file on this computer…"}
@@ -328,7 +328,7 @@ export function AnalyzeAssistant({ file, duration, lanes, onResults, onStarting,
                       || (caps.uploads ? caps.analysis_ready === false : !caps.history && caps.analysis_ready === false)
                       || duration < (caps.minimum_duration_s ?? 300)}
                     data-analyse="true">{asking ? "Preparing video…" : caps.uploads
-                      ? "Analyze Video with AI"
+                      ? (caps.hosted ? "Start Analysis" : "Analyze Video with AI")
                       : "Run analysis"}</button>
             {busy && <button type="button" className={styles.button} onClick={stop}>Cancel analysis</button>}
           </div>

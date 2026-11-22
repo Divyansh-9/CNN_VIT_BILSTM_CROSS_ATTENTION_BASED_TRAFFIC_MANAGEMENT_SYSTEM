@@ -10,7 +10,8 @@ WORKDIR /dashboard
 COPY dashboard/package.json dashboard/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY dashboard/ ./
-RUN npm run build
+ARG VITE_STMS_HOSTED=0
+RUN VITE_STMS_HOSTED=$VITE_STMS_HOSTED npm run build
 
 # ---- the commit behind every result file, from the real history -----------------
 FROM python:3.12.10-slim-bookworm AS evidence
@@ -26,18 +27,35 @@ FROM python:3.12.10-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     STMS_EVIDENCE_COMMITS=/app/evidence_commits.json
 WORKDIR /app
-# The pins come from requirements.txt, the authority on every version. The
-# server imports these four and nothing else outside the standard library.
+# The API and MQTT ingest share the base runtime. Video analysis is opt-in.
 COPY requirements.txt /tmp/requirements.txt
 RUN grep -iE '^(fastapi|pydantic|uvicorn|paho-mqtt)==' /tmp/requirements.txt > /tmp/server.txt \
     && test "$(wc -l < /tmp/server.txt)" -eq 4 \
     && pip install --no-cache-dir -r /tmp/server.txt \
-    && rm /tmp/requirements.txt /tmp/server.txt
+    && mv /tmp/requirements.txt /tmp/video-pins.txt && rm /tmp/server.txt
+# Hosted analysis adds the CPU detector to the existing API runtime.
+ARG STMS_INSTALL_VIDEO=0
+RUN if [ "$STMS_INSTALL_VIDEO" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+      && rm -rf /var/lib/apt/lists/* \
+      && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+          torch==2.13.0+cpu torchvision==0.28.0+cpu \
+      && grep -iE '^(ultralytics|opencv-python-headless|lap|scipy|pyyaml|numpy)==' /tmp/video-pins.txt > /tmp/video.txt \
+      && pip install --no-cache-dir -r /tmp/video.txt \
+      && rm /tmp/video.txt; \
+    fi && rm /tmp/video-pins.txt
 COPY contracts/ ./contracts/
 COPY server/ ./server/
+COPY edge/ ./edge/
+COPY scripts/ ./scripts/
+COPY mfstnet/ ./mfstnet/
+COPY cameras/ ./cameras/
+COPY indiatrafficnet/class_mapping.yaml ./indiatrafficnet/class_mapping.yaml
 COPY experiments/results/bellevue_pilot/p103_results.json \
      experiments/results/bellevue_pilot/p105_results.json \
      experiments/results/bellevue_pilot/p105_eligibility.json \
+     experiments/results/bellevue_pilot/p105_ridge_v1.json \
+     experiments/results/bellevue_pilot/persistence_v1.json \
      ./experiments/results/bellevue_pilot/
 COPY experiments/results/ceiling/ceiling_stats.json ./experiments/results/ceiling/ceiling_stats.json
 COPY --from=dashboard /dashboard/dist ./dashboard/dist

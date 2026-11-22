@@ -1,25 +1,29 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
 // Served by the FastAPI server at /dashboard (same origin, no CORS). In
-// development, Vite proxies the read-only endpoints to the server.
-export default defineConfig({
-  base: "/dashboard/",
-  plugins: [react()],
-  server: {
-    proxy: {
-      "/count_forecast": "http://127.0.0.1:8000",
-      "/prediction": "http://127.0.0.1:8000",
-      "/vehicle_count": "http://127.0.0.1:8000",
-      "/heartbeat": "http://127.0.0.1:8000",
-      "/forecast_check": "http://127.0.0.1:8000",
-      "/sites": "http://127.0.0.1:8000",
-      "/evidence": "http://127.0.0.1:8000",
-      "/health": "http://127.0.0.1:8000",
-      // Sign-in (server/auth.py). The server checks Origin against Host, so keep the
-      // browser's Host: the session cookie then belongs to this dev page.
-      "/auth": { target: "http://127.0.0.1:8000", changeOrigin: false },
+// development, Vite proxies requests to the configured server.
+export default defineConfig(({ mode }) => {
+  const backend = loadEnv(mode, process.cwd(), "STMS_DEV_API_ORIGIN").STMS_DEV_API_ORIGIN ?? "http://127.0.0.1:8000";
+  return {
+    base: "/dashboard/",
+    plugins: [react()],
+    server: {
+      proxy: {
+        "/count_forecast": backend,
+        "/prediction": backend,
+        "/vehicle_count": backend,
+        "/heartbeat": backend,
+        "/forecast_check": backend,
+        "/sites": backend,
+        "/evidence": backend,
+        "/health": backend,
+        // Sign-in (server/auth.py). The server checks Origin against Host, so keep the
+        // browser's Host: the session cookie then belongs to this dev page.
+        "/auth": { target: backend, changeOrigin: false },
+        "/workbench": { target: backend, changeOrigin: false },
+      },
     },
-  },
-  test: { environment: "jsdom" },
+    test: { environment: "jsdom" },
+  };
 });

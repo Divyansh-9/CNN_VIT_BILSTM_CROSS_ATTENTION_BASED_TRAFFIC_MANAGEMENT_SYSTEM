@@ -29,7 +29,7 @@ it("opens the browser file picker and then the camera form without a workbench",
   const url = within(camera).getByLabelText("HTTPS video stream");
   fireEvent.change(url, { target: { value: "rtsp://example.com/camera" } });
   fireEvent.click(within(camera).getByRole("button", { name: "Connect stream" }));
-  expect(within(camera).getByText(/For RTSP, HTTP/)).toBeTruthy();
+  expect(within(camera).getByText(/Browser preview requires an HTTPS video stream/)).toBeTruthy();
   fireEvent.change(url, { target: { value: "https://example.com/camera.mp4" } });
   fireEvent.click(within(camera).getByRole("button", { name: "Connect stream" }));
   expect(within(camera).getByLabelText("Camera preview").getAttribute("src")).toBe("https://example.com/camera.mp4");

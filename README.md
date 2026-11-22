@@ -385,3 +385,5 @@ Then read [Execution Manual Part 0](docs/90-manual/EXECUTION_MANUAL.md#part-0--s
   are committed, and every one has an unresolved licence (SAD §10). The
   Bellevue footage and the models derived from it are for internal
   engineering only until its licence is settled. The repository is private.
+
+For shared HTTPS uploads and Live Monitoring, see the [hosted analysis guide](docs/90-manual/HOSTED_ANALYSIS.md).

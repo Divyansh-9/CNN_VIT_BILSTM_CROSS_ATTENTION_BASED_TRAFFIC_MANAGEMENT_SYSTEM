@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AnalyzeVideo } from "./Analyze.jsx";
 import { LiveRecordingSession } from "./LiveRecordingSession.jsx";
 import { PageHead } from "./OpsPages.jsx";
-import { BrowserCamera, LocalWorkbenchLink } from "./BrowserCamera.jsx";
+import { BrowserCamera } from "./BrowserCamera.jsx";
 import { wbGet, wbPost } from "./workbench.js";
 import { Flow } from "./RecordingPages.jsx";
 import { LiveSignals, LiveSignalSchedule } from "./AdaptiveSignals.jsx";
@@ -99,6 +99,8 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
   const [message, setMessage] = useState("");
   const [inspect, setInspect] = useState(null);
   const capable = workbench?.monitoring;
+  const hosted = workbench?.hosted;
+  const cameraSource = hosted ? (workbench.server_camera ? "registered-camera" : "") : url.trim();
   useEffect(() => {
     if (!capable) return undefined;
     let alive = true;
@@ -116,7 +118,7 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
       pending = false;
       if (!alive) return;
       if (response.status !== "ok") {
-        setCamera({ status: "Error", message: "The local camera service is unavailable." });
+        setCamera({ status: "Error", message: "The camera service is unavailable." });
         onProgress(null);
         return;
       }
@@ -149,7 +151,7 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
   const command = async (connect) => {
     setMessage("");
     const reply = await wbPost(`/workbench/monitor/${connect ? "connect" : "disconnect"}`,
-      connect ? { source: url.trim(), camera: cameraId } : {}, fetcher);
+      connect ? { source: cameraSource, camera: cameraId } : {}, fetcher);
     if (reply.status !== "ok") setMessage(reply.reason);
     else {
       setCamera({ status: connect ? "Connecting" : "Disconnected" });
@@ -170,12 +172,11 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
       <button type="button" className={styles.button} aria-pressed={source === "demo"} disabled={connected} onClick={() => switchSource("demo")}>Demo Live – Upload Video</button>
     </div>
     {message && <p role="status" className={styles.banner}>{message}</p>}
-    {workbench === null && <p role="status" className={styles.empty}>Checking whether the local workbench is available…</p>}
+    {workbench === null && <p role="status" className={styles.empty}>Checking the live monitoring service…</p>}
     {workbench !== null && !capable && (source === "demo" ? <>
       <AnalyzeVideo browserPreview />
       <div className={styles.banner}>
-        <p className={styles.text}>To generate new detections and forecasts, open this recording in the local workbench.</p>
-        <LocalWorkbenchLink />
+        <p className={styles.text}>The AI monitoring service is unavailable on this site. You can still preview a recording.</p>
       </div>
     </> : <BrowserCamera />)}
     {capable && source === "demo" && <>
@@ -197,12 +198,14 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
       <section className={styles.card}>
         <h3>{camera.status === "Disconnected" ? "No Live Camera Connected" : camera.status}</h3>
         <form onSubmit={e => { e.preventDefault(); command(true); }}>
-          <label>Camera URL <input type="password" autoComplete="off" placeholder="rtsp://… or webcam:0" maxLength="300" value={url} disabled={connected} onChange={e => setUrl(e.target.value)} /></label>
+          {hosted ? <p>{cameraSource ? "STMS server camera" : "No camera has been configured on the STMS server."}</p>
+            : <label>Camera URL <input type="password" autoComplete="off" placeholder="rtsp://… or webcam:0" maxLength="300" value={url} disabled={connected} onChange={e => setUrl(e.target.value)} /></label>}
           <label> Camera profile <select value={cameraId} disabled={connected} onChange={e => setCameraId(e.target.value)}>
             <option value="">Choose a profile</option>{(cameras ?? []).map(profile => <option key={profile.id}>{profile.id}</option>)}</select></label>
-          <button className={styles.button} type="submit" disabled={connected || !url.trim() || !cameraId}>Connect Camera</button>
+          <button className={styles.button} type="submit" disabled={connected || !cameraSource || !cameraId || workbench.analysis_ready === false}>Connect Camera</button>
           <button className={styles.button} type="button" disabled={!connected} onClick={() => command(false)}>Disconnect</button>
         </form>
+        {workbench.analysis_ready === false && <p role="alert">{workbench.analysis_problem}</p>}
         {camera.message && <p role="status">{camera.message}</p>}
         {camera.status === "Connected" && camera.frame && <div className={player.stage} style={{ "--video-aspect": camera.result.processing.resolution[0] / camera.result.processing.resolution[1] }}>
           <img src={`data:image/jpeg;base64,${camera.frame}`} alt="Current traffic camera frame" style={{ width: "100%" }} />

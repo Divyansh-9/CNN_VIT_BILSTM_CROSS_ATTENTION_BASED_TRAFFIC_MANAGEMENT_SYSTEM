@@ -222,7 +222,7 @@ function SavedAnalysis({ view, fetcher }) {
       <h3>{reportTitle}</h3>
       {!jobs && <p role="status">Checking for saved analyses…</p>}
       {jobs?.length === 0 && <p className={styles.note}>{unavailable
-        ? "Saved reports are available in the local STMS workbench."
+        ? "Sign in to an STMS server with AI analysis enabled to open saved reports."
         : view === "live" ? "No completed Live session is available to replay here." : "No completed offline analysis is available yet."}</p>}
       {jobs?.length > 0 && <label className={styles.selectLabel}>Saved recording
         <select value={id} onChange={e => { setId(e.target.value); setSampleIndex(0); }}>

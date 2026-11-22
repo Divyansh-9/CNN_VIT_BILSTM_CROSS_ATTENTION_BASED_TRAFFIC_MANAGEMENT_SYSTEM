@@ -1,0 +1,48 @@
+name: stms-hosted
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/server.Dockerfile
+      args:
+        VITE_STMS_HOSTED: "1"
+        STMS_INSTALL_VIDEO: "1"
+    environment:
+      STMS_HOSTED_ORIGIN: "https://${STMS_HOSTNAME:?set STMS_HOSTNAME}"
+      STMS_PUBLIC_URL: "https://${STMS_HOSTNAME:?set STMS_HOSTNAME}/dashboard/"
+      STMS_COOKIE_SECURE: "1"
+      STMS_API_TOKEN: "${STMS_API_TOKEN:?set STMS_API_TOKEN}"
+      STMS_VIDEO_WEIGHTS: /run/stms/detector.pt
+      STMS_HOSTED_CAMERA_URL: "${STMS_HOSTED_CAMERA_URL:-}"
+      # Keep OpenCV/FFmpeg from logging stream addresses issued by the decoder.
+      OPENCV_LOG_LEVEL: ERROR
+      OPENCV_FFMPEG_LOGLEVEL: "-8"
+    volumes:
+      - analysis-data:/app/data/server
+      - type: bind
+        source: "${STMS_WEIGHTS_FILE:?set STMS_WEIGHTS_FILE}"
+        target: /run/stms/detector.pt
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: unless-stopped
+
+  https:
+    image: caddy:2.10.2-alpine
+    environment:
+      STMS_HOSTNAME: "${STMS_HOSTNAME:?set STMS_HOSTNAME}"
+    volumes:
+      - ./Caddyfile.hosted:/etc/caddy/Caddyfile:ro
+      - tls-data:/data
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  analysis-data:
+  tls-data:
