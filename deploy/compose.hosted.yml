@@ -14,6 +14,7 @@ services:
       STMS_COOKIE_SECURE: "1"
       STMS_API_TOKEN: "${STMS_API_TOKEN:?set STMS_API_TOKEN}"
       STMS_VIDEO_WEIGHTS: /run/stms/detector.pt
+      STMS_VIDEO_SHA256: "${STMS_VIDEO_SHA256:?set the detector checkpoint SHA-256}"
       STMS_HOSTED_CAMERA_URL: "${STMS_HOSTED_CAMERA_URL:-}"
       # Keep OpenCV/FFmpeg from logging stream addresses issued by the decoder.
       OPENCV_LOG_LEVEL: ERROR
@@ -26,6 +27,12 @@ services:
         read_only: true
         bind:
           create_host_path: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready/video', timeout=5)"]
+      interval: 15s
+      timeout: 8s
+      retries: 8
+      start_period: 20s
     restart: unless-stopped
 
   https:

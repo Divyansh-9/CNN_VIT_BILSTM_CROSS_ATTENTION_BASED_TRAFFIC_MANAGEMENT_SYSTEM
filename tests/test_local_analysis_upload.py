@@ -96,3 +96,25 @@ def test_hosted_uploads_require_auth_and_belong_to_their_account(monkeypatch, tm
         assert second.get(f"/workbench/analysis/{result_key}").status_code == 404
         assert second.post("/workbench/jobs", headers={"Origin": origin},
                            json={"recording": 1, "camera": "whole-frame"}).status_code == 400
+
+
+
+def test_hosted_readiness_checks_the_configured_checkpoint(monkeypatch, tmp_path):
+    import hashlib
+
+    from server import app as server
+    from scripts import tracked_video
+
+    checkpoint = tmp_path / "detector.pt"
+    checkpoint.write_bytes(b"checkpoint fixture")
+    monkeypatch.setenv("STMS_HOSTED_ORIGIN", "https://stms.example")
+    monkeypatch.setenv("STMS_VIDEO_SHA256", hashlib.sha256(checkpoint.read_bytes()).hexdigest())
+    monkeypatch.setattr(local_analysis, "find_spec", lambda name: True)
+    monkeypatch.setattr(tracked_video, "detector_settings", lambda: (checkpoint, .45, 640))
+    with TestClient(server.app, base_url="https://stms.example") as client:
+        assert client.get("/ready/video").json() == {"status": "ready"}
+        checkpoint.write_bytes(b"incorrect replacement")
+        failed = client.get("/ready/video")
+        assert failed.status_code == 503
+        assert failed.json() == {"status": "detector_unavailable"}
+        assert "checksum" in local_analysis.readiness()[1]

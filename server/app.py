@@ -111,7 +111,7 @@ def bearer_ok(authorization: str | None) -> bool:
 
 
 #: The landing page and bundled sample data are public. Real data comes from protected routes.
-PUBLIC_EXACT = {"/", "/health"}
+PUBLIC_EXACT = {"/", "/health", "/ready/video"}
 PUBLIC_PREFIXES = ("/auth/", "/dashboard/")
 
 
@@ -452,6 +452,16 @@ def record(connection: sqlite3.Connection, observation: Counts,
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "limits": SafetyLimits().__dict__}
+
+
+@app.get("/ready/video", include_in_schema=False)
+def ready_video():
+    if not local_analysis.hosted_origin() and os.environ.get("STMS_LOCAL_ANALYSIS") != "1":
+        return JSONResponse({"status": "disabled"}, status_code=503)
+    _, problem = local_analysis.readiness()
+    if problem:
+        return JSONResponse({"status": "detector_unavailable"}, status_code=503)
+    return {"status": "ready"}
 
 
 @app.post("/observation", response_model=CommandOut, dependencies=WRITE)

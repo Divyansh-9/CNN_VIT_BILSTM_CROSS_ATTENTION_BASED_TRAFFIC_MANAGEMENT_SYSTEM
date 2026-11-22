@@ -584,6 +584,35 @@ class Cameras:
 
 # ------------------------------------------------------------ the jobs ---
 
+class VideoQueue:
+    """A bounded FIFO for hosted offline jobs. Live uses its own worker."""
+
+    def __init__(self, capacity=8):
+        self.capacity = capacity
+        self.jobs = deque()
+        self.changed = threading.Condition()
+
+    def reserve(self):
+        with self.changed:
+            if len(self.jobs) >= self.capacity:
+                raise Refused(HTTPStatus.SERVICE_UNAVAILABLE,
+                              "The analysis queue is full. Try again when a slot opens.")
+            ticket = object()
+            self.jobs.append(ticket)
+            return ticket, len(self.jobs) > 1
+
+    def wait(self, ticket, stopping):
+        with self.changed:
+            while not stopping.is_set() and self.jobs[0] is not ticket:
+                self.changed.wait(timeout=.1)
+            return not stopping.is_set()
+
+    def release(self, ticket):
+        with self.changed:
+            self.jobs.remove(ticket)
+            self.changed.notify_all()
+
+
 class Analyses:
     """One analysis at a time. `runner` is `run_tool` except in the tests, and
     `inputs` is `tool_inputs` (hashing the detector weights once, on first use).
@@ -592,7 +621,7 @@ class Analyses:
     def __init__(self, recordings: list[Recording], cameras: Cameras, results_dir: Path, *,
                  runner=run_tool, inputs: Callable[[], dict] = tool_inputs, check=preflight,
                  fingerprint_of=fingerprint, clock=time.monotonic, locator: Locator | None = None, history=None,
-                 catalogue_from=None, on_release=None, pause_file=None) -> None:
+                 catalogue_from=None, on_release=None, pause_file=None, queue=None) -> None:
         self.recordings, self.cameras, self.results_dir = list(recordings), cameras, Path(results_dir)
         if os.name == "nt":
             absolute = os.path.abspath(self.results_dir)
@@ -613,6 +642,7 @@ class Analyses:
             self.recordings = catalogue_from.recordings
         self.on_release = on_release
         self.pause_file = pause_file
+        self.queue = queue
         self.thread: threading.Thread | None = None
         self.stopping = threading.Event()
         self._reset(None, None)
@@ -628,6 +658,7 @@ class Analyses:
         self.partial: Path | None = None
         self.job_id: str | None = None
         self.cached = False
+        self.waiting_for_slot = False
         self.monitor_updates = None
         self.started = self.clock()
         self.done = self.total = 0
@@ -688,15 +719,25 @@ class Analyses:
         with self.lock:
             if self.running():
                 raise Refused(HTTPStatus.CONFLICT, "an analysis is in progress; stop it first")
-            self._reset(recording, profile)
-            if self.history:
-                self.job_id = self.history.start(recording.name, recording.path.stat().st_size, profile.camera_id,
-                                                 pending_replay=pending_replay, upload_key=recording.upload_key)
-            self.levels_stage = profile.camera_id != WHOLE_FRAME and self.cameras.needs_levels(profile) and not pending_replay
-            self.monitor_updates = [] if pending_replay else None
-            self.stopping = threading.Event()
-            self.thread = threading.Thread(target=self._run, args=(recording, profile, self.stopping), daemon=True)
-            self.thread.start()
+            ticket, queued = self.queue.reserve() if self.queue else (None, False)
+            try:
+                self._reset(recording, profile)
+                self.waiting_for_slot = queued
+                self.levels_stage = profile.camera_id != WHOLE_FRAME and self.cameras.needs_levels(profile) and not pending_replay
+                if self.history:
+                    self.job_id = self.history.start(recording.name, recording.path.stat().st_size, profile.camera_id,
+                                                     pending_replay=pending_replay, upload_key=recording.upload_key)
+                self.monitor_updates = [] if pending_replay else None
+                self.stopping = threading.Event()
+                self.thread = threading.Thread(target=self._run, args=(recording, profile, self.stopping, ticket),
+                                               daemon=True)
+                self.thread.start()
+            except Exception:
+                if self.queue:
+                    self.queue.release(ticket)
+                if self.job_id:
+                    self.history.finish(self.job_id, None, "The analysis worker could not start.")
+                raise
             return self.job_id
 
     def running(self) -> bool:
@@ -758,11 +799,19 @@ class Analyses:
             items = self.monitor_updates[offset:offset + 64]
             return {"items": items, "next": offset + len(items)}
 
-    def _run(self, recording: Recording, profile: CameraProfile, stopping: threading.Event) -> None:
+    def _run(self, recording: Recording, profile: CameraProfile, stopping: threading.Event, ticket) -> None:
         try:
+            if self.queue:
+                admitted = self.queue.wait(ticket, stopping)
+                with self.lock:
+                    self.waiting_for_slot = False
+                if not admitted:
+                    self._fail("check", "stopped")
+                    return
             self._steps(recording, profile, stopping)
         except Exception as error:      # noqa: BLE001 - shown on the page, not lost in a thread
             stage = next((k for k, _ in STAGES if self.stage_state[k] == "running"), "check")
+            logging.getLogger(__name__).warning("Video job %s failed in %s (%s)", self.job_id, stage, type(error).__name__)
             self._fail(stage, f"{type(error).__name__}: {redact(str(error))}")
         finally:
             if self.partial:
@@ -779,6 +828,8 @@ class Analyses:
                 except Exception:
                     logging.getLogger(__name__).exception("Could not save analysis job %s", self.job_id)
                     self._fail("open", "Could not save the analysis job. Check local storage and retry.")
+            if self.queue:
+                self.queue.release(ticket)
             if self.on_release:
                 self.on_release()
 
@@ -872,6 +923,8 @@ class Analyses:
                          problem=self.problem, cached=self.cached, stages=stages, checks=checks, job_id=self.job_id)
             ready = self.stage_state["open"] == "done" and self.key is not None
             key = self.key
+            if self.waiting_for_slot:
+                state["queued"] = True
         eta = None
         if first is not None and last_at is not None and done - first[1] >= ETA_AFTER and done < total:
             rate = (last_at - first[0]) / (done - first[1])
@@ -901,7 +954,7 @@ def status_text(s: dict) -> str:
     if s["stopping"]:
         return "Stopping"
     if s.get("queued"):
-        return "Waiting for live processing capacity"
+        return "Queued — waiting for processing capacity"
     if states["open"] == "done":
         return "Analysed before: ready at once" if s["cached"] else "Analysis finished and checked"
     if states["validate"] == "running":

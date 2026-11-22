@@ -892,3 +892,44 @@ def test_the_workbench_signs_in_and_out_with_the_servers_accounts(site):
     forged = call("POST", "/auth/login", {"identifier": "test_person", "password": "Signal-Green-42!"},
                   headers={**out, "Origin": "http://evil.example"})
     assert forged[0] == 403
+
+
+
+@needs_profile
+def test_hosted_offline_queue_waits_and_releases_after_cancellation(videos, tmp_path):
+    from scripts.video_history import VideoHistory
+    from scripts.workbench import VideoQueue
+
+    queue = VideoQueue(capacity=2)
+    tools = [Tool(), Tool()]
+    workers = []
+    for index, tool in enumerate(tools):
+        folder = tmp_path / str(index)
+        cameras = Cameras([load_profile(PROFILE)], folder / "cameras")
+        workers.append(Analyses([], cameras, folder, runner=tool, inputs=lambda: INPUTS,
+                                check=passing(), history=VideoHistory(folder / "jobs.sqlite"), queue=queue))
+    first, second = workers
+    first.add(videos / "b_clip.mp4")
+    second.add(videos / "a_clip.MOV")
+    try:
+        first.start(1, "150th_Eastgate")
+        assert wait_for(lambda: bool(first.snapshot()["progress"]))
+        cancelled = second.start(1, "150th_Eastgate")
+        assert second.snapshot()["queued"]
+        assert second.snapshot()["status"].startswith("Queued")
+        with pytest.raises(workbench.Refused, match="queue is full"):
+            queue.reserve()
+        assert second.stop(wait_s=5, identifier=cancelled)
+        assert second.history.recent()[0]["status"] == "Cancelled"
+        assert first.running()
+        next_id = second.start(1, "150th_Eastgate")
+        assert next_id != cancelled and second.snapshot()["queued"]
+        tools[0].go.set()
+        assert wait_for(lambda: bool(second.snapshot()["progress"]))
+        assert not second.snapshot().get("queued")
+        tools[1].go.set()
+        assert wait_for(lambda: not first.running() and not second.running())
+        assert not queue.jobs
+    finally:
+        for worker in workers:
+            worker.stop(wait_s=5)

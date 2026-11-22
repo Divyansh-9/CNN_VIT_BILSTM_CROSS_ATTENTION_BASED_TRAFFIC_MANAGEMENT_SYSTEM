@@ -75,6 +75,13 @@ def build_store():
     return make_store(RESULTS, hosted=False)
 
 
+@lru_cache(maxsize=1)
+def hosted_queue():
+    from scripts.workbench import VideoQueue
+
+    return VideoQueue()
+
+
 def make_store(results, *, hosted):
     from edge.profile import load_profiles
     from scripts.workbench import Analyses, Cameras, Locator, run_tool, tool_inputs
@@ -94,6 +101,7 @@ def make_store(results, *, hosted):
     offline = Analyses([], Cameras(profiles, results / "cameras"), results,
                        locator=None if hosted else Locator([ROOT / "data/dev_footage"], results / "folders.json"),
                        history=VideoHistory(results / "jobs.sqlite"), pause_file=pause,
+                       queue=hosted_queue() if hosted else None,
                        runner=partial(run_tool, worker_threads=threads, background=True, pause_file=pause),
                        inputs=lambda: {**tool_inputs(), "device": "cpu"})
     demo = Analyses([], offline.cameras, results, history=offline.history, catalogue_from=offline,
@@ -132,14 +140,13 @@ def camera_monitor():
     return workspace()[2] if account.get() is not None else camera
 
 
-def other_workspace_running(mode):
+def other_live_workspace_running():
     owner = account.get()
     if owner is None:
         return False
     with store_lock:
         workspaces = [store for key, store in hosted_stores.items() if key != owner]
-    return any((store[1].running() or store[2].running()) if mode == "live" else store[0].running()
-               for store in workspaces)
+    return any(store[1].running() or store[2].running() for store in workspaces)
 
 
 def with_live_slot(start):
@@ -147,7 +154,7 @@ def with_live_slot(start):
         offline, demo = analyses(), analyses("live")
         if demo.running() or camera_monitor().running():
             raise HTTPException(409, "Stop the current live source before starting another")
-        if other_workspace_running("live"):
+        if other_live_workspace_running():
             raise HTTPException(409, "The server's Live slot is in use. Try again when it is available.")
         pause = offline.pause_file
         if pause:
@@ -158,6 +165,13 @@ def with_live_slot(start):
             if pause:
                 pause.unlink(missing_ok=True)
             raise
+
+
+@lru_cache(maxsize=4)
+def detector_digest(path, size, modified_ns):
+    # Path and file metadata invalidate the cache when weights are replaced.
+    with path.open("rb") as model:
+        return hashlib.file_digest(model, "sha256").hexdigest()
 
 
 def readiness():
@@ -174,6 +188,10 @@ def readiness():
             model = weights.name
             if not weights.is_file():
                 problems.append(f"Missing detector weights: {model}.")
+            elif expected := os.environ.get("STMS_VIDEO_SHA256", "").lower():
+                stat = weights.stat()
+                if not re.fullmatch(r"[0-9a-f]{64}", expected) or detector_digest(weights, stat.st_size, stat.st_mtime_ns) != expected:
+                    problems.append(f"Detector checkpoint checksum does not match: {model}.")
             policy_settings()
         except (OSError, TypeError, ValueError):
             problems.append("The detector or video policy configuration is invalid.")
@@ -481,8 +499,6 @@ def action(name, body):
                                                             pending_replay=True))
     else:
         with offline_lock:
-            if other_workspace_running("offline"):
-                raise HTTPException(409, "The server's analysis slot is in use. Try again when it is available.")
             identifier = store.start(body.get("recording"), body.get("camera"))
     return {"started": True, "job_id": identifier}
 

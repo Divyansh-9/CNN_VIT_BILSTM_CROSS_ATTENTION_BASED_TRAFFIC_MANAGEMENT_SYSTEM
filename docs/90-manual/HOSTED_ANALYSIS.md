@@ -24,8 +24,14 @@ workers. Allow ports 80 and 443 for the included HTTPS proxy. On the host:
 
        STMS_HOSTNAME=stms.your-domain.example
        STMS_WEIGHTS_FILE=/srv/stms/models/yolov8s.pt
+       STMS_VIDEO_SHA256=1f47a78bf100391c2a140b7ac73a1caae18c32779be7d310658112f7ac9aa78a
        STMS_API_TOKEN=<a long randomly generated server-ingest token>
        STMS_HOSTED_CAMERA_URL=
+
+   The sample hash is for the recorded YOLOv8s artifact. Set the matching hash
+   when using another checkpoint. The deployment probes /ready/video before
+   making the app available. A missing checkpoint, dependency or checksum
+   mismatch keeps the probe at HTTP 503.
 
    Leave the optional camera URL empty until you have permission to show
    a feed to STMS users. Set it to a real RTSP or HTTP(S) camera reachable
@@ -46,8 +52,10 @@ workers. Allow ports 80 and 443 for the included HTTPS proxy. On the host:
 
 This stack runs a single FastAPI process. Use one replica: video job control is
 in memory and each account's index is stored in SQLite. The server can run one
-Live workload and one offline workload at the same time. A second request for
-an occupied workload slot receives a message to retry. A video is limited to
+Live workload and one offline workload at the same time. Offline jobs from
+other accounts wait in a FIFO with up to seven waiting jobs. Their status
+shows Queued and they can be canceled while waiting. New Live sessions report
+that the Live slot is occupied until it is available. A video is limited to
 512 MiB and an account's saved videos to 2 GiB. Plan and monitor disk space
 for all accounts and back up the analysis-data volume. Report deletion does not
 currently delete the retained upload. A process restart interrupts current

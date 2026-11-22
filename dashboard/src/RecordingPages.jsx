@@ -306,7 +306,7 @@ export function RecordingPage({ section, context, caps, monitoringTime, fetcher 
   const inline = section === "analyze-report";
   if (inline) section = "results";
   if (section === "live") return <div className={styles.page}><Head name="Live" />
-    <Card title="Live camera"><p className={styles.empty}>This local analysis workbench has no live camera feed. Use Guided Replay for an analyzed recording.</p>
+    <Card title="Live camera"><p className={styles.empty}>No live camera is connected. Select a configured camera in Live Monitoring, or open Guided Replay for a saved recording.</p>
       {result && <button type="button" className={styles.button} onClick={() => openEvent(0)}>Play recording</button>}</Card></div>;
   if (section === "system") return <WorkbenchSystem caps={caps} offline={offline} processing={processing} fetcher={fetcher} />;
   if (section === "alerts") return <div className={styles.page}><Head name="Alerts" result={result} openEvent={openEvent} />
