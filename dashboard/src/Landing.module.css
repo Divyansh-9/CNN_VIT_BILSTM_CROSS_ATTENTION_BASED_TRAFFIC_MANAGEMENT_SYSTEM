@@ -210,10 +210,15 @@
 .mark { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--brand); color: var(--on-brand); }
 .barTools { display: flex; align-items: center; gap: 12px; }
 .barNav { display: flex; align-items: center; gap: 6px; }
-.barNav a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; transition: color .15s, background-color .15s; }
-.barNav a:hover { color: var(--ink); background: var(--glass-line); }
-.barNav .barCta { color: var(--on-brand); background: var(--brand); font-weight: 600; }
-.barNav .barCta:hover { color: var(--on-brand); background: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+.barNav a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px;
+            padding: 8px 14px; border: 1px solid var(--brand); border-radius: 999px;
+            text-decoration: none; font-weight: 600; font-size: 14px; line-height: 1.25;
+            transition: color .18s ease, background-color .18s ease, box-shadow .18s ease; }
+.barNav a svg { flex: none; }
+.barExplore { color: var(--brand); background-color: var(--panel); }
+.barExplore:hover { color: var(--on-brand); background-color: var(--brand); }
+.barCta { color: var(--on-brand); background-color: var(--brand); }
+.barCta:hover { box-shadow: 0 0 0 4px var(--brand-soft); }
 
 /* Hero */
 .hero { position: relative; isolation: isolate; min-height: 100vh; display: grid; align-content: center; gap: 40px;
@@ -260,6 +265,16 @@
        -webkit-backdrop-filter: var(--chrome-filter); backdrop-filter: var(--chrome-filter);
        transition: transform .2s, border-color .2s, box-shadow .2s; }
 .cta:hover { transform: translateY(-3px); border-color: var(--brand); box-shadow: var(--shadow); }
+.cta[data-cta="explore"] { border-color: color-mix(in srgb, var(--brand) 38%, var(--glass-line)); }
+.cta[data-cta="explore"]:is(:hover, :focus-visible) {
+  transform: translateY(-2px); border-color: var(--brand);
+  background: var(--chrome-sheen), color-mix(in srgb, var(--brand) 8%, var(--panel));
+  box-shadow: 0 6px 20px var(--brand-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .barNav a, .cta[data-cta="explore"] { transition: none; }
+  .cta[data-cta="explore"]:is(:hover, :focus-visible) { transform: none; }
+}
 .ctaPrimary { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand-soft), 0 10px 40px var(--brand-soft); }
 .ctaIcon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: var(--sky-soft); color: var(--sky); }
 .ctaPrimary .ctaIcon { background: var(--brand); color: var(--on-brand); }
@@ -349,14 +364,20 @@
   .cards, .outcomes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@media (max-width: 840px) {
+  .bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
+  .barTools { display: contents; }
+  .barTools > :first-child { justify-self: end; }
+  .barNav { grid-column: 1 / -1; }
+  .barNav a { flex: 1; gap: 6px; min-height: 44px; padding-inline: 8px; text-align: center; }
+  .hero, .redesign .hero { padding-top: 126px; }
+}
 @media (max-width: 680px) {
   .ctas, .split, .cards, .outcomes, .stack { grid-template-columns: minmax(0, 1fr); }
-  .barNav a:not(.barCta) { display: none; }
-  .barTools { gap: 8px; }
-  .hero { padding-top: 100px; }
   .section { padding-top: 56px; }
 }
 @media (max-width: 460px) {
   .team { grid-template-columns: minmax(0, 1fr); }
-  .barNav .barCta { padding: 8px 10px; }
+  .barNav a { padding-inline: 6px; font-size: 13px; }
+  .barTools [data-account-menu] > button > span { display: none; }
 }

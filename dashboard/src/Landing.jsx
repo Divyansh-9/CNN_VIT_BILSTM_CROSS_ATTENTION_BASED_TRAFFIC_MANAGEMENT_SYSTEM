@@ -162,7 +162,7 @@ export function Landing({ redesign }) {
           <ThemeSwitch />
           <AccountMenu />
           <nav aria-label="Main" className={styles.barNav}>
-            <a href="#explore">Explore the project</a>
+            <a href="#explore" className={styles.barExplore}><Icon name="compass" size={16} />Explore the project</a>
             <a href="#overview" className={styles.barCta}>Launch Dashboard<Icon name="arrow-right" size={16} /></a>
           </nav>
         </div>
