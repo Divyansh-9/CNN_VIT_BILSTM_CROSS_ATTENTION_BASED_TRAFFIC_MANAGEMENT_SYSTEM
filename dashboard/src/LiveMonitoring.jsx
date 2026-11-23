@@ -83,12 +83,12 @@ function TrafficNow({ result, elapsed, onInspect }) {
 function LiveSignalPanel({ result, elapsed, horizon, setHorizon }) {
   const signal = result?.samples.at(-1)?.signal;
   return <div>
-    <SceneForecast result={result} horizon={horizon} onHorizon={setHorizon} />
     {signal ? <LiveSignals signal={signal} elapsed={elapsed} samples={result.samples} policy={result.traffic.policy} compact />
       : <section className={styles.card}><h3>Live adaptive signal prediction</h3>
         <p className={styles.muted}>{result?.traffic.signal_problem ?? (result?.traffic.scope === "frame"
           ? "Select a saved intersection configuration for lane-specific predictions and simulated signal timing."
           : "Waiting for demand from a configured intersection.")}</p></section>}
+    <SceneForecast result={result} horizon={horizon} onHorizon={setHorizon} />
   </div>;
 }
 
@@ -119,7 +119,7 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
   const [url, setUrl] = useState("");
   const [cameraId, setCameraId] = useState("whole-frame");
   const [cameras, setCameras] = useState(null);
-  const [demoProfile, setDemoProfile] = useState("whole-frame");
+  const [demoProfile, setDemoProfile] = useState("");
   const [horizon, setHorizon] = useState(60);
   const [camera, setCamera] = useState({ status: "Disconnected" });
   const [frame, setFrame] = useState(null);
@@ -214,12 +214,12 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
             <h3>Smart AI Traffic Configuration</h3>
             <label className={chart.liveSourceProfile}>Analysis configuration
             <select value={demoProfile} onChange={e => { clearDemo(); setDemoProfile(e.target.value); }}>
-              <option value="whole-frame">Automatic AI Analysis</option>
-              <option value="">Match a saved configuration by filename</option>
+              <option value="">Automatic AI Analysis</option>
+              <option value="whole-frame">Whole-scene analysis only</option>
               {(cameras ?? []).map(profile => <option key={profile.id} value={profile.id}>{profile.id}</option>)}
             </select>
           </label>
-          <p className={styles.muted}>Automatic mode estimates whole-scene traffic. Saved configurations enable lane selection and approach forecasts.</p>
+          <p className={styles.muted}>Automatic mode enables simulated signal timing for recognized recordings and uses whole-scene forecasts for unfamiliar views.</p>
           </div>,
           calibration: ({ file, lanes }) => workbench.uploads && file && <LiveCalibration key={file.name} file={file}
             lanes={lanes} fetcher={fetcher} onSaved={async id => {

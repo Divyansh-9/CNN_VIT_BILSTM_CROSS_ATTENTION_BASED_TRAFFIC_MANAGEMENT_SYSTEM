@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "camera_id": "Bellevue_116th_NE12th",
+  "geometry": {
+    "coordinates": "normalised_image",
+    "max_radius": 0.18,
+    "lanes": [
+      {
+        "name": "lane_0",
+        "centre": [
+          0.394,
+          0.179
+        ]
+      },
+      {
+        "name": "lane_1",
+        "centre": [
+          0.748,
+          0.225
+        ]
+      },
+      {
+        "name": "lane_2",
+        "centre": [
+          0.881,
+          0.814
+        ]
+      },
+      {
+        "name": "lane_3",
+        "centre": [
+          0.156,
+          0.641
+        ]
+      }
+    ]
+  },
+  "lane_map": {
+    "lane_0": "N",
+    "lane_1": "E",
+    "lane_2": "S",
+    "lane_3": "W"
+  },
+  "calibration": {
+    "persistence_spec": "cameras/recording/levels/bellevue_116th_levels.json",
+    "spec_sha256": "528d612edf8021197972f2d3a858b9e38b9c3e0c8a55f577ec2d80019f3efbc0",
+    "key": "Bellevue_116th_NE12th"
+  },
+  "limitations": [
+    "Provisional camera made in the workbench: its lanes were placed by eye on one recording and have not been reviewed (ADR-028)",
+    "Its levels were set from the first recording analysed with it, so they flatter that recording and are not evidence of anything",
+    "Signal timing is simulated. Apply this profile only to footage from the same camera and viewpoint."
+  ],
+  "provenance": {
+    "placed_by": "workbench user",
+    "how": "lane centres placed on Bellevue_116th_NE12th__2017-09-11_09-08-31.mp4 in the dashboard's Analyze a video page",
+    "record": "D41 provisional calibration retained for the Bellevue recording demo"
+  },
+  "direction": {
+    "status": "declared"
+  },
+  "evidence": []
+}

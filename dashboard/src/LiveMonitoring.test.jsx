@@ -60,9 +60,8 @@ it("starts a mapped streaming job from the file alone and stops only that sessio
     fetcher={fetcher} active onProgress={() => {}} onSaved={() => {}} />);
   const demo = screen.getByRole("region", { name: "Demo Live monitoring player" });
   expect(within(demo).getByText("Upload Traffic Video for Live Monitoring")).toBeTruthy();
-  expect(within(demo).getByRole("combobox", { name: "Analysis configuration" }).value).toBe("whole-frame");
+  expect(within(demo).getByRole("combobox", { name: "Analysis configuration" }).value).toBe("");
   await within(demo).findByRole("option", { name: camera });
-  fireEvent.change(within(demo).getByRole("combobox", { name: "Analysis configuration" }), { target: { value: camera } });
   fireEvent.change(within(demo).getByLabelText(/Choose a video/), {
     target: { files: [new File(["recording"], camera + "__morning.mp4", { type: "video/mp4" })] },
   });

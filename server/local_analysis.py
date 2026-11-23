@@ -98,6 +98,8 @@ def make_store(results, *, hosted):
             pause.unlink(missing_ok=True)
 
     profiles, _ = load_profiles()
+    recording_profiles, _ = load_profiles(ROOT / "cameras" / "recording")
+    profiles.extend(recording_profiles)
     offline = Analyses([], Cameras(profiles, results / "cameras"), results,
                        locator=None if hosted else Locator([ROOT / "data/dev_footage"], results / "folders.json"),
                        history=VideoHistory(results / "jobs.sqlite"), pause_file=pause,

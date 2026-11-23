@@ -1,0 +1,21 @@
+{
+  "name": "workbench provisional levels",
+  "method": "forecast for the next 60 s = class of the mean of each lane's last 30 counts (2 s step); LOW if mean <= low, MEDIUM if <= med, else HIGH",
+  "decision": "none: a provisional camera made in the workbench (D41), not reviewed",
+  "cameras": {
+    "Bellevue_116th_NE12th": {
+      "low": 0.1,
+      "med": 0.567,
+      "source": "workbench, set from Bellevue_116th_NE12th__2017-09-11_09-08-31 (q33/q67 of 60 s means, ADR-017's rule)",
+      "lanes": 4,
+      "calibrated": true
+    }
+  },
+  "confidence_is_measured_precision": {
+    "LOW": 0.0,
+    "MEDIUM": 0.0,
+    "HIGH": 0.0
+  },
+  "confidence_source": "not measured for this camera; zeros because the forecaster needs the field, and the workbench never shows a confidence",
+  "not_established": "anything: provisional levels, set on the recording they are shown on"
+}
