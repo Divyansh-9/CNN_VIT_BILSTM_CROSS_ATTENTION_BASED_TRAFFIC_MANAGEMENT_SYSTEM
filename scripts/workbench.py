@@ -150,7 +150,7 @@ def file_sha256(path: Path) -> str:
 def tool_inputs() -> dict:
     """What a result depends on besides the video and the profile."""
     from scripts.analyze_video import RIDGE_SPEC
-    from scripts import adaptive_signal, recording_profile, tracked_video, video_traffic
+    from scripts import adaptive_signal, recording_profile, scene_forecast, tracked_video, video_traffic
     from edge import classes
     from dataclasses import asdict
 
@@ -168,7 +168,9 @@ def tool_inputs() -> dict:
             "recording_profile_sha256": file_sha256(Path(recording_profile.__file__)),
             "class_mapping_sha256": file_sha256(classes.MAPPING_FILE),
             "class_mapping_code_sha256": file_sha256(Path(classes.__file__)),
-            "traffic_sha256": file_sha256(Path(video_traffic.__file__)), "policy": asdict(tracked_video.policy_settings()),
+            "traffic_sha256": file_sha256(Path(video_traffic.__file__)),
+            "scene_forecast_sha256": file_sha256(Path(scene_forecast.__file__)),
+            "policy": asdict(tracked_video.policy_settings()),
             "signal_sha256": file_sha256(Path(adaptive_signal.__file__)), "signal_config_sha256": signal_hash}
 
 

@@ -1389,6 +1389,13 @@ describe("Analyze a video (D34)", () => {
 
   it("accepts a whole results file and refuses a bad one whole", () => {
     expect(validateAnalysis(ANALYSIS).ok).toBe(true);
+    const scene = { ...ANALYSIS, samples: [
+      { ...ANALYSIS.samples[0], scene_forecasts: { 30: { mean: 4, checks: 5, mae: 1.2, range: [2, 6] } } },
+      ...ANALYSIS.samples.slice(1),
+    ] };
+    expect(validateAnalysis(scene).ok).toBe(true);
+    scene.samples[0].scene_forecasts[30].range = [5, 6];
+    expect(validateAnalysis(scene).reason).toContain("invalid scene forecast");
     for (const bad of [{ kind: "x" }, { schema: 2 }, { step_s: 5 }, { lanes: [] }, { limits: { low: 2, med: 1 } }, { samples: [] },
                        { samples: [sample(0, { counts: { lane_0: 1 } })] }, { samples: [sample(0, { counts: { lane_0: -1, lane_1: 0 } })] },
                        { samples: [sample(0, { boxes: [[0, 0, 2, 1]] })] }, { samples: [sample(0, { level: { N: "LOUD", S: "LOW" } })] },

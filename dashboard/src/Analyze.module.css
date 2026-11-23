@@ -118,6 +118,7 @@
 /* D35: small enough to leave the picture readable, and off by default. */
 .classLabel { position: absolute; transform: translateY(-100%); padding: 0 4px; background: var(--bg); border: 1px solid var(--line); font: 11px var(--mono); color: var(--ink); white-space: nowrap; pointer-events: none; }
 /* D41: placing a new camera's lanes on the picture. */
+.placing video { pointer-events: none; }
 .placing { cursor: crosshair; outline: 2px solid var(--brand); outline-offset: 2px; }
 .reach { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 3; }
 .placeHint { position: absolute; right: 8px; bottom: 8px; background: var(--bg); border: 1px solid var(--brand); border-radius: 4px; padding: 2px 8px; font-size: 12px; pointer-events: none; }
@@ -129,3 +130,16 @@
 .export { justify-self: start; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
           font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .export:hover { border-color: var(--brand); }
+
+.regionsOverlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.regionsOverlay polygon { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 2; }
+.regionsOverlay line, .regionsOverlay polyline { fill: none; stroke: var(--sky); stroke-width: 2; stroke-dasharray: 5 4; }
+.regionsOverlay .trackTrail { stroke: var(--brand); stroke-dasharray: none; }
+.regionsOverlay circle { fill: var(--sky); }
+.regionsOverlay text { fill: var(--ink); paint-order: stroke; stroke: var(--panel); stroke-width: .004; font-size: .034px; }
+.regionActions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: .5rem; }
+.regionActions button, .regionActions input, .regionActions select, .regionSummary button {
+  padding: .35rem .5rem; border: 1px solid var(--line); border-radius: .4rem; background: var(--panel);
+  color: var(--ink); font: inherit; max-width: 100%;
+}
+.regionSummary { padding: .5rem; margin-block: .5rem; border: 1px solid var(--line); border-radius: .4rem; }

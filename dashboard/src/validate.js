@@ -250,6 +250,7 @@ export function validateSites(json) {
 // D34: a results file from scripts/analyze_video.py, opened by hand, so it is
 // checked like any response: shown whole or refused with the reason.
 const unit = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1;
+const nonnegative = (n) => Number.isFinite(n) && n >= 0;
 const number = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MAX_LANE_COUNT;
 
 function detectionsProblem(s, laneNames) {
@@ -305,7 +306,6 @@ function trackedTrafficProblem(json) {
   if (traffic === undefined && processing === undefined) return null;
   const array = (x) => Array.isArray(x);
   const point = (x) => array(x) && x.length === 2 && x.every(Number.isFinite);
-  const nonnegative = (n) => Number.isFinite(n) && n >= 0;
   const kinds = ["car", "motorcycle", "bus", "truck"];
   if (!processing || typeof processing.filename !== "string" || typeof processing.model !== "string"
       || typeof processing.tracker !== "string" || !point(processing.resolution) || !processing.resolution.every(n => n > 0)
@@ -370,6 +370,13 @@ export function validateAnalysis(json) {
     if (i > 0 && s.t <= json.samples[i - 1].t) return fail(`sample ${i + 1}: out of order`);
     if (s.track_ids !== undefined && (!Array.isArray(s.track_ids) || s.track_ids.length !== s.boxes.length
         || !s.track_ids.every(id => id === null || (Number.isInteger(id) && id >= 0)))) return fail(`sample ${i + 1}: invalid track IDs`);
+    if (s.scene_forecasts !== undefined && (!s.scene_forecasts || Array.isArray(s.scene_forecasts)
+        || typeof s.scene_forecasts !== "object" || !Object.entries(s.scene_forecasts).every(([h, f]) =>
+          ["30", "60", "300", "600"].includes(h) && f && nonnegative(f.mean)
+          && Number.isInteger(f.checks) && f.checks >= 0 && f.checks <= 24
+          && (f.checks ? nonnegative(f.mae) : f.mae === null)
+          && (f.range === null || (f.checks >= 5 && Array.isArray(f.range) && f.range.length === 2 && f.range.every(nonnegative)
+            && f.range[0] <= f.mean && f.range[1] >= f.mean))))) return fail(`sample ${i + 1}: invalid scene forecast`);
     if (s.signal !== undefined && (!signalSnapshot(s.signal) || s.signal.as_of > s.t)) return fail(`sample ${i + 1}: invalid live signal prediction`);
   }
   const trafficProblem = trackedTrafficProblem(json);

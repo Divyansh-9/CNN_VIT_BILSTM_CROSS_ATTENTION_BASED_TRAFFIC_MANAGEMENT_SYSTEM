@@ -76,7 +76,7 @@ function Stages({ job }) {
 
 // Lane placement for a new camera: the picture is the page's own video, and each
 // click there adds a lane centre (Analyze.jsx owns the picture and passes `lanes`).
-function NewCamera({ lanes, recording, fetcher, onSaved, onCancel }) {
+export function NewCamera({ lanes, recording, fetcher, onSaved, onCancel }) {
   const [name, setName] = useState("");
   const [reach, setReach] = useState(0.25);
   const [problem, setProblem] = useState("");
@@ -117,7 +117,7 @@ function NewCamera({ lanes, recording, fetcher, onSaved, onCancel }) {
       <label className={styles.field}><span>Camera name</span>
         <input className={styles.text} value={name} maxLength={32} placeholder="for example Gate_2_North" onChange={(e) => setName(e.target.value)} />
       </label>
-      <p className={styles.small}>N, S, E and W are labels you choose, not verified directions. This camera stays on this computer, is marked
+      <p className={styles.small}>N, S, E and W are labels you choose, not verified directions. This configuration is saved in STMS as
         provisional, and its LOW, MEDIUM and HIGH levels are set from the first recording you analyse with it, so they flatter that
         recording and are not evidence.</p>
       {problem && <p className={styles.problem}>{problem}</p>}

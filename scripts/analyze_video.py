@@ -45,6 +45,7 @@ from mfstnet.corpus.pcu import ASSUMED, pcu_of  # noqa: E402
 from scripts.console import use_utf8  # noqa: E402
 from scripts.tracked_video import TrackedVideo, detector_settings, policy_settings  # noqa: E402
 from scripts.recording_profile import WHOLE_FRAME, load_recording_profile  # noqa: E402
+from scripts.scene_forecast import METHOD, SceneForecast  # noqa: E402
 from scripts.video_traffic import WINDOW_S, summarize  # noqa: E402
 
 KIND = "stms-video-analysis"
@@ -91,6 +92,7 @@ class SampleAnalyzer:
         self.persistence = None if whole else PersistenceForecaster(profile.spec_path, profile.spec_key, profile.lane_map)
         self.ridge = None if whole else RidgeCountForecaster(ridge_spec, profile.lane_map)
         self.min_confidence = min_confidence
+        self.scene = SceneForecast()
 
     def step(self, ts, detections):
         counted = count_frame(detections, self.lanes, min_confidence=self.min_confidence)
@@ -103,6 +105,7 @@ class SampleAnalyzer:
         } if number else None
         return {
             "t": ts, "counts": totals,
+            "scene_forecasts": self.scene.observe(ts, sum(d.confidence >= self.min_confidence for d in detections)),
             "boxes": [[round(d.x1, 4), round(d.y1, 4), round(d.x2, 4), round(d.y2, 4)] for d in detections],
             # D35: parallel to boxes. The lane is the one this detection was counted in.
             "detections": [[d.cls, round(d.confidence, 3),
@@ -155,7 +158,8 @@ def analysis_result(profile, analyzer, clip, duration_s, samples, seen_classes):
         "known_limits": list(profile.limitations),
         "directions_verified": profile.directions_verified,
         "models": {"level": persistence.model_id if persistence else None,
-                   "number": f"video-blend-70/30:{analyzer.ridge.model_id}" if analyzer.ridge else None},
+                   "number": f"video-blend-70/30:{analyzer.ridge.model_id}" if analyzer.ridge else None,
+                   "scene": METHOD},
         "samples": samples,
     }
 

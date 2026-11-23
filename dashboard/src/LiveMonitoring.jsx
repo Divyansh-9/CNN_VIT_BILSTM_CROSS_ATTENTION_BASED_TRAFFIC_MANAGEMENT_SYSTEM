@@ -3,7 +3,9 @@ import { AnalyzeVideo } from "./Analyze.jsx";
 import { LiveRecordingSession } from "./LiveRecordingSession.jsx";
 import { PageHead } from "./OpsPages.jsx";
 import { BrowserCamera } from "./BrowserCamera.jsx";
-import { wbGet, wbPost } from "./workbench.js";
+import { uploadVideo, wbGet, wbPost } from "./workbench.js";
+import { SceneForecast } from "./SceneForecast.jsx";
+import { NewCamera } from "./Workbench.jsx";
 import { Flow } from "./RecordingPages.jsx";
 import { LiveSignals, LiveSignalSchedule } from "./AdaptiveSignals.jsx";
 import { simulatedPhase } from "./signalSimulation.js";
@@ -53,10 +55,10 @@ function TrafficNow({ result, elapsed, onInspect }) {
     ...Object.entries(traffic.by_type).map(([kind, n]) => [kind, result.processing.supported_classes.includes(kind) ? n : "Unsupported"]),
     ["Current density", `${window.level} · ${window.visible.toFixed(1)} vehicles in view`],
     ["Flow", traffic.scope === "frame" ? "Needs a counting line" : elapsed >= 1 ? `${(60 * traffic.crossings.length / elapsed).toFixed(1)} crossings/min since start` : "Insufficient data"],
-    ["Density forecast (60 s)", sample.level ? Object.entries(sample.level).map(([a, level]) => `${a} ${level}`).join(" / ")
-      : traffic.scope === "frame" ? "Needs a camera profile" : "Warming up"],
-    ["Volume forecast (60 s)", sample.number ? Object.entries(sample.number).map(([a, n]) => `${a} ${n.toFixed(1)} vehicles`).join(" / ")
-      : traffic.scope === "frame" ? "Needs a camera profile" : "Warming up"],
+    ["Approach density forecast (60 s)", sample.level ? Object.entries(sample.level).map(([a, level]) => `${a} ${level}`).join(" / ")
+      : traffic.scope === "frame" ? "Whole-scene forecast shown above" : "Warming up"],
+    ["Approach volume forecast (60 s)", sample.number ? Object.entries(sample.number).map(([a, n]) => `${a} ${n.toFixed(1)} vehicles`).join(" / ")
+      : traffic.scope === "frame" ? "Whole-scene forecast shown above" : "Warming up"],
     ...(phase ? [["Legacy simulated phase", `${phase.label} · ${phase.remaining} s remaining`]] : []),
     ["Active alerts", traffic.alerts.length],
   ];
@@ -78,22 +80,47 @@ function TrafficNow({ result, elapsed, onInspect }) {
   </>;
 }
 
-function LiveSignalPanel({ result, elapsed }) {
+function LiveSignalPanel({ result, elapsed, horizon, setHorizon }) {
   const signal = result?.samples.at(-1)?.signal;
-  if (signal) return <LiveSignals signal={signal} elapsed={elapsed} samples={result.samples} policy={result.traffic.policy} compact />;
-  return <section className={styles.card}><h3>Live adaptive signal prediction</h3>
-    <p className={styles.muted}>{result?.traffic.signal_problem ?? (result
-      ? "Vehicle detection is running. Select the matching intersection profile above to enable lane predictions."
-      : "Collecting traffic data from the feed…")}</p>
-  </section>;
+  return <div>
+    <SceneForecast result={result} horizon={horizon} onHorizon={setHorizon} />
+    {signal ? <LiveSignals signal={signal} elapsed={elapsed} samples={result.samples} policy={result.traffic.policy} compact />
+      : <section className={styles.card}><h3>Live adaptive signal prediction</h3>
+        <p className={styles.muted}>{result?.traffic.signal_problem ?? (result?.traffic.scope === "frame"
+          ? "Select a saved intersection configuration for lane-specific predictions and simulated signal timing."
+          : "Waiting for demand from a configured intersection.")}</p></section>}
+  </div>;
+}
+
+function LiveCalibration({ file, lanes, fetcher, onSaved }) {
+  const [upload, stage] = useState(null);
+  const [pending, busy] = useState(false);
+  const [problem, fail] = useState("");
+  const begin = async () => {
+    fail("");
+    busy(true);
+    const response = await uploadVideo(file, fetcher);
+    busy(false);
+    if (response.status === "ok") stage(response.data.recording);
+    else fail(response.reason);
+  };
+  return <details className={player.how}>
+    <summary>Advanced intersection calibration</summary>
+    {upload == null ? <button type="button" className={styles.button} disabled={pending} onClick={begin}>
+      {pending ? "Preparing calibration?" : "Place and save lane markers"}</button>
+      : <NewCamera lanes={lanes} recording={upload} fetcher={fetcher} onCancel={() => stage(null)}
+        onSaved={id => { stage(null); onSaved(id); }} />}
+    {problem && <p role="alert">{problem}</p>}
+  </details>;
 }
 
 export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active }) {
   const [source, setSource] = useState("demo");
   const [url, setUrl] = useState("");
-  const [cameraId, setCameraId] = useState("");
+  const [cameraId, setCameraId] = useState("whole-frame");
   const [cameras, setCameras] = useState(null);
-  const [demoProfile, setDemoProfile] = useState("");
+  const [demoProfile, setDemoProfile] = useState("whole-frame");
+  const [horizon, setHorizon] = useState(60);
   const [camera, setCamera] = useState({ status: "Disconnected" });
   const [frame, setFrame] = useState(null);
   const [message, setMessage] = useState("");
@@ -182,13 +209,25 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
     {capable && source === "demo" && <>
       <AnalyzeVideo caps={workbench} onFile={clearDemo}
         monitor={{ onProgress: onDemo, onFinish: finish, onReset: clearDemo,
-          panel: <LiveSignalPanel result={frame?.result} elapsed={frame?.time ?? 0} />,
-          tools: <label className={chart.liveSourceProfile}>Intersection profile
+          panel: <LiveSignalPanel result={frame?.result} elapsed={frame?.time ?? 0} horizon={horizon} setHorizon={setHorizon} />,
+          tools: <div className={styles.card}>
+            <h3>Smart AI Traffic Configuration</h3>
+            <label className={chart.liveSourceProfile}>Analysis configuration
             <select value={demoProfile} onChange={e => { clearDemo(); setDemoProfile(e.target.value); }}>
-              <option value="">Match by video filename</option>
+              <option value="whole-frame">Automatic AI Analysis</option>
+              <option value="">Match a saved configuration by filename</option>
               {(cameras ?? []).map(profile => <option key={profile.id} value={profile.id}>{profile.id}</option>)}
             </select>
-          </label> }}
+          </label>
+          <p className={styles.muted}>Automatic mode estimates whole-scene traffic. Saved configurations enable lane selection and approach forecasts.</p>
+          </div>,
+          calibration: ({ file, lanes }) => workbench.uploads && file && <LiveCalibration key={file.name} file={file}
+            lanes={lanes} fetcher={fetcher} onSaved={async id => {
+              const response = await wbGet("/workbench/cameras", fetcher);
+              if (response.status === "ok") setCameras(response.data);
+              clearDemo();
+              setDemoProfile(id);
+            }} /> }}
         seekTo={inspect} assistant={props => <LiveRecordingSession {...props} profiles={cameras} selected={demoProfile}
           fetcher={fetcher} caps={workbench} />} />
       <TrafficNow result={frame?.result} elapsed={frame?.time ?? 0} onInspect={time => setInspect({ time })} />
@@ -201,7 +240,7 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
           {hosted ? <p>{cameraSource ? "STMS server camera" : "No camera has been configured on the STMS server."}</p>
             : <label>Camera URL <input type="password" autoComplete="off" placeholder="rtsp://… or webcam:0" maxLength="300" value={url} disabled={connected} onChange={e => setUrl(e.target.value)} /></label>}
           <label> Camera profile <select value={cameraId} disabled={connected} onChange={e => setCameraId(e.target.value)}>
-            <option value="">Choose a profile</option>{(cameras ?? []).map(profile => <option key={profile.id}>{profile.id}</option>)}</select></label>
+            <option value="whole-frame">Automatic AI Analysis</option>{(cameras ?? []).map(profile => <option key={profile.id}>{profile.id}</option>)}</select></label>
           <button className={styles.button} type="submit" disabled={connected || !cameraSource || !cameraId || workbench.analysis_ready === false}>Connect Camera</button>
           <button className={styles.button} type="button" disabled={!connected} onClick={() => command(false)}>Disconnect</button>
         </form>
@@ -219,7 +258,7 @@ export function LiveMonitoring({ workbench, fetcher, onProgress, onSaved, active
           </span>)}
         </div>}
       </section>
-      <LiveSignalPanel result={camera.status === "Connected" ? camera.result : null} elapsed={camera.elapsed ?? 0} />
+      <LiveSignalPanel result={camera.status === "Connected" ? camera.result : null} elapsed={camera.elapsed ?? 0} horizon={horizon} setHorizon={setHorizon} />
       </div>
       <TrafficNow result={camera.status === "Connected" ? camera.result : null} elapsed={camera.elapsed ?? 0} />
     </>}

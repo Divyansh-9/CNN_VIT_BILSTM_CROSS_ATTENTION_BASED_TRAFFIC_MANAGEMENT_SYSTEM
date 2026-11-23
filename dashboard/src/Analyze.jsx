@@ -1,3 +1,5 @@
+import { RegionOverlay, TrafficRegions, useTrafficRegions } from "./TrafficRegions.jsx";
+import { SceneForecast } from "./SceneForecast.jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadText, toCsv } from "./ops.js";
 import panel from "./Panels.module.css";
@@ -26,7 +28,7 @@ function Chip({ level }) {
 }
 
 function Results({ analysis, sample, lane, vehicleClass }) {
-  if (analysis.traffic?.scope === "frame") return <p>{vehicleClass ? countClass(sample, "frame", vehicleClass) : sample.counts.frame} vehicles visible in this frame. Approach forecasts require a camera profile.</p>;
+  if (analysis.traffic?.scope === "frame") return <p>{vehicleClass ? countClass(sample, "frame", vehicleClass) : sample.counts.frame} vehicles visible in this frame.</p>;
   const note = !sample.level ? "Forecasts need history. The level starts at 01:00 and the number at 02:00."
     : !sample.number ? "The vehicle number starts at 02:00." : "";
   return (
@@ -259,6 +261,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
   const player = useRef(null);
   const viewport = useRef(null);
   const stageRef = useRef(null);
+  const region = useTrafficRegions();
   const requestPlayback = (node) => {
     node.play()?.catch(error => {
       // Native play promises are interrupted by intentional pauses, seeks and
@@ -284,6 +287,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
     remove: (i) => setPoints((ps) => ps.filter((_, j) => j !== i)),
   };
   const place = (event) => {
+    if (region.draft) { region.updateDraft(event, stageRef.current); return; }
     if (!placing || !stageRef.current || points.length >= 4) return;
     const box = stageRef.current.getBoundingClientRect();
     const x = (event.clientX - box.left) / box.width, y = (event.clientY - box.top) / box.height;
@@ -331,7 +335,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
     setStreamComplete(false);
     monitorJob.current = null;
     if (restart) setMonitorRevision(n => n + 1);
-    else { setMonitorArmed(false); setVideo(null); setLength(null); }
+    else { region.reset(); setMonitorArmed(false); setVideo(null); setLength(null); }
   };
 
   useEffect(() => () => { if (video?.file instanceof Blob) URL.revokeObjectURL(video.url); }, [video]);
@@ -424,6 +428,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
   const uploadSize = maxBytes >= 1024 ** 3 ? maxBytes / 1024 ** 3 + " GB" : maxBytes / 1024 ** 2 + " MiB";
   const openVideo = (file) => {
     if (!file) return;
+    region.reset();
     if (!/\.(mp4|m4v|avi|webm|mov|mkv)$/i.test(file.name)) {
       setVideo(null); setAnalysis(null); resetPlayback(); onRejected?.(file, "format");
       setVideoProblem(`${file.name} is unsupported. Choose MP4, MOV, AVI, MKV, M4V or WebM.`);
@@ -607,7 +612,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
           {liveView && <p className={styles.liveFilename}>{video.name}</p>}
           <div className={styles.playerViewport} ref={viewport}>
           <div className={styles.stageFrame}>
-          <div className={`${styles.stage} ${placing ? styles.placing : ""}`} style={{ "--video-aspect": aspect }} data-stage="true"
+          <div className={`${styles.stage} ${placing || region.draft ? styles.placing : ""}`} style={{ "--video-aspect": aspect }} data-stage="true"
                ref={stageRef} onClick={place} data-placing={placing || undefined}>
             {video ? (
               <video ref={player} src={video.url} muted playsInline data-player="true"
@@ -656,6 +661,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
                 <span className={styles.placeHint}>{points.length < 4 ? `Click a lane's centre (${points.length} of up to 4)` : "Four lanes placed"}</span>
               </>
             )}
+            {pictureReady && (region.active.length > 0 || region.draft || region.trails) && <RegionOverlay region={region} result={synced ? analysis : null} time={t} />}
             {pictureReady && sample && showBoxes && (
               <svg className={styles.boxes} viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
                 {showLanes && analysis.traffic?.lines.map(({ lane: name, endpoints: [[x1, y1], [x2, y2]] }) =>
@@ -703,13 +709,16 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
             <button type="button" className={styles.export} onClick={() => resetMonitor(false)}>Stop</button>
             {monitor && (!chooseWhenToStart || monitorArmed) && <button type="button" className={styles.export} onClick={() => resetMonitor(true)}>Restart</button>}
           </div>}
+          {pictureReady && !region.draft && monitor?.calibration?.({ file: video.file, lanes })}
+          {pictureReady && !placing && <TrafficRegions region={region} result={synced ? analysis : null} time={t} live={liveView}
+            pause={() => { wantsPlayback.current = false; setBuffering(false); player.current?.pause(); }} />}
           {buffering && <p className={styles.small} role="status">Buffering live detections. Playback resumes when the next sample is ready.</p>}
           {screenProblem && <p className={styles.small} role="status">{screenProblem}</p>}
           </div>
           {synced && (
             <div className={styles.toggles}>
               {!wholeFrame && <label>Lane <select value={lane} onChange={(event) => setLaneFilter(event.target.value)}>
-                <option value="">All lanes</option>
+                <option value="">Analyze all configured lanes</option>
                 {analysis.lanes.map(({ name, approach }, i) => <option key={name} value={name}>L{i} · {approach}</option>)}
               </select></label>}
               {vehicleClasses.length > 0 && <label>Vehicle class <select value={vehicleClass} onChange={(event) => setClassFilter(event.target.value)}>
@@ -734,6 +743,7 @@ export function AnalyzeVideo({ view = "operator", handed = null, assistant = nul
           {sample ? <Results analysis={analysis} sample={sample} lane={lane} vehicleClass={vehicleClass} />
             : <p className={styles.absent} data-state="no-results">{mismatch ? "Choose the video that matches this analysis." : "Vehicle counts and forecasts appear here when analysis is available."}</p>}
           {sample && !wholeFrame && !analysis.directions_verified && <p className={styles.notice} data-directions="unverified">N, S, E and W are labels. Their directions have not been verified for this camera.</p>}
+          {synced && analysis.models?.scene && <SceneForecast result={analysis} sample={sample} />}
         </section>}
 
         {sample && view === "engineering" && <VideoEngineering analysis={analysis} sample={sample} className={`${styles.card} ${styles.wide}`} />}

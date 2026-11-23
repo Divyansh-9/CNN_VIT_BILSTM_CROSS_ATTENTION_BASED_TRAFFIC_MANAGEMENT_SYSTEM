@@ -1,3 +1,4 @@
+import { SceneForecast } from "./SceneForecast.jsx";
 import { useEffect, useRef, useState } from "react";
 import { PageHead } from "./OpsPages.jsx";
 import { CountBenchmark } from "./CountBenchmark.jsx";
@@ -261,6 +262,11 @@ function exportReport(result, job) {
     add("offline yellow", phase.green_end, phase.phase, phase.yellow_end - phase.green_end);
     add("offline all red", phase.yellow_end, phase.phase, phase.end - phase.yellow_end);
   });
+  result.samples.forEach(row => Object.entries(row.scene_forecasts ?? {}).forEach(([horizon, forecast]) => {
+    const check = forecast.checks ? forecast.checks + " checks, MAE " + forecast.mae : "no completed checks";
+    const range = forecast.range ? ", empirical range " + forecast.range.join(" to ") : "";
+    add("visible traffic forecast", row.t, horizon + " s", forecast.mean, check + range);
+  }));
   traffic.alerts.forEach(event => add("alert", event.t, event.type, event.severity, event.reason));
   downloadText(`${result.clip}.report.csv`, toCsv(["section", "seconds", "name", "value", "detail"], rows));
 }
@@ -331,6 +337,7 @@ export function RecordingPage({ section, context, caps, monitoringTime, fetcher 
   };
   return <div className={styles.page} ref={report}>
     <Head name={inline ? "Analysis results" : title} result={result} openEvent={openEvent} />
+    {["analytics", "results"].includes(section) && result?.models?.scene && <SceneForecast result={result} />}
     {section === "signals" ? <SignalReport result={result} openEvent={openEvent} monitoringTime={monitoringTime} /> : <>
       <Summary result={result} />
       {(section === "overview" || section === "analytics" || section === "results") && <TypeChart result={result} />}

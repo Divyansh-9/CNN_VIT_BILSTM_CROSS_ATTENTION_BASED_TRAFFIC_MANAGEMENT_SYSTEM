@@ -89,3 +89,31 @@ For the demo, H.264 MP4 is a practical browser-playable format. With other
 formats, server decoding and browser preview depend on the available codec.
 Use a reviewed profile for lane counts and lane-based forecasts. Videos without
 a matching profile still support whole-frame detection and traffic statistics.
+
+
+## Videos without a saved profile
+
+Select Automatic AI Analysis for an unfamiliar view. The detector and tracker
+run on the whole picture. The trailing-mean baseline uses recent detector
+counts to estimate the average number of vehicles visible in the next 30 or
+60 seconds. The 5- and 10-minute horizons require at least 20 and 40 minutes
+of continuous samples, respectively, including three completed backchecks.
+A feed gap resets the observation history. The empirical error range requires
+five completed non-overlapping backchecks and has no guarantee of coverage.
+Backchecks compare with later detector measurements. Independent annotation
+is needed to measure ground-truth forecasting and counting accuracy.
+
+The video player can draw polygons and finite crossing lines over the footage,
+select a region or a crossing direction, show recent track trails, and export
+region metrics. Movement proposals are envelopes of similar observed tracks.
+Review them against the picture before using them. Region definitions are
+saved in the browser and can be loaded on compatible footage. Region metrics
+use detections sampled at two-second intervals, so fast crossings may be
+missed. Separate region metrics are available as CSV. Full reports retain
+the underlying detections, scene forecasts and supported signal simulations.
+
+Use Advanced intersection calibration to save camera-specific lane centres
+in STMS. Choose a saved configuration only if it fits this camera view.
+Verified geometry and phase definitions are required to interpret the
+simulated guidance as approach-specific. Avoid reusing a saved intersection
+configuration on a highway, roundabout or other unrelated view.

@@ -465,7 +465,11 @@ def action(name, body):
         _, problem = readiness()
         if problem:
             raise HTTPException(503, problem)
-        profile = store.cameras.get(body.get("camera"))
+        from scripts.recording_profile import WHOLE_FRAME, WHOLE_FRAME_PATH, load_recording_profile
+
+        camera_id = body.get("camera")
+        profile = load_recording_profile(WHOLE_FRAME_PATH) if camera_id == WHOLE_FRAME else store.cameras.get(camera_id)
+
         def connect(demo):
             if not camera_monitor().connect(demo, profile, source):
                 raise HTTPException(409, "Stop the current live source before connecting")
